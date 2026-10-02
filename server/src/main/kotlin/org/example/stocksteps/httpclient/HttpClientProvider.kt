@@ -1,4 +1,4 @@
-package httpclient
+package org.example.stocksteps.httpclient
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO

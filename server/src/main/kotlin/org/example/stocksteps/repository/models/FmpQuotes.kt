@@ -1,4 +1,4 @@
-package repository.models
+package org.example.stocksteps.repository.models
 
 import kotlinx.serialization.Serializable
 
@@ -9,7 +9,7 @@ data class FmpQuote(
     val price: Double? = null,
     val changePercentage: Double? = null,
     val change: Double? = null,
-    val volume: Long? = null,
+    val volume: Double? = null,
     val dayLow: Double? = null,
     val dayHigh: Double? = null,
     val yearHigh: Double? = null,

@@ -1,4 +1,4 @@
-package appconfig
+package org.example.stocksteps.appconfig
 
 object AppConfig {
 

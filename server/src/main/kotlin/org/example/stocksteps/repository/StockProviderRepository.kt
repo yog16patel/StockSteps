@@ -1,7 +1,7 @@
-package repository
+package org.example.stocksteps.repository
 
-import repository.models.FmpQuote
+import org.example.stocksteps.model.StockQuote
 
 interface StockProviderRepository {
-    suspend fun getQuote(symbol: String): List<FmpQuote>
+    suspend fun getQuote(symbol: String): StockQuote?
 }
