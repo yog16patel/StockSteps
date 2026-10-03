@@ -18,6 +18,7 @@ import kotlinx.serialization.SerializationException
 import org.example.stocksteps.repository.StockProviderException
 import org.example.stocksteps.repository.StockProviderException.Failure
 import java.io.IOException
+import org.slf4j.LoggerFactory
 
 suspend inline fun<reified T> HttpClient.apiCall(
     url: String, apiKey: String? = null,
@@ -30,11 +31,17 @@ suspend inline fun<reified T> HttpClient.apiCall(
             configurationBlock()
             if (apiKey != null) parameter("apikey", apiKey)
         }
+        if (response.status.value !in 200..299) {
+            LoggerFactory.getLogger("StockSteps.Provider").warn(
+                "Provider HTTP failure: host={}, path={}, status={}",
+                response.call.request.url.host, response.call.request.url.encodedPath, response.status.value
+            )
+        }
         if (response.status == HttpStatusCode.TooManyRequests) {
-            throw StockProviderException(Failure.RATE_LIMITED)
+            throw StockProviderException(Failure.RATE_LIMITED, response.status.value)
         }
         if (response.status.value !in 200..299) {
-            throw StockProviderException(Failure.UNAVAILABLE)
+            throw StockProviderException(Failure.UNAVAILABLE, response.status.value)
         }
         return response.body<T>()
     } catch (cause: Exception) {
@@ -45,9 +52,11 @@ suspend inline fun<reified T> HttpClient.apiCall(
             is CancellationException -> throw cause
             is SerializationException, is JsonConvertException,
             is NoTransformationFoundException -> Failure.INVALID_RESPONSE
-            is IOException, is ResponseException -> Failure.UNAVAILABLE
+            is ResponseException -> throw StockProviderException(Failure.UNAVAILABLE, cause.response.status.value)
+            is IOException -> Failure.UNAVAILABLE
             else -> throw cause
         }
+        LoggerFactory.getLogger("StockSteps.Provider").warn("Provider request failed: {}", failure.name)
         throw StockProviderException(failure)
     }
 }

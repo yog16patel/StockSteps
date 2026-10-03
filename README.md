@@ -129,3 +129,23 @@ Movers reflect FMP's endpoint coverage, including OTC listings if returned.
 These responses do not include currency; no USD/CAD filter or Canadian coverage
 is promised for movers. No additional profile requests are made. Access depends
 on your FMP plan; mocked tests do not establish live entitlements.
+
+
+### Market news
+
+`GET /api/v1/news?page=0&limit=20` uses Finnhub's `/api/v1/news?category=general`
+feed and requires `FINNHUB_API_KEY`, independently of `QUOTE_PROVIDER`.
+Authentication uses the `X-Finnhub-Token` header. FMP still handles search,
+profiles and movers. Page defaults to 0 (allowed 0–100); limit defaults to 20
+(allowed 1–100). Invalid pagination returns 400 with `INVALID_NEWS_QUERY`.
+
+Finnhub returns a current feed rather than historical page-based results.
+The backend sorts newest first and slices the feed using page and limit.
+Pages beyond the available feed return 200 with `[]`; the feed can change
+between requests. This is not stable historical pagination or a cached snapshot.
+
+Each NewsArticle has `title`, `url`, and nullable `symbol`, `source`,
+`publishedAt`, `imageUrl`. General news has no reliable single ticker, so symbol
+is null. Publication times are UTC ISO 8601 strings converted from Unix seconds.
+Only headlines, metadata and source links are returned; full article text is
+not exposed. Existing provider errors apply; live access depends on your account.

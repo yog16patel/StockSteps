@@ -15,6 +15,8 @@ import org.example.stocksteps.model.ApiError
 import org.example.stocksteps.httpclient.HttpClientProvider
 import org.example.stocksteps.repositoryImpl.FmpStockProviderRepositoryImpl
 import org.example.stocksteps.repositoryImpl.FinnhubStockProviderRepositoryImpl
+import org.example.stocksteps.service.NewsService
+import org.example.stocksteps.repositoryImpl.FinnhubNewsProviderRepositoryImpl
 import org.example.stocksteps.service.StockService
 
 fun main() {
@@ -61,6 +63,9 @@ fun Application.module() {
     routing {
         stockRoutes(stockService)
         marketRoutes(stockService)
+        newsRoutes(NewsService(FinnhubNewsProviderRepositoryImpl(
+            HttpClientProvider.client, AppConfig.finnhubApiKey
+        )))
     }
 
 }
@@ -116,5 +121,21 @@ fun Route.marketRoutes(stockService: StockService) {
     route("/api/v1/market") {
         get("/gainers") { call.respond(stockService.getGainers()) }
         get("/losers") { call.respond(stockService.getLosers()) }
+    }
+}
+
+
+fun Route.newsRoutes(newsService: NewsService) {
+    get("/api/v1/news") {
+        val pageValue = call.request.queryParameters["page"]
+        val limitValue = call.request.queryParameters["limit"]
+        val page = if (pageValue == null) 0 else pageValue.toIntOrNull()
+        val limit = if (limitValue == null) 20 else limitValue.toIntOrNull()
+        if (page == null || page !in 0..100 || limit == null || limit !in 1..100) {
+            call.respond(HttpStatusCode.BadRequest,
+                ApiError("INVALID_NEWS_QUERY", "Page must be 0–100 and limit must be 1–100."))
+            return@get
+        }
+        call.respond(newsService.getNews(page, limit))
     }
 }

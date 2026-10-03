@@ -51,6 +51,7 @@ class FmpRepositoryTest {
                     FmpStockProviderRepositoryImpl(it, "test-secret").getQuote("AAPL")
                 }
                 assertEquals(failure, error.failure)
+                assertEquals(if (status.value in 200..299) null else status.value, error.upstreamStatus)
                 assertNull(error.cause)
                 assertFalse(error.toString().contains("secret"))
             }
