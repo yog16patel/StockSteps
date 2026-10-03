@@ -39,3 +39,43 @@ Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+
+### Stock quote API
+
+Set `FMP_API_KEY` in the server environment before running `:server:run`.
+`GET /api/v1/stocks/{symbol}/quote` returns a StockQuote on success.
+Symbols are case-insensitive and accept 1–20 ASCII letters, digits, dots, or
+hyphens, starting with a letter or digit (for example `AAPL`, `BRK.B`, `SHOP.TO`).
+This checks syntax only; the provider determines whether the symbol exists.
+
+Quote errors return JSON with `code` and `message`:
+
+| HTTP status | Code | Meaning |
+| --- | --- | --- |
+| 400 | INVALID_SYMBOL | Invalid symbol syntax |
+| 404 | STOCK_NOT_FOUND | Provider returned an empty quote list |
+| 502 | PROVIDER_UNAVAILABLE | Provider HTTP or network failure |
+| 502 | INVALID_PROVIDER_RESPONSE | Malformed or inconsistent quote data |
+| 503 | PROVIDER_RATE_LIMITED | Upstream provider quota exhausted |
+| 504 | PROVIDER_TIMEOUT | Provider request, connection, or socket timeout |
+| 500 | INTERNAL_ERROR | Unexpected backend failure |
+
+Provider bodies, URLs, credentials, and exception details are excluded from
+public errors. Requests have a 10-second timeout, with a 5-second connection
+timeout and a 10-second socket timeout. There are no automatic retries yet.
+Server tests use fake repositories and a mock HTTP engine; no API key is needed.
+
+
+### Company-name search
+
+`GET /api/v1/stocks/search?query=apple` uses FMP's `stable/search-name`
+endpoint and returns an array of StockSearchResult objects (`symbol`, `name`,
+`currency`, `exchange`, `exchangeFullName`). Only USD and CAD results are returned; other or missing currencies are excluded.
+Provider ordering and distinct listings are preserved. Optional fields may be null. Search includes the
+instrument types returned by FMP; no stock-only filtering is applied yet.
+
+The query is trimmed and must contain 1–100 characters without control
+characters. Invalid queries return HTTP 400 with code `INVALID_QUERY`.
+No matches returns HTTP 200 with `[]`. Provider failures use the same error
+contract as quotes. This version searches company names; ticker search is
+not implemented yet.

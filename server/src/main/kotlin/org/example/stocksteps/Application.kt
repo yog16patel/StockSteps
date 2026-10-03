@@ -9,6 +9,8 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
+import java.util.Locale
+import org.example.stocksteps.model.ApiError
 import org.example.stocksteps.httpclient.HttpClientProvider
 import org.example.stocksteps.repositoryImpl.FmpStockProviderRepositoryImpl
 import org.example.stocksteps.service.StockService
@@ -19,6 +21,7 @@ fun main() {
 }
 
 fun Application.module() {
+    configureApiErrors()
     install(ContentNegotiation) {
         json(
             Json {
@@ -52,13 +55,29 @@ fun Application.module() {
 
 fun Route.stockRoutes(stockService: StockService) {
     route("/api/v1/stocks") {
+        get("/search") {
+            val query = call.request.queryParameters["query"]?.trim()
+            if (query.isNullOrEmpty() || query.length > 100 || query.any { it.isISOControl() }) {
+                call.respond(HttpStatusCode.BadRequest,
+                    ApiError("INVALID_QUERY", "Provide a company name of 1–100 characters."))
+                return@get
+            }
+            call.respond(stockService.searchStocks(query))
+        }
         get("/{symbol}/quote") {
-            val symbol = call.parameters["symbol"]?.uppercase() ?: return@get call.respond(HttpStatusCode.BadRequest)
+            val symbol = call.parameters["symbol"]?.uppercase(Locale.ROOT)
+            // Supports common US/Canadian symbols, including BRK.B and SHOP.TO.
+            if (symbol == null || !Regex("[A-Z0-9][A-Z0-9.-]{0,19}").matches(symbol)) {
+                call.respond(HttpStatusCode.BadRequest,
+                    ApiError("INVALID_SYMBOL", "Use a stock symbol of 1–20 letters, digits, dots, or hyphens."))
+                return@get
+            }
 
             val quote = stockService.getStock(symbol)
 
             if(quote == null) {
-                call.respond(HttpStatusCode.NotFound)
+                call.respond(HttpStatusCode.NotFound,
+                    ApiError("STOCK_NOT_FOUND", "No quote was found for this symbol."))
                 return@get
             }
             call.respond(quote)

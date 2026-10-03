@@ -12,6 +12,7 @@ application {
 
 dependencies {
     api(project(":core"))
+    implementation(libs.ktor.server.status.pages)
     implementation(libs.logback)
     implementation(libs.finhub.lib)
     implementation(libs.ktor.serverCore)
@@ -20,6 +21,7 @@ dependencies {
     implementation(libs.ktor.clientNegotiation)
     implementation(libs.ktor.serializationJson)
     implementation(libs.ktor.cio)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.ktor.serverTestHost)
     testImplementation(libs.kotlin.testJunit)
 }

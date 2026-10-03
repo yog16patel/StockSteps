@@ -21,17 +21,62 @@ class ApplicationTest {
     fun quoteRouteReturnsPublicModelAndNotFound() = testApplication {
         val quote = FmpQuote(symbol = "AAPL", name = "Apple Inc.", price = 333.42).toStockQuote()
         val repository = object : StockProviderRepository {
+            override suspend fun searchStocks(query: String): List<org.example.stocksteps.model.StockSearchResult> =
+                error("Search not expected")
             override suspend fun getQuote(symbol: String): StockQuote? =
                 if (symbol == "AAPL") quote else null
         }
         application {
             install(ContentNegotiation) { json() }
+            configureApiErrors()
             routing { stockRoutes(StockService(repository)) }
         }
         val response = client.get("/api/v1/stocks/aapl/quote")
         assertEquals(HttpStatusCode.OK, response.status)
         assertEquals(quote, Json.decodeFromString<StockQuote>(response.bodyAsText()))
         assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/stocks/UNKNOWN/quote").status)
+    }
+
+    @Test
+    fun errorsHaveStableJsonAndInvalidSymbolsSkipProvider() = testApplication {
+        val repository = object : StockProviderRepository {
+            override suspend fun searchStocks(query: String): List<org.example.stocksteps.model.StockSearchResult> =
+                error("Search not expected")
+            override suspend fun getQuote(symbol: String): StockQuote? = when (symbol) {
+                "TIMEOUT" -> throw org.example.stocksteps.repository.StockProviderException(
+                    org.example.stocksteps.repository.StockProviderException.Failure.TIMEOUT)
+                "LIMIT" -> throw org.example.stocksteps.repository.StockProviderException(
+                    org.example.stocksteps.repository.StockProviderException.Failure.RATE_LIMITED)
+                "DOWN" -> throw org.example.stocksteps.repository.StockProviderException(
+                    org.example.stocksteps.repository.StockProviderException.Failure.UNAVAILABLE)
+                "BAD" -> throw org.example.stocksteps.repository.StockProviderException(
+                    org.example.stocksteps.repository.StockProviderException.Failure.INVALID_RESPONSE)
+                "BUG" -> error("secret-api-key")
+                "UNKNOWN" -> null
+                else -> fail("Invalid symbol reached provider")
+            }
+        }
+        application {
+            install(ContentNegotiation) { json() }
+            configureApiErrors()
+            routing { stockRoutes(StockService(repository)) }
+        }
+        val cases = listOf(
+            Triple("%24BAD", 400, "INVALID_SYMBOL"),
+            Triple("UNKNOWN", 404, "STOCK_NOT_FOUND"),
+            Triple("TIMEOUT", 504, "PROVIDER_TIMEOUT"),
+            Triple("LIMIT", 503, "PROVIDER_RATE_LIMITED"),
+            Triple("DOWN", 502, "PROVIDER_UNAVAILABLE"),
+            Triple("BAD", 502, "INVALID_PROVIDER_RESPONSE"),
+            Triple("BUG", 500, "INTERNAL_ERROR")
+        )
+        for ((symbol, status, code) in cases) {
+            val response = client.get("/api/v1/stocks/$symbol/quote")
+            assertEquals(status, response.status.value)
+            val body = response.bodyAsText()
+            assertEquals(code, Json.decodeFromString<org.example.stocksteps.model.ApiError>(body).code)
+            assertFalse(body.contains("secret-api-key"))
+        }
     }
 
     @Test
