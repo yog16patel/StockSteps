@@ -21,6 +21,8 @@ class ApplicationTest {
     fun quoteRouteReturnsPublicModelAndNotFound() = testApplication {
         val quote = FmpQuote(symbol = "AAPL", name = "Apple Inc.", price = 333.42).toStockQuote()
         val repository = object : StockProviderRepository {
+            override suspend fun getGainers(): List<org.example.stocksteps.model.MarketMover> = error("Movers not expected")
+            override suspend fun getLosers(): List<org.example.stocksteps.model.MarketMover> = error("Movers not expected")
             override suspend fun getProfile(symbol: String): org.example.stocksteps.model.CompanyProfile? = error("Profile not expected")
             override suspend fun searchStocks(query: String): List<org.example.stocksteps.model.StockSearchResult> =
                 error("Search not expected")
@@ -41,6 +43,8 @@ class ApplicationTest {
     @Test
     fun errorsHaveStableJsonAndInvalidSymbolsSkipProvider() = testApplication {
         val repository = object : StockProviderRepository {
+            override suspend fun getGainers(): List<org.example.stocksteps.model.MarketMover> = error("Movers not expected")
+            override suspend fun getLosers(): List<org.example.stocksteps.model.MarketMover> = error("Movers not expected")
             override suspend fun getProfile(symbol: String): org.example.stocksteps.model.CompanyProfile? = error("Profile not expected")
             override suspend fun searchStocks(query: String): List<org.example.stocksteps.model.StockSearchResult> =
                 error("Search not expected")

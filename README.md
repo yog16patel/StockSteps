@@ -114,3 +114,18 @@ All fields except symbol are nullable when unavailable. Symbols use the same
 validation and uppercase normalization as quotes. Empty provider results return
 404 with `PROFILE_NOT_FOUND`. Existing provider timeout/rate-limit/error handling
 applies. Live access depends on your FMP plan and has not been verified by tests.
+
+
+### Market movers
+
+`GET /api/v1/market/gainers` and `GET /api/v1/market/losers` use FMP's
+`stable/biggest-gainers` and `stable/biggest-losers` endpoints. Each returns
+an array of MarketMover objects: `symbol`, `name`, `price`, `change`,
+`changePercent`, and `exchange`. Name and exchange may be null. Gainers sort
+by percentage change descending; losers sort ascending (largest decline first).
+Empty lists return 200 with `[]`. Existing provider errors apply.
+
+Movers reflect FMP's endpoint coverage, including OTC listings if returned.
+These responses do not include currency; no USD/CAD filter or Canadian coverage
+is promised for movers. No additional profile requests are made. Access depends
+on your FMP plan; mocked tests do not establish live entitlements.

@@ -60,6 +60,7 @@ fun Application.module() {
 
     routing {
         stockRoutes(stockService)
+        marketRoutes(stockService)
     }
 
 }
@@ -108,5 +109,12 @@ fun Route.stockRoutes(stockService: StockService) {
             }
             call.respond(quote)
         }
+    }
+}
+
+fun Route.marketRoutes(stockService: StockService) {
+    route("/api/v1/market") {
+        get("/gainers") { call.respond(stockService.getGainers()) }
+        get("/losers") { call.respond(stockService.getLosers()) }
     }
 }

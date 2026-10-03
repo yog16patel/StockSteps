@@ -7,6 +7,9 @@ import kotlinx.coroutines.coroutineScope
 import org.example.stocksteps.model.CompanyProfile
 import org.example.stocksteps.repository.models.FmpCompanyProfile
 import org.example.stocksteps.repository.models.toCompanyProfile
+import org.example.stocksteps.model.MarketMover
+import org.example.stocksteps.repository.models.FmpMarketMover
+import org.example.stocksteps.repository.models.toMarketMover
 import io.ktor.client.HttpClient
 import io.ktor.client.request.parameter
 import org.example.stocksteps.httpclient.apiCall
@@ -39,6 +42,23 @@ class FmpStockProviderRepositoryImpl(
             throw StockProviderException(Failure.INVALID_RESPONSE)
         }
         return results
+    }
+
+    override suspend fun getGainers(): List<MarketMover> = getMovers("biggest-gainers", true)
+
+    override suspend fun getLosers(): List<MarketMover> = getMovers("biggest-losers", false)
+
+    private suspend fun getMovers(endpoint: String, gainers: Boolean): List<MarketMover> {
+        val movers = client.apiCall<List<FmpMarketMover>>(
+            url = "https://financialmodelingprep.com/stable/$endpoint", apiKey = apiKey
+        ) {}
+        if (movers.any {
+                it.symbol.isBlank() || !it.price.isFinite() || it.price < 0.0 ||
+                !it.change.isFinite() || !it.changesPercentage.isFinite() ||
+                (if (gainers) it.change < 0.0 || it.changesPercentage < 0.0
+                 else it.change > 0.0 || it.changesPercentage > 0.0)
+            }) throw StockProviderException(Failure.INVALID_RESPONSE)
+        return movers.map { it.toMarketMover() }
     }
 
     override suspend fun getProfile(symbol: String): CompanyProfile? {
