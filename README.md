@@ -66,16 +66,18 @@ timeout and a 10-second socket timeout. There are no automatic retries yet.
 Server tests use fake repositories and a mock HTTP engine; no API key is needed.
 
 
-### Company-name search
+### Stock search
 
-`GET /api/v1/stocks/search?query=apple` uses FMP's `stable/search-name`
-endpoint and returns an array of StockSearchResult objects (`symbol`, `name`,
+`GET /api/v1/stocks/search?query=apple` queries FMP's `stable/search-symbol` and `stable/search-name`
+endpoints concurrently (two provider requests per search) and returns an array of StockSearchResult objects (`symbol`, `name`,
 `currency`, `exchange`, `exchangeFullName`). Only USD and CAD results are returned; other or missing currencies are excluded.
-Provider ordering and distinct listings are preserved. Optional fields may be null. Search includes the
+Duplicate symbols are removed case-insensitively, preferring ticker-search results.
+Exact ticker matches appear first; remaining results retain ticker-search then
+company-name ordering. Distinct listings such as AAPL and AAPL.TO are preserved. Optional fields may be null. Search includes the
 instrument types returned by FMP; no stock-only filtering is applied yet.
 
 The query is trimmed and must contain 1–100 characters without control
 characters. Invalid queries return HTTP 400 with code `INVALID_QUERY`.
 No matches returns HTTP 200 with `[]`. Provider failures use the same error
-contract as quotes. This version searches company names; ticker search is
-not implemented yet.
+contract as quotes. Both company names and tickers are supported. If either provider request fails,
+the search returns the existing provider error rather than partial results.

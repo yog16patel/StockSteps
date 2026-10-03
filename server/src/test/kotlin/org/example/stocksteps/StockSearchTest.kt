@@ -22,7 +22,7 @@ class StockSearchTest {
     @Test
     fun searchKeepsOnlyUsdAndCadAndPreservesProviderOrder() = testApplication {
         val upstream = HttpClient(MockEngine { request ->
-            assertEquals("/stable/search-name", request.url.encodedPath)
+            assertTrue(request.url.encodedPath in listOf("/stable/search-name", "/stable/search-symbol"))
             assertEquals("apple", request.url.parameters["query"])
             assertEquals("test-key", request.url.parameters["apikey"])
             respond("""[
@@ -46,6 +46,41 @@ class StockSearchTest {
                 StockSearchResult("AAPL.TO", "Apple Inc.", "CAD", "TSX", "Toronto Stock Exchange"),
                 StockSearchResult("AAPL", "Apple Inc.", "USD", "NASDAQ")
             ), results)
+        } finally { upstream.close() }
+    }
+
+    @Test
+    fun tickerSearchMergesDeduplicatesAndRanksExactMatchFirst() = testApplication {
+        val paths = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val upstream = HttpClient(MockEngine { request ->
+            paths.add(request.url.encodedPath)
+            assertEquals("aapl", request.url.parameters["query"])
+            val body = when (request.url.encodedPath) {
+                "/stable/search-symbol" -> """[
+                    {"symbol":"AAPL.TO","name":"Apple Inc.","currency":"CAD"},
+                    {"symbol":"AAPL","name":"Apple Inc.","currency":"USD"}
+                ]"""
+                "/stable/search-name" -> """[
+                    {"symbol":"aapl","name":"Duplicate Apple","currency":"USD"},
+                    {"symbol":"APLE","name":"Apple Hospitality","currency":"USD"},
+                    {"symbol":"APC.DE","name":"Apple Inc.","currency":"EUR"}
+                ]"""
+                else -> error("Unexpected endpoint")
+            }
+            respond(body, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+        }) { install(ClientContentNegotiation) { json() } }
+        try {
+            application {
+                install(ContentNegotiation) { json() }
+                configureApiErrors()
+                routing { stockRoutes(StockService(FmpStockProviderRepositoryImpl(upstream, "test-key"))) }
+            }
+            val response = client.get("/api/v1/stocks/search?query=aapl")
+            assertEquals(HttpStatusCode.OK, response.status)
+            val results = Json.decodeFromString<List<StockSearchResult>>(response.bodyAsText())
+            assertEquals(listOf("AAPL", "AAPL.TO", "APLE"), results.map { it.symbol })
+            assertEquals("Apple Inc.", results.first().name)
+            assertEquals(setOf("/stable/search-name", "/stable/search-symbol"), paths.toSet())
         } finally { upstream.close() }
     }
 

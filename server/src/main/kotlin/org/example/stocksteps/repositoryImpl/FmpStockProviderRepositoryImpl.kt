@@ -2,6 +2,8 @@ package org.example.stocksteps.repositoryImpl
 
 import org.example.stocksteps.repository.StockProviderException
 import org.example.stocksteps.repository.StockProviderException.Failure
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import io.ktor.client.HttpClient
 import io.ktor.client.request.parameter
 import org.example.stocksteps.httpclient.apiCall
@@ -17,9 +19,15 @@ class FmpStockProviderRepositoryImpl(
     private val client: HttpClient,
     private val apiKey: String
 ) : StockProviderRepository {
-    override suspend fun searchStocks(query: String): List<StockSearchResult> {
+    override suspend fun searchStocks(query: String): List<StockSearchResult> = coroutineScope {
+        val bySymbol = async { search("search-symbol", query) }
+        val byName = async { search("search-name", query) }
+        (bySymbol.await() + byName.await()).map { it.toStockSearchResult() }
+    }
+
+    private suspend fun search(endpoint: String, query: String): List<FmpSearchResult> {
         val results = client.apiCall<List<FmpSearchResult>>(
-            url = "https://financialmodelingprep.com/stable/search-name",
+            url = "https://financialmodelingprep.com/stable/$endpoint",
             apiKey = apiKey
         ) {
             parameter("query", query)
@@ -27,7 +35,7 @@ class FmpStockProviderRepositoryImpl(
         if (results.any { it.symbol.isBlank() || it.name.isBlank() }) {
             throw StockProviderException(Failure.INVALID_RESPONSE)
         }
-        return results.map { it.toStockSearchResult() }
+        return results
     }
 
     override suspend fun getQuote(symbol: String): StockQuote? {
