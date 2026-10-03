@@ -75,6 +75,21 @@ fun Route.stockRoutes(stockService: StockService) {
             }
             call.respond(stockService.searchStocks(query))
         }
+        get("/{symbol}/profile") {
+            val symbol = call.parameters["symbol"]?.uppercase(Locale.ROOT)
+            if (symbol == null || !Regex("[A-Z0-9][A-Z0-9.-]{0,19}").matches(symbol)) {
+                call.respond(HttpStatusCode.BadRequest,
+                    ApiError("INVALID_SYMBOL", "Use a stock symbol of 1–20 letters, digits, dots, or hyphens."))
+                return@get
+            }
+            val profile = stockService.getProfile(symbol)
+            if (profile == null) {
+                call.respond(HttpStatusCode.NotFound,
+                    ApiError("PROFILE_NOT_FOUND", "No company profile was found for this symbol."))
+                return@get
+            }
+            call.respond(profile)
+        }
         get("/{symbol}/quote") {
             val symbol = call.parameters["symbol"]?.uppercase(Locale.ROOT)
             // Supports common US/Canadian symbols, including BRK.B and SHOP.TO.

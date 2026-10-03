@@ -4,6 +4,9 @@ import org.example.stocksteps.repository.StockProviderException
 import org.example.stocksteps.repository.StockProviderException.Failure
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import org.example.stocksteps.model.CompanyProfile
+import org.example.stocksteps.repository.models.FmpCompanyProfile
+import org.example.stocksteps.repository.models.toCompanyProfile
 import io.ktor.client.HttpClient
 import io.ktor.client.request.parameter
 import org.example.stocksteps.httpclient.apiCall
@@ -36,6 +39,20 @@ class FmpStockProviderRepositoryImpl(
             throw StockProviderException(Failure.INVALID_RESPONSE)
         }
         return results
+    }
+
+    override suspend fun getProfile(symbol: String): CompanyProfile? {
+        val profiles = client.apiCall<List<FmpCompanyProfile>>(
+            url = "https://financialmodelingprep.com/stable/profile",
+            apiKey = apiKey
+        ) { parameter("symbol", symbol) }
+        if (profiles.isEmpty()) return null
+        val profile = profiles.singleOrNull()
+            ?: throw StockProviderException(Failure.INVALID_RESPONSE)
+        if (!profile.symbol.equals(symbol, ignoreCase = true)) {
+            throw StockProviderException(Failure.INVALID_RESPONSE)
+        }
+        return profile.toCompanyProfile()
     }
 
     override suspend fun getQuote(symbol: String): StockQuote? {

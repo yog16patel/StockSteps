@@ -29,6 +29,7 @@ class FinnhubRepositoryTest {
     fun serviceUsesSeparateQuoteProviderAndKeepsSearch() = runBlocking<Unit> {
         val listing = org.example.stocksteps.model.StockSearchResult("AAPL", "Apple Inc.", "USD")
         val searchProvider = object : org.example.stocksteps.repository.StockProviderRepository {
+            override suspend fun getProfile(symbol: String): org.example.stocksteps.model.CompanyProfile? = error("Profile not expected")
             override suspend fun searchStocks(query: String) = listOf(listing)
             override suspend fun getQuote(symbol: String): StockQuote? = error("FMP quote should not be used")
         }

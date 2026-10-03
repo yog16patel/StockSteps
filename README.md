@@ -102,3 +102,15 @@ Live quote access and Canadian symbol coverage must be checked with your
 Finnhub account; mocked tests do not establish plan entitlements. For example,
 try `/api/v1/stocks/AAPL/quote` and `/api/v1/stocks/SHOP.TO/quote` after enabling
 Finnhub. Search access does not guarantee quote access for every listing.
+
+
+### Company profiles
+
+`GET /api/v1/stocks/{symbol}/profile` returns a provider-independent CompanyProfile
+from FMP's `stable/profile` endpoint. Profiles always use FMP, including when
+Finnhub is selected for quotes. Fields are `symbol`, `companyName`, `description`,
+`sector`, `industry`, `website`, `country`, `currency`, `exchange`, and `logoUrl`.
+All fields except symbol are nullable when unavailable. Symbols use the same
+validation and uppercase normalization as quotes. Empty provider results return
+404 with `PROFILE_NOT_FOUND`. Existing provider timeout/rate-limit/error handling
+applies. Live access depends on your FMP plan and has not been verified by tests.
