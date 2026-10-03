@@ -20,7 +20,7 @@ import org.example.stocksteps.repository.StockProviderException.Failure
 import java.io.IOException
 
 suspend inline fun<reified T> HttpClient.apiCall(
-    url: String, apiKey: String,
+    url: String, apiKey: String? = null,
     crossinline configurationBlock: HttpRequestBuilder.() -> Unit,
 ): T {
     try {
@@ -28,7 +28,7 @@ suspend inline fun<reified T> HttpClient.apiCall(
             // Classify statuses ourselves without exceptions containing provider bodies.
             expectSuccess = false
             configurationBlock()
-            parameter("apikey", apiKey)
+            if (apiKey != null) parameter("apikey", apiKey)
         }
         if (response.status == HttpStatusCode.TooManyRequests) {
             throw StockProviderException(Failure.RATE_LIMITED)

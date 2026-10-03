@@ -1,11 +1,13 @@
 package org.example.stocksteps.appconfig
 
 object AppConfig {
+    val finnhubApiKey: String
+        get() = requiredEnvironmentVariable("FINNHUB_API_KEY")
 
-    val finHubApiKey: String =
-        System.getenv("FINHUB_API_KEY") ?: error("FINHUB_API_KEY is missing")
+    val fmpApiKey: String
+        get() = requiredEnvironmentVariable("FMP_API_KEY")
 
-    val fmpApiKey: String =
-        System.getenv("FMP_API_KEY") ?: error("FMP_API_KEY missing")
-
+    private fun requiredEnvironmentVariable(name: String): String =
+        System.getenv(name)?.takeIf { it.isNotBlank() }
+            ?: error("$name is missing or blank")
 }

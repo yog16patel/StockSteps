@@ -81,3 +81,24 @@ characters. Invalid queries return HTTP 400 with code `INVALID_QUERY`.
 No matches returns HTTP 200 with `[]`. Provider failures use the same error
 contract as quotes. Both company names and tickers are supported. If either provider request fails,
 the search returns the existing provider error rather than partial results.
+
+
+### Finnhub quotes
+
+FMP remains the default quote provider. To select Finnhub, set
+`QUOTE_PROVIDER=finnhub` and `FINNHUB_API_KEY` in the server environment, then
+restart the server. `FMP_API_KEY` is still required for search. Use
+`QUOTE_PROVIDER=fmp` (or leave it unset) to return to FMP quotes.
+
+The public quote endpoint and JSON contract are unchanged. Finnhub quotes
+are requested through the existing Ktor client with the `X-Finnhub-Token`
+header; keys stay on the server. Company name and volume are null because
+Finnhub's quote response does not supply them. The provider timestamp is
+Unix seconds. The zero-price/zero-timestamp no-data response maps to 404;
+malformed responses and provider errors use the existing JSON error contract.
+There is no automatic fallback between providers.
+
+Live quote access and Canadian symbol coverage must be checked with your
+Finnhub account; mocked tests do not establish plan entitlements. For example,
+try `/api/v1/stocks/AAPL/quote` and `/api/v1/stocks/SHOP.TO/quote` after enabling
+Finnhub. Search access does not guarantee quote access for every listing.

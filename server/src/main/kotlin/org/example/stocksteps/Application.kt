@@ -10,9 +10,11 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import java.util.Locale
+import org.example.stocksteps.appconfig.AppConfig
 import org.example.stocksteps.model.ApiError
 import org.example.stocksteps.httpclient.HttpClientProvider
 import org.example.stocksteps.repositoryImpl.FmpStockProviderRepositoryImpl
+import org.example.stocksteps.repositoryImpl.FinnhubStockProviderRepositoryImpl
 import org.example.stocksteps.service.StockService
 
 fun main() {
@@ -38,13 +40,22 @@ fun Application.module() {
     }
     val fmpRepository = FmpStockProviderRepositoryImpl(
         client = HttpClientProvider.client,
-        apiKey = System.getenv("FMP_API_KEY")
-            ?: error("FMP_API_KEY is missing")
+        apiKey = AppConfig.fmpApiKey
     )
 
-    // 3. Create StockService
+    val quoteProvider = when (System.getenv("QUOTE_PROVIDER")?.lowercase(Locale.ROOT) ?: "fmp") {
+        "fmp" -> fmpRepository
+        "finnhub" -> FinnhubStockProviderRepositoryImpl(
+            client = HttpClientProvider.client,
+            apiKey = AppConfig.finnhubApiKey
+        )
+        else -> error("QUOTE_PROVIDER must be fmp or finnhub")
+    }
+
+    // Search stays with FMP; quotes can be selected independently.
     val stockService = StockService(
-        stockProvider = fmpRepository
+        stockProvider = fmpRepository,
+        quoteProvider = quoteProvider
     )
 
     routing {

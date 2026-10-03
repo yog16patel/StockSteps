@@ -1,5 +1,6 @@
 package org.example.stocksteps.service
 
+import org.example.stocksteps.repository.StockQuoteProviderRepository
 import java.util.Locale
 import org.example.stocksteps.model.StockQuote
 import org.example.stocksteps.model.StockSearchResult
@@ -7,6 +8,7 @@ import org.example.stocksteps.repository.StockProviderRepository
 
 class StockService(
     val stockProvider: StockProviderRepository,
+    private val quoteProvider: StockQuoteProviderRepository = stockProvider,
 ) {
     suspend fun searchStocks(query: String): List<StockSearchResult> =
         stockProvider.searchStocks(query)
@@ -15,7 +17,7 @@ class StockService(
             .sortedByDescending { it.symbol.equals(query, ignoreCase = true) }
 
     suspend fun getStock(symbol: String): StockQuote? {
-        return stockProvider.getQuote(symbol)
+        return quoteProvider.getQuote(symbol)
     }
 
 }
