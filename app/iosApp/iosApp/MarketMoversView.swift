@@ -16,7 +16,7 @@ struct MarketMoversView: View {
                     VStack(alignment: .leading) {
                         Text(mover.symbol).font(.headline)
                         if let name = mover.name { Text(name) }
-                        Text("\(mover.changePercent.formatted())% · Price \(mover.price.formatted())")
+                        Text("\(mover.changePercent.map { $0.doubleValue.formatted() } ?? "Unavailable")% · Price \(mover.price.map { $0.doubleValue.formatted() } ?? "Unavailable")")
                             .font(.subheadline)
                     }
                 }.buttonStyle(.plain)

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AppScene: View {
     @State private var searchModel: StockSearchViewModel
-    @State private var discoveryModel: DiscoveryViewModel
+    @State private var homeModel: HomeViewModel
     let accounts: AccountViewModel
     @State private var showingAuth = false
     @State private var showingSearch = false
@@ -12,12 +12,12 @@ struct AppScene: View {
     init(baseURL: String = "http://localhost:8080", accounts: AccountViewModel) {
         self.accounts = accounts
         _searchModel = State(initialValue: StockSearchViewModel(service: StockSearchService(baseURL: baseURL)))
-        _discoveryModel = State(initialValue: DiscoveryViewModel(service: DiscoveryService(baseURL: baseURL)))
+        _homeModel = State(initialValue: HomeViewModel(service: HomeQuoteService(baseURL: baseURL)))
     }
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            DiscoveryScene(model: discoveryModel, onSearch: { showingSearch = true }) { symbol in
+            HomeScene(model: homeModel, accounts: accounts, onSearch: { showingSearch = true }) { symbol in
                 searchModel.query = symbol
                 searchModel.scheduleSearch()
                 showingSearch = true

@@ -63,6 +63,13 @@ fun Application.module() {
     routing {
         stockRoutes(stockService)
         marketRoutes(stockService)
+        marketSnapshotRoutes(org.example.stocksteps.service.MarketSnapshotService(
+            org.example.stocksteps.repositoryImpl.FmpMarketDataProvider(
+                HttpClientProvider.client,
+                AppConfig.fmpApiKey,
+                FinnhubStockProviderRepositoryImpl(HttpClientProvider.client, AppConfig.finnhubApiKey)
+            )
+        ))
         newsRoutes(NewsService(FinnhubNewsProviderRepositoryImpl(
             HttpClientProvider.client, AppConfig.finnhubApiKey
         )))
@@ -138,4 +145,9 @@ fun Route.newsRoutes(newsService: NewsService) {
         }
         call.respond(newsService.getNews(page, limit))
     }
+}
+
+fun Route.marketSnapshotRoutes(service: org.example.stocksteps.service.MarketSnapshotService) {
+    get("/market/snapshot") { call.respond(service.getSnapshot()) }
+    get("/api/v1/market/snapshot") { call.respond(service.getSnapshot()) }
 }

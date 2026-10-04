@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Current update: "Integrate Firebase Google sign-in on Android and iOS" on `main`.
-Previous implementation baseline: `540ed85` (Firebase accounts, synced watchlist and login-first navigation).
+Last updated: 2026-10-04. Current update: "Add Home market snapshot with Finnhub ETF fallback" on `main`.
+Previous implementation baseline: `4e65174` (Firebase Google sign-in on Android and iOS).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -494,3 +494,95 @@ builds passed; iOS compile passed in isolated compatibility project. Actual iOS
 Xcode requirement unchanged. Updated-config Android build passed and was installed
 for owner testing. Google sign-in code, OAuth callback configuration and this
 handoff update are included in the current commit.
+
+## Figma Home screen (included in current commit)
+
+Implemented frame 1:16 for Android and native iOS with shared HomeTokens and
+separate HomeScene/HomeScreen/HomeComponents/HomeViewModel files. Existing Home
+route identity and four-tab navigation stay in place. Replaced the discovery feed
+UI on Home with greeting/search, three index cards, the real saved watchlist and
+interactive P/E lesson. Prior discovery feed implementation remains in source
+but is no longer the Home destination. Existing native tab chrome and Android
+provided icons are reused; OS supplies device/status chrome. Figma contains only
+text/shapes, no downloadable static image/SVG assets. Platform fonts preserved.
+
+Watchlist quotes use existing backend/domain through GetStockQuote and a separate
+IosHomeClient (independent reads avoid cancelling stock search/detail). Watchlist
+symbols come from the UID-tagged account repository/native account state. Loading,
+empty and unavailable rows are explicit; no Figma sample stocks/prices are seeded.
+Android bounds quote concurrency to three, iOS loads rows sequentially. Quotes
+remain transient and are not added to SQL/Firestore. Search/row taps open existing
+stock search/detail. Lesson opens local educational content, not the Learn tab.
+Scrollable width-capped layout uses hinge-safe Android region and scalable native
+fonts. The Market Snapshot implementation below now supplies supported ETF proxy
+data for the index cards and adds the three movers sections.
+
+Validation: Android debug/shared native framework builds passed. Shared allTests
+passed including Android host and iOS simulator unit runs. New Home test proves
+account switch clears old rows and ignores late quote completion; index failure
+is independent. Native SwiftUI compile passed in isolated Firebase compatibility
+project (actual Xcode limitation unchanged). Foldable emulator Home screenshot
+compared with Figma; guest empty state, lesson dialog and search navigation checked.
+Populated Home rows/physical fold transitions and native Home runtime need owner
+verification. Included in the current Home market snapshot commit.
+
+## Market Snapshot (included in current commit)
+
+Implemented GET /market/snapshot and /api/v1/market/snapshot using one shared
+45-second in-memory cache, concurrent section loading, and a backend-only FMP
+MarketDataProvider. Cache expiry uses a monotonic clock; concurrent misses are
+coalesced. SPY, QQQ and DIA represent S&P 500, Nasdaq-100 and Dow Jones ETF proxies,
+with USD prices and signed changes. Top five gainers, losers and most-active
+stocks are included. MarketMover now permits missing numeric fields and volume.
+No unavailable value is fabricated as zero. Index errors and section errors are
+independent, sanitized and returned alongside successful data.
+
+Market hours currently map the provider's regular-session flag to OPEN/CLOSED,
+or UNKNOWN when unavailable. PRE_MARKET/AFTER_HOURS remain supported enum values
+but are never inferred from local time. Apps use the shared snapshot repository
+and use case; Android and native SwiftUI Home render status, prices, timestamp,
+partial failure/retry and the three navigable movers sections. Existing watchlist
+quote loading stays independent. See docs/MARKET_SNAPSHOT.md for the contract.
+
+Validation: six server snapshot tests and two shared core repository tests passed,
+including mapping/null fields, status, partial failures, expiry/coalescing, aliases
+and client errors. Shared allTests, Android debug build and iOS framework build
+passed. SwiftUI compiled in the isolated Firebase 12.11 compatibility project;
+actual Firebase 12.19.2 still requires newer Xcode than the installed 16.2.
+Live check on temporary port 8081 used local IDE credentials with explicit owner
+approval: CLOSED, SPY price/change, five entries in all three movers sections;
+QQQ/DIA returned HTTP 402 from FMP and correctly remained unavailable. Both aliases
+returned an identical cached snapshot. No credentials were printed or committed.
+Updated Android debug APK installed. Restart the regular backend on 8080 to load
+these routes. Native runtime, populated watchlist and physical fold transitions
+still need owner verification. Provider plan access for QQQ/DIA remains external.
+Temporary preview source/process removed after verification. Included in the current Home market snapshot commit. Next work: owner review of snapshot Home and then
+remaining Learn/Settings experiences; preserve route/scene/screen boundaries.
+
+Home snapshot label clarification (included in current commit): DIA now displays “Dow 30” on
+both platforms and in the backend response; QQQ already displays “Nasdaq-100”.
+Both cards remain present during loading and provider failures. They are ETF
+proxies, and the live FMP account's HTTP 402 restriction still prevents their
+prices from loading. No fabricated prices or unrelated stock quotes substituted.
+Validation: checked backend and both platform fallback labels; diff whitespace
+check passed. This label-only adjustment does not change provider requests.
+
+Finnhub ETF fallback (included in current commit): snapshot backend now injects the existing
+FinnhubStockProviderRepositoryImpl as an optional quote fallback. Successful FMP
+quotes remain unchanged; missing prices or FMP failures try Finnhub once per ETF.
+Null/invalid fallback quotes produce sanitized per-card errors; cancellation
+propagates. Movers/status and the 45-second cache remain unchanged. Both apps
+consume the same response without client changes or client API keys. Live owner-
+approved check on port 8081 returned SPY 769.64, QQQ 749.58 and DIA 511.10 with
+signed changes and no index errors. This resolves the QQQ/DIA limitation above.
+Server regression tests passed, including fallback recovery, preserving successful
+FMP quotes, signed changes and null fallback failure. Temporary preview cleaned
+up. Restart regular backend on 8080 and refresh Home to receive these values.
+
+Commit validation: Home design, shared snapshot contract/repository, backend cache
+and Finnhub ETF fallback, Android/native Home UI, tests and API documentation are
+included in “Add Home market snapshot with Finnhub ETF fallback”. Server tests
+passed after the final fallback change. Earlier shared allTests, core JVM tests,
+Android debug and shared iOS framework builds passed. Actual pinned Firebase iOS
+build/runtime still requires newer Xcode; isolated compatibility compile passed.
+Xcode's project-file formatting changes preserve existing dependency versions.

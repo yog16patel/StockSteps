@@ -6,8 +6,9 @@ import kotlinx.serialization.Serializable
 data class MarketMover(
     val symbol: String,
     val name: String? = null,
-    val price: Double,
-    val change: Double,
-    val changePercent: Double,
-    val exchange: String? = null
+    val price: Double? = null,
+    val change: Double? = null,
+    val changePercent: Double? = null,
+    val exchange: String? = null,
+    val volume: Double? = null
 )

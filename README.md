@@ -331,3 +331,5 @@ membership and timestamps; financial data stays on the Ktor backend. See
 [authentication/watchlist setup and sync policy](docs/AUTH_WATCHLIST.md) for
 configuration, tests, database ownership, security rules, and conflict behavior.
 The actual iOS Firebase package requires Xcode 26.2 or newer.
+
+Market Snapshot API and provider limitations: [docs/MARKET_SNAPSHOT.md](docs/MARKET_SNAPSHOT.md).

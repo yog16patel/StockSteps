@@ -39,6 +39,8 @@ class StockStepsApi(private val client: HttpClient, baseUrl: String) {
         return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/profile") }
     }
 
+    suspend fun getMarketSnapshot(): MarketSnapshot = request { url("$baseUrl/market/snapshot") }
+
     suspend fun getGainers(): List<MarketMover> = request { url("$baseUrl/api/v1/market/gainers") }
     suspend fun getLosers(): List<MarketMover> = request { url("$baseUrl/api/v1/market/losers") }
     suspend fun getNews(): List<NewsArticle> = request {

@@ -17,6 +17,7 @@ import org.example.stocksteps.presentation.settings.*
 import org.example.stocksteps.WindowHinge
 import org.example.stocksteps.presentation.discovery.DiscoveryRoute
 import org.example.stocksteps.presentation.discovery.DiscoveryScene
+import org.example.stocksteps.presentation.home.HomeScene
 import org.example.stocksteps.presentation.stocksearch.StockSearchRoute
 import org.example.stocksteps.presentation.stocksearch.StockSearchScene
 
@@ -65,8 +66,9 @@ internal fun AppNavigation(
             modifier = Modifier.weight(1f)
         ) {
             composable<DiscoveryRoute> {
-                DiscoveryScene(
+                if (accounts != null) HomeScene(
                     baseUrl = baseUrl,
+                    accounts = accounts,
                     hinge = hinge,
                     onSearch = { navController.navigate(StockSearchRoute()) },
                     onExplore = { symbol ->

@@ -31,7 +31,7 @@ internal fun MarketMoversSection(
                 ) {
                     Text(text = mover.symbol, style = MaterialTheme.typography.titleMedium)
                     mover.name?.let { Text(text = it) }
-                    Text(text = "${mover.changePercent}% · Price ${mover.price}")
+                    Text(text = "${mover.changePercent?.let { "$it%" } ?: "Unavailable"} · Price ${mover.price ?: "Unavailable"}")
                 }
             }
         }
