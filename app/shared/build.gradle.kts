@@ -15,6 +15,7 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
+            export(project(":core"))
         }
     }
 
@@ -41,10 +42,15 @@ kotlin {
 
     sourceSets {
         androidMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
         }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
         commonMain.dependencies {
+            implementation(libs.koin.core)
             api(project(":core"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
@@ -56,6 +62,8 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
         }
         commonTest.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+            implementation(libs.ktor.client.mock)
             implementation(libs.kotlin.test)
         }
     }

@@ -149,3 +149,131 @@ Each NewsArticle has `title`, `url`, and nullable `symbol`, `source`,
 is null. Publication times are UTC ISO 8601 strings converted from Unix seconds.
 Only headlines, metadata and source links are returned; full article text is
 not exposed. Existing provider errors apply; live access depends on your account.
+
+
+### Mobile backend connection (search and quotes)
+
+The Android Compose starter screen searches StockSteps and loads a quote
+when a result is selected. Search waits 300 ms after input changes; obsolete
+search/quote requests are cancelled. Loading, empty and error states are shown.
+Provider API keys are never required by mobile code.
+
+Public StockQuote, StockSearchResult and ApiError models live in `core` and are
+used by both server and mobile. StockStepsApi accepts an injected Ktor client
+and a backend base URL. Platform clients use OkHttp (Android) and Darwin (iOS).
+
+The Android debug entry point uses `http://127.0.0.1:8080` with ADB reverse:
+run `adb reverse tcp:8080 tcp:8080` before launching the app (repeat after the
+emulator/device reconnects). This avoids host-alias connectivity issues and
+works for USB-connected Android devices too. The shared Android fallback is
+`http://10.0.2.2:8080`. iOS Simulator uses `http://localhost:8080`.
+Start the backend first.
+For a physical device, pass `App(baseUrl = "http://<Mac-LAN-IP>:8080")` from
+the app entry point and use the same network. Android allows local cleartext
+HTTP only in debug builds; iOS permits local networking. Use HTTPS for a deployed
+backend; release Android builds do not allow this local HTTP setup.
+
+These are integration screens, not the final Figma design. Profiles, movers,
+news and persistent watchlists are not yet connected to mobile.
+
+
+### Native iOS UI and Liquid Glass
+
+The iOS app now uses native SwiftUI in ContentView.swift, with search, quote
+selection, loading/empty/error states and retry. IosStockStepsClient bridges the
+shared Kotlin StockStepsApi and core models; Android continues using Compose.
+Search is debounced and superseded search/quote jobs are cancelled.
+
+Build with Xcode 26 or newer and run on iOS 26 or newer for native Liquid Glass
+on navigation/search controls and the custom currency badge/retry controls.
+Glass modifiers are guarded by compiler and runtime availability; older SDKs
+build material/bordered fallbacks. List content keeps the standard readable
+background instead of applying glass to every row. Xcode 16.2 can compile the
+fallback but cannot verify or display native iOS 26 glass APIs.
+
+The simulator backend defaults to http://localhost:8080. A physical iPhone
+must use the Mac's LAN address via ContentView(baseURL: ...), or an HTTPS
+backend. Provider keys remain on the server.
+
+
+### Shared theme
+
+`app/shared/src/commonMain/kotlin/org/example/stocksteps/theme` contains the
+single source of values for colors (light/dark RGB palettes), spacing and
+corners (logical dp/point units), and typography (size, line height and weight).
+StockStepsTheme.kt adapts tokens to Compose MaterialTheme; Theme.swift adapts
+them to SwiftUI Color, CGFloat and Dynamic Type-scaled native system fonts.
+Change shared tokens to update both platforms; platform adapters retain native
+controls, navigation, accessibility and Liquid Glass behavior. Native navigation
+titles retain platform typography. Typography line height is applied in Compose;
+SwiftUI uses native font metrics for baseline spacing. Tokens are initial app
+defaults, not a completed Figma design-system import.
+
+### Adaptive mobile layouts
+
+Android uses the current app window size: below 840 dp, the quote appears with
+search results; wider windows show search and quote panes side by side.
+Jetpack WindowManager supplies separating folds and fully occluding hinges in
+window coordinates. The layout leaves space around these features, including
+horizontal tabletop folds. If one side is too small, content uses the larger
+side. Search text and the selected stock survive Activity recreation.
+
+iOS uses native `NavigationSplitView`: search and quote appear in separate
+columns when space permits and collapse into navigation on compact windows.
+This supports iPad multitasking and window resizing while preserving the native
+Liquid Glass availability guards. No Apple-specific physical hinge integration
+is assumed.
+
+Before release, test a foldable Android emulator in folded, unfolded, and
+half-open postures, plus rotation and split-screen. Verify that an active search
+and selected quote remain usable after each transition. For iOS, test a compact
+phone window and iPad split-screen at multiple widths, with larger text sizes.
+
+### Mobile architecture
+
+Android follows MVVM with clean layer boundaries. `App.kt` applies the theme
+and opens `StockSearchRoute`. The route creates the lifecycle ViewModel and
+collects its immutable `StateFlow` with lifecycle awareness. Search, quote,
+and adaptive screen components live under `app/shared/.../presentation/stocksearch`;
+UI events call ViewModel methods. The ViewModel owns request cancellation and
+uses its lifecycle scope. Query and selection are saved by the route for
+recreation; fetched results are reloaded after process restoration.
+
+The shared `core` domain layer defines `StockRepository`, `SearchStocks`, and
+`GetStockQuote`. Its data layer implements the repository using `StockStepsApi`,
+translates networking errors into domain errors, and preserves cancellation.
+Existing serialized stock models are shared boundary models; separate domain
+copies are unnecessary while their shapes are identical. Dependencies point
+from presentation/data toward the domain contract. Dependency construction stays
+in composition roots rather than in views or domain classes.
+
+iOS uses native SwiftUI with an `@MainActor @Observable` view model, owned by
+`ContentView` through `@State`. Search bindings use `@Bindable`; quote views read
+observable state. `StockSearchServing` is injected into the view model, and its
+native adapter calls the same shared domain use cases through the Kotlin bridge.
+`ContentView` coordinates navigation, while separate search/quote views render
+UI and `GlassModifiers` handles native glass availability. `iOSApp.swift` only
+creates the scene. This is a native Observation-based MVVM structure, rather
+than imposing Android lifecycle classes on SwiftUI.
+
+### Dependency injection
+
+Koin 4.2.2 is configured in `app/shared/.../di/StockStepsDependencies.kt`.
+Each graph registers one HTTP client, API, and repository, plus factories for
+use cases and the Android/Compose ViewModel. The Compose route asks the graph
+for its lifecycle-owned ViewModel with restored query/selection parameters.
+The native iOS bridge resolves shared use cases from the same definitions;
+SwiftUI continues to inject `StockSearchServing` through constructors.
+
+Graphs are isolated Koin applications, so previews and multiple platform owners
+can coexist without replacing global registrations. The ViewModel closes its
+graph when cleared; the Swift service closes the bridge on release. Koin's
+client definition closes its singleton HTTP client when the graph is closed.
+Domain classes and UI components do not access the DI container.
+
+Search input is debounced for 300 ms using Kotlin Flow on Android and Combine
+on iOS. Changes cancel active requests immediately and blank input clears results
+without waiting. Normalized duplicate queries do not issue another request.
+Explicit iOS retries bypass typing debounce. The Android ViewModel test uses
+virtual time to verify that typing bursts issue only the final query and clearing
+input cancels an active request without repopulating the results.

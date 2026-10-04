@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":app:shared"))
 
     implementation(libs.androidx.activity.compose)
+    implementation("androidx.window:window:1.5.1")
 
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
@@ -50,5 +51,6 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }

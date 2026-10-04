@@ -5,6 +5,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.window.layout.WindowInfoTracker
+import androidx.window.layout.FoldingFeature
 import androidx.compose.ui.tooling.preview.Preview
 
 class MainActivity : ComponentActivity() {
@@ -13,7 +19,20 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            App()
+            val hinge by produceState<WindowHinge?>(null) {
+                lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    WindowInfoTracker.getOrCreate(this@MainActivity).windowLayoutInfo(this@MainActivity).collect { info ->
+                        value = info.displayFeatures.filterIsInstance<FoldingFeature>()
+                            .firstOrNull { it.isSeparating || it.occlusionType == FoldingFeature.OcclusionType.FULL }
+                            ?.let { fold ->
+                                WindowHinge(fold.bounds.left.toFloat(), fold.bounds.top.toFloat(),
+                                    fold.bounds.right.toFloat(), fold.bounds.bottom.toFloat(),
+                                    fold.orientation == FoldingFeature.Orientation.VERTICAL)
+                            }
+                    }
+                }
+            }
+            App(hinge = hinge, baseUrl = if (BuildConfig.DEBUG) "http://127.0.0.1:8080" else null)
         }
     }
 }

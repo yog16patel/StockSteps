@@ -1,0 +1,64 @@
+package org.example.stocksteps.network
+
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.plugins.expectSuccess
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.request.url
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.Json
+import org.example.stocksteps.model.*
+
+class StockStepsApiException(val status: Int, val error: ApiError) : Exception(error.message)
+
+// The caller owns the injected client and closes it when no longer needed.
+class StockStepsApi(private val client: HttpClient, baseUrl: String) {
+    private val baseUrl = baseUrl.trimEnd('/')
+
+    init {
+        require(Url(baseUrl).protocol in listOf(URLProtocol.HTTP, URLProtocol.HTTPS))
+    }
+
+    suspend fun searchStocks(query: String): List<StockSearchResult> = request {
+        url("$baseUrl/api/v1/stocks/search")
+        parameter("query", query.trim())
+    }
+
+    suspend fun getQuote(symbol: String): StockQuote {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/quote") }
+    }
+
+    private suspend inline fun <reified T> request(
+        crossinline configure: io.ktor.client.request.HttpRequestBuilder.() -> Unit
+    ): T {
+        val response = client.get {
+            expectSuccess = false
+            configure()
+        }
+        if (response.status.value !in 200..299) {
+            val error = try {
+                response.body<ApiError>()
+            } catch (cause: Exception) {
+                if (cause is CancellationException) throw cause
+                ApiError("HTTP_ERROR", "The StockSteps server could not complete the request.")
+            }
+            throw StockStepsApiException(response.status.value, error)
+        }
+        return response.body()
+    }
+}
+
+fun io.ktor.client.HttpClientConfig<*>.configureStockStepsClient() {
+    install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+    install(HttpTimeout) {
+        requestTimeoutMillis = 20_000
+        connectTimeoutMillis = 5_000
+        socketTimeoutMillis = 20_000
+    }
+}
