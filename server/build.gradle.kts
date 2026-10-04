@@ -11,6 +11,7 @@ application {
 }
 
 dependencies {
+    implementation("org.xerial:sqlite-jdbc:3.51.3.0")
     api(project(":core"))
     implementation(libs.ktor.server.status.pages)
     implementation(libs.logback)

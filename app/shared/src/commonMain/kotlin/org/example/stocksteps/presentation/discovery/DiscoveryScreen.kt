@@ -46,19 +46,7 @@ private fun DiscoveryContent(
                 Text(text = "Market news", style = MaterialTheme.typography.titleLarge)
                 FeedStatus(state.news, { onRetry(DiscoverySection.NEWS) })
                 state.news.items.forEach { article ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier.padding(ThemeSpacing.large.dp),
-                            verticalArrangement = Arrangement.spacedBy(ThemeSpacing.small.dp)
-                        ) {
-                            Text(text = article.title, style = MaterialTheme.typography.titleMedium)
-                            Text(text = listOfNotNull(article.source, article.publishedAt).joinToString(" · "))
-                            val link = article.url.takeIf { it.startsWith("https://") || it.startsWith("http://") }
-                            if (link != null) TextButton(onClick = { runCatching { uriHandler.openUri(link) } }) {
-                                Text(text = "Read article")
-                            }
-                        }
-                    }
+                    org.example.stocksteps.presentation.news.NewsCard(article)
                 }
             }
         }

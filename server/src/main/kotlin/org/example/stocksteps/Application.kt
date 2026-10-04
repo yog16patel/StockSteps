@@ -16,6 +16,7 @@ import org.example.stocksteps.httpclient.HttpClientProvider
 import org.example.stocksteps.repositoryImpl.FmpStockProviderRepositoryImpl
 import org.example.stocksteps.repositoryImpl.FinnhubStockProviderRepositoryImpl
 import org.example.stocksteps.service.NewsService
+import org.example.stocksteps.news.createNewsService
 import org.example.stocksteps.repositoryImpl.FinnhubNewsProviderRepositoryImpl
 import org.example.stocksteps.service.StockService
 
@@ -34,6 +35,8 @@ fun Application.module() {
             }
         )
     }
+
+    val newsService = createNewsService(HttpClientProvider.client)
 
     routing {
         get("/health") {
@@ -70,9 +73,7 @@ fun Application.module() {
                 FinnhubStockProviderRepositoryImpl(HttpClientProvider.client, AppConfig.finnhubApiKey)
             )
         ))
-        newsRoutes(NewsService(FinnhubNewsProviderRepositoryImpl(
-            HttpClientProvider.client, AppConfig.finnhubApiKey
-        )))
+        newsRoutes(newsService)
     }
 
 }

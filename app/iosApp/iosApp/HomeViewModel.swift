@@ -13,6 +13,7 @@ struct HomeStock: Identifiable {
 
 @MainActor
 protocol HomeQuoteServing {
+    func news() async throws -> [NewsArticle]
     func snapshot() async throws -> MarketSnapshot
     func quote(symbol: String) async throws -> StockQuote
 }
@@ -22,6 +23,7 @@ final class HomeQuoteService: HomeQuoteServing {
     private let client: IosHomeClient
     init(baseURL: String) { client = IosHomeClient(baseUrl: baseURL) }
     deinit { client.close() }
+    func news() async throws -> [NewsArticle] { try await client.getNews() }
     func snapshot() async throws -> MarketSnapshot { try await client.getSnapshot() }
     func quote(symbol: String) async throws -> StockQuote { try await client.getQuote(symbol: symbol) }
 }
@@ -29,6 +31,10 @@ final class HomeQuoteService: HomeQuoteServing {
 @MainActor
 @Observable
 final class HomeViewModel {
+    private(set) var news: [NewsArticle] = []
+    private(set) var newsLoading = false
+    private(set) var newsError: String?
+    @ObservationIgnored private var newsTask: Task<Void, Never>?
     private(set) var snapshot: MarketSnapshot?
     private(set) var snapshotLoading = false
     private(set) var snapshotError: String?
@@ -54,7 +60,7 @@ final class HomeViewModel {
     private static func indexCards() -> [HomeStock] {
         [HomeStock(symbol: "SPY", name: "S&P 500"), HomeStock(symbol: "QQQ", name: "Nasdaq-100"), HomeStock(symbol: "DIA", name: "Dow 30")]
     }
-    func loadIfNeeded() { if !hasLoaded { refreshIndices() } }
+    func loadIfNeeded() { if !hasLoaded { refreshIndices(); refreshNews() } }
     func refreshIndices() {
         hasLoaded = true
         indexTask?.cancel()
@@ -70,6 +76,24 @@ final class HomeViewModel {
             } catch {
                 guard !Task.isCancelled else { return }
                 snapshotError = "Could not load market snapshot. Check your connection and try again."
+            }
+        }
+    }
+
+    func refreshNews() {
+        newsTask?.cancel()
+        newsLoading = true
+        newsError = nil
+        newsTask = Task { [weak self] in
+            guard let self else { return }
+            defer { if !Task.isCancelled { newsLoading = false } }
+            do {
+                let articles = try await service.news()
+                guard !Task.isCancelled else { return }
+                news = articles
+            } catch {
+                guard !Task.isCancelled else { return }
+                newsError = "Could not load news. Try again."
             }
         }
     }

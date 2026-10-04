@@ -16,7 +16,7 @@ import org.example.stocksteps.presentation.AdaptiveSinglePane
 import org.example.stocksteps.theme.*
 
 @Composable
-internal fun HomeScreen(state: HomeState, hinge: WindowHinge?, onRefresh: () -> Unit, onSearch: () -> Unit, onExplore: (String) -> Unit) {
+internal fun HomeScreen(state: HomeState, hinge: WindowHinge?, onRefresh: () -> Unit, onSearch: () -> Unit, onExplore: (String) -> Unit, onRetryNews: () -> Unit) {
     var showingLesson by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(homeColor(HomeTokens.background))) {
         AdaptiveSinglePane(hinge) { region ->
@@ -93,6 +93,12 @@ internal fun HomeScreen(state: HomeState, hinge: WindowHinge?, onRefresh: () -> 
                         HomeMovers("Top Losers", "losers", snapshot.losers, state, onRefresh, onExplore)
                         HomeMovers("Most Active", "mostActive", snapshot.mostActive, state, onRefresh, onExplore)
                     }
+                    org.example.stocksteps.presentation.news.NewsSection(
+                        articles = state.news,
+                        loading = state.newsLoading,
+                        error = state.newsError,
+                        onRetry = onRetryNews
+                    )
                     HomeLessonCard { showingLesson = true }
                 }
             }

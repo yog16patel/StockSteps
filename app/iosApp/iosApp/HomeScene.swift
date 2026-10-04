@@ -9,6 +9,10 @@ struct HomeScene: View {
     private var ownerKey: String { (accounts.state.user?.id ?? "guest") + "|" + symbols.joined(separator: "|") }
     var body: some View {
         HomeScreen(
+            news: model.news,
+            newsLoading: model.newsLoading,
+            newsError: model.newsError,
+            onRefreshNews: model.refreshNews,
             indices: model.indices,
             snapshot: model.snapshot,
             loading: model.snapshotLoading,

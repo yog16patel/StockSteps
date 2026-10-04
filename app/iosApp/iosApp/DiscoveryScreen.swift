@@ -24,14 +24,7 @@ struct DiscoveryScreen: View {
                 Section("Market news") {
                     DiscoveryFeedStatus(feed: state.news, onRetry: onRetryNews)
                     ForEach(Array(state.news.items.enumerated()), id: \.offset) { _, article in
-                        VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.small)) {
-                            Text(article.title).font(.headline)
-                            Text([article.source, article.publishedAt].compactMap { $0 }.joined(separator: " · "))
-                                .font(.caption).foregroundStyle(.secondary)
-                            if let url = URL(string: article.url), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
-                                Link("Read article", destination: url)
-                            }
-                        }
+                        NewsCard(article: article)
                     }
                 }
             }

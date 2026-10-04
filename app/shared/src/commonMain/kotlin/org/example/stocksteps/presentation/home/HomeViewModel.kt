@@ -12,7 +12,10 @@ internal data class HomeState(
     val snapshot: MarketSnapshot? = null,
     val snapshotLoading: Boolean = false,
     val snapshotError: String? = null,
-    val stocks: List<HomeStock> = emptyList()
+    val stocks: List<HomeStock> = emptyList(),
+    val news: List<NewsArticle> = emptyList(),
+    val newsLoading: Boolean = false,
+    val newsError: String? = null
 ) {
     val indices: List<HomeStock> get() = snapshot?.indices?.takeIf { it.isNotEmpty() }?.map {
         HomeStock(it.symbol, it.name, it.changePercent, error = it.error != null || it.price == null, price = it.price)
@@ -26,14 +29,31 @@ internal class HomeViewModel(
     watchlist: WatchlistRepository,
     auth: AuthRepository,
     private val snapshot: GetMarketSnapshot,
+    private val news: GetMarketNews? = null,
     private val closeResources: () -> Unit
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(HomeState())
     val state = mutableState.asStateFlow()
     private val refreshRequests = MutableStateFlow(0)
     private var indexJob: Job? = null
+    private var newsJob: Job? = null
+    fun refreshNews() {
+        val getNews = news ?: return
+        newsJob?.cancel()
+        newsJob = viewModelScope.launch {
+            mutableState.update { it.copy(newsLoading = true, newsError = null) }
+            try {
+                val articles = getNews()
+                mutableState.update { it.copy(news = articles, newsLoading = false) }
+            } catch (cause: Exception) {
+                if (cause is CancellationException) throw cause
+                mutableState.update { it.copy(newsLoading = false, newsError = "Could not load news. Try again.") }
+            }
+        }
+    }
     init {
         refreshIndices()
+        refreshNews()
         viewModelScope.launch {
             combine(watchlist.snapshot, auth.session, refreshRequests) { snapshot, session, _ ->
                 if (snapshot.userId == session.user?.id) snapshot.items.map { it.symbol } else emptyList()

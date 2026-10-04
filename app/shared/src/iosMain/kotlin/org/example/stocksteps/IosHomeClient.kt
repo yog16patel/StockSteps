@@ -10,5 +10,7 @@ class IosHomeClient(baseUrl: String) {
     suspend fun getQuote(symbol: String) = quote(symbol)
     @Throws(Exception::class)
     suspend fun getSnapshot() = dependencies.getMarketSnapshot()()
+    @Throws(Exception::class)
+    suspend fun getNews() = dependencies.marketNews()()
     fun close() = dependencies.close()
 }

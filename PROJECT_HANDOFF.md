@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Current update: "Add Home market snapshot with Finnhub ETF fallback" on `main`.
-Previous implementation baseline: `4e65174` (Firebase Google sign-in on Android and iOS).
+Last updated: 2026-10-04. Current update: "Add cached AI news simplification and beginner news cards" on `main`.
+Previous implementation baseline: `a7d52a3` (Home market snapshot with Finnhub ETF fallback).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -586,3 +586,79 @@ passed after the final fallback change. Earlier shared allTests, core JVM tests,
 Android debug and shared iOS framework builds passed. Actual pinned Firebase iOS
 build/runtime still requires newer Xcode; isolated compatibility compile passed.
 Xcode's project-file formatting changes preserve existing dependency versions.
+
+## AI News Simplification (included in current commit)
+
+Owner approved the plan including persistent backend SQLite and news on Android/
+native iOS Home. Existing /api/v1/news array contract now has provider ID,
+description and nullable explanation; original title/source/time/URL are retained.
+Finnhub's positive ID and summary are preserved; no full article scraping or
+company/ticker fabrication. Shared SimplifiedNews/NewsSentiment are provider-
+neutral. Server news package contains AiNewsSimplifier, GeminiNewsSimplifier,
+NewsSimplificationService, NewsSimplificationStore/SQLite implementation, and
+composition in NewsDependencies; Application only wires the service.
+
+Default model gemini-3.5-flash-lite was verified as stable and supporting structured
+outputs in official Gemini docs on 2026-10-04. Config: GEMINI_API_KEY (optional),
+GEMINI_NEWS_MODEL, NEWS_DB_PATH (default server/data/news.db relative to process
+working directory). Keys stay backend-only. Missing key serves original news.
+Storage initialization failure disables AI enrichment and logs only a safe warning.
+docs/AI_NEWS.md describes setup and limitations.
+
+Flow: provider feed -> deduplicate -> read stored result -> return immediately;
+eligible misses queue in a bounded worker. SQLite persists shared results across
+users/restarts. Cache identity uses provider ID or normalized URL/headline hash;
+tracking parameters/fragments are removed for URL fallback. Content/publisher/
+symbol/model/prompt-version changes yield new cache keys. One worker, capacity
+20, up to five enqueues per response, database claim leases, eight-second HTTP and
+ten-second job timeout, fifteen-minute failure cooldown. No automatic provider
+retry. Pending queue is transient; later reads requeue interrupted jobs. Local
+coalescing plus SQLite leases prevent duplicate work for processes sharing the
+same file. Cloud Run production must replace this local store with durable shared
+storage; per-instance queues are not an account-wide daily budget. No deployment,
+Redis, user data sent to AI, or real Gemini calls in tests.
+
+Relevance V1 requires description and deterministic finance/market keywords (or
+requested ticker mention for ticker-tagged input). It can skip relevant stories
+or admit ambiguous text. Prompt prohibits invented facts, advice, predictions and
+unsupported causation; article fields are untrusted data. Structured parsing and
+length/enum/confidence validation reject invalid output; thought parts are ignored.
+This does not prove factual correctness; real summaries need source comparison
+before release. Confidence is not displayed. AI/storage failures preserve original
+news and null explanation. Failing news provider retains existing API errors.
+
+Android and native Home load news independently of market/watchlist, with refresh,
+loading/error/empty states. New separate NewsCard/NewsSection components show
+publisher/time, simplified headline, summary, Why it matters, sentiment, AI-
+simplified label and Read original. Older discovery feeds reuse the cards. Route/
+Scene/Screen boundaries and existing four tabs remain. iOS Home client has an
+independent news operation; no keys enter apps.
+
+Validation: all 35 server tests passed, including nine AI tests for valid/malformed/
+missing fields, unsupported sentiment, provider errors/incomplete response,
+timeout/fallback, IDs/relevance/DTO mapping, duplicate/cached/uncached work,
+SQLite concurrent claims and restart persistence. Core JVM tests, shared allTests,
+Android debug assembly and shared iOS simulator framework builds passed. Native
+SwiftUI compilation passed using the existing isolated Firebase 12.11 project;
+actual Firebase 12.19.2 still requires newer Xcode than installed 16.2. Android APK
+installed; unfolded emulator card visually checked with explicit local test fixture
+(no real/generated news substituted in source). Preview server stopped and adb
+reverse restored to 8080 -> 8080. Live Gemini remains unverified; owner was asked
+whether backend key is configured. Do not read new credentials from IDE files
+without authorization. Next: configure local Gemini key, restart backend, inspect
+real source/summary examples, then owner review and eventual production durable
+store/budgets. Included in “Add cached AI news simplification and beginner news cards”.
+
+News description follow-up (included in current commit): Android and native iOS cards now show
+the provider description when no AI explanation is available, trimmed and capped
+at three lines. Blank/missing descriptions remain omitted; no text is invented.
+AI summary and Why it matters still take precedence when present. Restart backend
+to get the newly preserved Finnhub description field, and rebuild apps for this
+UI adjustment.
+Validation for description follow-up: Android build passed and updated APK
+installed. Native SwiftUI compatibility build passed using Kotlin description_
+export; production Xcode limitation remains unchanged.
+
+Current commit includes AI news pipeline, shared persistent summaries, Android/iOS
+news cards, provider-description fallback, tests and setup documentation. Live
+Gemini verification and production shared durable storage remain pending.

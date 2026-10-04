@@ -333,3 +333,5 @@ configuration, tests, database ownership, security rules, and conflict behavior.
 The actual iOS Firebase package requires Xcode 26.2 or newer.
 
 Market Snapshot API and provider limitations: [docs/MARKET_SNAPSHOT.md](docs/MARKET_SNAPSHOT.md).
+
+AI News backend setup and processing: [docs/AI_NEWS.md](docs/AI_NEWS.md).

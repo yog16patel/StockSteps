@@ -78,7 +78,7 @@ class NewsTest {
                 val response = client.get(if(value == "paged") "/api/v1/news?page=2&limit=5" else "/api/v1/news")
                 assertEquals(HttpStatusCode.OK, response.status)
                 assertEquals(if (value == "paged") emptyList() else listOf(NewsArticle("Apple news", "https://example.com/article", null, "Example",
-                    "2023-11-14T22:13:20Z", "https://example.com/image.png")),
+                    "2023-11-14T22:13:20Z", "https://example.com/image.png", description = "Unused provider content")),
                     Json.decodeFromString<List<NewsArticle>>(response.bodyAsText()))
             }
             mode = "empty"

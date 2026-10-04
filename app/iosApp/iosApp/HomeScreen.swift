@@ -2,6 +2,10 @@ import SwiftUI
 import Shared
 
 struct HomeScreen: View {
+    let news: [NewsArticle]
+    let newsLoading: Bool
+    let newsError: String?
+    let onRefreshNews: () -> Void
     let indices: [HomeStock]
     let snapshot: MarketSnapshot?
     let loading: Bool
@@ -69,6 +73,7 @@ struct HomeScreen: View {
                     HomeMovers(title: "Top Losers", key: "losers", movers: snapshot.losers, snapshot: snapshot, onRetry: onRefresh, onExplore: onExplore)
                     HomeMovers(title: "Most Active", key: "mostActive", movers: snapshot.mostActive, snapshot: snapshot, onRetry: onRefresh, onExplore: onExplore)
                 }
+                HomeNewsSection(articles: news, loading: newsLoading, error: newsError, onRefresh: onRefreshNews)
                 HomeLessonCard { showingLesson = true }
             }
             .frame(maxWidth: CGFloat(t.contentWidth))

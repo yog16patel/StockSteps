@@ -50,3 +50,6 @@ app/iosApp/iosApp/GoogleService-Info.plist
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# Backend generated AI summary storage
+/server/data/

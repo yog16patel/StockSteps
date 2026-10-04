@@ -10,11 +10,15 @@ data class FinnhubNewsArticle(
     val url: String,
     val datetime: Long,
     val source: String? = null,
-    val image: String? = null
+    val image: String? = null,
+    val id: Long? = null,
+    val summary: String? = null
 )
 
 fun FinnhubNewsArticle.toNewsArticle() = NewsArticle(
     title = headline, url = url, symbol = null, source = source,
     publishedAt = Instant.ofEpochSecond(datetime).toString(),
-    imageUrl = image?.takeIf { it.isNotBlank() }
+    imageUrl = image?.takeIf { it.isNotBlank() },
+    id = id?.takeIf { it > 0L }?.let { "finnhub:$it" },
+    description = summary?.takeIf { it.isNotBlank() }
 )
