@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Current update: "Add Figma welcome screen to Android and iOS" on `main`.
-Previous implementation baseline: `c3ed32f` (four-tab navigation shell).
+Last updated: 2026-10-04. Current update: "Add Firebase authentication and synced watchlist with login-first navigation" on `main`.
+Previous implementation baseline: `6af071f` (Figma welcome screen).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -204,7 +204,7 @@ features or authorization to implement everything immediately:
 4. Discovery/Home is implemented in the current commit. Validate provider
    entitlements, article opening, and mover-to-search navigation on both platforms.
 5. Implement a watchlist, then choose persistence according to requirements.
-   No watchlist storage or backend database exists.
+   Watchlist storage is implemented in the latest local account increment below; no financial-data backend database exists.
 6. Integrate actual approved Figma designs while retaining native iOS behavior.
 7. Configure deployed HTTPS backend URLs, distribution/signing, and CI when needed.
    Backend deployment and release readiness are not completed.
@@ -366,3 +366,108 @@ Home data requires the existing local backend/adb reverse setup. No iOS simulato
 was booted, so native welcome runtime/transition is still unverified. Phone,
 large-font and physical fold-transition checks remain pending. Welcome code and
 this handoff update are included together in the current commit.
+
+
+## Latest local work: Firebase accounts and offline watchlist (included in current commit)
+
+Owner approved the architecture plan and implementation, then separately approved
+live Firestore rules deployment. Shared domain has User/AuthSession,
+WatchlistItem/WatchlistSnapshot, AuthRepository/WatchlistRepository and use cases.
+Platform callback gateways hide SDK types. Android uses official Firebase SDKs
+(BoM 34.19.0); Swift adapters use official Firebase through SPM pinned to 12.19.2.
+The actual iOS package requires Xcode 26.2+; installed Xcode remains 16.2.
+
+SQLDelight 2.4.0 uses Android/native drivers and reactive local queries. Local
+rows are keyed by owner and normalized ticker, plus a durable revisioned outbox.
+AccountDependencies is app-owned Koin, separate from feature financial services.
+ViewModels receive abstract repos/use cases. Android auth has Route/Scene/Screen;
+Swift has separate scenes, screens, Observation model and AccountServing service.
+WatchList is now real local storage, auth entry, sync status/retry, remove, and
+open-stock navigation. Both stock detail UIs have add/remove actions. Settings
+supports account state and logout. Passwords are transient; SDKs own sessions.
+
+Guests merge atomically into the first signing-in UID, deduplicate, and consume
+guest rows so another account cannot claim them later. Logout switches to guest;
+old UID caches/outboxes stay private and are not copied. Tagged reactive snapshots
+prevent previous-account rows appearing during state transitions. Authoritative
+server snapshots reconcile clean rows; pending local edits win until acknowledged.
+Server transactions avoid an independent Firebase offline-write queue. Last
+server commit wins across devices; later offline adds can recreate removed stocks.
+Retries run on edits, manual retry, reconnect, foreground and bounded 30-second
+interval. No background sync guarantee while the app is terminated.
+
+Both owner-provided Firebase config files are present and point to stocksteps,
+registered as org.example.stocksteps. Native bundle ID was aligned to that
+registration; SQLite linker flag added. Android config is ignored; the owner's
+already-staged Apple plist is preserved. No keys are recorded in docs or logs.
+Firestore API enabled/default Native database provisioned in nam5 (Standard,
+free tier) by the approved rules deployment on 2026-10-04. UID-isolated three-field
+rules deployed successfully. No live test accounts/documents created; automated
+Firebase tests use emulators only. Ktor/provider implementation stays unchanged.
+
+Validation passed: Android debug build, shared Android host tests, core JVM tests,
+native shared framework link, five emulator rules tests, and one Android device
+integration test covering guest signup merge, second client sync, offline removal,
+reconnect, logout/isolation and cross-UID denial. New unit tests: three auth,
+four coordinator race/retry tests, four real SQLite tests. Android UI verified
+AAPL add from Ktor details, survival across full process restart, removal and
+login/signup entry. The temporary UI stock was removed after verification.
+Final device integration rerun passed after the ViewModel/DI refinement; the debug
+APK was restored on emulator-5554 and temporary Firebase emulators were stopped.
+
+Native adapter/service/view compilation passed in an isolated temporary project
+with Firebase 12.11.0 on Xcode 16.2; this did not change the actual pinned package.
+Actual iOS package resolution fails on installed Xcode (requires Swift tools 6.1;
+Firebase officially needs Xcode 26.2+). Upgrade/select Xcode, then build/test actual
+native SDK/runtime, including session restoration and offline transitions.
+Live Android authentication with the owner's account is also pending; emulator
+coverage establishes SDK/repository behavior, not production account setup.
+
+See docs/AUTH_WATCHLIST.md for schema, conflict policy, emulator commands, rules,
+configuration and exact validation limits. Next product work remains separate:
+Google/Apple sign-in, learning/preferences/alerts/portfolio sync are not added.
+Account implementation, deployed rules, login UI and navigation changes are
+included in the current commit requested by the owner.
+
+## Latest local work: Figma login screen (included in current commit)
+
+Implemented design 40:142 in Android Compose and native SwiftUI. Shared AuthTokens
+hold the exact palette, typography sizes and control geometry. Owner selected
+existing platform fonts (no bundled Inter). Separate AuthComponents files contain
+brand, field/button and divider UI; scenes retain model/navigation wiring. Email
+sign-in and signup reuse the existing Firebase implementation. Password Show/Hide
+is local UI state, password remains transient, and Continue as guest clears it and
+closes auth. Android auth now relies on system back/guest instead of the extra
+navigation header. Existing iOS sheet cancellation stays native.
+
+Google and Forgot password controls match the design but show explicit availability
+messages; Google credentials/provider setup and password-reset workflow remain
+pending. No fake sign-in or reset success is shown. No static image/SVG assets were
+provided for this node; its G badge and S brand are text/shapes as specified.
+Scrollable capped-width forms support small screens, tablets and Dynamic Type;
+Android retains the existing hinge-safe placement.
+
+Validation: Android debug and shared iOS framework builds passed. Native SwiftUI
+compile passed in the existing isolated Firebase 12.11.0 compatibility project;
+actual project stays pinned to 12.19.2 and still requires newer Xcode. Android
+foldable emulator screenshot compared with the Figma reference; Show/Hide,
+Create account mode switch, scrolling and guest dismissal verified. Final debug
+APK installed. Production auth
+and actual iOS runtime are not newly tested by this visual change. Login UI and
+account implementation are included in the current commit.
+
+## Login replaces welcome (included in current commit)
+
+Removed the Android welcome route/components, native welcome views and unused
+WelcomeTokens. Login is the starting screen on Android and iOS. Sign-in/signup
+success or Continue as guest opens Home; Android removes the initial auth route
+from the back stack. Auth opened later from WatchList/Settings returns to its
+caller. Entry choice is session-local, matching the previous welcome gate;
+cold launches show login again. Missing Android account dependencies in previews
+fall back to Home. Native root remains light and retains its app-owned account
+model and foreground retry.
+
+Validation: Android debug build and shared native framework link passed; native
+Swift compile passed in isolated Firebase compatibility project (actual Xcode/SDK
+limitation unchanged). Android fresh-process login and guest-to-Home/bottom-tabs
+navigation verified. Included in the current commit.

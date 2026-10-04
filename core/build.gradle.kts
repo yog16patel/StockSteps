@@ -34,6 +34,7 @@ kotlin {
             implementation(libs.ktor.serializationJson)
         }
         commonTest.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
             implementation(libs.kotlin.test)
             implementation(libs.ktor.client.mock)
         }

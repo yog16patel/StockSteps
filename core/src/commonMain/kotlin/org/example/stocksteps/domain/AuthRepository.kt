@@ -1,0 +1,16 @@
+package org.example.stocksteps.domain
+
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+import org.example.stocksteps.model.AuthSession
+import org.example.stocksteps.model.User
+
+interface AuthRepository {
+    val session: StateFlow<AuthSession>
+    val currentUser: Flow<User?>
+    suspend fun signUp(email: String, password: String)
+    suspend fun signIn(email: String, password: String)
+    suspend fun signOut()
+}
+
+class AccountException(message: String) : Exception(message)

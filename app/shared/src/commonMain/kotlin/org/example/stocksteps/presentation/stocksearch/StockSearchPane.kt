@@ -20,7 +20,11 @@ internal fun StockSearchPane(
     onQueryChange: (String) -> Unit,
     onSelect: (org.example.stocksteps.model.StockSearchResult) -> Unit,
     onRetryQuote: () -> Unit,
-    onRetryProfile: () -> Unit
+    onRetryProfile: () -> Unit,
+    saved: Boolean = false,
+    watchlistEnabled: Boolean = false,
+    watchlistError: String? = null,
+    onToggleWatchlist: () -> Unit = {}
 ) {
     LazyColumn(
         modifier = modifier,
@@ -45,7 +49,11 @@ internal fun StockSearchPane(
                     state = state,
                     modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
                     onRetry = onRetryQuote,
-                    onRetryProfile = onRetryProfile
+                    onRetryProfile = onRetryProfile,
+                    saved = saved,
+                    watchlistEnabled = watchlistEnabled,
+                    watchlistError = watchlistError,
+                    onToggleWatchlist = onToggleWatchlist
                 )
             }
         }

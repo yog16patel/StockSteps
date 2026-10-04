@@ -7,6 +7,10 @@ struct StockQuoteScreen: View {
     let stock: StockSearchResult
     let onRetryQuote: () -> Void
     let onRetryProfile: () -> Void
+    let saved: Bool
+    let watchlistEnabled: Bool
+    let watchlistError: String?
+    let onToggleWatchlist: () -> Void
     private var palette: ThemePalette { StockStepsTheme.palette(colorScheme) }
 
     var body: some View {
@@ -29,6 +33,11 @@ struct StockQuoteScreen: View {
                     LabeledContent("Change", value: numberText(quote.change))
                     LabeledContent("Change (%)", value: numberText(quote.changePercent))
                 }
+            }
+            Section {
+                Button(saved ? "Remove from WatchList" : "Add to WatchList", action: onToggleWatchlist)
+                    .disabled(!watchlistEnabled)
+                if let error = watchlistError { Text(error).foregroundStyle(.red) }
             }
             CompanyProfileView(state: state, onRetry: onRetryProfile)
         }

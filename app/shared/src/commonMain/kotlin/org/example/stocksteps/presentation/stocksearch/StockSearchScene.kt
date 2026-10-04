@@ -13,7 +13,8 @@ import org.example.stocksteps.model.StockSearchResult
 internal fun StockSearchScene(
     route: StockSearchRoute,
     baseUrl: String?,
-    hinge: WindowHinge?
+    hinge: WindowHinge?,
+    accounts: org.example.stocksteps.di.AccountDependencies? = null
 ) {
     var savedQuery by rememberSaveable { mutableStateOf("") }
     var savedSelection by rememberSaveable(stateSaver = listSaver<StockSearchResult?, String>(
@@ -33,5 +34,21 @@ internal fun StockSearchScene(
     }
     val state by model.state.collectAsStateWithLifecycle()
     SideEffect { savedQuery = state.query; savedSelection = state.selected }
-    StockSearchScreen(state, hinge, model::changeQuery, model::selectStock, model::retryQuote, model::retryProfile)
+    val watchlistModel = accounts?.let { owner ->
+        viewModel(key = "stock-watchlist") { owner.stockWatchlistViewModel() }
+    }
+    val watchlistState by (watchlistModel?.state ?: kotlinx.coroutines.flow.MutableStateFlow(StockWatchlistState()))
+        .collectAsStateWithLifecycle()
+    StockSearchScreen(
+        state = state,
+        hinge = hinge,
+        onQueryChange = model::changeQuery,
+        onSelect = model::selectStock,
+        onRetryQuote = model::retryQuote,
+        onRetryProfile = model::retryProfile,
+        saved = state.selected?.symbol in watchlistState.symbols,
+        watchlistEnabled = watchlistState.enabled,
+        watchlistError = watchlistState.error,
+        onToggleWatchlist = { state.selected?.symbol?.let { watchlistModel?.toggle(it) } }
+    )
 }

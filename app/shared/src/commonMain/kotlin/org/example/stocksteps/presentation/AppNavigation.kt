@@ -8,7 +8,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.*
 import androidx.navigation.toRoute
-import org.example.stocksteps.presentation.welcome.*
+import org.example.stocksteps.di.AccountDependencies
+import org.example.stocksteps.presentation.account.*
 import org.example.stocksteps.MainDestination
 import org.example.stocksteps.presentation.watchlist.*
 import org.example.stocksteps.presentation.learn.*
@@ -23,7 +24,8 @@ import org.example.stocksteps.presentation.stocksearch.StockSearchScene
 internal fun AppNavigation(
     baseUrl: String?,
     hinge: WindowHinge?,
-    navigationIcon: @Composable (MainDestination) -> Unit
+    navigationIcon: @Composable (MainDestination) -> Unit,
+    accounts: AccountDependencies?
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -43,7 +45,7 @@ internal fun AppNavigation(
         }
     }
 
-    val isWelcome = destination == null || destination?.hasRoute<WelcomeRoute>() == true
+    val isAuth = destination?.hasRoute<AuthRoute>() == true
     val isSearch = destination?.hasRoute<StockSearchRoute>() == true
 
     Column(
@@ -59,16 +61,9 @@ internal fun AppNavigation(
         }
         NavHost(
             navController = navController,
-            startDestination = WelcomeRoute,
+            startDestination = if (accounts != null) AuthRoute() else DiscoveryRoute,
             modifier = Modifier.weight(1f)
         ) {
-            composable<WelcomeRoute> {
-                WelcomeScene(hinge = hinge, onStartExploring = {
-                    navController.navigate(DiscoveryRoute) {
-                        popUpTo<WelcomeRoute> { inclusive = true }
-                    }
-                })
-            }
             composable<DiscoveryRoute> {
                 DiscoveryScene(
                     baseUrl = baseUrl,
@@ -82,18 +77,41 @@ internal fun AppNavigation(
                     }
                 )
             }
-            composable<WatchListRoute> { WatchListScene(hinge) }
+            composable<WatchListRoute> {
+                if (accounts != null) WatchListScene(
+                    accounts = accounts,
+                    hinge = hinge,
+                    onSignIn = { navController.navigate(AuthRoute()) },
+                    onSearch = { navController.navigate(StockSearchRoute()) },
+                    onExplore = { navController.navigate(StockSearchRoute(initialSymbol = it)) }
+                )
+            }
             composable<LearnRoute> { LearnScene(hinge) }
-            composable<SettingsRoute> { SettingsScene(hinge) }
+            composable<SettingsRoute> {
+                if (accounts != null) SettingsScene(accounts, hinge) { navController.navigate(AuthRoute()) }
+            }
+            composable<AuthRoute> { entry ->
+                if (accounts != null) AuthScene(accounts, entry.toRoute<AuthRoute>(), hinge) {
+                    if (navController.previousBackStackEntry != null) {
+                        navController.popBackStack()
+                    } else {
+                        navController.navigate(DiscoveryRoute) {
+                            popUpTo<AuthRoute> { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                }
+            }
             composable<StockSearchRoute> { entry ->
                 StockSearchScene(
                     route = entry.toRoute<StockSearchRoute>(),
                     baseUrl = baseUrl,
-                    hinge = hinge
+                    hinge = hinge,
+                    accounts = accounts
                 )
             }
         }
-        if (!isSearch && !isWelcome) {
+        if (destination != null && !isSearch && !isAuth) {
             NavigationBar {
                 MainDestination.entries.forEach { tab ->
                     val selected = when (tab) {

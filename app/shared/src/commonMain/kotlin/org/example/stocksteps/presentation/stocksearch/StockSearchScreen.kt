@@ -21,7 +21,11 @@ internal fun StockSearchScreen(
     onQueryChange: (String) -> Unit,
     onSelect: (org.example.stocksteps.model.StockSearchResult) -> Unit,
     onRetryQuote: () -> Unit,
-    onRetryProfile: () -> Unit
+    onRetryProfile: () -> Unit,
+    saved: Boolean = false,
+    watchlistEnabled: Boolean = false,
+    watchlistError: String? = null,
+    onToggleWatchlist: () -> Unit = {}
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
@@ -57,7 +61,11 @@ internal fun StockSearchScreen(
                 onQueryChange = onQueryChange,
                 onSelect = onSelect,
                 onRetryQuote = onRetryQuote,
-                onRetryProfile = onRetryProfile
+                onRetryProfile = onRetryProfile,
+                saved = saved,
+                watchlistEnabled = watchlistEnabled,
+                watchlistError = watchlistError,
+                onToggleWatchlist = onToggleWatchlist
             )
         } else {
             StockSearchSidebar(
@@ -70,7 +78,11 @@ internal fun StockSearchScreen(
                 state = state,
                 modifier = detail.modifier(),
                 onRetry = onRetryQuote,
-                onRetryProfile = onRetryProfile
+                onRetryProfile = onRetryProfile,
+                saved = saved,
+                watchlistEnabled = watchlistEnabled,
+                watchlistError = watchlistError,
+                onToggleWatchlist = onToggleWatchlist
             )
         }
     }

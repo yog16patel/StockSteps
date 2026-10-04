@@ -4,6 +4,7 @@ import SwiftUI
 struct StockSearchScene: View {
     @Environment(\.colorScheme) private var colorScheme
     let model: StockSearchViewModel
+    let accounts: AccountViewModel
     @State private var selectedStock: StockSearchResult?
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
 
@@ -29,7 +30,11 @@ struct StockSearchScene: View {
                     state: model.uiState,
                     stock: stock,
                     onRetryQuote: { model.loadQuote(for: stock) },
-                    onRetryProfile: { model.loadProfile(for: stock) }
+                    onRetryProfile: { model.loadProfile(for: stock) },
+                    saved: accounts.state.items.contains { $0.symbol == stock.symbol },
+                    watchlistEnabled: !accounts.state.initializing,
+                    watchlistError: accounts.state.error,
+                    onToggleWatchlist: { Task { await accounts.toggle(symbol: stock.symbol) } }
                 )
             } else {
                 ContentUnavailableView("Select a stock", systemImage: "chart.line.uptrend.xyaxis",

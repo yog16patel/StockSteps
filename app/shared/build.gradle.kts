@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
+    alias(libs.plugins.sqldelight)
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
@@ -43,14 +44,18 @@ kotlin {
 
     sourceSets {
         androidMain.dependencies {
+            implementation(libs.sqldelight.android)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
         }
         iosMain.dependencies {
+            implementation(libs.sqldelight.native)
             implementation(libs.ktor.client.darwin)
         }
         commonMain.dependencies {
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines)
             implementation(libs.koin.core)
             implementation(libs.compose.navigation)
             api(project(":core"))
@@ -63,6 +68,9 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
         }
+        getByName("androidHostTest").dependencies {
+            implementation(libs.sqldelight.sqlite)
+        }
         commonTest.dependencies {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
             implementation(libs.ktor.client.mock)
@@ -73,4 +81,12 @@ kotlin {
 
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
+}
+
+sqldelight {
+    databases {
+        create("WatchlistDatabase") {
+            packageName.set("org.example.stocksteps.local")
+        }
+    }
 }

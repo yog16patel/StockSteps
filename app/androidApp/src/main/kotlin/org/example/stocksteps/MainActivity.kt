@@ -1,6 +1,8 @@
 package org.example.stocksteps
 
 import android.os.Bundle
+import org.example.stocksteps.account.AndroidAccountOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,6 +21,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
+            val accountOwner = viewModel { AndroidAccountOwner(application) }
+            androidx.compose.runtime.LaunchedEffect(accountOwner) {
+                lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    accountOwner.dependencies.watchlist.retrySync()
+                    kotlinx.coroutines.awaitCancellation()
+                }
+            }
             val hinge by produceState<WindowHinge?>(null) {
                 lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                     WindowInfoTracker.getOrCreate(this@MainActivity).windowLayoutInfo(this@MainActivity).collect { info ->
@@ -33,6 +42,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             App(
+                accounts = accountOwner.dependencies,
                 hinge = hinge,
                 baseUrl = if (BuildConfig.DEBUG) "http://127.0.0.1:8080" else null,
                 navigationIcon = { AndroidNavigationIcon(it) }

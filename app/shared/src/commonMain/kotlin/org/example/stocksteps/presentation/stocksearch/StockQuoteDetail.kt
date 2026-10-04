@@ -15,7 +15,11 @@ internal fun StockQuoteDetail(
     state: StockSearchState,
     modifier: Modifier,
     onRetry: () -> Unit,
-    onRetryProfile: () -> Unit
+    onRetryProfile: () -> Unit,
+    saved: Boolean = false,
+    watchlistEnabled: Boolean = false,
+    watchlistError: String? = null,
+    onToggleWatchlist: () -> Unit = {}
 ) {
     Surface(
         modifier = modifier,
@@ -82,6 +86,10 @@ internal fun StockQuoteDetail(
                     QuoteMetric("Day high", quote.dayHigh?.toString() ?: "Unavailable")
                     QuoteMetric("Day low", quote.dayLow?.toString() ?: "Unavailable")
                 }
+                Button(onClick = onToggleWatchlist, enabled = watchlistEnabled) {
+                    Text(text = if (saved) "Remove from WatchList" else "Add to WatchList")
+                }
+                watchlistError?.let { Text(text = it, color = MaterialTheme.colorScheme.error) }
                 CompanyProfileSection(state, onRetryProfile)
             }
         }

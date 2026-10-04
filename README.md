@@ -321,3 +321,13 @@ Bottom tabs: Home, WatchList, Learn, Settings. Android uses the supplied drawabl
 icons; iOS uses native system icons. WatchList, Learn, and Settings are placeholder
 screens only. Home contains discovery and opens Search through Search stocks or
 a mover selection. Search is a secondary Android destination/native iOS sheet.
+
+
+## Accounts and offline watchlist
+
+Firebase email/password authentication and a SQLDelight-backed watchlist are
+implemented on Android and native iOS. Firestore stores only per-user ticker
+membership and timestamps; financial data stays on the Ktor backend. See
+[authentication/watchlist setup and sync policy](docs/AUTH_WATCHLIST.md) for
+configuration, tests, database ownership, security rules, and conflict behavior.
+The actual iOS Firebase package requires Xcode 26.2 or newer.

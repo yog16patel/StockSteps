@@ -14,7 +14,11 @@ internal fun StockQuotePane(
     state: StockSearchState,
     modifier: Modifier = Modifier,
     onRetry: () -> Unit,
-    onRetryProfile: () -> Unit
+    onRetryProfile: () -> Unit,
+    saved: Boolean = false,
+    watchlistEnabled: Boolean = false,
+    watchlistError: String? = null,
+    onToggleWatchlist: () -> Unit = {}
 ) {
     Column(
         modifier = modifier.verticalScroll(rememberScrollState()),
@@ -41,6 +45,10 @@ internal fun StockQuotePane(
                     Text(it, color = MaterialTheme.colorScheme.error)
                     TextButton(onClick = onRetry) { Text("Retry quote") }
                 }
+                Button(onClick = onToggleWatchlist, enabled = watchlistEnabled) {
+                    Text(text = if (saved) "Remove from WatchList" else "Add to WatchList")
+                }
+                watchlistError?.let { Text(text = it, color = MaterialTheme.colorScheme.error) }
                 CompanyProfileSection(state, onRetryProfile)
             }
         }

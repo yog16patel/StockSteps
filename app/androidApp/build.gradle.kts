@@ -10,15 +10,28 @@ kotlin {
         jvmTarget = JvmTarget.JVM_11
     }
 }
+// Guest mode builds without Firebase configuration; account UI reports setup is missing.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 dependencies {
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.sqldelight.android)
     implementation(project(":app:shared"))
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.material3)
+    implementation(libs.androidx.lifecycle.viewmodelCompose)
     implementation("androidx.window:window:1.5.1")
 
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.testExt.junit)
+    androidTestImplementation("androidx.test:runner:1.7.0")
 }
 
 android {
@@ -29,6 +42,7 @@ android {
         applicationId = "org.example.stocksteps"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         versionCode = 1
         versionName = "1.0"
     }
@@ -38,7 +52,11 @@ android {
         }
     }
     buildTypes {
+        debug {
+            buildConfigField("boolean", "FIREBASE_EMULATORS", providers.gradleProperty("firebaseEmulators").orElse("false").get())
+        }
         release {
+            buildConfigField("boolean", "FIREBASE_EMULATORS", "false")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

@@ -1,0 +1,40 @@
+CREATE TABLE watchlist (
+    owner TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    addedAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    PRIMARY KEY (owner, symbol)
+);
+
+CREATE TABLE pending_operation (
+    revision INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    owner TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    addedAt INTEGER,
+    updatedAt INTEGER,
+    UNIQUE (owner, symbol)
+);
+
+items:
+SELECT * FROM watchlist WHERE owner = ? ORDER BY addedAt, symbol;
+
+item:
+SELECT * FROM watchlist WHERE owner = ? AND symbol = ?;
+
+putItem:
+INSERT OR REPLACE INTO watchlist(owner, symbol, addedAt, updatedAt) VALUES (?, ?, ?, ?);
+
+removeItem:
+DELETE FROM watchlist WHERE owner = ? AND symbol = ?;
+
+pending:
+SELECT * FROM pending_operation WHERE owner = ? ORDER BY revision;
+
+queue:
+INSERT OR REPLACE INTO pending_operation(owner, symbol, addedAt, updatedAt) VALUES (?, ?, ?, ?);
+
+acknowledge:
+DELETE FROM pending_operation WHERE owner = ? AND revision = ?;
+
+clearGuest:
+DELETE FROM watchlist WHERE owner = 'guest';

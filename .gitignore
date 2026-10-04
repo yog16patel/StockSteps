@@ -44,3 +44,9 @@ replay_pid*
 
 # Kotlin Gradle plugin data, see https://kotlinlang.org/docs/whatsnew20.html#new-directory-for-kotlin-data-in-gradle-projects
 .kotlin/
+# Firebase app configuration is supplied per development/release environment.
+app/androidApp/google-services.json
+app/iosApp/iosApp/GoogleService-Info.plist
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

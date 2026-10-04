@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owns(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    function validItem(symbol) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['symbol', 'addedAt', 'updatedAt'])
+        && data.keys().hasOnly(['symbol', 'addedAt', 'updatedAt'])
+        && data.symbol is string
+        && data.symbol == symbol
+        && symbol.matches('^[A-Z0-9][A-Z0-9.^-]{0,31}$')
+        && data.addedAt is int && data.updatedAt is int
+        && data.addedAt >= 0 && data.updatedAt >= data.addedAt;
+    }
+    match /users/{uid}/watchlist/{symbol} {
+      allow read, delete: if owns(uid);
+      allow create, update: if owns(uid) && validItem(symbol);
+    }
+    // All unspecified paths are denied by default.
+  }
+}
