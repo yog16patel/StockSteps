@@ -314,3 +314,10 @@ screens receive UI state and callbacks and render adaptive content.
 Native iOS follows the same separation using AppRoute, AppScene, feature scenes,
 and value-state screens with callback/input bindings. Navigation remains native
 TabView/NavigationSplitView. See PROJECT_HANDOFF.md for the current file map.
+
+### Main navigation shell
+
+Bottom tabs: Home, WatchList, Learn, Settings. Android uses the supplied drawable
+icons; iOS uses native system icons. WatchList, Learn, and Settings are placeholder
+screens only. Home contains discovery and opens Search through Search stocks or
+a mover selection. Search is a secondary Android destination/native iOS sheet.

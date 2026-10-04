@@ -21,7 +21,8 @@ private fun DiscoveryContent(
     modifier: Modifier,
     onRetry: (DiscoverySection) -> Unit,
     onRefresh: () -> Unit,
-    onExplore: (String) -> Unit
+    onExplore: (String) -> Unit,
+    onSearch: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
     LazyColumn(
@@ -31,6 +32,7 @@ private fun DiscoveryContent(
         item {
             Text(text = "Discover", style = MaterialTheme.typography.headlineMedium)
             Text(text = "Explore market movers and the latest headlines.")
+            TextButton(onClick = onSearch) { Text(text = "Search stocks") }
             TextButton(onClick = onRefresh) { Text(text = "Refresh") }
         }
         item {
@@ -69,7 +71,8 @@ internal fun DiscoveryScreen(
     hinge: WindowHinge?,
     onRetry: (DiscoverySection) -> Unit,
     onRefresh: () -> Unit,
-    onExplore: (String) -> Unit
+    onExplore: (String) -> Unit,
+    onSearch: () -> Unit
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
@@ -108,7 +111,8 @@ internal fun DiscoveryScreen(
             modifier = modifier,
             onRetry = onRetry,
             onRefresh = onRefresh,
-            onExplore = onExplore
+            onExplore = onExplore,
+            onSearch = onSearch
         )
     }
 }

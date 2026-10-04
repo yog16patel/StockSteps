@@ -1,4 +1,6 @@
 enum AppRoute: Hashable {
     case home
-    case search
+    case watchlist
+    case learn
+    case settings
 }

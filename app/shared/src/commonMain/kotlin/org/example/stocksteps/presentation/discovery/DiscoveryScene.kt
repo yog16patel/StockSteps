@@ -10,7 +10,8 @@ import org.example.stocksteps.di.StockStepsDependencies
 internal fun DiscoveryScene(
     baseUrl: String?,
     hinge: WindowHinge?,
-    onExplore: (String) -> Unit
+    onExplore: (String) -> Unit,
+    onSearch: () -> Unit
 ) {
     val model = viewModel(key = "discovery:${baseUrl.orEmpty()}") {
         StockStepsDependencies(baseUrl ?: localBackendUrl()).discoveryViewModel()
@@ -21,6 +22,7 @@ internal fun DiscoveryScene(
         hinge = hinge,
         onRetry = model::retry,
         onRefresh = model::refresh,
-        onExplore = onExplore
+        onExplore = onExplore,
+        onSearch = onSearch
     )
 }

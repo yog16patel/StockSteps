@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Current update: "Add mobile discovery and route-scene-screen navigation" on `main`.
-Previous implementation baseline: `34616b9`.
+Last updated: 2026-10-04. Current update: "Add Home WatchList Learn and Settings navigation tabs" on `main`.
+Previous implementation baseline: `ab10b7c` (discovery and route/scene/screen navigation).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -253,7 +253,7 @@ The next suggested product increment after discovery is a persistent watchlist. 
 iOS 26 glass verification remain pending. Every future commit must update this
 file, as recorded in AGENTS.md.
 
-## Current commit: discovery/Home
+## Previous milestone: discovery/Home
 
 Home/Search navigation is added on Android and iOS. Discovery independently loads
 gainers, losers, and the first 20 current news headlines. Shows the first five
@@ -282,7 +282,7 @@ screen visually checked on the unfolded emulator with live gainers loaded.
 Native iOS runtime navigation/article-opening remains unverified. News remains a current-feed slice, not
 stable history; no mobile pagination is implemented.
 
-## Current commit: route/scene/screen separation
+## Previous milestone: route/scene/screen separation
 
 The owner requested explicit navigation boundaries. Compose uses typed
 Navigation Compose 2.9.2 destinations rather than a Boolean tab switch.
@@ -315,3 +315,26 @@ commit, with this handoff update. Check git status for subsequent local changes.
 Next product increment: a watchlist with persistence chosen for the actual
 requirements. Remaining verification includes iOS runtime navigation/article
 links, process restoration, fold transitions/accessibility, and iOS 26 glass.
+
+## Current commit: four-tab navigation shell
+
+Owner explicitly limited this increment to navigation/screens, not complete
+features. Bottom tabs are Home, WatchList, Learn, and Settings. Android uses the
+owner's existing drawable icons: ic_home, ic_watchlist, ic_learn_more, ic_settings.
+AndroidNavigationIcon maps public MainDestination values to native resource
+painters; App accepts the icon composable from its platform entry point.
+WatchList/Learn/Settings have separate typed route, scene, and placeholder screen
+files without storage, lessons, or preferences logic. Home retains discovery;
+Search opens from Home or mover selection as a secondary destination with Back.
+
+iOS mirrors the four native tabs using SF Symbols and placeholder scenes/screens.
+Search is presented from Home in a native sheet with Done; it retains its native
+search/detail navigation. AppRoute defines only the four tab identities.
+
+No watchlist persistence, learning content, or settings behavior is implemented
+in this increment. Android and native iOS builds passed, and existing shared
+Android host tests passed. Android was installed on the emulator; all four labels
+were found and WatchList/Learn placeholder navigation was verified. The emulator
+disconnected during the Settings check, so Settings is build-verified only.
+iOS tab interaction is build-verified only. Next feature work requires a separate
+user request.

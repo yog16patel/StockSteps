@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":app:shared"))
 
     implementation(libs.androidx.activity.compose)
+    implementation(libs.compose.material3)
     implementation("androidx.window:window:1.5.1")
 
     implementation(libs.compose.uiToolingPreview)

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DiscoveryScene: View {
     let model: DiscoveryViewModel
+    let onSearch: () -> Void
     let onExplore: (String) -> Void
 
     var body: some View {
@@ -11,6 +12,7 @@ struct DiscoveryScene: View {
             onRetryGainers: model.loadGainers,
             onRetryLosers: model.loadLosers,
             onRetryNews: model.loadNews,
+            onSearch: onSearch,
             onExplore: onExplore
         )
         .task { model.loadIfNeeded() }

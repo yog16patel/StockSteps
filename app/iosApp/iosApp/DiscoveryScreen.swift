@@ -8,6 +8,7 @@ struct DiscoveryScreen: View {
     let onRetryGainers: () -> Void
     let onRetryLosers: () -> Void
     let onRetryNews: () -> Void
+    let onSearch: () -> Void
     let onExplore: (String) -> Void
     private var palette: ThemePalette { StockStepsTheme.palette(colorScheme) }
 
@@ -16,6 +17,7 @@ struct DiscoveryScreen: View {
             List {
                 Section {
                     Text("Explore market movers and the latest headlines.")
+                    Button("Search stocks", action: onSearch)
                 }
                 MarketMoversView(title: "Top gainers", feed: state.gainers, onRetry: onRetryGainers, onExplore: onExplore)
                 MarketMoversView(title: "Top losers", feed: state.losers, onRetry: onRetryLosers, onExplore: onExplore)

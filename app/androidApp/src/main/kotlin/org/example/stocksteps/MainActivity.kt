@@ -32,7 +32,11 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
-            App(hinge = hinge, baseUrl = if (BuildConfig.DEBUG) "http://127.0.0.1:8080" else null)
+            App(
+                hinge = hinge,
+                baseUrl = if (BuildConfig.DEBUG) "http://127.0.0.1:8080" else null,
+                navigationIcon = { AndroidNavigationIcon(it) }
+            )
         }
     }
 }
@@ -40,5 +44,5 @@ class MainActivity : ComponentActivity() {
 @Preview
 @Composable
 fun AppAndroidPreview() {
-    App()
+    App(navigationIcon = { AndroidNavigationIcon(it) })
 }

@@ -3,6 +3,7 @@ import SwiftUI
 struct AppScene: View {
     @State private var searchModel: StockSearchViewModel
     @State private var discoveryModel: DiscoveryViewModel
+    @State private var showingSearch = false
     @State private var selectedTab = AppRoute.home
 
 
@@ -13,17 +14,33 @@ struct AppScene: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            DiscoveryScene(model: discoveryModel) { symbol in
+            DiscoveryScene(model: discoveryModel, onSearch: { showingSearch = true }) { symbol in
                 searchModel.query = symbol
                 searchModel.scheduleSearch()
-                selectedTab = .search
+                showingSearch = true
             }
             .tabItem { Label("Home", systemImage: "house") }
             .tag(AppRoute.home)
 
+            WatchListScene()
+                .tabItem { Label("WatchList", systemImage: "star") }
+                .tag(AppRoute.watchlist)
+
+            LearnScene()
+                .tabItem { Label("Learn", systemImage: "book") }
+                .tag(AppRoute.learn)
+
+            SettingsScene()
+                .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(AppRoute.settings)
+        }
+        .sheet(isPresented: $showingSearch) {
             StockSearchScene(model: searchModel)
-                .tabItem { Label("Search", systemImage: "magnifyingglass") }
-                .tag(AppRoute.search)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showingSearch = false }
+                    }
+                }
         }
     }
 }
