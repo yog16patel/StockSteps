@@ -1,3 +1,5 @@
+For project status, architecture, and pending work, read [PROJECT_HANDOFF.md](PROJECT_HANDOFF.md).
+
 This is a Kotlin Multiplatform project targeting Android, iOS, Server.
 
 * [/app/iosApp](./app/iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose
