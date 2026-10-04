@@ -10,6 +10,7 @@ interface AuthRepository {
     val currentUser: Flow<User?>
     suspend fun signUp(email: String, password: String)
     suspend fun signIn(email: String, password: String)
+    suspend fun signInWithGoogle() { throw AccountException("Google sign-in is not configured.") }
     suspend fun signOut()
 }
 

@@ -185,3 +185,27 @@ login/signup/logout, offline flows, and restored sessions on iPhone/iPad. Verify
 live Android authentication with an account controlled by the owner. Provider
 access, production HTTPS backend, distribution/signing, and broader adaptive/
 accessibility checks remain as documented in PROJECT_HANDOFF.md.
+
+### Google sign-in
+
+The login button now uses Android Credential Manager (explicit Google button flow)
+and native GoogleSignIn 9.2.0 on iOS, followed by Firebase signInWithCredential.
+No provider token is saved or logged; Firebase owns the resulting session. The
+existing UID-scoped guest merge and watchlist sync apply to Google accounts too.
+Cancellation stays on login with a safe message; duplicate actions are blocked.
+
+Owner confirmed Google provider is enabled for stocksteps. Current config files
+contain Android/web OAuth clients and iOS client/reversed client IDs. Owner
+registered this machine’s debug SHA-1 and refreshed Android config; exact match
+verified on 2026-10-04. Register additional Android
+signing certificates in Firebase project settings and download updated config.
+Debug SHA-1 for this development machine:
+`EE:EB:4D:0A:99:3E:C9:C3:F0:DF:4B:C5:F4:01:40:89:03:5C:CB:F9`.
+Release/Play signing certificates must also be registered before production use.
+iOS URL scheme comes from GoogleService-Info.plist's REVERSED_CLIENT_ID; refresh
+Info.plist URL types if replacing the config with another OAuth client.
+
+Android build/core tests passed and provider UI opened on emulator-5554. No real
+Google account was entered by the agent. Native compile passed using the isolated
+Firebase compatibility project; actual Firebase pin still needs upgraded Xcode.
+Password recovery and account linking UI remain pending.

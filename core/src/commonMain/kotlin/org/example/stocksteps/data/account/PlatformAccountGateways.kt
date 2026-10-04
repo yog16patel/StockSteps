@@ -11,6 +11,7 @@ interface PlatformAuthGateway {
     fun observeUser(onChange: (User?) -> Unit): AccountSubscription
     fun signUp(email: String, password: String, completion: (String?) -> Unit)
     fun signIn(email: String, password: String, completion: (String?) -> Unit)
+    fun signInWithGoogle(completion: (String?) -> Unit) { completion("Google sign-in is not configured.") }
     fun signOut(completion: (String?) -> Unit)
 }
 

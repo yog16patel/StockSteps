@@ -6,6 +6,7 @@ struct AuthScreen: View {
     @Binding var password: String
     let signup: Bool
     let onSwitchMode: () -> Void
+    let onGoogle: () -> Void
     let onSubmit: () -> Void
     let onGuest: () -> Void
     @State private var revealed = false
@@ -26,9 +27,7 @@ struct AuthScreen: View {
                         .font(AuthTheme.font(t.body))
                         .foregroundStyle(AuthTheme.color(t.muted))
                 }
-                AuthButton(title: "Continue with Google", google: true, enabled: !busy) {
-                    notice = "Google sign-in is not available yet. Please use email or continue as a guest."
-                }
+                AuthButton(title: "Continue with Google", google: true, enabled: !busy && state.configurationError == nil, action: onGoogle)
                 AuthDivider(text: "or use email")
                 AuthField(label: "Email") {
                     TextField("you@example.com", text: $email)

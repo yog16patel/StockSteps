@@ -33,6 +33,11 @@ class DefaultAuthRepository(private val gateway: PlatformAuthGateway, scope: Cor
         validate(email, password)
         awaitAccountOperation { gateway.signIn(email.trim(), password, it) }
     }
+    override suspend fun signInWithGoogle() {
+        gateway.configurationError?.let { throw AccountException(it) }
+        awaitAccountOperation(gateway::signInWithGoogle)
+    }
+
     override suspend fun signOut() = awaitAccountOperation(gateway::signOut)
 
     private fun validate(email: String, password: String) {

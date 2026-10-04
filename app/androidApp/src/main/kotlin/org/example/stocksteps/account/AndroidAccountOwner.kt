@@ -23,8 +23,9 @@ internal class AndroidAccountOwner(application: Application) : ViewModel() {
             cloud?.useEmulator("127.0.0.1", 8085)
         }
     }
+    val google = AndroidGoogleSignIn(application)
     val dependencies = AccountDependencies(
-        AndroidAuthGateway(auth),
+        AndroidAuthGateway(auth, google),
         AndroidWatchlistGateway(cloud),
         AndroidSqliteDriver(WatchlistDatabase.Schema, application, "stocksteps-watchlist.db")
     )
@@ -35,6 +36,7 @@ internal class AndroidAccountOwner(application: Application) : ViewModel() {
     init { connectivity.registerDefaultNetworkCallback(callback) }
     override fun onCleared() {
         connectivity.unregisterNetworkCallback(callback)
+        google.close()
         dependencies.close()
     }
 }

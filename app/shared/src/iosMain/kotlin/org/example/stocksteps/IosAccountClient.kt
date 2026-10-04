@@ -36,6 +36,8 @@ class IosAccountClient(auth: PlatformAuthGateway, cloud: PlatformWatchlistGatewa
     @Throws(Exception::class)
     suspend fun signUp(email: String, password: String) = dependencies.signUp()(email, password)
     @Throws(Exception::class)
+    suspend fun signInWithGoogle() = dependencies.auth.signInWithGoogle()
+    @Throws(Exception::class)
     suspend fun signOut() = dependencies.signOut()()
     @Throws(Exception::class)
     suspend fun add(symbol: String) = dependencies.addToWatchlist()(symbol)

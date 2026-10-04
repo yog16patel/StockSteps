@@ -30,6 +30,7 @@ internal fun AuthScene(accounts: AccountDependencies, route: AuthRoute, hinge: W
         onEmailChange = { email = it },
         onPasswordChange = { password = it },
         onSwitchMode = { signup = !signup; password = "" },
+        onGoogle = { password = ""; model.googleSignIn() },
         onSubmit = { model.submit(email, password, signup) },
         onGuest = { password = ""; onDone() }
     )

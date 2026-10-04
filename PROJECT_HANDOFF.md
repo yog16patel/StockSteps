@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Current update: "Add Firebase authentication and synced watchlist with login-first navigation" on `main`.
-Previous implementation baseline: `6af071f` (Figma welcome screen).
+Last updated: 2026-10-04. Current update: "Integrate Firebase Google sign-in on Android and iOS" on `main`.
+Previous implementation baseline: `540ed85` (Firebase accounts, synced watchlist and login-first navigation).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -471,3 +471,26 @@ Validation: Android debug build and shared native framework link passed; native
 Swift compile passed in isolated Firebase compatibility project (actual Xcode/SDK
 limitation unchanged). Android fresh-process login and guest-to-Home/bottom-tabs
 navigation verified. Included in the current commit.
+
+## Google sign-in integration (included in current commit)
+
+Continue with Google invokes Firebase-backed authentication on Android/iOS. Shared
+repository has a SDK-free provider action, used through existing account models;
+UI loading/errors/completion and UID-based watchlist sync are reused. Android
+Credential Manager 1.5.0 + googleid 1.1.1 use GetSignInWithGoogleOption with the
+configured web client ID. Provider adapter keeps only a weak Activity reference,
+cancels presentation when detached, and clears credential state on logout. iOS
+GoogleSignIn 9.2.0 SPM product, client configuration, foreground presentation,
+reversed-client URL scheme and SwiftUI URL callback are wired. Tokens stay native
+and are neither persisted nor logged. Google SDK logout accompanies Firebase logout.
+
+Owner confirmed Google provider enabled. Owner registered the debug SHA-1 and refreshed google-services.json. Verified
+stocksteps/package org.example.stocksteps, Android OAuth client type 1 with exact
+debug fingerprint match, and web client type 3. Real Google login still needs
+owner account testing. Provider UI opened on Android emulator;
+cancellation returned to login with safe feedback. Core tests include provider
+completion and cancellation/no false identity success. Android/shared framework
+builds passed; iOS compile passed in isolated compatibility project. Actual iOS
+Xcode requirement unchanged. Updated-config Android build passed and was installed
+for owner testing. Google sign-in code, OAuth callback configuration and this
+handoff update are included in the current commit.

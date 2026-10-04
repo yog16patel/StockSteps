@@ -27,6 +27,7 @@ internal fun AuthScreen(
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onSwitchMode: () -> Unit,
+    onGoogle: () -> Unit,
     onSubmit: () -> Unit,
     onGuest: () -> Unit
 ) {
@@ -51,9 +52,7 @@ internal fun AuthScreen(
                         Text(if (signup) "Create account" else "Welcome back", style = AuthTokens.title.authStyle(), color = authColor(AuthTokens.ink))
                         Text("Sign in to sync your Watchlist across devices.", style = AuthTokens.body.authStyle(), color = authColor(AuthTokens.muted))
                     }
-                    AuthButton("Continue with Google", enabled = !busy, onClick = {
-                        notice = "Google sign-in is not available yet. Please use email or continue as a guest."
-                    }) {
+                    AuthButton("Continue with Google", enabled = configured && !busy, onClick = onGoogle) {
                         Box(
                             modifier = Modifier.size(AuthTokens.googleSize.dp)
                                 .border(AuthTokens.googleBorderWidth.dp, authColor(AuthTokens.googleBorder), RoundedCornerShape(AuthTokens.googleRadius.dp)),

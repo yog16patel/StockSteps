@@ -4,6 +4,7 @@ import Shared
 import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
+import GoogleSignIn
 #endif
 
 final class NativeAccountSubscription: NSObject, AccountSubscription {
@@ -46,6 +47,7 @@ private final class UnconfiguredAuthGateway: NSObject, PlatformAuthGateway {
     }
     func signIn(email: String, password: String, completion: @escaping (String?) -> Void) { completion(configurationError) }
     func signUp(email: String, password: String, completion: @escaping (String?) -> Void) { completion(configurationError) }
+    func signInWithGoogle(completion: @escaping (String?) -> Void) { completion(configurationError) }
     func signOut(completion: @escaping (String?) -> Void) { completion(nil) }
 }
 
@@ -78,8 +80,15 @@ private final class NativeAuthGateway: NSObject, PlatformAuthGateway {
         guard let auth else { completion(configurationError); return }
         auth.createUser(withEmail: email, password: password) { _, error in completion(error.map(safeAuthMessage)) }
     }
+    func signInWithGoogle(completion: @escaping (String?) -> Void) {
+        guard let auth else { completion(configurationError); return }
+        NativeGoogleSignIn.signIn { credential, error in
+            guard let credential else { completion(error ?? "Google sign-in was cancelled."); return }
+            auth.signIn(with: credential) { _, error in completion(error.map(safeAuthMessage)) }
+        }
+    }
     func signOut(completion: @escaping (String?) -> Void) {
-        do { try auth?.signOut(); completion(nil) }
+        do { try auth?.signOut(); GIDSignIn.sharedInstance.signOut(); completion(nil) }
         catch { completion(safeAuthMessage(error)) }
     }
 }

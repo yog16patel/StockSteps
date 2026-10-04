@@ -14,6 +14,12 @@ struct AuthScene: View {
             password: $password,
             signup: signup,
             onSwitchMode: { signup.toggle(); password = "" },
+            onGoogle: {
+                password = ""
+                Task {
+                    if await model.signInWithGoogle() { onDone() }
+                }
+            },
             onSubmit: {
                 Task {
                     if await model.authenticate(email: email, password: password, signup: signup) {

@@ -6,7 +6,7 @@ import com.google.firebase.FirebaseNetworkException
 import org.example.stocksteps.data.account.*
 import org.example.stocksteps.model.User
 
-internal class AndroidAuthGateway(private val auth: FirebaseAuth?) : PlatformAuthGateway {
+internal class AndroidAuthGateway(private val auth: FirebaseAuth?, private val google: AndroidGoogleSignIn? = null) : PlatformAuthGateway {
     override val configurationError: String? = if (auth == null) "Account sign-in is not configured yet. Your watchlist is saved on this device." else null
 
     override fun observeUser(onChange: (User?) -> Unit): AccountSubscription {
@@ -26,8 +26,17 @@ internal class AndroidAuthGateway(private val auth: FirebaseAuth?) : PlatformAut
         val auth = auth ?: return completion(configurationError)
         auth.signInWithEmailAndPassword(email, password).addOnCompleteListener { completion(it.exception?.safeAuthMessage()) }
     }
+    override fun signInWithGoogle(completion: (String?) -> Unit) {
+        val auth = auth ?: return completion(configurationError)
+        val google = google ?: return completion("Google sign-in is not configured.")
+        google.signIn { token, error ->
+            if (token == null) completion(error ?: "Google sign-in was cancelled.")
+            else auth.signInWithCredential(com.google.firebase.auth.GoogleAuthProvider.getCredential(token, null))
+                .addOnCompleteListener { completion(it.exception?.safeAuthMessage()) }
+        }
+    }
     override fun signOut(completion: (String?) -> Unit) {
-        try { auth?.signOut(); completion(null) }
+        try { auth?.signOut(); google?.clearSession(); completion(null) }
         catch (cause: Exception) { completion(cause.safeAuthMessage()) }
     }
 }

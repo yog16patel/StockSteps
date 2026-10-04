@@ -18,6 +18,9 @@ if (file("google-services.json").exists()) {
 dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    implementation("androidx.credentials:credentials:1.5.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation(libs.firebase.firestore)
     implementation(libs.sqldelight.android)
     implementation(project(":app:shared"))

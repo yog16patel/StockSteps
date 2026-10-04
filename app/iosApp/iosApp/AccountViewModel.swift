@@ -55,6 +55,19 @@ final class AccountViewModel {
             return false
         }
     }
+    func signInWithGoogle() async -> Bool {
+        guard !state.busy else { return false }
+        state.busy = true
+        state.error = nil
+        defer { state.busy = false }
+        do {
+            try await service.signInWithGoogle()
+            return true
+        } catch {
+            state.error = accountMessage(error)
+            return false
+        }
+    }
     func signOut() async {
         guard !state.busy else { return }
         state.busy = true; state.error = nil

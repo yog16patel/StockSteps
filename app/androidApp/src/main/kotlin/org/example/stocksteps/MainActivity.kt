@@ -22,6 +22,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val accountOwner = viewModel { AndroidAccountOwner(application) }
+            androidx.compose.runtime.DisposableEffect(accountOwner) {
+                accountOwner.google.attach(this@MainActivity)
+                onDispose { accountOwner.google.detach(this@MainActivity) }
+            }
             androidx.compose.runtime.LaunchedEffect(accountOwner) {
                 lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                     accountOwner.dependencies.watchlist.retrySync()
