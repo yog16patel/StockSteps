@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Current update: "Add Home WatchList Learn and Settings navigation tabs" on `main`.
-Previous implementation baseline: `ab10b7c` (discovery and route/scene/screen navigation).
+Last updated: 2026-10-04. Current update: "Add Figma welcome screen to Android and iOS" on `main`.
+Previous implementation baseline: `c3ed32f` (four-tab navigation shell).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -316,7 +316,7 @@ Next product increment: a watchlist with persistence chosen for the actual
 requirements. Remaining verification includes iOS runtime navigation/article
 links, process restoration, fold transitions/accessibility, and iOS 26 glass.
 
-## Current commit: four-tab navigation shell
+## Previous milestone: four-tab navigation shell
 
 Owner explicitly limited this increment to navigation/screens, not complete
 features. Bottom tabs are Home, WatchList, Learn, and Settings. Android uses the
@@ -338,3 +338,31 @@ were found and WatchList/Learn placeholder navigation was verified. The emulator
 disconnected during the Settings check, so Settings is build-verified only.
 iOS tab interaction is build-verified only. Next feature work requires a separate
 user request.
+
+
+## Current commit: Figma Welcome V2
+
+Implemented the supplied Figma frame `1:2` from file `4onpJniqUV88MOW33J8ci6`
+on Android Compose and native SwiftUI. Welcome is the launch destination, without
+bottom tabs. Start exploring replaces it with Home; Android removes Welcome from
+the back stack. iOS gates AppScene in ContentView. Completion is session-only,
+not stored permanently; Android navigation state survives normal restoration.
+No sign-in, analytics, or persistent onboarding preference was added.
+
+Separate WelcomeRoute/WelcomeScene/WelcomeScreen and illustration components
+preserve navigation boundaries. Swift has WelcomeScene/WelcomeScreen and
+WelcomeInsightCard/WelcomeBenefits. Shared `theme/WelcomeTokens.kt` defines the
+Figma palette, dimensions and typography; both platforms use native system fonts.
+The Apple price/chart are a static onboarding example, not live financial data.
+The reference contains text and shapes, no downloadable image/SVG assets.
+Device chrome is supplied by the OS. Layout is scrollable for small windows and
+large text, centered with a capped content width on tablets; Android uses the
+existing hinge-safe region calculation.
+
+Validation: Android assembleDebug and native iOS simulator build passed. Installed
+Android build on emulator-5554, visually compared the unfolded layout with the
+Figma screenshot and verified Start exploring opens Home and all four tabs.
+Home data requires the existing local backend/adb reverse setup. No iOS simulator
+was booted, so native welcome runtime/transition is still unverified. Phone,
+large-font and physical fold-transition checks remain pending. Welcome code and
+this handoff update are included together in the current commit.

@@ -6,9 +6,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
 import androidx.navigation.toRoute
+import org.example.stocksteps.presentation.welcome.*
 import org.example.stocksteps.MainDestination
 import org.example.stocksteps.presentation.watchlist.*
 import org.example.stocksteps.presentation.learn.*
@@ -37,12 +37,13 @@ internal fun AppNavigation(
             MainDestination.SETTINGS -> SettingsRoute
         }
         navController.navigate(route) {
-            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            popUpTo(DiscoveryRoute) { saveState = true }
             launchSingleTop = true
             restoreState = true
         }
     }
 
+    val isWelcome = destination == null || destination?.hasRoute<WelcomeRoute>() == true
     val isSearch = destination?.hasRoute<StockSearchRoute>() == true
 
     Column(
@@ -58,9 +59,16 @@ internal fun AppNavigation(
         }
         NavHost(
             navController = navController,
-            startDestination = DiscoveryRoute,
+            startDestination = WelcomeRoute,
             modifier = Modifier.weight(1f)
         ) {
+            composable<WelcomeRoute> {
+                WelcomeScene(hinge = hinge, onStartExploring = {
+                    navController.navigate(DiscoveryRoute) {
+                        popUpTo<WelcomeRoute> { inclusive = true }
+                    }
+                })
+            }
             composable<DiscoveryRoute> {
                 DiscoveryScene(
                     baseUrl = baseUrl,
@@ -68,7 +76,7 @@ internal fun AppNavigation(
                     onSearch = { navController.navigate(StockSearchRoute()) },
                     onExplore = { symbol ->
                         navController.navigate(StockSearchRoute(initialSymbol = symbol)) {
-                            popUpTo(navController.graph.findStartDestination().id)
+                            popUpTo(DiscoveryRoute)
                             launchSingleTop = true
                         }
                     }
@@ -85,7 +93,7 @@ internal fun AppNavigation(
                 )
             }
         }
-        if (!isSearch) {
+        if (!isSearch && !isWelcome) {
             NavigationBar {
                 MainDestination.entries.forEach { tab ->
                     val selected = when (tab) {
