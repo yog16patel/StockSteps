@@ -10,13 +10,26 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
 @Composable
-internal fun StockQuotePane(state: StockSearchState, modifier: Modifier = Modifier, onRetry: () -> Unit) {
-    Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(ThemeSpacing.small.dp)) {
+internal fun StockQuotePane(
+    state: StockSearchState,
+    modifier: Modifier = Modifier,
+    onRetry: () -> Unit
+) {
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(ThemeSpacing.small.dp)
+    ) {
         val stock = state.selected
         if (stock == null) Text("Select a stock to view its quote.", style = MaterialTheme.typography.titleMedium)
         else Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(ThemeSpacing.large.dp), verticalArrangement = Arrangement.spacedBy(ThemeSpacing.small.dp)) {
-                Text(stock.name, style = MaterialTheme.typography.titleLarge)
+            Column(
+                modifier = Modifier.padding(ThemeSpacing.large.dp),
+                verticalArrangement = Arrangement.spacedBy(ThemeSpacing.small.dp)
+            ) {
+                Text(
+                    text = stock.name,
+                    style = MaterialTheme.typography.titleLarge
+                )
                 Text(listOfNotNull(stock.symbol, stock.exchange, stock.currency).joinToString(" · "))
                 if (state.quoteLoading) CircularProgressIndicator()
                 state.quote?.let {

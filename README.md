@@ -211,7 +211,7 @@ defaults, not a completed Figma design-system import.
 
 ### Adaptive mobile layouts
 
-Android uses the current app window size: below 840 dp, the quote appears with
+Android uses the current app window size: below 600 dp, the quote appears with
 search results; wider windows show search and quote panes side by side.
 Jetpack WindowManager supplies separating folds and fully occluding hinges in
 window coordinates. The layout leaves space around these features, including
@@ -277,3 +277,9 @@ without waiting. Normalized duplicate queries do not issue another request.
 Explicit iOS retries bypass typing debounce. The Android ViewModel test uses
 virtual time to verify that typing bursts issue only the final query and clearing
 input cancels an active request without repopulating the results.
+
+Android windows with at least 600 dp of usable content width use a dedicated
+search sidebar and quote detail surface. The sidebar keeps its search field
+visible while results scroll and highlights the selected stock. Details show
+price, change, and daily range. Compact windows retain the inline quote layout.
+Separating folds use the same large-screen components in hinge-safe panes.

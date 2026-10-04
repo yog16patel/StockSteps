@@ -8,9 +8,9 @@ import kotlin.test.assertTrue
 
 class AdaptiveLayoutTest {
     @Test fun compactAndExpandedWindows() {
-        assertNull(paneLayout(839f, 900f, 1f, 0f, 0f, null).detail)
-        assertNotNull(paneLayout(840f, 900f, 1f, 0f, 0f, null).detail)
-        assertNull(paneLayout(1200f, 1800f, 2f, 0f, 0f, null).detail)
+        assertNull(paneLayout(599f, 900f, 1f, 0f, 0f, null).detail)
+        assertNotNull(paneLayout(600f, 900f, 1f, 0f, 0f, null).detail)
+        assertNull(paneLayout(1198f, 1800f, 2f, 0f, 0f, null).detail)
     }
 
     @Test fun verticalHingeUsesWindowCoordinates() {

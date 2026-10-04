@@ -13,20 +13,43 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun StockSearchPane(state: StockSearchState, modifier: Modifier = Modifier, inlineQuote: Boolean = false, onQueryChange: (String) -> Unit, onSelect: (org.example.stocksteps.model.StockSearchResult) -> Unit, onRetryQuote: () -> Unit) {
-    LazyColumn(modifier, verticalArrangement = Arrangement.spacedBy(ThemeSpacing.medium.dp)) {
+internal fun StockSearchPane(
+    state: StockSearchState,
+    modifier: Modifier = Modifier,
+    inlineQuote: Boolean = false,
+    onQueryChange: (String) -> Unit,
+    onSelect: (org.example.stocksteps.model.StockSearchResult) -> Unit,
+    onRetryQuote: () -> Unit
+) {
+    LazyColumn(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(ThemeSpacing.medium.dp)
+    ) {
         item { Text("StockSteps", style = MaterialTheme.typography.headlineMedium) }
         item {
-            OutlinedTextField(value = state.query, onValueChange = onQueryChange,
-                label = { Text("Search company or ticker") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(
+                value = state.query,
+                onValueChange = onQueryChange,
+                label = { Text("Search company or ticker") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
         if (state.searching) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         state.searchError?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
         if (state.query.isNotBlank() && !state.searching && state.searchError == null && state.results.isEmpty()) item { Text("No matches found.") }
         if (inlineQuote && state.selected != null) item { StockQuotePane(state, Modifier.fillMaxWidth().heightIn(max = 240.dp), onRetryQuote) }
         items(state.results, key = { it.symbol }) { stock ->
-            Column(Modifier.fillMaxWidth().clickable { onSelect(stock) }.padding(vertical = ThemeSpacing.small.dp)) {
-                Text(stock.name, style = MaterialTheme.typography.titleMedium)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelect(stock) }
+                    .padding(vertical = ThemeSpacing.small.dp)
+            ) {
+                Text(
+                    text = stock.name,
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Text(listOfNotNull(stock.symbol, stock.exchange, stock.currency).joinToString(" · "))
             }
             HorizontalDivider()
