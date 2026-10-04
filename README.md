@@ -175,7 +175,7 @@ the app entry point and use the same network. Android allows local cleartext
 HTTP only in debug builds; iOS permits local networking. Use HTTPS for a deployed
 backend; release Android builds do not allow this local HTTP setup.
 
-These are integration screens, not the final Figma design. Movers, news and persistent watchlists are not yet connected to mobile.
+These are integration screens, not the final Figma design. Persistent watchlists are not yet implemented. Home now connects movers and news.
 
 
 ### Native iOS UI and Liquid Glass
@@ -233,11 +233,11 @@ phone window and iPad split-screen at multiple widths, with larger text sizes.
 ### Mobile architecture
 
 Android follows MVVM with clean layer boundaries. `App.kt` applies the theme
-and opens `StockSearchRoute`. The route creates the lifecycle ViewModel and
+and opens `StockSearchRoute`. The scene acquires the destination-scoped lifecycle ViewModel and
 collects its immutable `StateFlow` with lifecycle awareness. Search, quote,
 and adaptive screen components live under `app/shared/.../presentation/stocksearch`;
 UI events call ViewModel methods. The ViewModel owns request cancellation and
-uses its lifecycle scope. Query and selection are saved by the route for
+uses its lifecycle scope. Query and selection are saved by the scene for
 recreation; fetched results are reloaded after process restoration.
 
 The shared `core` domain layer defines `StockRepository`, `SearchStocks`, and
@@ -261,7 +261,7 @@ than imposing Android lifecycle classes on SwiftUI.
 
 Koin 4.2.2 is configured in `app/shared/.../di/StockStepsDependencies.kt`.
 Each graph registers one HTTP client, API, and repository, plus factories for
-use cases and the Android/Compose ViewModel. The Compose route asks the graph
+use cases and the Android/Compose ViewModel. The Compose scene asks the graph
 for its lifecycle-owned ViewModel with restored query/selection parameters.
 The native iOS bridge resolves shared use cases from the same definitions;
 SwiftUI continues to inject `StockSearchServing` through constructors.
@@ -293,3 +293,24 @@ Missing descriptions show an unavailable message; absent optional metadata is
 omitted. Profile failures have their own retry and leave the quote visible.
 Profiles use the existing StockSteps backend endpoint (FMP on the server), with
 GetCompanyProfile injected through Koin. No provider credentials enter mobile.
+
+### Mobile discovery/Home
+
+Home loads gainers, losers, and 20 current market news headlines independently.
+Each section handles loading, empty results, errors, and retry; Refresh reloads
+all sections. Five movers per category are shown. Tapping a mover searches its
+ticker using the existing USD/CAD flow, and Read article opens a source link.
+Mover prices have no currency label because the backend does not supply one.
+Native tabs on iOS and Compose navigation on Android retain the Search feature.
+No watchlist storage or historical news pagination is included yet.
+
+### Navigation boundaries
+
+Routes contain typed destination identity and arguments only. Compose
+AppNavigation uses Navigation Compose with destination-scoped ViewModel owners
+and saved top-level state. Scenes acquire ViewModels and wire state/events;
+screens receive UI state and callbacks and render adaptive content.
+
+Native iOS follows the same separation using AppRoute, AppScene, feature scenes,
+and value-state screens with callback/input bindings. Navigation remains native
+TabView/NavigationSplitView. See PROJECT_HANDOFF.md for the current file map.

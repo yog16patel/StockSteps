@@ -2,17 +2,17 @@ import Shared
 import SwiftUI
 
 struct CompanyProfileView: View {
-    let model: StockSearchViewModel
-    let stock: StockSearchResult
+    let state: StockSearchUiState
+    let onRetry: () -> Void
 
     var body: some View {
         Section("About the company") {
-            if model.isLoadingProfile {
+            if state.isLoadingProfile {
                 ProgressView("Loading company profile…")
-            } else if let error = model.profileError {
+            } else if let error = state.profileError {
                 Text(error)
-                Button("Retry profile") { model.loadProfile(for: stock) }.stockStepsGlassButton()
-            } else if let profile = model.profile {
+                Button("Retry profile", action: onRetry).stockStepsGlassButton()
+            } else if let profile = state.profile {
                 if let name = profile.companyName, !name.isEmpty { Text(name).font(.headline) }
                 if let sector = profile.sector, !sector.isEmpty { LabeledContent("Sector", value: sector) }
                 if let industry = profile.industry, !industry.isEmpty { LabeledContent("Industry", value: industry) }

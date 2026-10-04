@@ -1,6 +1,6 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Current update: "Add company profiles to Android and iOS stock details" on `main`.
+Last updated: 2026-10-04. Current update: "Add mobile discovery and route-scene-screen navigation" on `main`.
 Previous implementation baseline: `34616b9`.
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
@@ -89,8 +89,8 @@ Shared core (`core/src/commonMain/kotlin/org/example/stocksteps/`):
 
 Shared app (`app/shared/src/commonMain/kotlin/org/example/stocksteps/`):
 
-- `App.kt`: theme + feature route only.
-- `presentation/stocksearch/StockSearchRoute.kt`: composition root, lifecycle
+- `App.kt`: theme + Home/Search navigation composition only.
+- `presentation/stocksearch/StockSearchScene.kt`: composition root, lifecycle
   ViewModel acquisition, lifecycle-aware state collection, saved query/selection.
 - `StockSearchViewModel.kt`: immutable StateFlow, query debounce, cancellable
   requests in viewModelScope, quote retry. Results reload after process restoration.
@@ -115,12 +115,12 @@ scrolling results, selected-row styling, and an independent detail surface.
 Native iOS (`app/iosApp/iosApp/`):
 
 - `iOSApp.swift`: scene entry only.
-- `ContentView.swift`: navigation/selection, owns observable view model via State.
+- `ContentView.swift`: light entry wrapper; AppScene owns native tabs/models.
 - `StockSearchViewModel.swift`: MainActor Observable model, cancellable Swift tasks.
 - `StockSearchService.swift`: injected `StockSearchServing` protocol + native
   adapter owning the Kotlin bridge; domain dependencies resolve through Koin.
-- `StockSearchView.swift`: Bindable search UI and result selection.
-- `StockQuoteView.swift`: native quote detail UI.
+- `StockSearchScreen.swift`: state-driven search UI, query binding, and selection callbacks.
+- `StockQuoteScreen.swift`: state-driven native quote detail UI.
 - `Theme.swift`: shared tokens → native colors and Dynamic Type fonts.
 - `GlassModifiers.swift`: compiler/runtime guards for iOS 26 glass; material and
   bordered fallbacks on older SDKs/OS versions.
@@ -201,8 +201,8 @@ features or authorization to implement everything immediately:
 3. Company profiles are now integrated into mobile stock details on both
    platforms (included in the current commit). Validate live profile access for the
    current provider plan and unavailable/missing fields on real devices.
-4. Connect market movers and news to a useful discovery/Home screen, including
-   empty-watchlist content. Movers/news public models are still server-only, not mobile-wired.
+4. Discovery/Home is implemented in the current commit. Validate provider
+   entitlements, article opening, and mover-to-search navigation on both platforms.
 5. Implement a watchlist, then choose persistence according to requirements.
    No watchlist storage or backend database exists.
 6. Integrate actual approved Figma designs while retaining native iOS behavior.
@@ -225,10 +225,11 @@ financial features until the owner selects the next product increment.
 - `34616b9`: dedicated Android tablet/foldable layout, named dimensions, readable
   Compose formatting.
 
-The current commit includes the company profile integration and updated handoff.
+Company profiles were committed as `ad27d2f`; the current commit adds discovery
+and navigation separation.
 Use Git history/status to verify publication and any newer local work.
 
-## Current commit: Add company profiles to Android and iOS stock details
+## Previous milestone: Add company profiles to Android and iOS stock details
 
 Company profile mobile integration is implemented after `34616b9`. CompanyProfile
 was moved into core without changing the backend JSON contract. GetCompanyProfile
@@ -248,7 +249,69 @@ because `description` conflicts with the base object API.
 Native iOS simulator build passed after the export naming fix. Android profile
 build was installed on the connected emulator for manual testing.
 
-The next suggested product increment is connecting market movers and news to
-a mobile discovery/Home screen. Runtime adaptive/accessibility validation and
+The next suggested product increment after discovery is a persistent watchlist. Runtime adaptive/accessibility validation and
 iOS 26 glass verification remain pending. Every future commit must update this
 file, as recorded in AGENTS.md.
+
+## Current commit: discovery/Home
+
+Home/Search navigation is added on Android and iOS. Discovery independently loads
+gainers, losers, and the first 20 current news headlines. Shows the first five
+movers per category with ticker, name, price, and percentage change. Prices do
+not claim a currency because the movers contract has none. Tapping a mover
+opens a ticker search through the existing USD/CAD search flow (it may have no
+match). News opens HTTP(S) source links in the native browser. No full articles
+or watchlist functionality have been added. Refresh all and per-section retries
+are supported; successful/stale content stays visible during refresh/failure.
+
+MarketMover and NewsArticle moved to core. MarketRepository, RemoteMarketRepository,
+and GetMarketGainers/GetMarketLosers/GetMarketNews are injected with Koin. Shared
+safe request error mapping is extracted into StockDataRequest.kt. Android uses
+DiscoveryViewModel/DiscoveryRoute and separate section components. Swift uses
+DiscoveryViewModel (Observation), DiscoveryServing/DiscoveryService, native
+DiscoveryView/MarketMoversView, and IosMarketClient. StockSearchScene holds the existing native search navigation; AppScene
+coordinates native tabs.
+Discovery on Android uses a single hinge-safe region when the window separates;
+it is not yet a full tablet dashboard. Existing search retains its dual panes.
+
+Validation: Android build, server tests, core JVM tests and shared host tests
+passed, including backend endpoint/nullable-field contracts and independent
+feed retry. Live gainers, losers and first news page each returned HTTP 200.
+Native iOS simulator build passed. Android build was installed and the Home
+screen visually checked on the unfolded emulator with live gainers loaded.
+Native iOS runtime navigation/article-opening remains unverified. News remains a current-feed slice, not
+stable history; no mobile pagination is implemented.
+
+## Current commit: route/scene/screen separation
+
+The owner requested explicit navigation boundaries. Compose uses typed
+Navigation Compose 2.9.2 destinations rather than a Boolean tab switch.
+DiscoveryRoute is identity-only; StockSearchRoute carries an optional initial
+ticker. AppNavigation registers NavHost destinations, tracks the active
+destination, and saves/restores top-level navigation state. Navigation entries
+provide ViewModel owners, so scenes have destination-scoped ViewModels.
+
+DiscoveryScene and StockSearchScene acquire ViewModels, collect StateFlow with
+lifecycle awareness, restore transient state, and connect event/navigation
+callbacks. Route classes contain no composables or ViewModel construction.
+DiscoveryScreen and StockSearchScreen own rendering/adaptive geometry and receive
+UI state plus callbacks. Initial ticker arguments apply once per restored entry
+so recomposition/back navigation does not overwrite later typing.
+
+Native SwiftUI mirrors the boundary: AppRoute identifies tabs; AppScene owns
+models and tab navigation; DiscoveryScene/StockSearchScene observe models and
+wire callbacks. DiscoveryScreen, StockSearchScreen, StockQuoteScreen, and profile
+components receive value UI state and callbacks rather than ViewModels. The
+search screen receives a query Binding created by its scene for native input.
+NavigationSplitView and TabView remain native to preserve platform behavior.
+
+Validation: Android build and existing shared host tests passed. Native iOS
+simulator build passed. Installed on the Android emulator and verified Home →
+Search → system Back → Home via the UI hierarchy. Native iOS runtime back/state
+restoration and Android process-death navigation restoration remain unverified.
+Discovery and the navigation refactor are included together in the current
+commit, with this handoff update. Check git status for subsequent local changes.
+
+Next product increment: a watchlist with persistence chosen for the actual
+requirements. Remaining verification includes iOS runtime navigation/article
+links, process restoration, fold transitions/accessibility, and iOS 26 glass.

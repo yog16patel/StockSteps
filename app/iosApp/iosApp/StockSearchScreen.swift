@@ -1,29 +1,32 @@
 import Shared
 import SwiftUI
 
-struct StockSearchView: View {
+struct StockSearchScreen: View {
     @Environment(\.colorScheme) private var colorScheme
-    @Bindable var model: StockSearchViewModel
+    let state: StockSearchUiState
+    @Binding var query: String
+    let onQueryChanged: () -> Void
+    let onRetry: () -> Void
     let onSelect: (StockSearchResult) -> Void
     private var palette: ThemePalette { StockStepsTheme.palette(colorScheme) }
 
     var body: some View {
         List {
-            if model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 ContentUnavailableView("Find your first stock", systemImage: "magnifyingglass",
                     description: Text("Search for a company or ticker in USD or CAD."))
-            } else if model.isSearching {
+            } else if state.isSearching {
                 HStack { Spacer(); ProgressView("Searching…"); Spacer() }
-            } else if let error = model.searchError {
+            } else if let error = state.searchError {
                 VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.medium)) {
                     Label(error, systemImage: "wifi.exclamationmark")
-                    Button("Retry", action: model.search).stockStepsGlassButton()
+                    Button("Retry", action: onRetry).stockStepsGlassButton()
                 }
-            } else if model.results.isEmpty {
-                ContentUnavailableView.search(text: model.query)
+            } else if state.results.isEmpty {
+                ContentUnavailableView.search(text: state.query)
             } else {
                 Section("Stocks") {
-                    ForEach(model.results, id: \.symbol) { stock in
+                    ForEach(state.results, id: \.symbol) { stock in
                         Button {
                             onSelect(stock)
                         } label: {
@@ -46,8 +49,8 @@ struct StockSearchView: View {
         .background(StockStepsTheme.color(palette.background))
         .tint(StockStepsTheme.color(palette.primary))
         .navigationTitle("StockSteps")
-        .searchable(text: $model.query, prompt: "Company or ticker")
-        .onChange(of: model.query) { _, _ in model.scheduleSearch() }
+        .searchable(text: $query, prompt: "Company or ticker")
+        .onChange(of: state.query) { _, _ in onQueryChanged() }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Text("USD · CAD").font(StockStepsTheme.font(StockStepsTheme.typography.caption, relativeTo: .caption1))

@@ -6,6 +6,8 @@ import org.koin.dsl.module
 import org.koin.dsl.onClose
 import org.koin.core.parameter.parametersOf
 import org.example.stocksteps.createBackendClient
+import org.example.stocksteps.data.RemoteMarketRepository
+import org.example.stocksteps.presentation.discovery.DiscoveryViewModel
 import org.example.stocksteps.data.RemoteStockRepository
 import org.example.stocksteps.domain.*
 import org.example.stocksteps.model.StockSearchResult
@@ -21,6 +23,11 @@ internal class StockStepsDependencies(baseUrl: String, clientFactory: () -> Http
             single<HttpClient> { clientFactory() } onClose { it?.close() }
             single { StockStepsApi(get(), baseUrl) }
             single<StockRepository> { RemoteStockRepository(get()) }
+            single<MarketRepository> { RemoteMarketRepository(get()) }
+            factory { GetMarketGainers(get()) }
+            factory { GetMarketLosers(get()) }
+            factory { GetMarketNews(get()) }
+            factory { DiscoveryViewModel(get(), get(), get(), ::close) }
             factory { SearchStocks(get()) }
             factory { GetStockQuote(get()) }
             factory { GetCompanyProfile(get()) }
@@ -31,6 +38,10 @@ internal class StockStepsDependencies(baseUrl: String, clientFactory: () -> Http
         })
     }
 
+    fun discoveryViewModel(): DiscoveryViewModel = application.koin.get()
+    fun marketGainers(): GetMarketGainers = application.koin.get()
+    fun marketLosers(): GetMarketLosers = application.koin.get()
+    fun marketNews(): GetMarketNews = application.koin.get()
     fun searchStocks(): SearchStocks = application.koin.get()
     fun getCompanyProfile(): GetCompanyProfile = application.koin.get()
     fun getStockQuote(): GetStockQuote = application.koin.get()

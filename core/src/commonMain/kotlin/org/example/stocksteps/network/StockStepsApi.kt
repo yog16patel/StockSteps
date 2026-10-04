@@ -39,6 +39,14 @@ class StockStepsApi(private val client: HttpClient, baseUrl: String) {
         return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/profile") }
     }
 
+    suspend fun getGainers(): List<MarketMover> = request { url("$baseUrl/api/v1/market/gainers") }
+    suspend fun getLosers(): List<MarketMover> = request { url("$baseUrl/api/v1/market/losers") }
+    suspend fun getNews(): List<NewsArticle> = request {
+        url("$baseUrl/api/v1/news")
+        parameter("page", 0)
+        parameter("limit", 20)
+    }
+
     private suspend inline fun <reified T> request(
         crossinline configure: io.ktor.client.request.HttpRequestBuilder.() -> Unit
     ): T {

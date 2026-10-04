@@ -1,10 +1,12 @@
 import Shared
 import SwiftUI
 
-struct StockQuoteView: View {
+struct StockQuoteScreen: View {
     @Environment(\.colorScheme) private var colorScheme
-    let model: StockSearchViewModel
+    let state: StockSearchUiState
     let stock: StockSearchResult
+    let onRetryQuote: () -> Void
+    let onRetryProfile: () -> Void
     private var palette: ThemePalette { StockStepsTheme.palette(colorScheme) }
 
     var body: some View {
@@ -14,21 +16,21 @@ struct StockQuoteView: View {
                 Text([stock.symbol, stock.exchange, stock.currency]
                     .compactMap { $0 }.joined(separator: " · ")).foregroundStyle(.secondary)
             }
-            if model.isLoadingQuote {
+            if state.isLoadingQuote {
                 ProgressView("Loading quote…")
-            } else if let error = model.quoteError {
+            } else if let error = state.quoteError {
                 Section {
                     Text(error)
-                    Button("Retry quote") { model.loadQuote(for: stock) }.stockStepsGlassButton()
+                    Button("Retry quote", action: onRetryQuote).stockStepsGlassButton()
                 }
-            } else if let quote = model.quote {
+            } else if let quote = state.quote {
                 Section("Quote") {
                     LabeledContent("Price", value: priceText(quote.price, currency: stock.currency))
                     LabeledContent("Change", value: numberText(quote.change))
                     LabeledContent("Change (%)", value: numberText(quote.changePercent))
                 }
             }
-            CompanyProfileView(model: model, stock: stock)
+            CompanyProfileView(state: state, onRetry: onRetryProfile)
         }
         .scrollContentBackground(.hidden)
         .background(StockStepsTheme.color(palette.background))
