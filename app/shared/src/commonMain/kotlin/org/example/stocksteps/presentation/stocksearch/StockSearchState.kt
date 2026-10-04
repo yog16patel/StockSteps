@@ -13,5 +13,8 @@ internal data class StockSearchState(
     val selected: StockSearchResult? = null,
     val quote: StockQuote? = null,
     val quoteLoading: Boolean = false,
-    val quoteError: String? = null
+    val quoteError: String? = null,
+    val profile: org.example.stocksteps.model.CompanyProfile? = null,
+    val profileLoading: Boolean = false,
+    val profileError: String? = null
 )

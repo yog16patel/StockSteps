@@ -19,11 +19,12 @@ class StockSearchViewModelTest {
                 try { delay(1000) } catch (cause: CancellationException) { cancelled = true; throw cause }
                 return listOf(StockSearchResult("AAPL", "Apple"))
             }
+            override suspend fun getProfile(symbol: String) = CompanyProfile(symbol)
             override suspend fun getQuote(symbol: String): StockQuote = error("Not expected")
         }
         val store = ViewModelStore()
         try {
-            val model = StockSearchViewModel(SearchStocks(repository), GetStockQuote(repository))
+            val model = StockSearchViewModel(SearchStocks(repository), GetStockQuote(repository), GetCompanyProfile(repository))
             store.put("search", model)
             runCurrent()
             model.changeQuery("A")
@@ -47,4 +48,37 @@ class StockSearchViewModelTest {
             assertEquals(1, calls.size)
         } finally { store.clear(); Dispatchers.resetMain() }
     }
+    @Test fun profileFailureAndRetryDoNotDiscardQuote() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        var profileCalls = 0
+        var quoteCalls = 0
+        val repository = object : StockRepository {
+            override suspend fun searchStocks(query: String) = emptyList<StockSearchResult>()
+            override suspend fun getQuote(symbol: String): StockQuote {
+                quoteCalls++
+                return StockQuote(symbol, null, 150.0, null, null, null, null)
+            }
+            override suspend fun getProfile(symbol: String): CompanyProfile {
+                profileCalls++
+                if (profileCalls == 1) throw StockDataException("Profile unavailable")
+                return CompanyProfile(symbol, companyName = "Apple Inc.")
+            }
+        }
+        val store = ViewModelStore()
+        try {
+            val model = StockSearchViewModel(SearchStocks(repository), GetStockQuote(repository), GetCompanyProfile(repository))
+            store.put("search", model)
+            model.selectStock(StockSearchResult("AAPL", "Apple"))
+            runCurrent()
+            assertEquals(150.0, model.state.value.quote?.price)
+            assertEquals("Profile unavailable", model.state.value.profileError)
+            model.retryProfile()
+            runCurrent()
+            assertEquals("Apple Inc.", model.state.value.profile?.companyName)
+            assertNull(model.state.value.profileError)
+            assertEquals(1, quoteCalls)
+            assertEquals(2, profileCalls)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
+
 }

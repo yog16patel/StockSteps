@@ -160,7 +160,7 @@ when a result is selected. Search waits 300 ms after input changes; obsolete
 search/quote requests are cancelled. Loading, empty and error states are shown.
 Provider API keys are never required by mobile code.
 
-Public StockQuote, StockSearchResult and ApiError models live in `core` and are
+Public StockQuote, StockSearchResult, CompanyProfile and ApiError models live in `core` and are
 used by both server and mobile. StockStepsApi accepts an injected Ktor client
 and a backend base URL. Platform clients use OkHttp (Android) and Darwin (iOS).
 
@@ -175,8 +175,7 @@ the app entry point and use the same network. Android allows local cleartext
 HTTP only in debug builds; iOS permits local networking. Use HTTPS for a deployed
 backend; release Android builds do not allow this local HTTP setup.
 
-These are integration screens, not the final Figma design. Profiles, movers,
-news and persistent watchlists are not yet connected to mobile.
+These are integration screens, not the final Figma design. Movers, news and persistent watchlists are not yet connected to mobile.
 
 
 ### Native iOS UI and Liquid Glass
@@ -285,3 +284,12 @@ search sidebar and quote detail surface. The sidebar keeps its search field
 visible while results scroll and highlights the selected stock. Details show
 price, change, and daily range. Compact windows retain the inline quote layout.
 Separating folds use the same large-screen components in hinge-safe panes.
+
+### Mobile company profiles
+
+Selecting a stock loads its quote and profile independently on Android and iOS.
+The company section displays name, sector, industry, country, and description.
+Missing descriptions show an unavailable message; absent optional metadata is
+omitted. Profile failures have their own retry and leave the quote visible.
+Profiles use the existing StockSteps backend endpoint (FMP on the server), with
+GetCompanyProfile injected through Koin. No provider credentials enter mobile.

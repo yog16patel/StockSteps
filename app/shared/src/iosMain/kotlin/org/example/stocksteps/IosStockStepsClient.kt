@@ -8,9 +8,11 @@ import org.example.stocksteps.model.StockSearchResult
 class IosStockStepsClient(baseUrl: String) {
     private val dependencies = org.example.stocksteps.di.StockStepsDependencies(baseUrl)
     private val searchStocks = dependencies.searchStocks()
+    private val getCompanyProfile = dependencies.getCompanyProfile()
     private val getStockQuote = dependencies.getStockQuote()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var searchJob: Deferred<List<StockSearchResult>>? = null
+    private var profileJob: Deferred<org.example.stocksteps.model.CompanyProfile>? = null
     private var quoteJob: Deferred<StockQuote>? = null
 
     @Throws(Exception::class)
@@ -29,6 +31,15 @@ class IosStockStepsClient(baseUrl: String) {
         return job.await()
     }
 
+    @Throws(Exception::class)
+    suspend fun getProfile(symbol: String): org.example.stocksteps.model.CompanyProfile {
+        profileJob?.cancel()
+        val job = scope.async { getCompanyProfile(symbol) }
+        profileJob = job
+        return job.await()
+    }
+
+    fun cancelProfile() { profileJob?.cancel() }
     fun cancelSearch() { searchJob?.cancel() }
     fun cancelQuote() { quoteJob?.cancel() }
     fun close() {

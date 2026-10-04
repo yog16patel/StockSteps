@@ -22,5 +22,5 @@ internal fun StockSearchRoute(baseUrl: String?, hinge: WindowHinge?) {
     }
     val state by model.state.collectAsStateWithLifecycle()
     SideEffect { savedQuery = state.query; savedSelection = state.selected }
-    StockSearchScreen(state, hinge, model::changeQuery, model::selectStock, model::retryQuote)
+    StockSearchScreen(state, hinge, model::changeQuery, model::selectStock, model::retryQuote, model::retryProfile)
 }

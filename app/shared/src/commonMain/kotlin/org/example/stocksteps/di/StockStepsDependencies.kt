@@ -23,14 +23,16 @@ internal class StockStepsDependencies(baseUrl: String, clientFactory: () -> Http
             single<StockRepository> { RemoteStockRepository(get()) }
             factory { SearchStocks(get()) }
             factory { GetStockQuote(get()) }
+            factory { GetCompanyProfile(get()) }
             factory { parameters ->
                 val initial: SearchInitialState = parameters.get()
-                StockSearchViewModel(get(), get(), initial.query, initial.selection, ::close)
+                StockSearchViewModel(get(), get(), get(), initial.query, initial.selection, ::close)
             }
         })
     }
 
     fun searchStocks(): SearchStocks = application.koin.get()
+    fun getCompanyProfile(): GetCompanyProfile = application.koin.get()
     fun getStockQuote(): GetStockQuote = application.koin.get()
     fun searchViewModel(query: String, selection: StockSearchResult?): StockSearchViewModel =
         application.koin.get { parametersOf(SearchInitialState(query, selection)) }

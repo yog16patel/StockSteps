@@ -28,6 +28,7 @@ struct StockQuoteView: View {
                     LabeledContent("Change (%)", value: numberText(quote.changePercent))
                 }
             }
+            CompanyProfileView(model: model, stock: stock)
         }
         .scrollContentBackground(.hidden)
         .background(StockStepsTheme.color(palette.background))

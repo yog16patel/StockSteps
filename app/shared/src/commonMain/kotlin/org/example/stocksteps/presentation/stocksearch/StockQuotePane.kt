@@ -13,7 +13,8 @@ import androidx.compose.foundation.verticalScroll
 internal fun StockQuotePane(
     state: StockSearchState,
     modifier: Modifier = Modifier,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onRetryProfile: () -> Unit
 ) {
     Column(
         modifier = modifier.verticalScroll(rememberScrollState()),
@@ -40,6 +41,7 @@ internal fun StockQuotePane(
                     Text(it, color = MaterialTheme.colorScheme.error)
                     TextButton(onClick = onRetry) { Text("Retry quote") }
                 }
+                CompanyProfileSection(state, onRetryProfile)
             }
         }
     }

@@ -8,6 +8,7 @@ import org.example.stocksteps.network.StockStepsApiException
 
 class RemoteStockRepository(private val api: StockStepsApi) : StockRepository {
     override suspend fun searchStocks(query: String) = request { api.searchStocks(query) }
+    override suspend fun getProfile(symbol: String) = request { api.getProfile(symbol) }
     override suspend fun getQuote(symbol: String) = request { api.getQuote(symbol) }
 
     private suspend fun <T> request(block: suspend () -> T): T = try {

@@ -20,7 +20,8 @@ internal fun StockSearchScreen(
     hinge: WindowHinge?,
     onQueryChange: (String) -> Unit,
     onSelect: (org.example.stocksteps.model.StockSearchResult) -> Unit,
-    onRetryQuote: () -> Unit
+    onRetryQuote: () -> Unit,
+    onRetryProfile: () -> Unit
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
@@ -55,7 +56,8 @@ internal fun StockSearchScreen(
                 inlineQuote = true,
                 onQueryChange = onQueryChange,
                 onSelect = onSelect,
-                onRetryQuote = onRetryQuote
+                onRetryQuote = onRetryQuote,
+                onRetryProfile = onRetryProfile
             )
         } else {
             StockSearchSidebar(
@@ -67,7 +69,8 @@ internal fun StockSearchScreen(
             StockQuoteDetail(
                 state = state,
                 modifier = detail.modifier(),
-                onRetry = onRetryQuote
+                onRetry = onRetryQuote,
+                onRetryProfile = onRetryProfile
             )
         }
     }

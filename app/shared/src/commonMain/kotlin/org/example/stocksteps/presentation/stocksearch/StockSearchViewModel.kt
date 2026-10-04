@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import org.example.stocksteps.domain.SearchStocks
+import org.example.stocksteps.domain.GetCompanyProfile
 import org.example.stocksteps.domain.GetStockQuote
 import org.example.stocksteps.domain.StockDataException
 import org.example.stocksteps.model.StockSearchResult
@@ -18,6 +19,7 @@ import org.example.stocksteps.model.StockSearchResult
 internal class StockSearchViewModel(
     private val searchStocks: SearchStocks,
     private val getQuote: GetStockQuote,
+    private val getProfile: GetCompanyProfile,
     initialQuery: String = "",
     initialSelection: StockSearchResult? = null,
     private val closeResources: () -> Unit = {}
@@ -26,6 +28,7 @@ internal class StockSearchViewModel(
     val state = mutableState.asStateFlow()
     private val queries = MutableStateFlow(initialQuery.trim())
     private var searchJob: Job? = null
+    private var profileJob: Job? = null
     private var quoteJob: Job? = null
 
     @OptIn(FlowPreview::class)
@@ -48,7 +51,8 @@ internal class StockSearchViewModel(
 
     fun changeQuery(query: String) {
         quoteJob?.cancel()
-        mutableState.update { it.copy(query = query, selected = null, quote = null, quoteError = null, quoteLoading = false) }
+        profileJob?.cancel()
+        mutableState.update { it.copy(profile = null, profileError = null, profileLoading = false, query = query, selected = null, quote = null, quoteError = null, quoteLoading = false) }
         val text = query.trim()
         if (queries.value == text) return
         searchJob?.cancel()
@@ -68,6 +72,11 @@ internal class StockSearchViewModel(
     }
 
     fun selectStock(stock: StockSearchResult) {
+        loadProfile(stock)
+        loadQuote(stock)
+    }
+
+    private fun loadQuote(stock: StockSearchResult) {
         quoteJob?.cancel()
         mutableState.update { it.copy(selected = stock, quote = null, quoteError = null, quoteLoading = true) }
         quoteJob = viewModelScope.launch {
@@ -82,7 +91,23 @@ internal class StockSearchViewModel(
         }
     }
 
-    fun retryQuote() { state.value.selected?.let(::selectStock) }
+    private fun loadProfile(stock: StockSearchResult) {
+        profileJob?.cancel()
+        mutableState.update { it.copy(profile = null, profileError = null, profileLoading = true) }
+        profileJob = viewModelScope.launch {
+            try {
+                val profile = getProfile(stock.symbol)
+                ensureActive()
+                mutableState.update { it.copy(profile = profile, profileLoading = false) }
+            } catch (cause: Exception) {
+                if (cause is CancellationException) throw cause
+                mutableState.update { it.copy(profileError = cause.userMessage(), profileLoading = false) }
+            }
+        }
+    }
+
+    fun retryQuote() { state.value.selected?.let(::loadQuote) }
+    fun retryProfile() { state.value.selected?.let(::loadProfile) }
     override fun onCleared() { closeResources() }
 }
 

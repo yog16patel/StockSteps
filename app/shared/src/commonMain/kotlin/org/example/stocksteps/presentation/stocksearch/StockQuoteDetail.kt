@@ -14,7 +14,8 @@ import org.example.stocksteps.theme.ThemeSpacing
 internal fun StockQuoteDetail(
     state: StockSearchState,
     modifier: Modifier,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onRetryProfile: () -> Unit
 ) {
     Surface(
         modifier = modifier,
@@ -81,6 +82,7 @@ internal fun StockQuoteDetail(
                     QuoteMetric("Day high", quote.dayHigh?.toString() ?: "Unavailable")
                     QuoteMetric("Day low", quote.dayLow?.toString() ?: "Unavailable")
                 }
+                CompanyProfileSection(state, onRetryProfile)
             }
         }
     }

@@ -1,8 +1,10 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Implementation baseline: `34616b9` on `main`.
+Last updated: 2026-10-04. Current update: "Add company profiles to Android and iOS stock details" on `main`.
+Previous implementation baseline: `34616b9`.
 This file describes the current state, not a request to implement every pending
-item. Read the actual code and check `git status` before continuing. Update this
+item. Update this handoff in every commit, including completed work, validation,
+limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
 
 ## Product and working preferences
@@ -77,9 +79,9 @@ See README for endpoint contracts and validation ranges.
 
 Shared core (`core/src/commonMain/kotlin/org/example/stocksteps/`):
 
-- `model/`: public `StockQuote`, `StockSearchResult`, `ApiError` used by server/mobile.
+- `model/`: public `StockQuote`, `StockSearchResult`, `CompanyProfile`, `ApiError` used by server/mobile.
 - `network/StockStepsApi.kt`: backend-only Ktor API client with injected client/base URL.
-- `domain/`: `StockRepository`, `SearchStocks`, `GetStockQuote`, domain error.
+- `domain/`: `StockRepository`, `SearchStocks`, `GetStockQuote`, `GetCompanyProfile`, domain error.
 - `data/RemoteStockRepository.kt`: implements domain contract, translates network
   errors to safe domain errors, preserves coroutine cancellation.
 - Serialized public stock models currently double as domain boundary models;
@@ -196,11 +198,11 @@ features or authorization to implement everything immediately:
    and large fonts; verify selection/query survives transitions. Test iPhone/iPad
    native navigation, resize, network failures and quote retry.
 2. Build/test native glass with an iOS 26 SDK and supported device/simulator.
-3. Add company profile to mobile stock details. Backend exists; move its public
-   model into core, add repository/use case methods, inject dependencies, add
-   platform view model state/components, verify error/loading states on both.
+3. Company profiles are now integrated into mobile stock details on both
+   platforms (included in the current commit). Validate live profile access for the
+   current provider plan and unavailable/missing fields on real devices.
 4. Connect market movers and news to a useful discovery/Home screen, including
-   empty-watchlist content. Public models are still server-only, not mobile-wired.
+   empty-watchlist content. Movers/news public models are still server-only, not mobile-wired.
 5. Implement a watchlist, then choose persistence according to requirements.
    No watchlist storage or backend database exists.
 6. Integrate actual approved Figma designs while retaining native iOS behavior.
@@ -223,5 +225,30 @@ financial features until the owner selects the next product increment.
 - `34616b9`: dedicated Android tablet/foldable layout, named dimensions, readable
   Compose formatting.
 
-All implementation changes above were committed and pushed to main. This
-handoff document and its discovery links may still be uncommitted; use git status.
+The current commit includes the company profile integration and updated handoff.
+Use Git history/status to verify publication and any newer local work.
+
+## Current commit: Add company profiles to Android and iOS stock details
+
+Company profile mobile integration is implemented after `34616b9`. CompanyProfile
+was moved into core without changing the backend JSON contract. GetCompanyProfile
+is injected through Koin and the native bridge. Android and SwiftUI show separate
+company sections with loading/error/retry states. Quote and profile requests run
+independently; retrying one does not refetch the other. Profile content currently
+includes name, sector, industry, country, and description; logos and website links
+are not rendered. These changes and their documentation are included together
+in the current commit.
+
+Profile verification: Android build, shared host tests, core JVM tests, and server
+tests passed. New tests cover nullable profile decoding and independent profile
+retry without discarding/refetching the quote. Live AAPL profile returned HTTP
+200. In Swift, Kotlin's profile description property is exported as `description_`
+because `description` conflicts with the base object API.
+
+Native iOS simulator build passed after the export naming fix. Android profile
+build was installed on the connected emulator for manual testing.
+
+The next suggested product increment is connecting market movers and news to
+a mobile discovery/Home screen. Runtime adaptive/accessibility validation and
+iOS 26 glass verification remain pending. Every future commit must update this
+file, as recorded in AGENTS.md.

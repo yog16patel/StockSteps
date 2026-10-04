@@ -18,7 +18,7 @@ struct ContentView: View {
             StockSearchView(model: model) { stock in
                 selectedStock = stock
                 compactColumn = .detail
-                model.loadQuote(for: stock)
+                model.selectStock(stock)
             }
             .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 440)
         } detail: {

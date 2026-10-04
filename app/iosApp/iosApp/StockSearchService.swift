@@ -4,6 +4,8 @@ import Shared
 protocol StockSearchServing {
     func searchStocks(query: String) async throws -> [StockSearchResult]
     func getQuote(symbol: String) async throws -> StockQuote
+    func getProfile(symbol: String) async throws -> CompanyProfile
+    func cancelProfile()
     func cancelSearch()
     func cancelQuote()
 }
@@ -22,6 +24,10 @@ final class StockSearchService: StockSearchServing {
     func getQuote(symbol: String) async throws -> StockQuote {
         try await client.getQuote(symbol: symbol)
     }
+    func getProfile(symbol: String) async throws -> CompanyProfile {
+        try await client.getProfile(symbol: symbol)
+    }
+    func cancelProfile() { client.cancelProfile() }
     func cancelSearch() { client.cancelSearch() }
     func cancelQuote() { client.cancelQuote() }
 }

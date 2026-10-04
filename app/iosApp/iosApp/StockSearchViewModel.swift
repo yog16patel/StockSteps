@@ -13,12 +13,16 @@ final class StockSearchViewModel {
     private(set) var quote: StockQuote?
     private(set) var isLoadingQuote = false
     private(set) var quoteError: String?
+    private(set) var profile: CompanyProfile?
+    private(set) var isLoadingProfile = false
+    private(set) var profileError: String?
 
     @ObservationIgnored private let queries = PassthroughSubject<String, Never>()
     @ObservationIgnored private var querySubscription: AnyCancellable?
     @ObservationIgnored private var lastQuery = ""
     @ObservationIgnored private let service: any StockSearchServing
     @ObservationIgnored private var searchTask: Task<Void, Never>?
+    @ObservationIgnored private var profileTask: Task<Void, Never>?
     @ObservationIgnored private var quoteTask: Task<Void, Never>?
 
     init(service: any StockSearchServing) {
@@ -73,6 +77,32 @@ final class StockSearchViewModel {
                 guard let self, !Task.isCancelled else { return }
                 searchError = "Could not load stocks. Check your connection and try again."
                 isSearching = false
+            }
+        }
+    }
+
+    func selectStock(_ stock: StockSearchResult) {
+        loadQuote(for: stock)
+        loadProfile(for: stock)
+    }
+
+    func loadProfile(for stock: StockSearchResult) {
+        profileTask?.cancel()
+        service.cancelProfile()
+        profile = nil
+        profileError = nil
+        isLoadingProfile = true
+        profileTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let value = try await service.getProfile(symbol: stock.symbol)
+                guard !Task.isCancelled else { return }
+                profile = value
+                isLoadingProfile = false
+            } catch {
+                guard !Task.isCancelled else { return }
+                profileError = "Could not load the company profile. Try again."
+                isLoadingProfile = false
             }
         }
     }
