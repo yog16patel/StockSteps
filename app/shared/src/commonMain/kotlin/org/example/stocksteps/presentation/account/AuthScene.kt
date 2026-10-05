@@ -16,8 +16,13 @@ internal fun AuthScene(accounts: AccountDependencies, route: AuthRoute, hinge: W
     // Password is deliberately neither saveable nor part of ViewModel/UI state snapshots.
     var password by remember { mutableStateOf("") }
     var signup by rememberSaveable { mutableStateOf(route.signup) }
-    LaunchedEffect(action.completed) {
-        if (action.completed) { password = ""; onDone() }
+    var finished by remember { mutableStateOf(false) }
+    LaunchedEffect(session.initializing, session.user?.id, action.completed) {
+        if (!finished && (action.completed || !session.initializing && session.user != null)) {
+            finished = true
+            password = ""
+            onDone()
+        }
     }
     AuthScreen(
         email = email,

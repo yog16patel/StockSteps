@@ -49,3 +49,15 @@ test('Canadian symbols are accepted; unrelated user documents are denied', async
   await assertSucceeds(setDoc(item(db, 'alice', 'SHOP.TO'), { ...valid, symbol: 'SHOP.TO' }));
   await assertFails(setDoc(doc(db, 'users/alice'), { admin: true }));
 });
+test('AI summary collection is backend-only for guests and signed-in users', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'newsSimplifications/example'), { result: 'server summary' });
+  });
+  for (const db of [env.unauthenticatedContext().firestore(), env.authenticatedContext('alice').firestore()]) {
+    const summary = doc(db, 'newsSimplifications/example');
+    await assertFails(getDoc(summary));
+    await assertFails(getDocs(collection(db, 'newsSimplifications')));
+    await assertFails(setDoc(summary, { result: 'forged summary' }));
+    await assertFails(deleteDoc(summary));
+  }
+});

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.*
 import androidx.navigation.toRoute
@@ -28,6 +30,20 @@ internal fun AppNavigation(
     navigationIcon: @Composable (MainDestination) -> Unit,
     accounts: AccountDependencies?
 ) {
+    val session = accounts?.auth?.session?.collectAsStateWithLifecycle()?.value
+    if (session?.initializing == true) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    // Choose once after Firebase restoration; later account changes must not reset navigation.
+    val initialRoute: Any = remember {
+        if (accounts == null || session?.user != null) DiscoveryRoute else AuthRoute()
+    }
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
@@ -62,7 +78,7 @@ internal fun AppNavigation(
         }
         NavHost(
             navController = navController,
-            startDestination = if (accounts != null) AuthRoute() else DiscoveryRoute,
+            startDestination = initialRoute,
             modifier = Modifier.weight(1f)
         ) {
             composable<DiscoveryRoute> {

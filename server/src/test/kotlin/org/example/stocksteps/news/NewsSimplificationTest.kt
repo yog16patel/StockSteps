@@ -133,6 +133,72 @@ class NewsSimplificationTest {
             } finally { scope.cancel() }
         }
     }
+    @Test fun cachedSummariesRemainAvailableWithoutAiProvider() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val store = SqliteNewsSimplificationStore(Files.createTempDirectory("news-readonly").resolve("news.db"))
+        try {
+            val ai = object : AiNewsSimplifier {
+                override suspend fun simplify(article: NewsArticle) = explanation
+            }
+            val writer = NewsSimplificationService(ai, store, scope, "v1")
+            writer.enrich(listOf(article))
+            withTimeout(2_000) {
+                while (writer.enrich(listOf(article)).single().explanation == null) delay(10)
+            }
+            val reader = NewsSimplificationService(null, store, scope, "v1")
+            assertEquals(explanation, reader.enrich(listOf(article)).single().explanation)
+            assertNull(reader.enrich(listOf(article.copy(id = "new"))).single().explanation)
+        } finally { scope.cancel() }
+    }
+
+    @Test fun slowCloudCacheDoesNotHoldNewsResponse() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val store = object : NewsSimplificationStore {
+            override suspend fun read(key: String): SimplifiedNews? { awaitCancellation() }
+            override suspend fun claim(key: String, now: Long) = false
+            override suspend fun save(key: String, value: SimplifiedNews) = Unit
+            override suspend fun fail(key: String, retryAt: Long) = Unit
+        }
+        try {
+            val service = NewsSimplificationService(null, store, scope, "v1")
+            val result = withTimeout(3_000) { service.enrich(listOf(article)) }.single()
+            assertEquals(article.title, result.title)
+            assertNull(result.explanation)
+        } finally { scope.cancel() }
+    }
+
+    @Test fun earlierLocalSummariesMigrateWithoutAnotherAiCall() = runBlocking {
+        val local = SqliteNewsSimplificationStore(Files.createTempDirectory("news-migrate-local").resolve("news.db"))
+        val destination = SqliteNewsSimplificationStore(Files.createTempDirectory("news-migrate-destination").resolve("news.db"))
+        local.claim("key", 1_000)
+        local.save("key", explanation)
+        val migrating = MigratingNewsSimplificationStore(destination, local)
+        assertEquals(explanation, migrating.read("key"))
+        assertEquals(explanation, destination.read("key"))
+        assertFalse(destination.claim("key", Long.MAX_VALUE - 60_000))
+    }
+
+    @Test fun slowCachePreservesExplanationsAlreadyLoaded() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        var reads = 0
+        val store = object : NewsSimplificationStore {
+            override suspend fun read(key: String): SimplifiedNews? {
+                if (reads++ == 0) return explanation
+                awaitCancellation()
+            }
+            override suspend fun claim(key: String, now: Long) = false
+            override suspend fun save(key: String, value: SimplifiedNews) = Unit
+            override suspend fun fail(key: String, retryAt: Long) = Unit
+        }
+        try {
+            val result = withTimeout(3_000) {
+                NewsSimplificationService(null, store, scope, "v1").enrich(listOf(article, article.copy(id = "second")))
+            }
+            assertEquals(explanation, result.first().explanation)
+            assertNull(result.last().explanation)
+        } finally { scope.cancel() }
+    }
+
     @Test fun irrelevantArticlesNeverCallAi() = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val store = SqliteNewsSimplificationStore(Files.createTempDirectory("news-irrelevant").resolve("news.db"))

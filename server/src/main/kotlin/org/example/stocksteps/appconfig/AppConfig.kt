@@ -1,6 +1,11 @@
 package org.example.stocksteps.appconfig
 
 object AppConfig {
+    val newsStore: String get() = System.getenv("NEWS_STORE")?.lowercase() ?: "firestore"
+    val newsFirestoreProject: String get() = System.getenv("NEWS_FIRESTORE_PROJECT_ID")
+        ?: System.getenv("GOOGLE_CLOUD_PROJECT") ?: "stocksteps"
+    val newsFirestoreDatabase: String get() = System.getenv("NEWS_FIRESTORE_DATABASE_ID") ?: "(default)"
+
     val geminiApiKey: String? get() = System.getenv("GEMINI_API_KEY")?.takeIf { it.isNotBlank() }
     val geminiNewsModel: String get() = System.getenv("GEMINI_NEWS_MODEL")?.takeIf { it.isNotBlank() } ?: "gemini-3.5-flash-lite"
     val newsDatabasePath: String get() = System.getenv("NEWS_DB_PATH") ?: "server/data/news.db"

@@ -7,7 +7,7 @@ import java.net.URI
 import java.security.MessageDigest
 
 class NewsSimplificationService(
-    private val ai: AiNewsSimplifier,
+    private val ai: AiNewsSimplifier?,
     private val store: NewsSimplificationStore,
     private val scope: CoroutineScope,
     private val version: String,
@@ -24,8 +24,9 @@ class NewsSimplificationService(
         scope.launch {
             for (work in queue) {
                 try {
+                    val simplifier = ai ?: continue
                     if (!store.claim(work.key, now())) continue
-                    val result = withTimeout(jobTimeoutMillis) { ai.simplify(work.article).validated() }
+                    val result = withTimeout(jobTimeoutMillis) { simplifier.simplify(work.article).validated() }
                     store.save(work.key, result)
                 } catch (cause: Exception) {
                     if (cause is CancellationException && cause !is TimeoutCancellationException) throw cause
@@ -35,27 +36,33 @@ class NewsSimplificationService(
         }
     }
     suspend fun enrich(articles: List<NewsArticle>): List<NewsArticle> {
+        val result = articles.distinctBy(::identity)
+            .map { it.copy(id = identity(it), explanation = null) }.toMutableList()
+        withTimeoutOrNull(CACHE_LOOKUP_BUDGET_MILLIS) { enrichWithinBudget(result) }
+        return result.toList()
+    }
+
+    private suspend fun enrichWithinBudget(result: MutableList<NewsArticle>) {
         var queued = 0
-        return articles.distinctBy(::identity).map { article ->
+        for (index in result.indices) {
+            val article = result[index]
             val id = identity(article)
             val key = digest("$id|${article.title}|${article.description.orEmpty()}|${article.symbol.orEmpty()}|${article.source.orEmpty()}|$version")
             try {
                 val cached = store.read(key)
-                if (cached != null) article.copy(id = id, explanation = cached)
-                else {
-                    if (queued < MAX_ARTICLES_PER_RESPONSE && relevant(article) && pending.add(key)) {
-                        val sent = queue.trySend(Work(key, article)).isSuccess
-                        if (sent) queued++ else pending.remove(key)
-                    }
-                    article.copy(id = id, explanation = null)
+                if (cached != null) result[index] = article.copy(explanation = cached)
+                else if (ai != null && queued < MAX_ARTICLES_PER_RESPONSE && relevant(article) && pending.add(key)) {
+                    val sent = queue.trySend(Work(key, article)).isSuccess
+                    if (sent) queued++ else pending.remove(key)
                 }
             } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
-                article.copy(id = id, explanation = null)
+                // Keep original attribution/content and previously loaded explanations.
             }
         }
     }
     companion object {
+        private const val CACHE_LOOKUP_BUDGET_MILLIS = 1_500L
         private const val QUEUE_CAPACITY = 20
         private const val MAX_ARTICLES_PER_RESPONSE = 5
         private const val FAILURE_COOLDOWN_MILLIS = 15 * 60_000L

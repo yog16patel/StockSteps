@@ -26,8 +26,11 @@ Each now preserves a provider `id`, `description` and nullable `explanation`:
 Set these in the **backend process**, using the same environment/run configuration
 as FMP_API_KEY and FINNHUB_API_KEY:
 
-- `GEMINI_API_KEY`: optional. Without it, original news still works.
+- `GEMINI_API_KEY`: optional. Without it, stored summaries can still be read; no new AI work is queued.
 - `GEMINI_NEWS_MODEL`: defaults to `gemini-3.5-flash-lite`.
+- `NEWS_STORE`: defaults to `firestore`; use `sqlite` only for local development.
+- `NEWS_FIRESTORE_PROJECT_ID`: defaults to `GOOGLE_CLOUD_PROJECT`, then `stocksteps`.
+- `NEWS_FIRESTORE_DATABASE_ID`: defaults to `(default)`.
 - `NEWS_DB_PATH`: defaults to `server/data/news.db`, relative to process working
   directory. Prefer an absolute path for predictable local persistence.
 
@@ -51,9 +54,13 @@ No ticker-specific endpoint or invented company metadata is added in this V1.
 Identity uses a positive Finnhub article ID, otherwise a SHA-256 hash of normalized
 URL (fragment/tracking parameters removed and query sorted) and headline. The cache key also includes content, publisher,
 symbol, model and prompt version. Changed content/version gets a new explanation.
-Duplicate articles in a response are removed. SQLite shares results across all
-users and persists through backend restarts. Concurrent work is coalesced locally,
-with database leases as an additional protection for processes sharing the file.
+Duplicate articles in a response are removed. Firestore shares results across all
+users/backend instances and persists through restarts and Cloud Run replacements.
+SQLite is an explicit local-development option. If an earlier local database exists
+at NEWS_DB_PATH, matching summaries are copied to Firestore on first lookup, without
+another AI call. This is lazy migration, not a bulk import of all older entries.
+Concurrent work is coalesced locally; Firestore transactions acquire shared leases,
+track unique ownership and fence stale workers from overwriting a newer result.
 
 One worker, a 20-item bounded queue and at most five enqueues per response bound
 work. No automatic HTTP retry: failures wait 15 minutes before becoming eligible.
@@ -68,11 +75,53 @@ a description is required; ticker-tagged articles must mention that ticker, and
 general articles must contain finance/market terms. This deliberately simple rule
 can miss relevant stories or accept ambiguous matches; it is not an AI classifier.
 
-SQLite files are ignored by Git. This implementation targets the current single
-backend. Cloud Run's local disk is ephemeral and not shared between instances:
-replace NewsSimplificationStore with a durable shared database and distributed
-claim/budget strategy before scaling. The current queue limits are not an account-
-wide daily spending cap. Monitor provider usage and configure account quotas.
+SQLite files are ignored by Git. Firestore is now the durable store for Cloud Run.
+The current queue limits are per instance, not an account-wide daily spending cap.
+Monitor provider usage and configure account quotas. No silent SQLite fallback is
+used when cloud configuration fails; original news continues to work.
+
+## Connecting Firestore
+
+The server uses Google's official Firestore SDK with Application Default Credentials
+(ADC), not Android's google-services.json, the iOS plist, or Firebase CLI login.
+Install the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) if it
+is not available on your Mac, then run:
+
+```sh
+gcloud auth application-default login
+gcloud auth application-default set-quota-project stocksteps
+```
+
+Set these in the backend environment and restart:
+
+```text
+NEWS_STORE=firestore
+NEWS_FIRESTORE_PROJECT_ID=stocksteps
+NEWS_FIRESTORE_DATABASE_ID=(default)
+```
+
+The authenticated principal must have Firestore data access (typically
+`roles/datastore.user`). On Cloud Run, attach a service account with that role;
+the SDK obtains credentials through the runtime. No service-account key download
+is required. Ensure the existing default Firestore database is available.
+
+Summaries are stored under `newsSimplifications/{cacheKey}` with `result` JSON,
+`retryAt`, `updatedAt` and temporary lease `owner`. These documents contain
+explanations/coordination metadata, not the entire provider news feed. Existing
+rules deny all mobile reads/writes to this collection; the server uses IAM.
+No rules deployment is needed for the current deny-by-default rules.
+
+For local emulator testing use `FIRESTORE_EMULATOR_HOST=127.0.0.1:8085` and a
+`demo-*` project. Emulator tests never use stocksteps credentials or data.
+
+Firestore reads have a 1.5-second total response-path budget; individual operations
+have a five-second cancellable deadline. Slow/unavailable cloud storage returns
+original news while retaining explanations already loaded. Background jobs have the existing AI/cooldown limits.
+
+References: [ADC setup](https://cloud.google.com/docs/authentication/provide-credentials-adc),
+[Firestore server setup](https://firebase.google.com/docs/firestore/quickstart-server),
+[Firestore IAM](https://cloud.google.com/firestore/native/docs/security/iam).
+
 
 ## Output and failures
 

@@ -11,6 +11,7 @@ application {
 }
 
 dependencies {
+    implementation("com.google.cloud:google-cloud-firestore:3.45.0")
     implementation("org.xerial:sqlite-jdbc:3.51.3.0")
     api(project(":core"))
     implementation(libs.ktor.server.status.pages)

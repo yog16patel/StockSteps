@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Current update: "Add cached AI news simplification and beginner news cards" on `main`.
-Previous implementation baseline: `a7d52a3` (Home market snapshot with Finnhub ETF fallback).
+Last updated: 2026-10-04. Current update: "Persist AI news summaries in Firestore and restore signed-in sessions" on `main`.
+Previous implementation baseline: `97b705c` (AI news simplification and beginner news cards).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -662,3 +662,60 @@ export; production Xcode limitation remains unchanged.
 Current commit includes AI news pipeline, shared persistent summaries, Android/iOS
 news cards, provider-description fallback, tests and setup documentation. Live
 Gemini verification and production shared durable storage remain pending.
+
+## Restore account before choosing entry screen (included in current commit)
+
+Firebase already persists and restores accounts, but Android previously hard-coded
+AuthRoute and iOS reset hasEnteredApp to false on every launch. Both apps now show
+a startup loading indicator until account initialization completes, then go
+directly to Home for a restored user, or login for signed-out/new users. Android
+chooses the initial route once to avoid resetting navigation on later auth events;
+AuthScene also completes when a restored/authenticated user arrives and guards
+against duplicate navigation from action and session updates. iOS retains the
+in-session entered/guest flag after authentication. Explicit sign-out remains
+available; no password, token or local boolean substitutes for Firebase session.
+Home/watchlist continue using actual UID-tagged account state and backend values.
+Validation: Android debug assembly and shared allTests passed; native SwiftUI
+compatibility build passed (production Xcode constraint unchanged). Updated APK
+installed. Owner should sign in once, force-close and reopen to verify restoration
+with their account; no owner credentials used for testing. Included in the current commit.
+
+## Cloud news summary storage (included in current commit)
+
+Owner requested durable cloud storage. Added server-only Google Cloud Firestore
+SDK 3.45.0 and FirestoreNewsSimplificationStore behind the existing interface.
+Default NEWS_STORE is now firestore; sqlite remains explicit local-development
+mode. Project config NEWS_FIRESTORE_PROJECT_ID falls back to GOOGLE_CLOUD_PROJECT
+then stocksteps; database NEWS_FIRESTORE_DATABASE_ID defaults to (default).
+Collection newsSimplifications/{cacheKey} stores result JSON, retryAt, updatedAt
+and a temporary unique lease owner; full provider news feeds are not persisted.
+Firestore transactions coordinate claims across backend instances. Owner fencing
+prevents expired workers from overwriting newer results or failure cooldowns.
+SDK futures are cancellable with five-second operation deadlines; news cache reads
+have a total 1.5-second budget and preserve explanations already loaded while
+returning original content for remaining articles. Original news survives cloud
+configuration/errors; no silent switch to SQLite when Firestore fails. Cached
+results remain readable when GEMINI_API_KEY is absent; new jobs require the key.
+
+MigratingNewsSimplificationStore lazily copies matching existing SQLite summaries
+to Firestore on lookup, avoiding another AI call. It is not a bulk migration of
+older entries. File is used only if it already exists at NEWS_DB_PATH. Cloud Run
+can use runtime Application Default Credentials/service account with Firestore
+data permissions. Local setup needs ADC, not Firebase CLI login or mobile config
+files. Existing deny-by-default Firestore rules protect this collection from all
+mobile clients; server access uses IAM. No rules/IAM deployment or production
+Firestore writes performed in this task. Per-instance AI queue limits remain;
+account-wide budget enforcement and live Gemini verification remain pending.
+
+Validation: 39 backend regression tests passed (42 total with three emulator tests
+skipped in that run); the three Firestore emulator tests ran separately and passed
+for concurrent claims/shared results, lease expiry/stale worker fencing and shared
+failure cooldown. Six rules tests passed, including guest/authenticated denial of
+summary read/list/write/delete. Added tests for cached reads without AI, migration,
+slow cache fallback and preservation of partial cached explanations. SDK/emulator
+verified only against demo-stocksteps; emulator shut down. docs/AI_NEWS.md updated
+with credentials, config and production guidance. Local ADC is not configured and
+gcloud CLI is not installed; live cloud activation needs owner setup. No mobile
+changes required for storage; login restoration is included in this commit and
+separately validated above. Current commit: “Persist AI news summaries in Firestore
+and restore signed-in sessions”. Live cloud credential setup remains pending.
