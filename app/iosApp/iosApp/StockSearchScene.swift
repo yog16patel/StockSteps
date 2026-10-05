@@ -5,6 +5,7 @@ struct StockSearchScene: View {
     @Environment(\.colorScheme) private var colorScheme
     let model: StockSearchViewModel
     let accounts: AccountViewModel
+    var onClose: () -> Void = {}
     @State private var selectedStock: StockSearchResult?
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
 
@@ -23,6 +24,10 @@ struct StockSearchScene: View {
                 compactColumn = .detail
                 model.selectStock(stock)
             }
+            .stockStepsTopBar(
+                .screen("Search stocks", actions: [AppBarAction(id: "close", label: "Done", enabled: true)]),
+                onAction: { _ in onClose() }
+            )
             .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 440)
         } detail: {
             if let stock = selectedStock {
@@ -36,9 +41,17 @@ struct StockSearchScene: View {
                     watchlistError: accounts.state.error,
                     onToggleWatchlist: { Task { await accounts.toggle(symbol: stock.symbol) } }
                 )
+                .stockStepsTopBar(
+                    .screen(stock.symbol, actions: [AppBarAction(id: "close", label: "Done", enabled: true)]),
+                    onAction: { _ in onClose() }
+                )
             } else {
                 ContentUnavailableView("Select a stock", systemImage: "chart.line.uptrend.xyaxis",
                     description: Text("Choose a search result to view its quote."))
+                    .stockStepsTopBar(
+                        .screen("Stock details", actions: [AppBarAction(id: "close", label: "Done", enabled: true)]),
+                        onAction: { _ in onClose() }
+                    )
             }
         }
         .navigationSplitViewStyle(.balanced)

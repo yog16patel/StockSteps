@@ -16,44 +16,49 @@ struct AppScene: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            HomeScene(model: homeModel, accounts: accounts, onSearch: { showingSearch = true }) { symbol in
-                searchModel.query = symbol
-                searchModel.scheduleSearch()
-                showingSearch = true
+        NavigationStack {
+            TabView(selection: $selectedTab) {
+                HomeScene(model: homeModel, accounts: accounts, onSearch: { showingSearch = true }) { symbol in
+                    searchModel.query = symbol
+                    searchModel.scheduleSearch()
+                    showingSearch = true
+                }
+                .tabItem { Label("Home", systemImage: "house") }
+                .tag(AppRoute.home)
+
+                WatchListScene(model: accounts, onSignIn: { showingAuth = true }, onSearch: { showingSearch = true }, onExplore: explore)
+                    .tabItem { Label("WatchList", systemImage: "star") }
+                    .tag(AppRoute.watchlist)
+
+                LearnScene()
+                    .tabItem { Label("Learn", systemImage: "book") }
+                    .tag(AppRoute.learn)
+
+                SettingsScene(model: accounts, onSignIn: { showingAuth = true })
+                    .tabItem { Label("Settings", systemImage: "gearshape") }
+                    .tag(AppRoute.settings)
             }
-            .tabItem { Label("Home", systemImage: "house") }
-            .tag(AppRoute.home)
-
-            WatchListScene(model: accounts, onSignIn: { showingAuth = true }, onSearch: { showingSearch = true }, onExplore: explore)
-                .tabItem { Label("WatchList", systemImage: "star") }
-                .tag(AppRoute.watchlist)
-
-            LearnScene()
-                .tabItem { Label("Learn", systemImage: "book") }
-                .tag(AppRoute.learn)
-
-            SettingsScene(model: accounts, onSignIn: { showingAuth = true })
-                .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(AppRoute.settings)
+            .stockStepsTopBar(.screen(tabTitle))
         }
         .sheet(isPresented: $showingAuth) {
             NavigationStack {
                 AuthScene(model: accounts, onDone: { showingAuth = false })
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") { showingAuth = false }.disabled(accounts.state.busy)
-                        }
-                    }
+                    .stockStepsTopBar(
+                        .screen("Sign in", backButton: .close, backEnabled: !accounts.state.busy),
+                        onBack: { showingAuth = false }
+                    )
             }.interactiveDismissDisabled(accounts.state.busy)
         }
         .sheet(isPresented: $showingSearch) {
-            StockSearchScene(model: searchModel, accounts: accounts)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { showingSearch = false }
-                    }
-                }
+            StockSearchScene(model: searchModel, accounts: accounts, onClose: { showingSearch = false })
+        }
+    }
+    private var tabTitle: String {
+        switch selectedTab {
+        case .home: "Home"
+        case .watchlist: "WatchList"
+        case .learn: "Learn"
+        case .settings: "Settings"
         }
     }
     private func explore(_ symbol: String) {

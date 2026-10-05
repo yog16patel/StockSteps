@@ -22,13 +22,16 @@ import org.example.stocksteps.presentation.discovery.DiscoveryScene
 import org.example.stocksteps.presentation.home.HomeScene
 import org.example.stocksteps.presentation.stocksearch.StockSearchRoute
 import org.example.stocksteps.presentation.stocksearch.StockSearchScene
+import org.example.stocksteps.model.*
+import org.example.stocksteps.presentation.components.StockStepsTopBar
 
 @Composable
 internal fun AppNavigation(
     baseUrl: String?,
     hinge: WindowHinge?,
     navigationIcon: @Composable (MainDestination) -> Unit,
-    accounts: AccountDependencies?
+    accounts: AccountDependencies?,
+    backIcon: @Composable () -> Unit
 ) {
     val session = accounts?.auth?.session?.collectAsStateWithLifecycle()?.value
     if (session?.initializing == true) {
@@ -70,12 +73,21 @@ internal fun AppNavigation(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        if (isSearch) {
-            TextButton(
-                modifier = Modifier.statusBarsPadding(),
-                onClick = { navController.popBackStack() }
-            ) { Text(text = "Back") }
-        }
+        StockStepsTopBar(
+            configuration = AppBarConfiguration(
+                title = when {
+                    isSearch -> "Search stocks"
+                    destination?.hasRoute<WatchListRoute>() == true -> "WatchList"
+                    destination?.hasRoute<LearnRoute>() == true -> "Learn"
+                    destination?.hasRoute<SettingsRoute>() == true -> "Settings"
+                    else -> "Home"
+                },
+                visible = !isAuth,
+                backButton = if (isSearch) AppBarBackButton.BACK else AppBarBackButton.NONE
+            ),
+            onBack = { navController.popBackStack() },
+            backIcon = backIcon
+        )
         NavHost(
             navController = navController,
             startDestination = initialRoute,

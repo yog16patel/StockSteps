@@ -10,7 +10,8 @@ fun App(
     baseUrl: String? = null,
     accounts: org.example.stocksteps.di.AccountDependencies? = null,
     hinge: WindowHinge? = null,
-    navigationIcon: @Composable (MainDestination) -> Unit = { Text(it.label.take(1)) }
+    navigationIcon: @Composable (MainDestination) -> Unit = { Text(it.label.take(1)) },
+    backIcon: @Composable () -> Unit = { Text("Back") }
 ) {
-    StockStepsTheme { AppNavigation(baseUrl, hinge, navigationIcon, accounts) }
+    StockStepsTheme { AppNavigation(baseUrl, hinge, navigationIcon, accounts, backIcon) }
 }

@@ -49,7 +49,8 @@ class MainActivity : ComponentActivity() {
                 accounts = accountOwner.dependencies,
                 hinge = hinge,
                 baseUrl = if (BuildConfig.DEBUG) "http://127.0.0.1:8080" else null,
-                navigationIcon = { AndroidNavigationIcon(it) }
+                navigationIcon = { AndroidNavigationIcon(it) },
+                backIcon = { AndroidBackIcon() }
             )
         }
     }
@@ -58,5 +59,5 @@ class MainActivity : ComponentActivity() {
 @Preview
 @Composable
 fun AppAndroidPreview() {
-    App(navigationIcon = { AndroidNavigationIcon(it) })
+    App(navigationIcon = { AndroidNavigationIcon(it) }, backIcon = { AndroidBackIcon() })
 }

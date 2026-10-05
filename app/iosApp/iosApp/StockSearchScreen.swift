@@ -48,7 +48,6 @@ struct StockSearchScreen: View {
         .scrollContentBackground(.hidden)
         .background(StockStepsTheme.color(palette.background))
         .tint(StockStepsTheme.color(palette.primary))
-        .navigationTitle("StockSteps")
         .searchable(text: $query, prompt: "Company or ticker")
         .onChange(of: state.query) { _, _ in onQueryChanged() }
         .toolbar {

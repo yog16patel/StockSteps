@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Current update: "Persist AI news summaries in Firestore and restore signed-in sessions" on `main`.
-Previous implementation baseline: `97b705c` (AI news simplification and beginner news cards).
+Last updated: 2026-10-04. Current update: "Add configurable top app bars and Android back icon" on `main`.
+Previous implementation baseline: `582e539` (Firestore news summaries and restored signed-in sessions).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -719,3 +719,33 @@ gcloud CLI is not installed; live cloud activation needs owner setup. No mobile
 changes required for storage; login restoration is included in this commit and
 separately validated above. Current commit: “Persist AI news summaries in Firestore
 and restore signed-in sessions”. Live cloud credential setup remains pending.
+
+## Configurable common top app bar
+
+Added shared core AppBarConfiguration/AppBarAction/AppBarBackButton models with
+title, visibility, NONE/BACK/CLOSE, enabled state and trailing actions by ID.
+Android's separate presentation/components/StockStepsTopBar renders Material
+TopAppBar; AppNavigation wires destination titles and search Back, and keeps the
+login header hidden to preserve that design. Native StockStepsTopBar.swift renders
+the same configuration through a native toolbar ViewModifier and a Swift factory
+helper. AppScene owns root NavigationStack and tab title; WatchList, Settings and
+Learn placeholder content no longer contain their own nested navigation stacks.
+Auth sheet Close respects busy state; search/sidebar/detail headers use Done, and
+iOS compact details preserve automatic navigation back. Route identity files are
+unchanged; callbacks stay in scenes/navigation composition. Docs TOP_APP_BAR.md
+contains configuration examples. Native toolbar OS appearance is preserved.
+
+Validation: Android debug and shared iOS simulator framework builds passed; native
+SwiftUI compatibility build passed (actual Xcode/Firebase limitation unchanged).
+APK installed. Emulator Home title and search title/Back inspected; Back returned
+to Home and bottom navigation. Shared action callbacks and enabled states are
+configurable for future screens. No backend changes.
+
+Android back-icon follow-up: provided ic_back_button drawable now
+renders in the common top bar via a platform-supplied composable slot, keeping
+Android resources out of common code. AndroidBackIcon uses theme tint and a Back
+accessibility label; IconButton preserves enabled state and touch target. Close
+and native iOS navigation remain unchanged.
+
+Validation: Android debug build and git diff --check passed; updated APK installed
+on the existing Android emulator.

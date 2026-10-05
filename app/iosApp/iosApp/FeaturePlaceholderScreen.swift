@@ -5,9 +5,6 @@ struct FeaturePlaceholderScreen: View {
     let description: String
 
     var body: some View {
-        NavigationStack {
-            ContentUnavailableView(title, systemImage: "square.grid.2x2", description: Text(description))
-                .navigationTitle(title)
-        }
+        ContentUnavailableView(title, systemImage: "square.grid.2x2", description: Text(description))
     }
 }

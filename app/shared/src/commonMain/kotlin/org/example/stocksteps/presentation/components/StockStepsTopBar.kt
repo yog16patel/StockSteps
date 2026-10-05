@@ -1,0 +1,50 @@
+package org.example.stocksteps.presentation.components
+
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import org.example.stocksteps.model.AppBarBackButton
+import org.example.stocksteps.model.AppBarConfiguration
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun StockStepsTopBar(
+    configuration: AppBarConfiguration,
+    onBack: () -> Unit = {},
+    onAction: (String) -> Unit = {},
+    backIcon: @Composable () -> Unit = { Text("Back") },
+    modifier: Modifier = Modifier
+) {
+    if (!configuration.visible) return
+    TopAppBar(
+        modifier = modifier,
+        title = {
+            Text(
+                text = configuration.title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        navigationIcon = {
+            when (configuration.backButton) {
+                AppBarBackButton.BACK -> IconButton(
+                    onClick = onBack,
+                    enabled = configuration.backEnabled,
+                    content = backIcon
+                )
+                AppBarBackButton.CLOSE -> TextButton(onClick = onBack, enabled = configuration.backEnabled) {
+                    Text("Close")
+                }
+                AppBarBackButton.NONE -> Unit
+            }
+        },
+        actions = {
+            configuration.actions.forEach { action ->
+                TextButton(onClick = { onAction(action.id) }, enabled = action.enabled) {
+                    Text(action.label)
+                }
+            }
+        }
+    )
+}
