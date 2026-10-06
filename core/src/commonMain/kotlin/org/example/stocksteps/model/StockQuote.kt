@@ -13,5 +13,6 @@ data class StockQuote(
     val dayLow: Double?,
     val previousClose: Double? = null,
     val volume: Long? = null,
-    val timestamp: Long? = null
+    val timestamp: Long? = null,
+    val marketCap: Long? = null
 )

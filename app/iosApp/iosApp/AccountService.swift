@@ -7,6 +7,7 @@ protocol AccountServing {
     func signInWithGoogle() async throws
     func signOut() async throws
     func add(symbol: String) async throws
+    func addListing(stock: StockSearchResult) async throws
     func remove(symbol: String) async throws
     func retrySync()
     func close()
@@ -21,6 +22,7 @@ final class AccountService: AccountServing {
     func signInWithGoogle() async throws { try await client.signInWithGoogle() }
     func signOut() async throws { try await client.signOut() }
     func add(symbol: String) async throws { try await client.add(symbol: symbol) }
+    func addListing(stock: StockSearchResult) async throws { try await client.addListing(stock: stock) }
     func remove(symbol: String) async throws { try await client.remove(symbol: symbol) }
     func retrySync() { client.retrySync() }
     func close() { client.close() }

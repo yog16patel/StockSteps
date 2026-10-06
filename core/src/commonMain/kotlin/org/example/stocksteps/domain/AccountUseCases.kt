@@ -11,6 +11,7 @@ class SignOut(private val repository: AuthRepository) {
 }
 class AddToWatchlist(private val repository: WatchlistRepository) {
     suspend operator fun invoke(symbol: String) = repository.add(normalizedWatchlistSymbol(symbol))
+    suspend operator fun invoke(stock: org.example.stocksteps.model.StockSearchResult) = repository.add(stock)
 }
 class RemoveFromWatchlist(private val repository: WatchlistRepository) {
     suspend operator fun invoke(symbol: String) = repository.remove(normalizedWatchlistSymbol(symbol))

@@ -58,6 +58,17 @@ class OfflineWatchlistRepository(
         val session = readySession()
         local.add(watchlistOwner(session.user?.id), normalizedWatchlistSymbol(symbol), now(), session.user != null)
     }
+    override suspend fun add(stock: org.example.stocksteps.model.StockSearchResult) {
+        val session = readySession()
+        require(stock.name.length <= 300 && (stock.exchange?.length ?: 0) <= 100 &&
+            (stock.currency?.length ?: 0) <= 10 && (stock.exchangeFullName?.length ?: 0) <= 300)
+        local.addListing(
+            owner = watchlistOwner(session.user?.id),
+            stock = stock.copy(symbol = normalizedWatchlistSymbol(stock.symbol)),
+            now = now(),
+            queue = session.user != null
+        )
+    }
     override suspend fun remove(symbol: String) {
         val session = readySession()
         local.remove(watchlistOwner(session.user?.id), normalizedWatchlistSymbol(symbol), session.user != null)

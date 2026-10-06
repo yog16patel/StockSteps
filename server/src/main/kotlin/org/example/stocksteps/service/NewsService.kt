@@ -6,6 +6,10 @@ class NewsService(
     private val provider: NewsProviderRepository,
     private val simplification: org.example.stocksteps.news.NewsSimplificationService? = null
 ) {
+    suspend fun getCompanyNews(symbol: String): List<org.example.stocksteps.model.NewsArticle> {
+        val articles = provider.getCompanyNews(symbol)
+        return simplification?.enrich(articles) ?: articles
+    }
     suspend fun getNews(page: Int, limit: Int): List<org.example.stocksteps.model.NewsArticle> {
         val articles = provider.getNews(page, limit)
         return simplification?.enrich(articles) ?: articles

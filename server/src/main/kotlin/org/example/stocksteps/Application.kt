@@ -65,6 +65,7 @@ fun Application.module() {
 
     routing {
         stockRoutes(stockService)
+        companyFinancialRoutes(org.example.stocksteps.service.CompanyFinancialService(fmpRepository))
         marketRoutes(stockService)
         marketSnapshotRoutes(org.example.stocksteps.service.MarketSnapshotService(
             org.example.stocksteps.repositoryImpl.FmpMarketDataProvider(
@@ -134,6 +135,14 @@ fun Route.marketRoutes(stockService: StockService) {
 
 
 fun Route.newsRoutes(newsService: NewsService) {
+    get("/api/v1/stocks/{symbol}/news") {
+        val symbol = call.parameters["symbol"]?.uppercase(Locale.ROOT)
+        if (symbol == null || !Regex("[A-Z0-9][A-Z0-9.-]{0,19}").matches(symbol)) {
+            call.respond(HttpStatusCode.BadRequest, ApiError("INVALID_SYMBOL", "Provide a valid stock symbol."))
+            return@get
+        }
+        call.respond(newsService.getCompanyNews(symbol))
+    }
     get("/api/v1/news") {
         val pageValue = call.request.queryParameters["page"]
         val limitValue = call.request.queryParameters["limit"]

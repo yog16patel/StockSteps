@@ -11,6 +11,40 @@ import kotlin.test.*
 class SqlWatchlistStoreTest {
     private fun database() = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).also { WatchlistDatabase.Schema.create(it) }
 
+    @Test fun listingMetadataSurvivesGuestMergeOutboxAndCloudSnapshot() = runTest {
+        val driver = database()
+        try {
+            val store = SqlWatchlistStore(driver)
+            val listing = org.example.stocksteps.model.StockSearchResult("SHOP.TO", "Shopify", "CAD", "TSX", "Toronto Stock Exchange")
+            store.addListing(GUEST_OWNER, listing, 100, false)
+            store.addListing(GUEST_OWNER, listing.copy(symbol = "SHOP", currency = "USD", exchange = "NYSE"), 101, false)
+            val owner = watchlistOwner("alice")
+            store.mergeGuest(owner)
+            val items = store.observe(owner).first()
+            assertEquals(2, items.size)
+            assertEquals(listing, items.first { it.symbol == "SHOP.TO" }.listing())
+            val pending = store.observePending(owner).first()
+            assertEquals(listing, pending.first { it.symbol == "SHOP.TO" }.item!!.listing())
+            pending.forEach { store.acknowledge(owner, it) }
+            store.applySnapshot(owner, items)
+            assertEquals(listing, store.observe(owner).first().first { it.symbol == "SHOP.TO" }.listing())
+        } finally { driver.close() }
+    }
+
+    @Test fun versionOneMigrationPreservesExistingRows() = runTest {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        try {
+            driver.execute(null, "CREATE TABLE watchlist(owner TEXT NOT NULL, symbol TEXT NOT NULL, addedAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, PRIMARY KEY(owner, symbol))", 0)
+            driver.execute(null, "CREATE TABLE pending_operation(revision INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, symbol TEXT NOT NULL, addedAt INTEGER, updatedAt INTEGER, UNIQUE(owner, symbol))", 0)
+            driver.execute(null, "INSERT INTO watchlist VALUES ('guest', 'SHOP.TO', 100, 100)", 0)
+            WatchlistDatabase.Schema.migrate(driver, 1, 2)
+            val item = SqlWatchlistStore(driver).observe(GUEST_OWNER).first().single()
+            assertEquals("SHOP.TO", item.symbol)
+            assertNull(item.exchange)
+            assertEquals("SHOP.TO", item.listing().symbol)
+        } finally { driver.close() }
+    }
+
     @Test fun guestMergeDeduplicatesAndTransfersOnlyOnce() = runTest {
         val driver = database()
         try {

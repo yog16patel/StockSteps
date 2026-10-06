@@ -54,6 +54,8 @@ kotlin {
             implementation(libs.ktor.client.darwin)
         }
         commonMain.dependencies {
+            implementation("io.coil-kt.coil3:coil-compose:3.6.3")
+            implementation("io.coil-kt.coil3:coil-network-ktor3:3.6.3")
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
             implementation(libs.koin.core)

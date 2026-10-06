@@ -14,9 +14,15 @@ class StockService(
 ) {
     suspend fun searchStocks(query: String): List<StockSearchResult> =
         stockProvider.searchStocks(query)
-            .filter { it.currency == "USD" || it.currency == "CAD" }
+            .filter { it.currency.equals("USD", ignoreCase = true) &&
+                it.exchange?.uppercase(Locale.ROOT) in US_EXCHANGES
+            }
             .distinctBy { it.symbol.uppercase(Locale.ROOT) }
             .sortedByDescending { it.symbol.equals(query, ignoreCase = true) }
+
+    private companion object {
+        val US_EXCHANGES = setOf("NASDAQ", "NYSE", "AMEX", "NYSEARCA", "NYSEAMERICAN", "BATS", "CBOE", "OTC", "OTCQX", "OTCQB", "PNK")
+    }
 
     suspend fun getGainers(): List<MarketMover> = stockProvider.getGainers()
         .sortedByDescending { it.changePercent }

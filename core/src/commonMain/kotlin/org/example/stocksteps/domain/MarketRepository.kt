@@ -6,6 +6,7 @@ import org.example.stocksteps.model.NewsArticle
 interface MarketRepository {
     suspend fun getGainers(): List<MarketMover>
     suspend fun getLosers(): List<MarketMover>
+    suspend fun getCompanyNews(symbol: String): List<NewsArticle> = emptyList()
     suspend fun getNews(): List<NewsArticle>
 }
 
@@ -17,4 +18,8 @@ class GetMarketLosers(private val repository: MarketRepository) {
 }
 class GetMarketNews(private val repository: MarketRepository) {
     suspend operator fun invoke() = repository.getNews()
+}
+
+class GetCompanyNews(private val repository: MarketRepository) {
+    suspend operator fun invoke(symbol: String) = repository.getCompanyNews(symbol)
 }

@@ -20,7 +20,7 @@ import kotlin.test.*
 
 class StockSearchTest {
     @Test
-    fun searchKeepsOnlyUsdAndCadAndPreservesProviderOrder() = testApplication {
+    fun searchKeepsOnlyUsdOnUsExchangesAndPreservesProviderOrder() = testApplication {
         val upstream = HttpClient(MockEngine { request ->
             assertTrue(request.url.encodedPath in listOf("/stable/search-name", "/stable/search-symbol"))
             assertEquals("apple", request.url.parameters["query"])
@@ -30,6 +30,8 @@ class StockSearchTest {
                 {"symbol":"UNKNOWN","name":"Unknown currency"},
                 {"symbol":"AAPL.TO","name":"Apple Inc.","currency":"CAD","exchange":"TSX","exchangeFullName":"Toronto Stock Exchange"},
                 {"symbol":"APC.DE","name":"Apple Inc.","currency":"EUR"},
+                    {"symbol":"FOREIGN","name":"USD foreign listing","currency":"USD","exchange":"TSX"},
+                    {"symbol":"UNKNOWN","name":"Unknown exchange","currency":"USD"},
                 {"symbol":"AAPL","name":"Apple Inc.","currency":"USD","exchange":"NASDAQ"}
             ]""", headers = headersOf(HttpHeaders.ContentType, "application/json"))
         }) { install(ClientContentNegotiation) { json() } }
@@ -43,7 +45,6 @@ class StockSearchTest {
             assertEquals(HttpStatusCode.OK, response.status)
             val results = Json.decodeFromString<List<StockSearchResult>>(response.bodyAsText())
             assertEquals(listOf(
-                StockSearchResult("AAPL.TO", "Apple Inc.", "CAD", "TSX", "Toronto Stock Exchange"),
                 StockSearchResult("AAPL", "Apple Inc.", "USD", "NASDAQ")
             ), results)
         } finally { upstream.close() }
@@ -58,12 +59,14 @@ class StockSearchTest {
             val body = when (request.url.encodedPath) {
                 "/stable/search-symbol" -> """[
                     {"symbol":"AAPL.TO","name":"Apple Inc.","currency":"CAD"},
-                    {"symbol":"AAPL","name":"Apple Inc.","currency":"USD"}
+                    {"symbol":"AAPL","name":"Apple Inc.","currency":"USD","exchange":"NASDAQ"}
                 ]"""
                 "/stable/search-name" -> """[
-                    {"symbol":"aapl","name":"Duplicate Apple","currency":"USD"},
-                    {"symbol":"APLE","name":"Apple Hospitality","currency":"USD"},
-                    {"symbol":"APC.DE","name":"Apple Inc.","currency":"EUR"}
+                    {"symbol":"aapl","name":"Duplicate Apple","currency":"USD","exchange":"NASDAQ"},
+                    {"symbol":"APLE","name":"Apple Hospitality","currency":"USD","exchange":"NASDAQ"},
+                    {"symbol":"APC.DE","name":"Apple Inc.","currency":"EUR"},
+                    {"symbol":"FOREIGN","name":"USD foreign listing","currency":"USD","exchange":"TSX"},
+                    {"symbol":"UNKNOWN","name":"Unknown exchange","currency":"USD"}
                 ]"""
                 else -> error("Unexpected endpoint")
             }
@@ -78,7 +81,7 @@ class StockSearchTest {
             val response = client.get("/api/v1/stocks/search?query=aapl")
             assertEquals(HttpStatusCode.OK, response.status)
             val results = Json.decodeFromString<List<StockSearchResult>>(response.bodyAsText())
-            assertEquals(listOf("AAPL", "AAPL.TO", "APLE"), results.map { it.symbol })
+            assertEquals(listOf("AAPL", "APLE"), results.map { it.symbol })
             assertEquals("Apple Inc.", results.first().name)
             assertEquals(setOf("/stable/search-name", "/stable/search-symbol"), paths.toSet())
         } finally { upstream.close() }

@@ -209,3 +209,19 @@ Android build/core tests passed and provider UI opened on emulator-5554. No real
 Google account was entered by the agent. Native compile passed using the isolated
 Firebase compatibility project; actual Firebase pin still needs upgraded Xcode.
 Password recovery and account linking UI remain pending.
+
+### Saved listing identity
+
+New watchlist additions preserve the selected provider symbol, company name,
+exchange, full exchange name, and currency in SQL and Firestore. Symbols are
+provider identifiers, including exchange suffixes (`SHOP` and `SHOP.TO` remain
+separate items); never strip suffixes or resolve a saved item by company name.
+Watchlist and Home taps open quote/profile details directly for that identifier.
+Prices remain live backend reads, rather than stored watchlist fields.
+
+SQL schema version 2 adds nullable metadata to existing rows and pending operations.
+Legacy cloud documents remain valid. Older entries retain their exact symbol but
+have unknown exchange/name metadata until removed and re-added from a search
+result. The app does not invent an exchange for legacy entries. Updated rules
+accept bounded optional metadata; account ownership and financial-field denial
+remain unchanged. Rules deployed to stocksteps on 2026-10-05.

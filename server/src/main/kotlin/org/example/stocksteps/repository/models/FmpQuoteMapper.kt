@@ -15,5 +15,6 @@ fun FmpQuote.toStockQuote(): StockQuote = StockQuote(
     volume = volume?.takeIf {
         it.isFinite() && it >= 0.0 && it < Long.MAX_VALUE.toDouble()
     }?.toLong(),
-    timestamp = timestamp
+    timestamp = timestamp,
+    marketCap = marketCap?.takeIf { it >= 0 }
 )

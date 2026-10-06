@@ -72,7 +72,7 @@ Server tests use fake repositories and a mock HTTP engine; no API key is needed.
 
 `GET /api/v1/stocks/search?query=apple` queries FMP's `stable/search-symbol` and `stable/search-name`
 endpoints concurrently (two provider requests per search) and returns an array of StockSearchResult objects (`symbol`, `name`,
-`currency`, `exchange`, `exchangeFullName`). Only USD and CAD results are returned; other or missing currencies are excluded.
+`currency`, `exchange`, `exchangeFullName`). Only USD listings on recognized US exchanges are returned. Canadian/foreign listings and results with missing currency or exchange are excluded.
 Duplicate symbols are removed case-insensitively, preferring ticker-search results.
 Exact ticker matches appear first; remaining results retain ticker-search then
 company-name ordering. Distinct listings such as AAPL and AAPL.TO are preserved. Optional fields may be null. Search includes the
@@ -299,7 +299,7 @@ GetCompanyProfile injected through Koin. No provider credentials enter mobile.
 Home loads gainers, losers, and 20 current market news headlines independently.
 Each section handles loading, empty results, errors, and retry; Refresh reloads
 all sections. Five movers per category are shown. Tapping a mover searches its
-ticker using the existing USD/CAD flow, and Read article opens a source link.
+ticker using the existing US-only search flow, and Read article opens a source link.
 Mover prices have no currency label because the backend does not supply one.
 Native tabs on iOS and Compose navigation on Android retain the Search feature.
 No watchlist storage or historical news pagination is included yet.
@@ -337,3 +337,7 @@ Market Snapshot API and provider limitations: [docs/MARKET_SNAPSHOT.md](docs/MAR
 AI News backend setup and processing: [docs/AI_NEWS.md](docs/AI_NEWS.md).
 
 Shared top app bar configuration: [docs/TOP_APP_BAR.md](docs/TOP_APP_BAR.md).
+
+Company detail UI, data mapping and pending financial integrations: [COMPANY_DETAIL.md](docs/COMPANY_DETAIL.md).
+
+Company fundamentals: `GET /api/v1/stocks/{symbol}/fundamentals?period=annual` (or `quarter`) supplies Financials and Valuation with reporting dates and partial availability. See [Company Detail](docs/COMPANY_DETAIL.md) for provider mappings and calculation limits.

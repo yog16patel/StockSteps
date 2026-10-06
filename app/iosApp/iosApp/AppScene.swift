@@ -1,4 +1,5 @@
 import SwiftUI
+import Shared
 
 struct AppScene: View {
     @State private var searchModel: StockSearchViewModel
@@ -6,6 +7,7 @@ struct AppScene: View {
     let accounts: AccountViewModel
     @State private var showingAuth = false
     @State private var showingSearch = false
+    @State private var initialStock: StockSearchResult?
     @State private var selectedTab = AppRoute.home
 
 
@@ -18,7 +20,8 @@ struct AppScene: View {
     var body: some View {
         NavigationStack {
             TabView(selection: $selectedTab) {
-                HomeScene(model: homeModel, accounts: accounts, onSearch: { showingSearch = true }) { symbol in
+                HomeScene(model: homeModel, accounts: accounts, onSearch: { initialStock = nil; showingSearch = true }) { symbol in
+                    initialStock = accounts.state.items.first { $0.symbol == symbol }?.listing() ?? StockSearchResult(symbol: symbol, name: symbol, currency: nil, exchange: nil, exchangeFullName: nil)
                     searchModel.query = symbol
                     searchModel.scheduleSearch()
                     showingSearch = true
@@ -26,7 +29,7 @@ struct AppScene: View {
                 .tabItem { Label("Home", systemImage: "house") }
                 .tag(AppRoute.home)
 
-                WatchListScene(model: accounts, onSignIn: { showingAuth = true }, onSearch: { showingSearch = true }, onExplore: explore)
+                WatchListScene(model: accounts, onSignIn: { showingAuth = true }, onSearch: { initialStock = nil; showingSearch = true }, onExplore: explore)
                     .tabItem { Label("WatchList", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 
@@ -50,7 +53,7 @@ struct AppScene: View {
             }.interactiveDismissDisabled(accounts.state.busy)
         }
         .sheet(isPresented: $showingSearch) {
-            StockSearchScene(model: searchModel, accounts: accounts, onClose: { showingSearch = false })
+            StockSearchScene(model: searchModel, accounts: accounts, initialStock: initialStock, onClose: { showingSearch = false })
         }
     }
     private var tabTitle: String {
@@ -62,6 +65,7 @@ struct AppScene: View {
         }
     }
     private func explore(_ symbol: String) {
+        initialStock = accounts.state.items.first { $0.symbol == symbol }?.listing() ?? StockSearchResult(symbol: symbol, name: symbol, currency: nil, exchange: nil, exchangeFullName: nil)
         searchModel.query = symbol
         searchModel.scheduleSearch()
         showingSearch = true

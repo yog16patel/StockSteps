@@ -129,7 +129,7 @@ private final class NativeWatchlistGateway: NSObject, PlatformWatchlistGateway {
                         onSnapshot(nil, KotlinBoolean(bool: false), "Cloud watchlist data could not be read. Local data is safe.")
                         return
                     }
-                    items.append(WatchlistItem(symbol: symbol, addedAt: added, updatedAt: updated))
+                    items.append(WatchlistItem(symbol: symbol, addedAt: added, updatedAt: updated, name: data["name"] as? String, exchange: data["exchange"] as? String, currency: data["currency"] as? String, exchangeFullName: data["exchangeFullName"] as? String))
                 }
                 onSnapshot(items, KotlinBoolean(bool: !snapshot.metadata.isFromCache && !snapshot.metadata.hasPendingWrites), nil)
             }
@@ -142,7 +142,12 @@ private final class NativeWatchlistGateway: NSObject, PlatformWatchlistGateway {
             do {
                 let existing = try transaction.getDocument(document).data()?["addedAt"] as? Int64
                 let added = min(item.addedAt, existing ?? item.addedAt)
-                transaction.setData(["symbol": item.symbol, "addedAt": added, "updatedAt": max(item.updatedAt, added)], forDocument: document)
+                var data: [String: Any] = ["symbol": item.symbol, "addedAt": added, "updatedAt": max(item.updatedAt, added)]
+                data["name"] = item.name
+                data["exchange"] = item.exchange
+                data["currency"] = item.currency
+                data["exchangeFullName"] = item.exchangeFullName
+                transaction.setData(data, forDocument: document)
                 return nil
             } catch { errorPointer?.pointee = error as NSError; return nil }
         }) { _, error in completion(error.map(safeCloudMessage)) }

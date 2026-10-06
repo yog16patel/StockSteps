@@ -24,7 +24,7 @@ internal class AndroidWatchlistGateway(private val firestore: FirebaseFirestore?
                             val added = requireNotNull(document.getLong("addedAt"))
                             val updated = requireNotNull(document.getLong("updatedAt"))
                             require(added >= 0 && updated >= added)
-                            WatchlistItem(symbol, added, updated)
+                            WatchlistItem(symbol, added, updated, document.getString("name"), document.getString("exchange"), document.getString("currency"), document.getString("exchangeFullName"))
                         }
                         onSnapshot(items, !snapshot.metadata.isFromCache && !snapshot.metadata.hasPendingWrites(), null)
                     } catch (_: Exception) {
@@ -43,7 +43,12 @@ internal class AndroidWatchlistGateway(private val firestore: FirebaseFirestore?
         database.runTransaction { transaction ->
             val existing = transaction.get(document).getLong("addedAt")
             val added = minOf(item.addedAt, existing ?: item.addedAt)
-            transaction.set(document, mapOf("symbol" to item.symbol, "addedAt" to added, "updatedAt" to maxOf(item.updatedAt, added)))
+            val data = mutableMapOf<String, Any>("symbol" to item.symbol, "addedAt" to added, "updatedAt" to maxOf(item.updatedAt, added))
+            item.name?.let { data["name"] = it }
+            item.exchange?.let { data["exchange"] = it }
+            item.currency?.let { data["currency"] = it }
+            item.exchangeFullName?.let { data["exchangeFullName"] = it }
+            transaction.set(document, data)
             Unit
         }.addOnCompleteListener { completion(it.exception?.safeCloudMessage()) }
     }

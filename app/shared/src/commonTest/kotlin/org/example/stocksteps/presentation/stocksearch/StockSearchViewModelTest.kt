@@ -9,6 +9,88 @@ import kotlin.test.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StockSearchViewModelTest {
+    @Test fun fundamentalsLoadIndependentlyCancelOldSelectionAndSwitchPeriod() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        var cancelled = false
+        var failRefresh = false
+        val periods = mutableListOf<String>()
+        val repository = object : StockRepository {
+            override suspend fun searchStocks(query: String) = emptyList<StockSearchResult>()
+            override suspend fun getQuote(symbol: String) = StockQuote(symbol, symbol, 100.0, 1.0, 1.0, null, null)
+            override suspend fun getProfile(symbol: String) = CompanyProfile(symbol)
+            override suspend fun getFundamentals(symbol: String, period: String): CompanyFundamentals {
+                if (symbol == "OLD") try { awaitCancellation() } finally { cancelled = true }
+                periods += period
+                if (failRefresh || period == "quarter") throw StockDataException("Fixture failure")
+                return CompanyFundamentals(symbol, financials = CompanyFinancials(growth = mapOf("revenue" to FinancialFact(amount = 123))))
+            }
+        }
+        val store = ViewModelStore()
+        try {
+            val model = StockSearchViewModel(SearchStocks(repository), GetStockQuote(repository), GetCompanyProfile(repository), getFundamentals = GetCompanyFundamentals(repository))
+            store.put("search", model)
+            model.selectStock(StockSearchResult("OLD", "Old")); runCurrent()
+            model.selectStock(StockSearchResult("AAPL", "Apple")); runCurrent()
+            assertTrue(cancelled)
+            assertEquals("AAPL", model.state.value.fundamentals?.symbol)
+            assertEquals(123.0, model.state.value.detail.financials.flatMap { it.metrics }.first { it.id == "revenue" }.value)
+            failRefresh = true
+            model.detailAction(org.example.stocksteps.presentation.companydetail.CompanyDetailAction.RefreshFundamentals)
+            runCurrent()
+            assertEquals(123L, model.state.value.fundamentals?.financials?.growth?.get("revenue")?.amount)
+            assertNotNull(model.state.value.financials.refreshMessage)
+            assertEquals(org.example.stocksteps.companydetail.SectionStatus.SUCCESS, model.state.value.financials.sections.first().status)
+            failRefresh = false
+            model.detailAction(org.example.stocksteps.presentation.companydetail.CompanyDetailAction.SelectFinancialPeriod(org.example.stocksteps.companydetail.FinancialPeriod.QUARTERLY))
+            runCurrent()
+            assertEquals(listOf("annual", "annual", "quarter"), periods)
+            assertNotNull(model.state.value.fundamentalsError)
+            assertEquals("AAPL", model.state.value.quote?.symbol)
+            assertNotNull(model.state.value.profile)
+            model.changeQuery("new"); runCurrent()
+            assertNull(model.state.value.fundamentals)
+            assertNull(model.state.value.fundamentalsError)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
+
+    @Test fun newsFailureDoesNotDiscardCompanyOrQuoteAndSelectionCancelsOldNews() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val repository = object : StockRepository {
+            override suspend fun searchStocks(query: String) = emptyList<StockSearchResult>()
+            override suspend fun getQuote(symbol: String) = StockQuote(symbol, symbol, 100.0, 1.0, 1.0, null, null)
+            override suspend fun getProfile(symbol: String) = CompanyProfile(symbol, description = "Company information")
+        }
+        var cancelled = false
+        val news = object : MarketRepository {
+            override suspend fun getGainers() = emptyList<MarketMover>()
+            override suspend fun getLosers() = emptyList<MarketMover>()
+            override suspend fun getNews() = emptyList<NewsArticle>()
+            override suspend fun getCompanyNews(symbol: String): List<NewsArticle> {
+                if (symbol == "OLD") {
+                    try { awaitCancellation() } finally { cancelled = true }
+                }
+                throw StockDataException("News unavailable")
+            }
+        }
+        val store = ViewModelStore()
+        try {
+            val model = StockSearchViewModel(SearchStocks(repository), GetStockQuote(repository), GetCompanyProfile(repository), companyNews = GetCompanyNews(news))
+            store.put("search", model)
+            model.selectStock(StockSearchResult("OLD", "Old")); runCurrent()
+            model.selectStock(StockSearchResult("AAPL", "Apple")); runCurrent()
+            assertTrue(cancelled)
+            assertEquals("AAPL", model.state.value.quote?.symbol)
+            assertEquals("Company information", model.state.value.profile?.description)
+            assertNotNull(model.state.value.newsError)
+            assertFalse(model.state.value.newsLoading)
+            assertTrue(model.state.value.news.isEmpty())
+            model.detailAction(org.example.stocksteps.presentation.companydetail.CompanyDetailAction.OpenMetricInfo("pe")); runCurrent()
+            assertEquals("pe", model.state.value.metricInfo)
+            model.detailAction(org.example.stocksteps.presentation.companydetail.CompanyDetailAction.CloseMetricInfo); runCurrent()
+            assertNull(model.state.value.metricInfo)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
+
     @Test fun typingDebouncesAndClearingCancelsActiveSearch() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val calls = mutableListOf<String>()

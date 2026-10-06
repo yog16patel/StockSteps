@@ -1,11 +1,137 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-04. Current update: "Add configurable top app bars and Android back icon" on `main`.
+Last updated: 2026-10-06 (America/Toronto). Current commit: "Add beginner company details and financials across Android and iOS" on `main`.
 Previous implementation baseline: `582e539` (Firestore news summaries and restored signed-in sessions).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Start here — Claude / replacement agent handoff (2026-10-06)
+
+This section is the authoritative current snapshot. Later sections retain the
+project's chronological history; older endpoint descriptions, test totals and
+"current commit" headings may describe earlier milestones. Do not treat historical
+pending items as instructions to implement them automatically.
+
+### Repository state and immediate scope
+
+- Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
+- Previous HEAD: `57d7929` — `Add configurable top app bars and Android back icon`.
+- Current commit: **Add beginner company details and financials across Android and iOS**.
+  Includes exchange-aware watchlists, US-only search, beginner company details,
+  company-news relevance, Financials/Valuation mapping, Financials UX redesign,
+  regression tests and the Claude-ready handoff. Preserve this implementation.
+- The user explicitly requested committing and pushing these changes on 2026-10-06.
+  This authorizes this milestone only, not future commits, pushes or deployments.
+- Check `git status` for any changes made after this commit; do not reset/clean them.
+- Read `AGENTS.md`, this snapshot, `docs/COMPANY_DETAIL.md`, and relevant existing
+  code before changes. Recheck `git status`; state can change after this handoff.
+
+### Current functionality
+
+Android uses Compose/MVVM; iOS uses native SwiftUI/Observation. KMP shares domain,
+networking, use cases, presentation calculations and theme tokens; Koin supplies
+shared/Android dependencies. Route files contain identity/arguments only, Scenes
+own ViewModels and navigation wiring, Screens render immutable state/callbacks.
+Keep entry files light and components separate; preserve native Liquid Glass
+availability guards and adaptive tablet/foldable layouts.
+
+Firebase email/password and Google login, restored sessions, offline/cloud
+watchlists, Home/market snapshot, AI-simplified news and configurable top bars
+already exist. Watchlists preserve listing metadata and exact provider symbols;
+legacy entries may lack metadata. Search now returns recognized **US exchanges
+and USD only**, superseding the older USD/CAD description below. A `.TO` symbol
+must never silently become a US ticker to obtain a quote.
+
+Company Detail has independently loaded Overview, Financials, Valuation and News.
+Company news uses Finnhub company news with relevance filtering, not the general
+market feed. Financials/Valuation use:
+`GET /api/v1/stocks/{symbol}/fundamentals?period=annual|quarter`.
+
+The latest Financials screen is implemented on both platforms: primary value cards,
+shared formatting, neutral availability, deterministic insights, expandable
+secondary history, one/two-column layout, skeletons and compact section retry
+states. Tabs scroll and News is no longer clipped at the tested Android phone
+width. Annual/Quarterly selection clears old-period facts. Retrying the same
+selection preserves valid sections; failed refreshes label previously loaded data.
+No AI generates financial insights or invented qualitative investment ratings.
+
+Backend public responses strip arbitrary diagnostic notes/warnings and use
+`TEMPORARILY_UNAVAILABLE`; old availability names decode safely in new apps.
+HTTP diagnostics remain internal without credentials/full URLs. Access-denied
+financial datasets have a one-hour process-cache cooldown; transient failures
+30 seconds. Successful caches retain their existing TTLs/coalescing. Changing
+account access may require a backend restart to clear cached denials.
+
+### Data availability and verification limits
+
+Previous live AAPL annual and quarterly checks used the existing localhost server,
+without reading credentials. Available: margins, ROIC/ROE/ROA, debt/equity,
+current/quick ratios, dividend yield/DPS/payout and current outstanding shares.
+Sources are FMP `ratios-ttm`, `key-metrics-ttm`, and `shares-float`.
+
+Statements (income/balance/cash flow, including TTM), annual ratios/history and
+historical dividends reported restricted access. Revenue/earnings/EPS history,
+YoY/CAGR, balance totals, OCF/CapEx/FCF and buybacks therefore remain unavailable
+for that observed account. Do not infer the exact subscription tier, fabricate
+values, scrape sites, or reconstruct historical totals from current share counts.
+Existing Finnhub integrations supply quotes/news, not financial statements.
+Optional ambiguous zero interest coverage is suppressed. Full field mappings,
+formulas and observed values are in `docs/COMPANY_DETAIL.md`.
+
+Last completed verification (2026-10-05 session, not rerun for this documentation
+update): 58 server cases (3 existing skips), 32 core JVM tests, 20 shared Android
+host tests, zero failures. Android APK and shared iOS simulator framework builds
+passed. Native SwiftUI compiled in an isolated Firebase compatibility project.
+Android emulator visual check confirmed white two-column profitability cards,
+friendly Growth empty state and complete tab labels; final APK was installed.
+
+**Production iOS is not verified:** repository Firebase pin 12.19.2 requires newer
+supported Xcode (26.2+); installed Xcode at last check was 16.2. The isolated project
+uses Firebase 12.11.0 only to check native source compatibility. Do not downgrade
+the production pin to imply a production build passed. Native iOS visual acceptance,
+physical-device folding transitions and release readiness remain pending.
+
+### Where to continue
+
+1. If asked to validate the current feature, first check the running backend.
+   A restart was requested but has not been confirmed; IDE-run servers do not
+   automatically reload source. Verify sanitized fundamentals responses and actual
+   Annual/Quarterly app behavior before declaring live completion.
+2. Complete native iOS/manual acceptance using supported tooling when available.
+3. Resolve account-specific statement entitlements only when requested; missing
+   provider data is not an unfinished UI mapping. Existing available sections must
+   remain useful without a subscription change.
+4. Other pending product work: verified split-adjusted share history, peer/industry
+   comparisons, documented qualitative thresholds/scoring, price history and
+   FFO/AFFO. These are backlog items, not permission to implement all of them.
+5. For subsequent work, commit/push only on a new explicit request, and update this handoff in that same
+   commit. Review the full mixed working tree and never include local credentials.
+
+Primary code entry points:
+
+- `core/src/commonMain/kotlin/org/example/stocksteps/companydetail/FinancialsPresentation.kt`
+- `core/src/commonMain/kotlin/org/example/stocksteps/model/CompanyFundamentals.kt`
+- `app/shared/src/commonMain/kotlin/org/example/stocksteps/presentation/companydetail/`
+- `app/shared/src/commonMain/kotlin/org/example/stocksteps/presentation/stocksearch/StockSearchViewModel.kt`
+- `app/shared/src/commonMain/kotlin/org/example/stocksteps/theme/FinancialsTokens.kt`
+- `app/iosApp/iosApp/CompanyFinancialsView.swift`, `CompanyDetailView.swift`, `StockSearchViewModel.swift`
+- `server/src/main/kotlin/org/example/stocksteps/service/CompanyFinancialService.kt`
+- `server/src/main/kotlin/org/example/stocksteps/repositoryImpl/FmpFundamentalsLoader.kt`
+- `server/src/main/kotlin/org/example/stocksteps/repositoryImpl/FmpFundamentalsMapper.kt`
+- Supporting docs: `README.md`, `docs/COMPANY_DETAIL.md`, `docs/AUTH_WATCHLIST.md`.
+
+Useful verification command (run when code changes warrant it):
+
+```sh
+./gradlew :server:test :core:jvmTest :app:shared:testAndroidHostTest :app:androidApp:assembleDebug :app:shared:linkDebugFrameworkIosSimulatorArm64
+```
+
+Keep API keys/tokens out of this document, logs and Git. IDE environment variables
+belong to the IDE process; terminal Gradle/server runs do not inherit them. Do not
+read IDE credential files simply to troubleshoot unavailable data. No cloud
+or credentials access was performed during this handoff-only update.
 
 ## Product and working preferences
 
@@ -749,3 +875,259 @@ and native iOS navigation remain unchanged.
 
 Validation: Android debug build and git diff --check passed; updated APK installed
 on the existing Android emulator.
+
+
+## Saved exchange-specific watchlist listings (included in this commit, 2026-10-05)
+
+WatchlistItem now carries optional name, exchange, currency and exchangeFullName.
+Search detail additions pass the complete StockSearchResult on Android and native
+iOS. SQL schema migration 1.sqm (v1 to v2) preserves old rows/outbox and adds nullable
+metadata; guest merge, snapshots and durable queued writes preserve these fields.
+Both Firebase adapters read legacy documents and write optional listing metadata.
+Provider symbol remains the identity/document key: exchange-qualified symbols such
+as SHOP.TO stay distinct from SHOP. No company-name re-resolution or suffix removal.
+Android route arguments carry listing metadata; WatchList/Home and native iOS
+saved-item taps open details directly and request fresh quote/profile for the exact
+provider symbol. If that provider cannot quote a listing, existing error/retry UI
+applies rather than substituting another listing. Legacy items preserve ticker but
+unknown metadata; re-add from search to capture exchange. See AUTH_WATCHLIST.md.
+
+Validation: core tests, Android host tests (including metadata round-trip across
+guest merge/outbox/cloud and v1 migration), Android build and shared simulator
+framework passed. Seven Firestore emulator security tests passed; updated bounded
+metadata rules deployed successfully to stocksteps. Native SwiftUI compilation
+passed in existing isolated Firebase compatibility project; actual pinned Firebase
+still requires newer Xcode as documented. Live cross-device sync/user taps remain
+manual verification. Included in the current user-requested commit/push.
+
+Final verification: Android debug APK installed on emulator-5554; git diff --check passed.
+
+
+## US-only search (included in this commit, 2026-10-05)
+
+StockService search now requires USD currency and a recognized US exchange. CAD,
+foreign USD listings, and missing exchange/currency results are excluded. The
+shared backend filter applies to Android and iOS, preserving exact-match ranking
+and deduplication. Existing saved Canadian watchlist items are retained; their
+provider access limitation remains. US search visibility does not guarantee all
+symbols are available on the provider subscription. Pending: Canadian provider
+coverage, live verification, and commit of this plus listing-metadata work.
+
+Validation: backend regression tests and git diff --check passed. Restart the backend
+to apply the filter; both mobile platforms consume the same search endpoint.
+
+
+## Beginner company details (included in this commit, 2026-10-05)
+
+Inspection completed before implementation: existing KMP use cases/networking,
+Android lifecycle ViewModels/Koin, native Observation, shared theme, hinge-aware
+panes, watchlist and NewsCard components reused. No detail-specific Figma frame or
+existing chart library was present. Implementation/data mapping notes and candidate
+provider endpoints are in docs/COMPANY_DETAIL.md (includes available/missing table).
+
+New core/companydetail immutable models/glossary/presentation mapper keep education,
+formatting, missing-input behavior and guarded historical comparisons out of views.
+StockQuote now carries nullable real FMP marketCap; Finnhub remains nullable.
+Android presentation/companydetail contains header, sticky four tabs, snapshot,
+metrics, reusable education sheet, independent chart states/renderer and grouped
+financial/valuation content. Compact selected details use the whole pane instead
+of a 240dp nested card; existing fold/tablet sidebar geometry remains. Native
+CompanyDetailView/Components mirror the structure with Observation actions,
+shared mapper, pinned tabs, reading-width cap and native Glass watchlist buttons.
+Logo rendering uses Coil 3.6.3 Compose/Ktor and native AsyncImage. Entry files stay
+light; scenes wire callbacks. Preview-only fixtures explicitly identify sample data.
+
+New GET /api/v1/stocks/{symbol}/news routes to Finnhub company-news for the latest
+30 UTC days (max20, sorted/deduplicated), validates ticker/URLs/time, and reuses
+NewsSimplificationService's existing backend cache/AI enrichment. Both platform
+models cancel old company news on selection and handle failures independently of
+quote/profile. No client provider keys, production fixtures or fake financial
+scores/risks were added.
+
+Data limitations: current integrations do not supply verified financial statement
+series, historical prices/valuation/industry comparisons or a scoring/risk model.
+These remain explicitly unavailable, with educational rows and disabled period
+controls. Overview shows available metrics only; snapshot is unassessed. This is
+the usable detail UI foundation, not a claim that historical/financial integrations
+are finished. Remaining: connect validated provider financial/history sources,
+period-aware trend/valuation charts, published scoring/risk methodology and provenance,
+live company-news access checks, iOS runtime/accessibility and physical fold testing.
+
+Validation: core presenter tests pass (5 cases), shared tests cover news cancellation,
+partial failure and existing independent quote/profile retry; backend tests cover
+company-news exact symbol/date parameters, safe upstream failure and invalid symbol.
+Android build/shared simulator framework and native compatibility compile passed.
+Eight Compose previews added for normal/profitable/loss/missing/loading/error/dark/
+large layouts. Android emulator fixture verified compact header, tabs, Financials
+and Valuation missing-data states; no AndroidRuntime crash reported. Education-sheet
+state transitions are tested; manual sheet/news interaction checks remain. Fixture
+server stopped, adb reverse restored to tcp8080→tcp8080, app restarted to clear sample
+state, and no watchlist writes performed. Actual iOS Firebase pin still requires
+newer Xcode; local compile used existing isolated compatibility project.
+
+Final validation: final Android build/tests, shared iOS simulator framework and
+native compatibility compile passed. Latest Android APK installed; git diff --check
+passed. Backend restart needed for the new company-news route. Included in the current user-requested commit/push.
+
+
+## Company-news relevance fix (included in this commit, 2026-10-05)
+
+Live local AAPL response confirmed Finnhub feed includes broad/competitor items;
+mapper previously assigned AAPL to every result without a relevance check. DTO
+now keeps related-symbol metadata. CompanyNewsRelevance requires exact related
+membership when supplied, plus bounded ticker evidence in headline/summary or a
+verified company name in headline. Incidental summary-only names are excluded;
+short word-like tickers require stock notation. Generic company identity comes
+from Finnhub profile2 with exact ticker validation, process-local bounded cache
+(256 entries, six-hour success/five-minute failure TTL), and cancellation-safe
+failure fallback to ticker evidence. Filtering precedes truncation and AI cache
+lookup, applies equally to both mobile platforms, and leaves general news alone.
+Limitations: deterministic relevance, not primary-subject classification; relevant
+multi-company comparisons can remain, aliases and name-only items can be missed
+when profile access fails. Restart the IDE backend to apply this change.
+
+Optional identity lookup has a two-second budget and runs alongside the news
+request; parent request cancellation still propagates.
+
+Validation: backend regression suite passed, including four pure relevance tests
+and integration checks for filtering before the limit, identity caching and
+profile failure fallback. git diff --check passed. Live updated endpoint awaits
+backend restart; included in the current user-requested commit/push.
+
+## Financials and Valuation mapping — implemented, included in this commit (2026-10-05)
+
+User approved the mapping/implementation plan. Added provider-neutral
+`CompanyFundamentals` contract, grouped financial facts and valuation/history,
+source classification, nullable integer amounts/ratios, reporting metadata and
+per-dataset availability. Server extends existing FMP repository/client; helper
+DTO/loader/mapper files keep FMP fields off mobile. Added
+`GET /api/v1/stocks/{symbol}/fundamentals?period=annual|quarter` and financial
+service. Android shared MVVM/DI/use case and native SwiftUI/Observation bridge
+load this independently of quote/profile/news, retry/cancel obsolete selections,
+and switch annual/quarterly statements. Shared presenter populates Financials,
+Valuation/key metrics and evidence-based Overview snapshot; no invented scores.
+
+Implemented deterministic YoY/CAGR, fallback FCF with negative CapEx convention,
+FCF margin, historical valuation windows/sample counts/ranges/dispersion flags,
+forward FY P/E with matched currency and consensus EPS, dividend/buyback/current
+share mappings, and measured growth/margin/debt/FCF context. Annual historical
+ratios use stable property names (not legacy aliases). Quote/profile reuse caches;
+fundamental dataset TTLs range from 5min to 24h with 30s failed-load cooldown,
+bounded keys and coalesced misses. Flexible optional-number/year decoding prevents
+one malformed metric from dropping a full statement. 402/403 restrictions stay
+explicit; successful sections survive provider failures.
+
+Validation: server/core/shared host tests and Android APK/shared iOS simulator
+framework builds passed during implementation; native SwiftUI compiled in existing
+isolated Firebase compatibility project. Additional final verification recorded
+below. The production Firebase pin/Xcode constraint remains unchanged. Actual
+account entitlements/live provider responses are not verified without approved
+local credential access; do not equate fixture coverage with live access. Backend
+restart is required for existing IDE-run server to expose the new endpoint.
+
+Remaining: verified actual historical shares/split-adjustment basis (`sharesChange5`
+stays unavailable), industry/peer averages, scoring methodology, FFO/AFFO, price
+history, production iOS build with supported Xcode, and live/manual UI acceptance.
+Dividend-growth coverage assumes complete provider events within the fetched
+window and includes special dividends. Full mappings/formulas/cache policy and
+limits are in `docs/COMPANY_DETAIL.md`. All earlier pending work is preserved and included in this commit;
+this implementation is included in the current user-requested commit/push.
+
+Final financials verification: 57 server tests (3 pre-existing skips), 24 core JVM
+tests, and 20 shared Android host tests passed with zero failures. Android APK
+and shared iOS simulator framework built successfully. Native SwiftUI passed
+the existing isolated compatibility build; production Firebase/Xcode limitation
+remains. The API distinguishes confirmed `NO_DIVIDEND` from `MISSING`.
+
+## Financials UX redesign (2026-10-05, included in this commit)
+
+Replaced repeated unavailable/diagnostic metric rows with beginner-focused shared
+Financials presentation and separate Android/SwiftUI components. Numeric domain
+facts remain numeric. `FinancialsPresentation.kt` owns display formatting, neutral
+metric availability, partial/empty/loading/error section states, safe growth/net
+margin explanations, expandable history and cash-flow reconciliation. ViewModels
+map this state; screens render state and callbacks. Existing Route/Scene boundaries
+and independently loaded quote/profile/news remain intact.
+
+Both platforms have one/two-column cards with shared `FinancialsTokens`, neutral
+text, theme surfaces, blue information links, directional movement colors and
+large-text single-column layouts. Growth prioritizes revenue/net income/EPS;
+profitability prioritizes margins/ROIC; health prioritizes cash/debt/ratios;
+shareholders distinguish confirmed non-payers from missing/zero yield. Skeletons
+and compact section retry cards replace rows of missing text. Android tab padding
+was reduced after the emulator exposed a clipped News label; both tab rows remain
+horizontally scrollable. Annual/Quarterly controls sit directly below tabs.
+
+The backend service strips arbitrary fact/history notes and warnings at the public
+boundary; provider access/network failures become `TEMPORARILY_UNAVAILABLE`.
+Legacy availability strings decode into that neutral enum for older IDE servers.
+Internal safe HTTP logs retain diagnostic statuses. Ambiguous interest-coverage
+zero is suppressed unless supported by trailing interest expense. Typed cash/debt
+YoY context uses matched balance dates/period/currency. Access-denied loads now
+cool down for one hour, transient failures 30s, with existing bounded/coalescing
+cache and successful TTLs. Account configuration changes can clear this process
+cache by restarting the backend; app retry cannot unlock provider entitlements.
+
+Live AAPL annual and quarterly responses were checked through the existing local
+backend without reading credentials: profitability/ROIC/ROE/ROA, debt/equity,
+current/quick ratios, dividend yield/DPS/payout and current shares are available.
+Income/balance/cash-flow statements (including TTM), annual ratio history and
+dividend history reported restrictions. Thus totals/growth/CAGR/cash flow/buybacks
+remain absent. Correct stable endpoint paths were confirmed against FMP docs.
+Exact account tier/HTTP status within the old grouped 402/403 classification remains
+unknown. FMP plan docs distinguish annual versus full fundamentals; account-specific
+entitlement needs the dashboard. Existing accessible ratios supply valid values,
+but current shares/quote data cannot reconstruct historical totals. Finnhub's
+existing integration only supplies quote/news; no unverified financial fallback,
+scraping, AI interpretation or fabricated financial values was added.
+
+Validation: 58 server cases (3 existing skips), 32 core JVM tests, 20 shared Android
+host tests, zero failures; Android APK and shared iOS simulator framework built.
+Native SwiftUI compatibility build succeeded with final responsive cards and
+refresh handling; emulator acceptance is recorded below. Production
+Firebase/Xcode constraint remains: use supported newer Xcode for the actual pinned
+Firebase version; the isolated compatibility project does not change that pin.
+
+Added eight shared presenter/formatter regressions and cache cooldown expiry test;
+extended public-response sanitization, matched cash/debt YoY and coverage-zero
+cases. New Android previews cover partial/empty/loading/loss/dark/tablet. Full live
+values, sources, restrictions, calculation rules and changed file inventory are in
+`docs/COMPANY_DETAIL.md`. All earlier pending changes are preserved and included in this commit. This redesign is included in the current user-requested commit/push.
+
+Pending: backend restart to serve neutral public fields/new context; manual iOS
+acceptance and production build with supported Xcode; verified statement access;
+share-count history/split consistency; peer averages, documented qualitative
+thresholds, scoring, FFO/AFFO and price history. Current UX supports available
+metrics without depending on these pending integrations.
+
+Financial retries now preserve previously loaded sections on both platforms;
+missing sections can show skeletons independently. A failed refresh is labeled once
+inside Financials as previously loaded data. Company/period changes still clear
+old facts. Shared presenter and existing Android ViewModel regressions cover this.
+
+Final acceptance: final native SwiftUI compatibility build passed; extended Android
+ViewModel refresh/period regression passed. Emulator visual inspection confirmed
+all four tab labels fit without clipping, Apple profitability renders a two-column
+white-card grid (48.7% gross / 33.2% operating / 27.6% net / 51.9% ROIC), and missing
+Growth is one compact friendly state. Main values are neutral, education is blue,
+with no repeated provider diagnostics. Screenshot: `/tmp/stocksteps-financials-phone.png`.
+Only optional interest-coverage zero is additionally omitted for compatibility with
+older running servers. Other final totals: 58 server cases / 32 core JVM / 20 shared
+host tests, zero failures (3 existing server skips). iOS simulator framework and
+Android APK build successfully. Visual checks used the existing live localhost
+server; no backend restart/secret access/cloud deployment occurred. Native iOS
+manual visual acceptance is still pending; compilation was in the isolated
+compatibility project, not a production build with the actual Firebase pin.
+
+
+## Commit milestone — 2026-10-06
+
+Commit title: **Add beginner company details and financials across Android and iOS**.
+Includes the previously pending listing-specific watchlist/search/detail/news and
+Financials work plus the Claude handoff. Existing validation remains 58 server
+cases (3 skips), 32 core JVM and 20 shared host tests with zero failures, Android
+APK/shared iOS framework success and native SwiftUI compatibility compilation.
+No application code changed during commit preparation; whitespace and changed-file
+credential-pattern checks passed. This does not replace production iOS validation.
+Remaining limitations and next steps are recorded in the authoritative snapshot
+above. Backend restart has not been confirmed; no deployment is part of this commit.

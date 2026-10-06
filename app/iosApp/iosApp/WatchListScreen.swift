@@ -30,7 +30,7 @@ struct WatchListScreen: View {
                 if state.items.isEmpty { Text("Your watchlist is empty. Find a stock and add it from its details.") }
                 ForEach(state.items, id: \.symbol) { item in
                     HStack {
-                        Button(item.symbol) { onExplore(item.symbol) }
+                        Button([item.name, item.symbol, item.exchange, item.currency].compactMap { $0 }.joined(separator: " · ")) { onExplore(item.symbol) }
                         Spacer()
                         Button("Remove") { onRemove(item.symbol) }
                             .accessibilityLabel("Remove \(item.symbol)")

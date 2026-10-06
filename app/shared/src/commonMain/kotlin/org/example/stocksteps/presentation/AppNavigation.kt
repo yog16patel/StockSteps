@@ -99,8 +99,8 @@ internal fun AppNavigation(
                     accounts = accounts,
                     hinge = hinge,
                     onSearch = { navController.navigate(StockSearchRoute()) },
-                    onExplore = { symbol ->
-                        navController.navigate(StockSearchRoute(initialSymbol = symbol)) {
+                    onExplore = { stock ->
+                        navController.navigate(StockSearchRoute(stock.symbol, stock.name, stock.exchange, stock.currency, stock.exchangeFullName)) {
                             popUpTo(DiscoveryRoute)
                             launchSingleTop = true
                         }
@@ -113,7 +113,7 @@ internal fun AppNavigation(
                     hinge = hinge,
                     onSignIn = { navController.navigate(AuthRoute()) },
                     onSearch = { navController.navigate(StockSearchRoute()) },
-                    onExplore = { navController.navigate(StockSearchRoute(initialSymbol = it)) }
+                    onExplore = { stock -> navController.navigate(StockSearchRoute(stock.symbol, stock.name ?: stock.symbol, stock.exchange, stock.currency, stock.exchangeFullName)) }
                 )
             }
             composable<LearnRoute> { LearnScene(hinge) }

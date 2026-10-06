@@ -12,7 +12,7 @@ import org.example.stocksteps.presentation.AdaptiveSinglePane
 import org.example.stocksteps.theme.ThemeSpacing
 
 @Composable
-internal fun WatchListScreen(state: WatchListState, hinge: WindowHinge?, onRemove: (String) -> Unit, onRetrySync: () -> Unit, onSignIn: () -> Unit, onSearch: () -> Unit, onExplore: (String) -> Unit) {
+internal fun WatchListScreen(state: WatchListState, hinge: WindowHinge?, onRemove: (String) -> Unit, onRetrySync: () -> Unit, onSignIn: () -> Unit, onSearch: () -> Unit, onExplore: (org.example.stocksteps.model.WatchlistItem) -> Unit) {
     AdaptiveSinglePane(hinge) { region ->
         LazyColumn(
             modifier = region.padding(ThemeSpacing.extraLarge.dp),
@@ -38,7 +38,7 @@ internal fun WatchListScreen(state: WatchListState, hinge: WindowHinge?, onRemov
             if (state.items.isEmpty()) item { Text(text = "Your watchlist is empty. Find a stock and add it from its details.") }
             items(state.items, key = { it.symbol }) { stock ->
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = { onExplore(stock.symbol) }) { Text(text = stock.symbol) }
+                    TextButton(onClick = { onExplore(stock) }) { Text(text = listOfNotNull(stock.name, stock.symbol, stock.exchange, stock.currency).distinct().joinToString(" · ")) }
                     TextButton(onClick = { onRemove(stock.symbol) }, enabled = !state.session.initializing) { Text(text = "Remove ${stock.symbol}") }
                 }
                 HorizontalDivider()

@@ -24,6 +24,7 @@ internal fun StockSearchPane(
     saved: Boolean = false,
     watchlistEnabled: Boolean = false,
     watchlistError: String? = null,
+    onDetailAction: (org.example.stocksteps.presentation.companydetail.CompanyDetailAction) -> Unit = {},
     onToggleWatchlist: () -> Unit = {}
 ) {
     LazyColumn(
@@ -53,7 +54,8 @@ internal fun StockSearchPane(
                     saved = saved,
                     watchlistEnabled = watchlistEnabled,
                     watchlistError = watchlistError,
-                    onToggleWatchlist = onToggleWatchlist
+                    onDetailAction = onDetailAction,
+                onToggleWatchlist = onToggleWatchlist
                 )
             }
         }

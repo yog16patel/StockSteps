@@ -7,6 +7,73 @@ import Combine
 @Observable
 final class StockSearchViewModel {
     var query = ""
+    private(set) var fundamentals: CompanyFundamentals?
+    private(set) var isLoadingFundamentals = false
+    private(set) var fundamentalsError: String?
+    private(set) var financialPeriod = "annual"
+    @ObservationIgnored private var fundamentalsTask: Task<Void, Never>?
+
+    private func loadFundamentals(symbol: String, preserveValues: Bool = false) {
+        fundamentalsTask?.cancel()
+        service.cancelFundamentals()
+        if !preserveValues { fundamentals = nil }
+        isLoadingFundamentals = true
+        fundamentalsError = nil
+        let period = financialPeriod
+        fundamentalsTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let value = try await service.getFundamentals(symbol: symbol, period: period)
+                guard !Task.isCancelled else { return }
+                fundamentals = value
+                isLoadingFundamentals = false
+            } catch {
+                guard !Task.isCancelled else { return }
+                fundamentalsError = "Financial data is temporarily unavailable. Try again."
+                isLoadingFundamentals = false
+            }
+        }
+    }
+    private(set) var selectedStock: StockSearchResult?
+    private(set) var detailTab: CompanyDetailTab = .overview
+    private(set) var metricInfo: String?
+    private(set) var companyNews: [NewsArticle] = []
+    private(set) var isLoadingNews = false
+    private(set) var newsError: String?
+    @ObservationIgnored private var newsTask: Task<Void, Never>?
+
+    var companyDetail: CompanyDetailUiState {
+        guard let selectedStock else { return CompanyDetailPresenter.shared.build(stock: StockSearchResult(symbol: "", name: "", currency: nil, exchange: nil, exchangeFullName: nil), quote: nil, profile: nil, fundamentals: nil) }
+        return CompanyDetailPresenter.shared.build(stock: selectedStock, quote: quote, profile: profile, fundamentals: fundamentals)
+    }
+    func detailAction(_ action: NativeCompanyDetailAction) {
+        switch action {
+        case .selectTab(let tab): detailTab = tab
+        case .openMetric(let id): metricInfo = id
+        case .closeMetric: metricInfo = nil
+        case .refreshFundamentals: if let selectedStock { loadFundamentals(symbol: selectedStock.symbol, preserveValues: true) }
+        case .selectFinancialPeriod(let period):
+            financialPeriod = period
+            if let selectedStock { loadFundamentals(symbol: selectedStock.symbol) }
+        case .refreshNews: if let selectedStock { loadNews(symbol: selectedStock.symbol) }
+        }
+    }
+    private func loadNews(symbol: String) {
+        newsTask?.cancel()
+        service.cancelNews()
+        companyNews = []; newsError = nil; isLoadingNews = true
+        newsTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let articles = try await service.getCompanyNews(symbol: symbol)
+                guard !Task.isCancelled else { return }
+                companyNews = articles; isLoadingNews = false
+            } catch {
+                guard !Task.isCancelled else { return }
+                newsError = "Company news is temporarily unavailable."; isLoadingNews = false
+            }
+        }
+    }
     private(set) var results: [StockSearchResult] = []
     private(set) var isSearching = false
     private(set) var searchError: String?
@@ -82,6 +149,9 @@ final class StockSearchViewModel {
     }
 
     func selectStock(_ stock: StockSearchResult) {
+        selectedStock = stock; detailTab = .overview; metricInfo = nil
+        loadFundamentals(symbol: stock.symbol)
+        loadNews(symbol: stock.symbol)
         loadQuote(for: stock)
         loadProfile(for: stock)
     }

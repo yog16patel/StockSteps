@@ -40,6 +40,7 @@ class IosAccountClient(auth: PlatformAuthGateway, cloud: PlatformWatchlistGatewa
     @Throws(Exception::class)
     suspend fun signOut() = dependencies.signOut()()
     @Throws(Exception::class)
+    suspend fun addListing(stock: org.example.stocksteps.model.StockSearchResult) = dependencies.addToWatchlist()(stock)
     suspend fun add(symbol: String) = dependencies.addToWatchlist()(symbol)
     @Throws(Exception::class)
     suspend fun remove(symbol: String) = dependencies.removeFromWatchlist()(symbol)

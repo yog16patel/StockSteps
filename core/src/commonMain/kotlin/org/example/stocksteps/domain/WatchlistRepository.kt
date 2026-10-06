@@ -11,6 +11,7 @@ interface WatchlistRepository {
     val items: Flow<List<WatchlistItem>>
     val syncState: StateFlow<WatchlistSyncState>
     suspend fun add(symbol: String)
+    suspend fun add(stock: org.example.stocksteps.model.StockSearchResult) = add(stock.symbol)
     suspend fun remove(symbol: String)
     fun retrySync()
 }

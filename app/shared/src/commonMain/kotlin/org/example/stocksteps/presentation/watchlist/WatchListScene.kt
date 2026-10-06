@@ -7,7 +7,7 @@ import org.example.stocksteps.WindowHinge
 import org.example.stocksteps.di.AccountDependencies
 
 @Composable
-internal fun WatchListScene(accounts: AccountDependencies, hinge: WindowHinge?, onSignIn: () -> Unit, onSearch: () -> Unit, onExplore: (String) -> Unit) {
+internal fun WatchListScene(accounts: AccountDependencies, hinge: WindowHinge?, onSignIn: () -> Unit, onSearch: () -> Unit, onExplore: (org.example.stocksteps.model.WatchlistItem) -> Unit) {
     val model = viewModel { accounts.watchlistViewModel() }
     val state by model.state.collectAsStateWithLifecycle()
     WatchListScreen(

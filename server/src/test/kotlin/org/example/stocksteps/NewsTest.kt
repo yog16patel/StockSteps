@@ -18,6 +18,64 @@ import org.example.stocksteps.service.NewsService
 import kotlin.test.*
 
 class NewsTest {
+    @Test fun companyFeedFiltersBeforeLimitAndCachesIdentityWithSafeFallback() = kotlinx.coroutines.runBlocking<Unit> {
+        var profileCalls = 0
+        var failProfile = false
+        val upstream = HttpClient(MockEngine { request ->
+            if (request.url.encodedPath == "/api/v1/stock/profile2") {
+                profileCalls++
+                respond(if (failProfile) "private failure" else """{"name":"Apple Inc.","ticker":"AAPL"}""",
+                    if (failProfile) HttpStatusCode.Forbidden else HttpStatusCode.OK,
+                    headersOf(HttpHeaders.ContentType, "application/json"))
+            } else {
+                val unrelated = (1..21).joinToString(",") { """{"headline":"Nvidia record $it","summary":"Foxconn supplier sales","related":"AAPL,NVDA","id":$it,"url":"https://example.com/$it","datetime":1700000100}""" }
+                respond("""[$unrelated,{"headline":"Apple product update","related":"AAPL","id":22,"url":"https://example.com/apple","datetime":1700000000},{"headline":"AAPL earnings","related":"AAPL","id":23,"url":"https://example.com/earnings","datetime":1699999999}]""",
+                    headers = headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+        }) { install(ClientContentNegotiation) { json() } }
+        upstream.use {
+            val provider = FinnhubNewsProviderRepositoryImpl(it, "test-key")
+            assertEquals(listOf("Apple product update", "AAPL earnings"), provider.getCompanyNews("AAPL").map { article -> article.title })
+            provider.getCompanyNews("AAPL")
+            assertEquals(1, profileCalls)
+            failProfile = true
+            val conservative = FinnhubNewsProviderRepositoryImpl(it, "test-key").getCompanyNews("AAPL")
+            assertEquals(listOf("AAPL earnings"), conservative.map { article -> article.title })
+        }
+    }
+
+    @Test fun companyNewsUsesExactSymbolAndHasIndependentFailure() = testApplication {
+        var fail = false
+        val upstream = HttpClient(MockEngine { request ->
+            if (request.url.encodedPath == "/api/v1/stock/profile2") {
+                return@MockEngine respond("""{"name":"Shopify Inc.","ticker":"SHOP.TO"}""", headers = headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+            assertEquals("/api/v1/company-news", request.url.encodedPath)
+            assertEquals("SHOP.TO", request.url.parameters["symbol"])
+            assertEquals("test-key", request.headers["X-Finnhub-Token"])
+            assertNotNull(request.url.parameters["from"])
+            assertNotNull(request.url.parameters["to"])
+            respond(if (fail) "private upstream text" else """[{"headline":"Shopify company update","url":"https://example.com/update","datetime":1700000000}]""",
+                if (fail) HttpStatusCode.ServiceUnavailable else HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json"))
+        }) { install(ClientContentNegotiation) { json() } }
+        try {
+            application {
+                install(ContentNegotiation) { json() }
+                configureApiErrors()
+                routing { newsRoutes(NewsService(FinnhubNewsProviderRepositoryImpl(upstream, "test-key"))) }
+            }
+            val response = client.get("/api/v1/stocks/SHOP.TO/news")
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("SHOP.TO", Json.decodeFromString<List<NewsArticle>>(response.bodyAsText()).single().symbol)
+            fail = true
+            val error = client.get("/api/v1/stocks/SHOP.TO/news")
+            assertEquals(HttpStatusCode.BadGateway, error.status)
+            assertFalse(error.bodyAsText().contains("private upstream text"))
+            assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/stocks/BAD_SYMBOL/news").status)
+        } finally { upstream.close() }
+    }
+
     @Test
     fun slicesNewestFirstAndPreservesNullableMetadata() = kotlinx.coroutines.runBlocking<Unit> {
         val upstream = HttpClient(MockEngine {

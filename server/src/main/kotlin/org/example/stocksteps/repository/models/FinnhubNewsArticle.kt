@@ -12,7 +12,8 @@ data class FinnhubNewsArticle(
     val source: String? = null,
     val image: String? = null,
     val id: Long? = null,
-    val summary: String? = null
+    val summary: String? = null,
+    val related: String? = null
 )
 
 fun FinnhubNewsArticle.toNewsArticle() = NewsArticle(

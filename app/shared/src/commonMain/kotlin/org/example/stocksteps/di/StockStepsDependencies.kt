@@ -30,13 +30,15 @@ internal class StockStepsDependencies(baseUrl: String, clientFactory: () -> Http
             factory { GetMarketGainers(get()) }
             factory { GetMarketLosers(get()) }
             factory { GetMarketNews(get()) }
+            factory { GetCompanyNews(get()) }
             factory { DiscoveryViewModel(get(), get(), get(), ::close) }
             factory { SearchStocks(get()) }
             factory { GetStockQuote(get()) }
             factory { GetCompanyProfile(get()) }
+            factory { GetCompanyFundamentals(get()) }
             factory { parameters ->
                 val initial: SearchInitialState = parameters.get()
-                StockSearchViewModel(get(), get(), get(), initial.query, initial.selection, ::close)
+                StockSearchViewModel(get(), get(), get(), initial.query, initial.selection, ::close, get(), get())
             }
         })
     }
@@ -44,8 +46,10 @@ internal class StockStepsDependencies(baseUrl: String, clientFactory: () -> Http
     fun discoveryViewModel(): DiscoveryViewModel = application.koin.get()
     fun marketGainers(): GetMarketGainers = application.koin.get()
     fun marketLosers(): GetMarketLosers = application.koin.get()
+    fun companyNews(): GetCompanyNews = application.koin.get()
     fun marketNews(): GetMarketNews = application.koin.get()
     fun searchStocks(): SearchStocks = application.koin.get()
+    fun getCompanyFundamentals(): GetCompanyFundamentals = application.koin.get()
     fun getCompanyProfile(): GetCompanyProfile = application.koin.get()
     fun getMarketSnapshot(): GetMarketSnapshot = application.koin.get()
     fun getStockQuote(): GetStockQuote = application.koin.get()

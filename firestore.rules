@@ -7,7 +7,11 @@ service cloud.firestore {
     function validItem(symbol) {
       let data = request.resource.data;
       return data.keys().hasAll(['symbol', 'addedAt', 'updatedAt'])
-        && data.keys().hasOnly(['symbol', 'addedAt', 'updatedAt'])
+        && data.keys().hasOnly(['symbol', 'addedAt', 'updatedAt', 'name', 'exchange', 'currency', 'exchangeFullName'])
+        && (!('name' in data) || (data.name is string && data.name.size() <= 300))
+        && (!('exchange' in data) || (data.exchange is string && data.exchange.size() <= 100))
+        && (!('currency' in data) || (data.currency is string && data.currency.size() <= 10))
+        && (!('exchangeFullName' in data) || (data.exchangeFullName is string && data.exchangeFullName.size() <= 300))
         && data.symbol is string
         && data.symbol == symbol
         && symbol.matches('^[A-Z0-9][A-Z0-9.^-]{0,31}$')

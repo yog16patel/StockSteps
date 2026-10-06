@@ -25,6 +25,7 @@ internal fun StockSearchScreen(
     saved: Boolean = false,
     watchlistEnabled: Boolean = false,
     watchlistError: String? = null,
+    onDetailAction: (org.example.stocksteps.presentation.companydetail.CompanyDetailAction) -> Unit = {},
     onToggleWatchlist: () -> Unit = {}
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
@@ -53,7 +54,13 @@ internal fun StockSearchScreen(
         }
 
         val detail = layout.detail
-        if (detail == null) {
+        if (detail == null && state.selected != null) {
+            StockQuoteDetail(
+                state = state, modifier = layout.search.modifier(), onRetry = onRetryQuote,
+                onRetryProfile = onRetryProfile, saved = saved, watchlistEnabled = watchlistEnabled,
+                watchlistError = watchlistError, onDetailAction = onDetailAction, onToggleWatchlist = onToggleWatchlist
+            )
+        } else if (detail == null) {
             StockSearchPane(
                 state = state,
                 modifier = layout.search.modifier(),
@@ -65,6 +72,7 @@ internal fun StockSearchScreen(
                 saved = saved,
                 watchlistEnabled = watchlistEnabled,
                 watchlistError = watchlistError,
+                onDetailAction = onDetailAction,
                 onToggleWatchlist = onToggleWatchlist
             )
         } else {
@@ -82,6 +90,7 @@ internal fun StockSearchScreen(
                 saved = saved,
                 watchlistEnabled = watchlistEnabled,
                 watchlistError = watchlistError,
+                onDetailAction = onDetailAction,
                 onToggleWatchlist = onToggleWatchlist
             )
         }

@@ -27,7 +27,7 @@ class FinnhubRepositoryTest {
 
     @Test
     fun serviceUsesSeparateQuoteProviderAndKeepsSearch() = runBlocking<Unit> {
-        val listing = org.example.stocksteps.model.StockSearchResult("AAPL", "Apple Inc.", "USD")
+        val listing = org.example.stocksteps.model.StockSearchResult("AAPL", "Apple Inc.", "USD", "NASDAQ")
         val searchProvider = object : org.example.stocksteps.repository.StockProviderRepository {
             override suspend fun getGainers(): List<org.example.stocksteps.model.MarketMover> = error("Movers not expected")
             override suspend fun getLosers(): List<org.example.stocksteps.model.MarketMover> = error("Movers not expected")

@@ -75,10 +75,10 @@ final class AccountViewModel {
         do { try await service.signOut() }
         catch { state.error = accountMessage(error) }
     }
-    func toggle(symbol: String) async {
+    func toggle(stock: StockSearchResult) async {
         do {
-            if state.items.contains(where: { $0.symbol == symbol }) { try await service.remove(symbol: symbol) }
-            else { try await service.add(symbol: symbol) }
+            if state.items.contains(where: { $0.symbol == stock.symbol }) { try await service.remove(symbol: stock.symbol) }
+            else { try await service.addListing(stock: stock) }
             state.error = nil
         } catch { state.error = "Could not update your watchlist. Try again." }
     }

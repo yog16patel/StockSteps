@@ -23,8 +23,21 @@ import org.example.stocksteps.repository.models.toStockQuote
 
 class FmpStockProviderRepositoryImpl(
     private val client: HttpClient,
-    private val apiKey: String
+    private val apiKey: String,
+    private val today: () -> java.time.LocalDate = { java.time.LocalDate.now(java.time.ZoneOffset.UTC) }
 ) : StockProviderRepository {
+    private val financialCache = org.example.stocksteps.service.CompanyFinancialCache()
+    private val fundamentalsLoader = FmpFundamentalsLoader(client, apiKey, financialCache, today)
+
+    override suspend fun getFundamentals(symbol: String, period: String) =
+        fundamentalsLoader.load(symbol, period) {
+            coroutineScope {
+                val quote = async { getQuote(symbol) }
+                val profile = async { getProfile(symbol) }
+                quote.await() to profile.await()
+            }
+        }
+
     override suspend fun searchStocks(query: String): List<StockSearchResult> = coroutineScope {
         val bySymbol = async { search("search-symbol", query) }
         val byName = async { search("search-name", query) }
@@ -61,7 +74,12 @@ class FmpStockProviderRepositoryImpl(
         return movers.map { it.toMarketMover() }
     }
 
-    override suspend fun getProfile(symbol: String): CompanyProfile? {
+    override suspend fun getProfile(symbol: String): CompanyProfile? = financialCache.getOrLoad(
+        "profile:$symbol",
+        org.example.stocksteps.service.FinancialCachePolicy.STATEMENTS
+    ) { listOfNotNull(loadProfile(symbol)) }.firstOrNull()
+
+    private suspend fun loadProfile(symbol: String): CompanyProfile? {
         val profiles = client.apiCall<List<FmpCompanyProfile>>(
             url = "https://financialmodelingprep.com/stable/profile",
             apiKey = apiKey
@@ -75,7 +93,12 @@ class FmpStockProviderRepositoryImpl(
         return profile.toCompanyProfile()
     }
 
-    override suspend fun getQuote(symbol: String): StockQuote? {
+    override suspend fun getQuote(symbol: String): StockQuote? = financialCache.getOrLoad(
+        "quote:$symbol",
+        org.example.stocksteps.service.FinancialCachePolicy.QUOTE
+    ) { loadQuote(symbol).let { listOfNotNull(it) } }.firstOrNull()
+
+    private suspend fun loadQuote(symbol: String): StockQuote? {
         val quotes = client
             .apiCall<List<FmpQuote>>(
                 url = "https://financialmodelingprep.com/stable/quote",

@@ -28,12 +28,12 @@ internal class StockWatchlistViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StockWatchlistState())
 
-    fun toggle(symbol: String) {
+    fun toggle(stock: org.example.stocksteps.model.StockSearchResult) {
         if (busy.value || !state.value.enabled) return
         busy.value = true
         viewModelScope.launch {
             try {
-                if (symbol in state.value.symbols) remove(symbol) else add(symbol)
+                if (stock.symbol in state.value.symbols) remove(stock.symbol) else add(stock)
                 error.value = null
             } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause

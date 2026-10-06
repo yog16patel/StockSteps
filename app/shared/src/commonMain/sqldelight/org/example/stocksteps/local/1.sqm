@@ -1,0 +1,8 @@
+ALTER TABLE watchlist ADD COLUMN name TEXT;
+ALTER TABLE watchlist ADD COLUMN exchange TEXT;
+ALTER TABLE watchlist ADD COLUMN currency TEXT;
+ALTER TABLE watchlist ADD COLUMN exchangeFullName TEXT;
+ALTER TABLE pending_operation ADD COLUMN name TEXT;
+ALTER TABLE pending_operation ADD COLUMN exchange TEXT;
+ALTER TABLE pending_operation ADD COLUMN currency TEXT;
+ALTER TABLE pending_operation ADD COLUMN exchangeFullName TEXT;

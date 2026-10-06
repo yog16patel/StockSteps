@@ -9,7 +9,7 @@ import org.example.stocksteps.di.AccountDependencies
 import org.example.stocksteps.di.StockStepsDependencies
 
 @Composable
-internal fun HomeScene(baseUrl: String?, accounts: AccountDependencies, hinge: WindowHinge?, onSearch: () -> Unit, onExplore: (String) -> Unit) {
+internal fun HomeScene(baseUrl: String?, accounts: AccountDependencies, hinge: WindowHinge?, onSearch: () -> Unit, onExplore: (org.example.stocksteps.model.StockSearchResult) -> Unit) {
     val model = viewModel(key = "home:${baseUrl.orEmpty()}") {
         val data = StockStepsDependencies(baseUrl ?: localBackendUrl())
         HomeViewModel(
@@ -22,5 +22,12 @@ internal fun HomeScene(baseUrl: String?, accounts: AccountDependencies, hinge: W
         )
     }
     val state by model.state.collectAsStateWithLifecycle()
-    HomeScreen(state, hinge, model::refresh, onSearch, onExplore, model::refreshNews)
+    val saved by accounts.watchlist.snapshot.collectAsStateWithLifecycle(
+        org.example.stocksteps.model.WatchlistSnapshot(null, emptyList())
+    )
+    val session by accounts.auth.session.collectAsStateWithLifecycle()
+    HomeScreen(state, hinge, model::refresh, onSearch, { symbol ->
+        val item = saved.items.takeIf { saved.userId == session.user?.id }?.firstOrNull { it.symbol == symbol }
+        onExplore(item?.listing() ?: org.example.stocksteps.model.StockSearchResult(symbol, symbol))
+    }, model::refreshNews)
 }

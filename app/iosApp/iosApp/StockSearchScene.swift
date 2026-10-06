@@ -5,6 +5,7 @@ struct StockSearchScene: View {
     @Environment(\.colorScheme) private var colorScheme
     let model: StockSearchViewModel
     let accounts: AccountViewModel
+    var initialStock: StockSearchResult? = nil
     var onClose: () -> Void = {}
     @State private var selectedStock: StockSearchResult?
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
@@ -39,7 +40,8 @@ struct StockSearchScene: View {
                     saved: accounts.state.items.contains { $0.symbol == stock.symbol },
                     watchlistEnabled: !accounts.state.initializing,
                     watchlistError: accounts.state.error,
-                    onToggleWatchlist: { Task { await accounts.toggle(symbol: stock.symbol) } }
+                    onDetailAction: model.detailAction,
+                    onToggleWatchlist: { Task { await accounts.toggle(stock: stock) } }
                 )
                 .stockStepsTopBar(
                     .screen(stock.symbol, actions: [AppBarAction(id: "close", label: "Done", enabled: true)]),
@@ -52,6 +54,13 @@ struct StockSearchScene: View {
                         .screen("Stock details", actions: [AppBarAction(id: "close", label: "Done", enabled: true)]),
                         onAction: { _ in onClose() }
                     )
+            }
+        }
+        .task {
+            if let stock = initialStock {
+                selectedStock = stock
+                compactColumn = .detail
+                model.selectStock(stock)
             }
         }
         .navigationSplitViewStyle(.balanced)

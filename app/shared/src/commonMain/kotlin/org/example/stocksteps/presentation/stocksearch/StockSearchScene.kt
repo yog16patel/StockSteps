@@ -28,7 +28,11 @@ internal fun StockSearchScene(
     var initialSymbolHandled by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(route.initialSymbol) {
         if (!initialSymbolHandled) {
-            route.initialSymbol?.let(model::changeQuery)
+            route.initialSymbol?.let { symbol ->
+                if (route.name != null || route.exchange != null) {
+                    model.selectStock(StockSearchResult(symbol, route.name ?: symbol, route.currency, route.exchange, route.exchangeFullName))
+                } else model.selectStock(StockSearchResult(symbol, symbol))
+            }
             initialSymbolHandled = true
         }
     }
@@ -49,6 +53,7 @@ internal fun StockSearchScene(
         saved = state.selected?.symbol in watchlistState.symbols,
         watchlistEnabled = watchlistState.enabled,
         watchlistError = watchlistState.error,
-        onToggleWatchlist = { state.selected?.symbol?.let { watchlistModel?.toggle(it) } }
+        onDetailAction = model::detailAction,
+        onToggleWatchlist = { state.selected?.let { watchlistModel?.toggle(it) } }
     )
 }

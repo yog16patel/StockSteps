@@ -9,6 +9,10 @@ class IosStockStepsClient(baseUrl: String) {
     private val dependencies = org.example.stocksteps.di.StockStepsDependencies(baseUrl)
     private val searchStocks = dependencies.searchStocks()
     private val getCompanyProfile = dependencies.getCompanyProfile()
+    private val getCompanyFundamentals = dependencies.getCompanyFundamentals()
+    private var fundamentalsJob: Deferred<org.example.stocksteps.model.CompanyFundamentals>? = null
+    private val getCompanyNews = dependencies.companyNews()
+    private var newsJob: Deferred<List<org.example.stocksteps.model.NewsArticle>>? = null
     private val getStockQuote = dependencies.getStockQuote()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var searchJob: Deferred<List<StockSearchResult>>? = null
@@ -39,6 +43,22 @@ class IosStockStepsClient(baseUrl: String) {
         return job.await()
     }
 
+    @Throws(Exception::class)
+    suspend fun getCompanyNews(symbol: String): List<org.example.stocksteps.model.NewsArticle> {
+        newsJob?.cancel()
+        val job = scope.async { getCompanyNews(symbol) }
+        newsJob = job
+        return job.await()
+    }
+    @Throws(Exception::class)
+    suspend fun getFundamentals(symbol: String, period: String): org.example.stocksteps.model.CompanyFundamentals {
+        fundamentalsJob?.cancel()
+        val job = scope.async { getCompanyFundamentals(symbol, period) }
+        fundamentalsJob = job
+        return job.await()
+    }
+    fun cancelFundamentals() { fundamentalsJob?.cancel() }
+    fun cancelNews() { newsJob?.cancel() }
     fun cancelProfile() { profileJob?.cancel() }
     fun cancelSearch() { searchJob?.cancel() }
     fun cancelQuote() { quoteJob?.cancel() }

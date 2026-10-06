@@ -5,6 +5,9 @@ import org.example.stocksteps.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+import org.example.stocksteps.companydetail.*
+import org.example.stocksteps.presentation.companydetail.CompanyDetailAction
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,13 +25,28 @@ internal class StockSearchViewModel(
     private val getProfile: GetCompanyProfile,
     initialQuery: String = "",
     initialSelection: StockSearchResult? = null,
-    private val closeResources: () -> Unit = {}
+    private val closeResources: () -> Unit = {},
+    private val companyNews: org.example.stocksteps.domain.GetCompanyNews? = null,
+    private val getFundamentals: org.example.stocksteps.domain.GetCompanyFundamentals? = null
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(StockSearchState(query = initialQuery, selected = initialSelection))
-    val state = mutableState.asStateFlow()
+    val state = mutableState.map { current ->
+        current.copy(
+            financials = org.example.stocksteps.companydetail.FinancialsPresenter.build(
+                fundamentals = current.fundamentals,
+                loading = current.fundamentalsLoading,
+                failed = current.fundamentalsError != null
+            ),
+            detail = current.selected?.let {
+                CompanyDetailPresenter.build(it, current.quote, current.profile, current.fundamentals)
+            } ?: CompanyDetailUiState()
+        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, mutableState.value)
     private val queries = MutableStateFlow(initialQuery.trim())
     private var searchJob: Job? = null
     private var profileJob: Job? = null
+    private var newsJob: Job? = null
+    private var fundamentalsJob: Job? = null
     private var quoteJob: Job? = null
 
     @OptIn(FlowPreview::class)
@@ -50,6 +68,10 @@ internal class StockSearchViewModel(
     }
 
     fun changeQuery(query: String) {
+        fundamentalsJob?.cancel()
+        mutableState.update { it.copy(fundamentals = null, fundamentalsLoading = false, fundamentalsError = null) }
+        newsJob?.cancel()
+        mutableState.update { it.copy(news = emptyList(), newsLoading = false, newsError = null, metricInfo = null) }
         quoteJob?.cancel()
         profileJob?.cancel()
         mutableState.update { it.copy(profile = null, profileError = null, profileLoading = false, query = query, selected = null, quote = null, quoteError = null, quoteLoading = false) }
@@ -72,6 +94,9 @@ internal class StockSearchViewModel(
     }
 
     fun selectStock(stock: StockSearchResult) {
+        mutableState.update { it.copy(selected = stock, detailTab = CompanyDetailTab.OVERVIEW, metricInfo = null, chart = FinancialChartState()) }
+        loadFundamentals(stock.symbol)
+        loadNews(stock.symbol)
         loadProfile(stock)
         loadQuote(stock)
     }
@@ -106,6 +131,52 @@ internal class StockSearchViewModel(
         }
     }
 
+    fun detailAction(action: CompanyDetailAction) {
+        when (action) {
+            is CompanyDetailAction.SelectTab -> mutableState.update { it.copy(detailTab = action.tab) }
+            is CompanyDetailAction.SelectChartPeriod -> mutableState.update { it.copy(chart = it.chart.copy(period = action.period)) }
+            is CompanyDetailAction.SelectFinancialPeriod -> {
+                mutableState.update { it.copy(financialPeriod = action.period) }
+                mutableState.value.selected?.let { loadFundamentals(it.symbol) }
+            }
+            CompanyDetailAction.RefreshFundamentals -> mutableState.value.selected?.let { loadFundamentals(it.symbol, preserveValues = true) }
+            is CompanyDetailAction.OpenMetricInfo -> mutableState.update { it.copy(metricInfo = action.id) }
+            CompanyDetailAction.CloseMetricInfo -> mutableState.update { it.copy(metricInfo = null) }
+            CompanyDetailAction.RefreshNews -> mutableState.value.selected?.let { loadNews(it.symbol) }
+        }
+    }
+    private fun loadFundamentals(symbol: String, preserveValues: Boolean = false) {
+        fundamentalsJob?.cancel()
+        val fetch = getFundamentals ?: return
+        val period = if (mutableState.value.financialPeriod == FinancialPeriod.ANNUAL) "annual" else "quarter"
+        mutableState.update { it.copy(fundamentals = if (preserveValues) it.fundamentals else null, fundamentalsLoading = true, fundamentalsError = null) }
+        fundamentalsJob = viewModelScope.launch {
+            try {
+                val values = fetch(symbol, period)
+                ensureActive()
+                mutableState.update { it.copy(fundamentals = values, fundamentalsLoading = false) }
+            } catch (cause: Exception) {
+                if (cause is CancellationException) throw cause
+                mutableState.update { it.copy(fundamentalsLoading = false, fundamentalsError = "Financial data is temporarily unavailable. Try again.") }
+            }
+        }
+    }
+
+    private fun loadNews(symbol: String) {
+        newsJob?.cancel()
+        val fetch = companyNews ?: return
+        mutableState.update { it.copy(news = emptyList(), newsLoading = true, newsError = null) }
+        newsJob = viewModelScope.launch {
+            try {
+                val articles = fetch(symbol)
+                ensureActive()
+                mutableState.update { it.copy(news = articles, newsLoading = false) }
+            } catch (cause: Exception) {
+                if (cause is CancellationException) throw cause
+                mutableState.update { it.copy(newsLoading = false, newsError = "Company news is temporarily unavailable.") }
+            }
+        }
+    }
     fun retryQuote() { state.value.selected?.let(::loadQuote) }
     fun retryProfile() { state.value.selected?.let(::loadProfile) }
     override fun onCleared() { closeResources() }

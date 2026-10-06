@@ -3,6 +3,10 @@ CREATE TABLE watchlist (
     symbol TEXT NOT NULL,
     addedAt INTEGER NOT NULL,
     updatedAt INTEGER NOT NULL,
+    name TEXT,
+    exchange TEXT,
+    currency TEXT,
+    exchangeFullName TEXT,
     PRIMARY KEY (owner, symbol)
 );
 
@@ -12,6 +16,10 @@ CREATE TABLE pending_operation (
     symbol TEXT NOT NULL,
     addedAt INTEGER,
     updatedAt INTEGER,
+    name TEXT,
+    exchange TEXT,
+    currency TEXT,
+    exchangeFullName TEXT,
     UNIQUE (owner, symbol)
 );
 
@@ -22,7 +30,7 @@ item:
 SELECT * FROM watchlist WHERE owner = ? AND symbol = ?;
 
 putItem:
-INSERT OR REPLACE INTO watchlist(owner, symbol, addedAt, updatedAt) VALUES (?, ?, ?, ?);
+INSERT OR REPLACE INTO watchlist(owner, symbol, addedAt, updatedAt, name, exchange, currency, exchangeFullName) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 removeItem:
 DELETE FROM watchlist WHERE owner = ? AND symbol = ?;
@@ -31,7 +39,7 @@ pending:
 SELECT * FROM pending_operation WHERE owner = ? ORDER BY revision;
 
 queue:
-INSERT OR REPLACE INTO pending_operation(owner, symbol, addedAt, updatedAt) VALUES (?, ?, ?, ?);
+INSERT OR REPLACE INTO pending_operation(owner, symbol, addedAt, updatedAt, name, exchange, currency, exchangeFullName) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 acknowledge:
 DELETE FROM pending_operation WHERE owner = ? AND revision = ?;

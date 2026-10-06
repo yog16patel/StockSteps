@@ -61,3 +61,11 @@ test('AI summary collection is backend-only for guests and signed-in users', asy
     await assertFails(deleteDoc(summary));
   }
 });
+
+test('listing metadata is accepted and malformed metadata is denied', async () => {
+  const db = env.authenticatedContext('alice').firestore();
+  await assertSucceeds(setDoc(item(db), { ...valid, name: 'Apple', exchange: 'NASDAQ', currency: 'USD', exchangeFullName: 'Nasdaq' }));
+  for (const fields of [{ exchange: 12 }, { currency: 'X'.repeat(11) }, { name: 'X'.repeat(301) }, { exchangeFullName: false }]) {
+    await assertFails(setDoc(item(db), { ...valid, ...fields }));
+  }
+});

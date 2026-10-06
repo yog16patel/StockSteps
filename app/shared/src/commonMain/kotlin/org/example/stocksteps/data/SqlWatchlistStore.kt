@@ -18,25 +18,27 @@ class SqlWatchlistStore(driver: SqlDriver) : WatchlistLocalStore {
     private val mutex = Mutex()
 
     override fun observe(owner: String): Flow<List<WatchlistItem>> = queries.items(owner)
-        .asFlow().mapToList(Dispatchers.Default).map { rows -> rows.map { WatchlistItem(it.symbol, it.addedAt, it.updatedAt) } }
+        .asFlow().mapToList(Dispatchers.Default).map { rows -> rows.map { WatchlistItem(it.symbol, it.addedAt, it.updatedAt, it.name, it.exchange, it.currency, it.exchangeFullName) } }
 
     override fun observePending(owner: String): Flow<List<PendingWatchlistOperation>> = queries.pending(owner)
         .asFlow().mapToList(Dispatchers.Default).map { rows -> rows.map { row ->
             PendingWatchlistOperation(row.revision, row.symbol,
-                row.addedAt?.let { WatchlistItem(row.symbol, it, requireNotNull(row.updatedAt)) })
+                row.addedAt?.let { WatchlistItem(row.symbol, it, requireNotNull(row.updatedAt), row.name, row.exchange, row.currency, row.exchangeFullName) })
         } }
 
-    override suspend fun add(owner: String, symbol: String, now: Long, queue: Boolean) = transaction {
-        val old = queries.item(owner, symbol).executeAsOneOrNull()
-        if (old == null) {
-            queries.putItem(owner, symbol, now, now)
-            if (queue) queries.queue(owner, symbol, now, now)
-        }
+    override suspend fun add(owner: String, symbol: String, now: Long, queue: Boolean) =
+        addListing(owner, org.example.stocksteps.model.StockSearchResult(symbol, symbol), now, queue)
+
+    override suspend fun addListing(owner: String, stock: org.example.stocksteps.model.StockSearchResult, now: Long, queue: Boolean) = transaction {
+        val old = queries.item(owner, stock.symbol).executeAsOneOrNull()
+        val added = old?.addedAt ?: now
+        queries.putItem(owner, stock.symbol, added, now, stock.name, stock.exchange, stock.currency, stock.exchangeFullName)
+        if (queue) queries.queue(owner, stock.symbol, added, now, stock.name, stock.exchange, stock.currency, stock.exchangeFullName)
     }
 
     override suspend fun remove(owner: String, symbol: String, queue: Boolean) = transaction {
         queries.removeItem(owner, symbol)
-        if (queue) queries.queue(owner, symbol, null, null)
+        if (queue) queries.queue(owner, symbol, null, null, null, null, null, null)
     }
 
     override suspend fun mergeGuest(owner: String) = transaction {
@@ -47,8 +49,8 @@ class SqlWatchlistStore(driver: SqlDriver) : WatchlistLocalStore {
             val old = queries.item(owner, guest.symbol).executeAsOneOrNull()
             val addedAt = minOf(guest.addedAt, old?.addedAt ?: guest.addedAt)
             val updatedAt = maxOf(guest.updatedAt, old?.updatedAt ?: guest.updatedAt)
-            queries.putItem(owner, guest.symbol, addedAt, updatedAt)
-            queries.queue(owner, guest.symbol, addedAt, updatedAt)
+            queries.putItem(owner, guest.symbol, addedAt, updatedAt, old?.name ?: guest.name, old?.exchange ?: guest.exchange, old?.currency ?: guest.currency, old?.exchangeFullName ?: guest.exchangeFullName)
+            queries.queue(owner, guest.symbol, addedAt, updatedAt, old?.name ?: guest.name, old?.exchange ?: guest.exchange, old?.currency ?: guest.currency, old?.exchangeFullName ?: guest.exchangeFullName)
         }
         // Atomic ownership transfer: a later login to another account cannot re-import these rows.
         queries.clearGuest()
@@ -61,7 +63,7 @@ class SqlWatchlistStore(driver: SqlDriver) : WatchlistLocalStore {
             if (row.symbol !in remote && row.symbol !in pending) queries.removeItem(owner, row.symbol)
         }
         items.filter { it.symbol !in pending }.forEach {
-            queries.putItem(owner, it.symbol, it.addedAt, it.updatedAt)
+            queries.putItem(owner, it.symbol, it.addedAt, it.updatedAt, it.name, it.exchange, it.currency, it.exchangeFullName)
         }
     }
 
