@@ -169,12 +169,19 @@ object HomePresentation {
 
     fun price(value: Double, currency: String?): String? {
         if (!value.isFinite()) return null
-        val amount = twoDecimals(value)
+        val amount = if (abs(value) < 1.0) subDollar(value) else twoDecimals(value)
         return when (currency?.uppercase()) {
             "USD" -> "$$amount"
             null, "" -> amount
             else -> "$amount ${currency.uppercase()}"
         }
+    }
+
+    /** Penny stocks: up to 4 decimals so $0.0002 does not read as $0.00 (trailing zeros trimmed to 2). */
+    private fun subDollar(value: Double): String {
+        val tenThousandths = (abs(value) * 10_000).roundToLong()
+        val digits = (tenThousandths % 10_000).toString().padStart(4, '0').trimEnd('0').padEnd(2, '0')
+        return "${tenThousandths / 10_000}.$digits"
     }
 
     private fun twoDecimals(value: Double): String {

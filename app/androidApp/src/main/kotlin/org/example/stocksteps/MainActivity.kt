@@ -11,6 +11,7 @@ import android.graphics.Color
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import org.example.stocksteps.settings.BackendEndpoints
 import org.example.stocksteps.settings.ThemeMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 
 class MainActivity : ComponentActivity() {
     private val themePreferences by lazy { AndroidThemePreferenceStore(applicationContext) }
+    private val backendEnvironment by lazy { AndroidBackendEnvironmentStore(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -67,11 +69,15 @@ class MainActivity : ComponentActivity() {
             App(
                 accounts = accountOwner.dependencies,
                 hinge = hinge,
-                baseUrl = if (BuildConfig.DEBUG) "http://127.0.0.1:8080" else null,
+
                 navigationIcon = { AndroidNavigationIcon(it) },
                 backIcon = { AndroidBackIcon() },
                 themePreferences = themePreferences,
-                appVersion = BuildConfig.VERSION_NAME
+                appVersion = BuildConfig.VERSION_NAME,
+                backendEndpoints = BuildConfig.BACKEND_URL.takeIf { it.isNotBlank() }?.let { real ->
+                    BackendEndpoints(real = real, mock = BuildConfig.MOCK_BACKEND_URL.ifBlank { null })
+                },
+                backendEnvironment = backendEnvironment
             )
         }
     }

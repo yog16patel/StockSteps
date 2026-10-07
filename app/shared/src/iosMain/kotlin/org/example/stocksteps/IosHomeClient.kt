@@ -3,7 +3,8 @@ package org.example.stocksteps
 import org.example.stocksteps.di.StockStepsDependencies
 
 /** Home supports independent concurrent quote reads without cancelling search/detail requests. */
-class IosHomeClient(baseUrl: String) {
+/** `baseUrl` is read per request, so a backend switch applies to the next call. */
+class IosHomeClient(baseUrl: () -> String) {
     private val dependencies = StockStepsDependencies(baseUrl)
     private val quote = dependencies.getStockQuote()
     @Throws(Exception::class)

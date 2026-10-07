@@ -17,11 +17,17 @@ import org.example.stocksteps.model.*
 class StockStepsApiException(val status: Int, val error: ApiError) : Exception(error.message)
 
 // The caller owns the injected client and closes it when no longer needed.
-class StockStepsApi(private val client: HttpClient, baseUrl: String) {
-    private val baseUrl = baseUrl.trimEnd('/')
+// The base URL is resolved per request so a backend switch applies to the next request.
+class StockStepsApi(private val client: HttpClient, private val baseUrlProvider: () -> String) {
+    constructor(client: HttpClient, baseUrl: String) : this(client, { baseUrl })
 
-    init {
-        require(Url(baseUrl).protocol in listOf(URLProtocol.HTTP, URLProtocol.HTTPS))
+    init { validated(baseUrlProvider()) }
+
+    private val baseUrl: String get() = validated(baseUrlProvider())
+
+    private fun validated(url: String): String {
+        require(Url(url).protocol in listOf(URLProtocol.HTTP, URLProtocol.HTTPS))
+        return url.trimEnd('/')
     }
 
     suspend fun searchStocks(query: String): List<StockSearchResult> = request {
@@ -57,6 +63,8 @@ class StockStepsApi(private val client: HttpClient, baseUrl: String) {
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/news") }
     }
+
+    suspend fun getBackendInfo(): BackendInfo = request { url("$baseUrl/api/v1/meta") }
 
     suspend fun getMarketSnapshot(): MarketSnapshot = request { url("$baseUrl/market/snapshot") }
 

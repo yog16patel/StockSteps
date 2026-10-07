@@ -8,6 +8,7 @@ import org.koin.core.parameter.parametersOf
 import org.example.stocksteps.createBackendClient
 import org.example.stocksteps.data.RemoteMarketSnapshotRepository
 import org.example.stocksteps.data.RemoteSparklineRepository
+import org.example.stocksteps.data.RemoteBackendInfoRepository
 import org.example.stocksteps.data.RemoteMarketRepository
 import org.example.stocksteps.presentation.discovery.DiscoveryViewModel
 import org.example.stocksteps.data.RemoteStockRepository
@@ -19,7 +20,9 @@ import org.example.stocksteps.presentation.stocksearch.StockSearchViewModel
 internal data class SearchInitialState(val query: String, val selection: StockSearchResult?)
 
 /** Isolated graph: each platform owner closes its own dependencies, without global Koin state. */
-internal class StockStepsDependencies(baseUrl: String, clientFactory: () -> HttpClient = ::createBackendClient) {
+internal class StockStepsDependencies(baseUrl: () -> String, clientFactory: () -> HttpClient = ::createBackendClient) {
+    constructor(baseUrl: String, clientFactory: () -> HttpClient = ::createBackendClient) : this({ baseUrl }, clientFactory)
+
     private val application = koinApplication {
         modules(module {
             single<HttpClient> { clientFactory() } onClose { it?.close() }
@@ -29,6 +32,8 @@ internal class StockStepsDependencies(baseUrl: String, clientFactory: () -> Http
             factory { GetMarketSnapshot(get()) }
             single<SparklineRepository> { RemoteSparklineRepository(get()) }
             factory { GetSparkline(get()) }
+            single<BackendInfoRepository> { RemoteBackendInfoRepository(get()) }
+            factory { GetBackendInfo(get()) }
             single<MarketRepository> { RemoteMarketRepository(get()) }
             factory { GetMarketGainers(get()) }
             factory { GetMarketLosers(get()) }
@@ -56,6 +61,7 @@ internal class StockStepsDependencies(baseUrl: String, clientFactory: () -> Http
     fun getCompanyProfile(): GetCompanyProfile = application.koin.get()
     fun getMarketSnapshot(): GetMarketSnapshot = application.koin.get()
     fun getSparkline(): GetSparkline = application.koin.get()
+    fun getBackendInfo(): GetBackendInfo = application.koin.get()
     fun getStockQuote(): GetStockQuote = application.koin.get()
     fun searchViewModel(query: String, selection: StockSearchResult?): StockSearchViewModel =
         application.koin.get { parametersOf(SearchInitialState(query, selection)) }

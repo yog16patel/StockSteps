@@ -4,7 +4,8 @@ import kotlinx.coroutines.*
 import org.example.stocksteps.di.StockStepsDependencies
 import org.example.stocksteps.model.*
 
-class IosMarketClient(baseUrl: String) {
+/** `baseUrl` is read per request, so a backend switch applies to the next call. */
+class IosMarketClient(baseUrl: () -> String) {
     private val dependencies = StockStepsDependencies(baseUrl)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var gainersJob: Deferred<List<MarketMover>>? = null

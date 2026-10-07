@@ -24,7 +24,7 @@ protocol HomeQuoteServing {
 @MainActor
 final class HomeQuoteService: HomeQuoteServing {
     private let client: IosHomeClient
-    init(baseURL: String) { client = IosHomeClient(baseUrl: baseURL) }
+    init(baseURL: @escaping () -> String) { client = IosHomeClient(baseUrl: baseURL) }
     deinit { client.close() }
     func news() async throws -> [NewsArticle] { try await client.getNews() }
     func snapshot() async throws -> MarketSnapshot { try await client.getSnapshot() }

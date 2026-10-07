@@ -5,13 +5,13 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.example.stocksteps.WindowHinge
-import org.example.stocksteps.localBackendUrl
 import org.example.stocksteps.di.AccountDependencies
 import org.example.stocksteps.di.StockStepsDependencies
 
 @Composable
 internal fun HomeScene(
-    baseUrl: String?,
+    backend: org.example.stocksteps.settings.BackendRouter,
+    environment: org.example.stocksteps.settings.BackendEnvironment,
     accounts: AccountDependencies,
     hinge: WindowHinge?,
     onLearn: () -> Unit,
@@ -19,8 +19,8 @@ internal fun HomeScene(
     onViewAllNews: (() -> Unit)? = null,
     onExplore: (org.example.stocksteps.model.StockSearchResult) -> Unit
 ) {
-    val model = viewModel(key = "home:${baseUrl.orEmpty()}") {
-        val data = StockStepsDependencies(baseUrl ?: localBackendUrl())
+    val model = viewModel(key = "home:$environment") {
+        val data = StockStepsDependencies(backend::currentUrl)
         HomeViewModel(
             quote = data.getStockQuote(),
             watchlist = accounts.watchlist,

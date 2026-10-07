@@ -8,13 +8,14 @@ import org.example.stocksteps.di.StockStepsDependencies
 
 @Composable
 internal fun DiscoveryScene(
-    baseUrl: String?,
+    backend: org.example.stocksteps.settings.BackendRouter,
+    environment: org.example.stocksteps.settings.BackendEnvironment,
     hinge: WindowHinge?,
     onExplore: (String) -> Unit,
     onSearch: () -> Unit
 ) {
-    val model = viewModel(key = "discovery:${baseUrl.orEmpty()}") {
-        StockStepsDependencies(baseUrl ?: localBackendUrl()).discoveryViewModel()
+    val model = viewModel(key = "discovery:$environment") {
+        StockStepsDependencies(backend::currentUrl).discoveryViewModel()
     }
     val state by model.state.collectAsStateWithLifecycle()
     DiscoveryScreen(

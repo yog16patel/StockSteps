@@ -19,7 +19,7 @@ protocol StockSearchServing {
 final class StockSearchService: StockSearchServing {
     private let client: IosStockStepsClient
 
-    init(baseURL: String) { client = IosStockStepsClient(baseUrl: baseURL) }
+    init(baseURL: @escaping () -> String) { client = IosStockStepsClient(baseUrl: baseURL) }
     deinit { client.close() }
 
     func searchStocks(query: String) async throws -> [StockSearchResult] {

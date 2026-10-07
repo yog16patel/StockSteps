@@ -55,11 +55,21 @@ android {
         }
     }
     buildTypes {
+        // Backend URL is configuration, not code: -PstockstepsBackendUrl=... (or gradle.properties).
+        // Debug defaults to the local server via `adb reverse tcp:8080 tcp:8080`; release has no default.
+        val backendUrl = providers.gradleProperty("stockstepsBackendUrl")
+        // Local mock backend (`./gradlew :server:runMock`, then `adb reverse tcp:8081 tcp:8081`).
+        val mockBackendUrl = providers.gradleProperty("stockstepsMockBackendUrl")
         debug {
             buildConfigField("boolean", "FIREBASE_EMULATORS", providers.gradleProperty("firebaseEmulators").orElse("false").get())
+            buildConfigField("String", "BACKEND_URL", "\"${backendUrl.orElse("http://127.0.0.1:8080").get()}\"")
+            buildConfigField("String", "MOCK_BACKEND_URL", "\"${mockBackendUrl.orElse("http://127.0.0.1:8081").get()}\"")
         }
         release {
             buildConfigField("boolean", "FIREBASE_EMULATORS", "false")
+            buildConfigField("String", "BACKEND_URL", "\"${backendUrl.orElse("").get()}\"")
+            // No mock backend in release builds: the Development setting is hidden and data is always real.
+            buildConfigField("String", "MOCK_BACKEND_URL", "\"\"")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

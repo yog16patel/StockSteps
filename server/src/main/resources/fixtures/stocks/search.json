@@ -1,0 +1,86 @@
+[
+    {
+        "symbol": "AAPL",
+        "name": "Apple Inc.",
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "exchangeFullName": "NASDAQ"
+    },
+    {
+        "symbol": "AMD",
+        "name": "Advanced Micro Devices, Inc.",
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "exchangeFullName": "NASDAQ"
+    },
+    {
+        "symbol": "AMZN",
+        "name": "Amazon.com, Inc.",
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "exchangeFullName": "NASDAQ"
+    },
+    {
+        "symbol": "INTC",
+        "name": "Intel Corporation",
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "exchangeFullName": "NASDAQ"
+    },
+    {
+        "symbol": "LUCY",
+        "name": "Innovative Eyewear, Inc.",
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "exchangeFullName": "NASDAQ"
+    },
+    {
+        "symbol": "META",
+        "name": "Meta Platforms, Inc.",
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "exchangeFullName": "NASDAQ"
+    },
+    {
+        "symbol": "MOTS",
+        "name": "Motus GI Holdings, Inc.",
+        "currency": "USD",
+        "exchange": "OTC",
+        "exchangeFullName": "OTC"
+    },
+    {
+        "symbol": "MSFT",
+        "name": "Microsoft Corporation",
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "exchangeFullName": "NASDAQ"
+    },
+    {
+        "symbol": "NFLX",
+        "name": "Netflix, Inc.",
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "exchangeFullName": "NASDAQ"
+    },
+    {
+        "symbol": "NVDA",
+        "name": "NVIDIA Corporation",
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "exchangeFullName": "NASDAQ"
+    },
+    {
+        "symbol": "SPEC",
+        "name": "Spectaire Holdings Inc.",
+        "currency": "USD",
+        "exchange": "OTC",
+        "exchangeFullName": "OTC"
+    },
+    {
+        "symbol": "TSLA",
+        "name": "Tesla, Inc.",
+        "currency": "USD",
+        "exchange": "NASDAQ",
+        "exchangeFullName": "NASDAQ"
+    }
+]

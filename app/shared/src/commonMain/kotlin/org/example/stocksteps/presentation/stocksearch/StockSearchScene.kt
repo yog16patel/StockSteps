@@ -12,7 +12,8 @@ import org.example.stocksteps.model.StockSearchResult
 @Composable
 internal fun StockSearchScene(
     route: StockSearchRoute,
-    baseUrl: String?,
+    backend: org.example.stocksteps.settings.BackendRouter,
+    environment: org.example.stocksteps.settings.BackendEnvironment,
     hinge: WindowHinge?,
     accounts: org.example.stocksteps.di.AccountDependencies? = null
 ) {
@@ -21,8 +22,8 @@ internal fun StockSearchScene(
         save = { stock -> stock?.let { listOf(it.symbol, it.name, it.currency.orEmpty(), it.exchange.orEmpty(), it.exchangeFullName.orEmpty()) } ?: emptyList() },
         restore = { if (it.isEmpty()) null else StockSearchResult(it[0], it[1], it[2].ifEmpty { null }, it[3].ifEmpty { null }, it[4].ifEmpty { null }) }
     )) { mutableStateOf<StockSearchResult?>(null) }
-    val model = viewModel(key = "stock-search:${baseUrl.orEmpty()}") {
-        val dependencies = org.example.stocksteps.di.StockStepsDependencies(baseUrl ?: localBackendUrl())
+    val model = viewModel(key = "stock-search:$environment") {
+        val dependencies = org.example.stocksteps.di.StockStepsDependencies(backend::currentUrl)
         dependencies.searchViewModel(savedQuery, savedSelection)
     }
     var initialSymbolHandled by rememberSaveable { mutableStateOf(false) }

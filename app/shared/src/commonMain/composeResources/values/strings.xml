@@ -47,6 +47,17 @@
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_section_notifications">Notifications</string>
     <string name="settings_section_about">About</string>
+    <string name="settings_section_development">Development</string>
+    <string name="settings_backend_title">Backend Data Source</string>
+    <string name="settings_backend_subtitle">Choose where development data comes from</string>
+    <string name="settings_backend_mock">Mock Data</string>
+    <string name="settings_backend_real">Real Data</string>
+    <string name="settings_backend_mock_status">Using local sample market data</string>
+    <string name="settings_backend_real_status">Using live StockSteps backend</string>
+    <string name="settings_backend_quota_warning">Real data may use external API quota.</string>
+    <string name="settings_backend_confirm_title">Use real market data?</string>
+    <string name="settings_backend_confirm_body">Real data requests may use FMP/Finnhub API quota during development.</string>
+    <string name="settings_backend_confirm_action">Use Real Data</string>
     <string name="settings_account_fallback_name">Account</string>
     <string name="settings_account_signed_in">Signed in</string>
     <string name="settings_guest_title">Sign in to sync</string>
@@ -70,4 +81,5 @@
     <string name="settings_sign_out_title">Sign out?</string>
     <string name="settings_sign_out_body">You'll need to sign in again to sync your StockSteps account. Your watchlist and account are not deleted.</string>
     <string name="action_cancel">Cancel</string>
+    <string name="sample_data_banner">Sample data · mock backend</string>
 </resources>

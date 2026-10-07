@@ -6,6 +6,12 @@ PRODUCT_BUNDLE_IDENTIFIER=org.example.stocksteps
 CURRENT_PROJECT_VERSION=1
 MARKETING_VERSION=1.0
 
+// Backend URL is configuration, not code. `$()` keeps xcconfig from treating `//` as a comment.
+// Simulator default is the local server; set a deployed HTTPS URL for devices/releases.
+STOCKSTEPS_BACKEND_URL = http:/$()/localhost:8080
+// Local mock backend (`./gradlew :server:runMock`). Only DEBUG builds can select it.
+STOCKSTEPS_MOCK_BACKEND_URL = http:/$()/localhost:8081
+
 // Kotlin's Xcode build phase generates the framework for this SDK/configuration.
 FRAMEWORK_SEARCH_PATHS = $(inherited) "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
 OTHER_LDFLAGS = $(inherited) -framework Shared -lsqlite3

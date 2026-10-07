@@ -1,0 +1,11 @@
+{
+    "symbol": "NFLX",
+    "companyName": "Netflix, Inc.",
+    "price": 702.33,
+    "change": -10.33,
+    "changePercent": -1.4495,
+    "previousClose": 712.66,
+    "dayHigh": 718.3613,
+    "dayLow": 696.7114,
+    "volume": 3100000
+}

@@ -25,6 +25,10 @@ import org.example.stocksteps.presentation.stocksearch.StockSearchScene
 import org.example.stocksteps.model.*
 import org.example.stocksteps.presentation.components.StockStepsTopBar
 import org.example.stocksteps.designsystem.components.StockBottomNavigation
+import org.example.stocksteps.designsystem.components.StockSampleDataBanner
+import org.example.stocksteps.presentation.backend.BackendInfoViewModel
+import org.example.stocksteps.di.StockStepsDependencies
+import androidx.lifecycle.viewmodel.compose.viewModel
 import org.example.stocksteps.designsystem.components.StockBottomNavigationItem
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.resources.*
@@ -33,7 +37,7 @@ import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun AppNavigation(
-    baseUrl: String?,
+    backend: org.example.stocksteps.settings.BackendRouter,
     hinge: WindowHinge?,
     navigationIcon: @Composable (MainDestination) -> Unit,
     accounts: AccountDependencies?,
@@ -77,6 +81,15 @@ internal fun AppNavigation(
     val isSearch = destination?.hasRoute<StockSearchRoute>() == true
 
     val isHome = destination?.hasRoute<DiscoveryRoute>() == true
+    // Keyed by environment: switching creates fresh scene models (fresh data), while every
+    // client resolves the backend URL per request, so no request uses the previous backend.
+    val storedEnvironment by backend.selection.collectAsStateWithLifecycle()
+    val environment = backend.effective(storedEnvironment)
+    val backendInfo = viewModel(key = "backend-info:$environment") {
+        val data = StockStepsDependencies(backend::currentUrl)
+        BackendInfoViewModel(data.getBackendInfo(), data::close)
+    }
+    val sampleData by backendInfo.isMock.collectAsStateWithLifecycle()
     val isSettings = destination?.hasRoute<SettingsRoute>() == true
     // Scaffold applies status/navigation-bar insets once and consumes them for the content,
     // so screens' own safe-content padding does not double them.
@@ -101,21 +114,30 @@ internal fun AppNavigation(
             )
         },
         bottomBar = {
-            if (destination != null && !isSearch && !isAuth) {
-                StockBottomNavigation {
-                    MainDestination.entries.forEach { tab ->
-                        val selected = when (tab) {
-                            MainDestination.HOME -> isHome
-                            MainDestination.WATCHLIST -> destination.hasRoute<WatchListRoute>()
-                            MainDestination.LEARN -> destination.hasRoute<LearnRoute>()
-                            MainDestination.SETTINGS -> destination.hasRoute<SettingsRoute>()
+            val showTabs = destination != null && !isSearch && !isAuth
+            Column {
+                if (sampleData) {
+                    StockSampleDataBanner(
+                        text = stringResource(Res.string.sample_data_banner),
+                        modifier = if (showTabs) Modifier else Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                    )
+                }
+                if (showTabs) {
+                    StockBottomNavigation {
+                        MainDestination.entries.forEach { tab ->
+                            val selected = when (tab) {
+                                MainDestination.HOME -> isHome
+                                MainDestination.WATCHLIST -> destination.hasRoute<WatchListRoute>()
+                                MainDestination.LEARN -> destination.hasRoute<LearnRoute>()
+                                MainDestination.SETTINGS -> destination.hasRoute<SettingsRoute>()
+                            }
+                            StockBottomNavigationItem(
+                                selected = selected,
+                                label = stringResource(tab.labelResource()),
+                                onClick = { openTab(tab) },
+                                icon = { navigationIcon(tab) }
+                            )
                         }
-                        StockBottomNavigationItem(
-                            selected = selected,
-                            label = stringResource(tab.labelResource()),
-                            onClick = { openTab(tab) },
-                            icon = { navigationIcon(tab) }
-                        )
                     }
                 }
             }
@@ -131,7 +153,8 @@ internal fun AppNavigation(
         ) {
             composable<DiscoveryRoute> {
                 if (accounts != null) HomeScene(
-                    baseUrl = baseUrl,
+                    backend = backend,
+                    environment = environment,
                     accounts = accounts,
                     hinge = hinge,
                     onLearn = { openTab(MainDestination.LEARN) },
@@ -157,6 +180,7 @@ internal fun AppNavigation(
                 if (accounts != null) SettingsScene(
                     accounts = accounts,
                     themePreferences = themePreferences,
+                    backend = backend,
                     appVersion = appVersion,
                     hinge = hinge,
                     onSignIn = { navController.navigate(AuthRoute()) }
@@ -177,7 +201,8 @@ internal fun AppNavigation(
             composable<StockSearchRoute> { entry ->
                 StockSearchScene(
                     route = entry.toRoute<StockSearchRoute>(),
-                    baseUrl = baseUrl,
+                    backend = backend,
+                    environment = environment,
                     hinge = hinge,
                     accounts = accounts
                 )

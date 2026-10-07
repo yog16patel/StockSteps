@@ -1,0 +1,11 @@
+{
+    "symbol": "NVDA",
+    "companyName": "NVIDIA Corporation",
+    "price": 125.48,
+    "change": 5.2,
+    "changePercent": 4.3232,
+    "previousClose": 120.28,
+    "dayHigh": 126.4838,
+    "dayLow": 119.3178,
+    "volume": 210000000
+}

@@ -30,6 +30,49 @@ options:
 - Server: `./gradlew :server:run`
 - iOS app: open the [/app/iosApp](./app/iosApp) directory in Xcode and run it from there.
 
+### Data modes: MOCK and REAL
+
+The backend serves the same API in two modes, selected by `STOCKSTEPS_DATA_MODE`:
+
+| Mode | Data | Keys needed |
+| --- | --- | --- |
+| `real` (default) | FMP + Finnhub (+ optional Gemini/Firestore for news summaries) | `FMP_API_KEY`, `FINNHUB_API_KEY` |
+| `mock` | Captured JSON fixtures in `server/src/main/resources/fixtures` | none |
+
+```sh
+./gradlew :server:runMock                 # mock backend on :8081 (real stays on :8080)
+adb reverse tcp:8081 tcp:8081             # Android emulator/device
+```
+
+In debug builds, **Settings → Development → Backend Data Source** switches the app between
+**Mock Data** (local mock server) and **Real Data** (real backend). The URL is resolved per
+request, so the next request after switching goes to the selected backend; switching to Real
+asks for confirmation because it can use provider quota. Release builds have no mock URL,
+hide the setting, and always use the real backend.
+
+Mock mode makes no provider calls, so development does not spend FMP quota. It is refused
+on Cloud Run (`K_SERVICE` set), and `GET /api/v1/meta` reports `{"dataMode":"mock"}` so
+the apps show a "Sample data · mock backend" banner. Missing fixtures behave like missing
+provider data (404/empty), never fabricated values.
+
+Current fixtures mix owner-supplied provider responses (imported with
+`./gradlew :server:importFixture -Pkind=fmp-quote|fmp-gainers|fmp-losers|fmp-most-actives|fmp-market-hours|fmp-news -Pinput=file.json`)
+and synthetic sample values from `python3 scripts/generate-sample-fixtures.py`; see
+`fixtures/manifest.json`. Restart the mock server after changing fixtures.
+
+Refresh fixtures from a running **real** backend (uses roughly 100–150 FMP requests;
+stops at the first rate-limit response):
+
+```sh
+scripts/capture-fixtures.sh
+```
+
+App backend URLs are build configuration: Android `-PstockstepsBackendUrl=...` and
+`-PstockstepsMockBackendUrl=...` (debug defaults `http://127.0.0.1:8080` / `:8081`), iOS
+`STOCKSTEPS_BACKEND_URL` / `STOCKSTEPS_MOCK_BACKEND_URL` in
+`app/iosApp/Configuration/Config.xcconfig` (mock honoured in DEBUG only). The server also
+honours `PORT`.
+
 ### Running tests
 
 Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:

@@ -10,7 +10,7 @@ protocol DiscoveryServing {
 @MainActor
 final class DiscoveryService: DiscoveryServing {
     private let client: IosMarketClient
-    init(baseURL: String) { client = IosMarketClient(baseUrl: baseURL) }
+    init(baseURL: @escaping () -> String) { client = IosMarketClient(baseUrl: baseURL) }
     deinit { client.close() }
     func getGainers() async throws -> [MarketMover] { try await client.getGainers() }
     func getLosers() async throws -> [MarketMover] { try await client.getLosers() }

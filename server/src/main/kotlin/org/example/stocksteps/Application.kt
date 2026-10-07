@@ -11,6 +11,13 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import java.util.Locale
 import org.example.stocksteps.appconfig.AppConfig
+import org.example.stocksteps.appconfig.DataMode
+import org.example.stocksteps.model.BackendInfo
+import org.example.stocksteps.repository.MarketDataProvider
+import org.example.stocksteps.repository.PriceHistoryProvider
+import org.example.stocksteps.repository.StockProviderRepository
+import org.example.stocksteps.repository.StockQuoteProviderRepository
+import org.example.stocksteps.repositoryImpl.fixture.FixtureMarketDataSource
 import org.example.stocksteps.model.ApiError
 import org.example.stocksteps.httpclient.HttpClientProvider
 import org.example.stocksteps.repositoryImpl.FmpStockProviderRepositoryImpl
@@ -21,7 +28,9 @@ import org.example.stocksteps.repositoryImpl.FinnhubNewsProviderRepositoryImpl
 import org.example.stocksteps.service.StockService
 
 fun main() {
-    embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module)
+    // PORT lets a mock server run beside the real one locally; Cloud Run also sets it.
+    val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
+    embeddedServer(Netty, port = port, host = "0.0.0.0", module = Application::module)
         .start(wait = true)
 }
 
@@ -36,48 +45,33 @@ fun Application.module() {
         )
     }
 
-    val newsService = createNewsService(HttpClientProvider.client)
+    val dataMode = DataMode.fromEnvironment()
+    log.info("StockSteps data mode: {}", dataMode.name.lowercase(Locale.ROOT))
+    val sources = when (dataMode) {
+        DataMode.REAL -> realDataSources()
+        DataMode.MOCK -> mockDataSources()
+    }
 
     routing {
         get("/health") {
             call.respondText("StockSteps API is running")
         }
-    }
-    val fmpRepository = FmpStockProviderRepositoryImpl(
-        client = HttpClientProvider.client,
-        apiKey = AppConfig.fmpApiKey
-    )
-
-    val quoteProvider = when (System.getenv("QUOTE_PROVIDER")?.lowercase(Locale.ROOT) ?: "fmp") {
-        "fmp" -> fmpRepository
-        "finnhub" -> FinnhubStockProviderRepositoryImpl(
-            client = HttpClientProvider.client,
-            apiKey = AppConfig.finnhubApiKey
-        )
-        else -> error("QUOTE_PROVIDER must be fmp or finnhub")
+        get("/api/v1/meta") { call.respond(BackendInfo(dataMode.name.lowercase(Locale.ROOT))) }
     }
 
-    // Search stays with FMP; quotes can be selected independently.
+    // Search stays with the stock provider; quotes can be selected independently.
     val stockService = StockService(
-        stockProvider = fmpRepository,
-        quoteProvider = quoteProvider
+        stockProvider = sources.stockProvider,
+        quoteProvider = sources.quoteProvider
     )
 
     routing {
         stockRoutes(stockService)
-        companyFinancialRoutes(org.example.stocksteps.service.CompanyFinancialService(fmpRepository))
+        companyFinancialRoutes(org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider))
         marketRoutes(stockService)
-        marketSnapshotRoutes(org.example.stocksteps.service.MarketSnapshotService(
-            org.example.stocksteps.repositoryImpl.FmpMarketDataProvider(
-                HttpClientProvider.client,
-                AppConfig.fmpApiKey,
-                FinnhubStockProviderRepositoryImpl(HttpClientProvider.client, AppConfig.finnhubApiKey)
-            )
-        ))
-        newsRoutes(newsService)
-        sparklineRoutes(org.example.stocksteps.service.SparklineService(
-            org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(HttpClientProvider.client, AppConfig.fmpApiKey)
-        ))
+        marketSnapshotRoutes(org.example.stocksteps.service.MarketSnapshotService(sources.marketData))
+        newsRoutes(sources.news)
+        sparklineRoutes(org.example.stocksteps.service.SparklineService(sources.priceHistory))
     }
 
 }
@@ -180,4 +174,45 @@ fun Route.sparklineRoutes(service: org.example.stocksteps.service.SparklineServi
         }
         call.respond(sparkline)
     }
+}
+
+/** Every external data dependency, chosen once per process by [DataMode]. */
+private class DataSources(
+    val stockProvider: StockProviderRepository,
+    val quoteProvider: StockQuoteProviderRepository,
+    val marketData: MarketDataProvider,
+    val priceHistory: PriceHistoryProvider,
+    val news: NewsService
+)
+
+private fun Application.realDataSources(): DataSources {
+    val fmpRepository = FmpStockProviderRepositoryImpl(
+        client = HttpClientProvider.client,
+        apiKey = AppConfig.fmpApiKey
+    )
+    val quoteProvider = when (System.getenv("QUOTE_PROVIDER")?.lowercase(Locale.ROOT) ?: "fmp") {
+        "fmp" -> fmpRepository
+        "finnhub" -> FinnhubStockProviderRepositoryImpl(
+            client = HttpClientProvider.client,
+            apiKey = AppConfig.finnhubApiKey
+        )
+        else -> error("QUOTE_PROVIDER must be fmp or finnhub")
+    }
+    return DataSources(
+        stockProvider = fmpRepository,
+        quoteProvider = quoteProvider,
+        marketData = org.example.stocksteps.repositoryImpl.FmpMarketDataProvider(
+            HttpClientProvider.client,
+            AppConfig.fmpApiKey,
+            FinnhubStockProviderRepositoryImpl(HttpClientProvider.client, AppConfig.finnhubApiKey)
+        ),
+        priceHistory = org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(HttpClientProvider.client, AppConfig.fmpApiKey),
+        news = createNewsService(HttpClientProvider.client)
+    )
+}
+
+/** Captured fixtures only: no provider keys, network calls, Gemini or Firestore. */
+private fun mockDataSources(): DataSources {
+    val fixtures = FixtureMarketDataSource()
+    return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null))
 }

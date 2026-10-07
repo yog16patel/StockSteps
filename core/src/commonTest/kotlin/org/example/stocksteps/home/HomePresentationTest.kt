@@ -32,6 +32,9 @@ class HomePresentationTest {
         assertEquals("$1,234.57", HomePresentation.price(1234.567, "USD"))
         assertEquals("188.23", HomePresentation.price(188.234, null))
         assertEquals("54.10 CAD", HomePresentation.price(54.1, "cad"))
+        assertEquals("0.0002", HomePresentation.price(0.0002, null))
+        assertEquals("$0.41", HomePresentation.price(0.41, "USD"))
+        assertEquals("0.125", HomePresentation.price(0.125, null))
     }
 
     @Test fun marketMapsAllIndexDirections() {

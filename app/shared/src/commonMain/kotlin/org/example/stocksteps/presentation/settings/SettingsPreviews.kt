@@ -3,6 +3,7 @@ package org.example.stocksteps.presentation.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
+import org.example.stocksteps.settings.BackendEnvironment
 import org.example.stocksteps.settings.ThemeMode
 
 // Preview-only sample account; production reads the authenticated session.
@@ -26,3 +27,11 @@ private fun SettingsGuestPreview() = SettingsPreview(signedIn.copy(account = Set
 @Preview(name = "Settings — Large font", widthDp = 340, heightDp = 1400, fontScale = 1.6f)
 @Composable
 private fun SettingsLargeFontPreview() = SettingsPreview(signedIn, ThemeMode.LIGHT)
+
+@Preview(name = "Settings — Development, mock", heightDp = 1400)
+@Composable
+private fun SettingsMockPreview() = SettingsPreview(signedIn.copy(backendEnvironment = BackendEnvironment.MOCK), ThemeMode.LIGHT)
+
+@Preview(name = "Settings — Development, real (dark)", heightDp = 1400)
+@Composable
+private fun SettingsRealPreview() = SettingsPreview(signedIn.copy(backendEnvironment = BackendEnvironment.REAL), ThemeMode.DARK)

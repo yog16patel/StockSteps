@@ -17,7 +17,10 @@ import org.example.stocksteps.designsystem.icons.StockIcons
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.presentation.AdaptiveSinglePane
 import org.example.stocksteps.resources.*
+import org.example.stocksteps.settings.BackendEnvironment
 import org.example.stocksteps.settings.ThemeMode
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -31,6 +34,7 @@ internal fun SettingsScreen(state: SettingsUiState, hinge: WindowHinge?, onActio
     val spacing = StockStepsTheme.spacing
     val content = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxWidth()
     var confirmSignOut by remember { mutableStateOf(false) }
+    var confirmRealData by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(StockStepsTheme.colors.appBackground)) {
         AdaptiveSinglePane(hinge) { region ->
             LazyColumn(
@@ -60,6 +64,20 @@ internal fun SettingsScreen(state: SettingsUiState, hinge: WindowHinge?, onActio
                         LinkRow(SettingsLink.PRICE_ALERTS, Res.string.settings_price_alerts, StockIcons.Bell, state, onAction, Res.string.settings_price_alerts_subtitle)
                         RowDivider()
                         LinkRow(SettingsLink.MARKET_NEWS, Res.string.settings_market_news, StockIcons.News, state, onAction, Res.string.settings_market_news_subtitle)
+                    }
+                }
+                state.backendEnvironment?.let { environment ->
+                    item(key = "development") {
+                        SettingsSection(Res.string.settings_section_development, content.padding(top = spacing.xl)) {
+                            BackendSourceSetting(
+                                environment = environment,
+                                // Mock → Real asks first (quota); Real → Mock applies immediately.
+                                onSelect = { selected ->
+                                    if (selected == BackendEnvironment.REAL && environment == BackendEnvironment.MOCK) confirmRealData = true
+                                    else onAction(SettingsAction.SelectBackend(selected))
+                                }
+                            )
+                        }
                     }
                 }
                 item(key = "about") {
@@ -97,6 +115,24 @@ internal fun SettingsScreen(state: SettingsUiState, hinge: WindowHinge?, onActio
                 }
             }
         }
+    }
+    if (confirmRealData) {
+        AlertDialog(
+            onDismissRequest = { confirmRealData = false },
+            containerColor = StockStepsTheme.colors.surface,
+            title = { Text(stringResource(Res.string.settings_backend_confirm_title), style = StockStepsTheme.typography.sectionTitle, color = StockStepsTheme.colors.textPrimary) },
+            text = { Text(stringResource(Res.string.settings_backend_confirm_body), style = StockStepsTheme.typography.body, color = StockStepsTheme.colors.textBody) },
+            dismissButton = {
+                StockButton(stringResource(Res.string.action_cancel), onClick = { confirmRealData = false }, variant = StockButtonVariant.TEXT)
+            },
+            confirmButton = {
+                StockButton(
+                    stringResource(Res.string.settings_backend_confirm_action),
+                    onClick = { confirmRealData = false; onAction(SettingsAction.SelectBackend(BackendEnvironment.REAL)) },
+                    variant = StockButtonVariant.SECONDARY
+                )
+            }
+        )
     }
     if (confirmSignOut) {
         AlertDialog(
@@ -206,13 +242,53 @@ private fun RowDivider() = StockDivider(startIndent = StockStepsTheme.dimensions
 
 @Composable
 private fun ThemeSelector(mode: ThemeMode, onSelect: (ThemeMode) -> Unit, modifier: Modifier) {
-    val segments = listOf(
-        StockSegment(stringResource(Res.string.settings_theme_light), StockIcons.Light),
-        StockSegment(stringResource(Res.string.settings_theme_dark), StockIcons.Dark),
-        StockSegment(stringResource(Res.string.settings_theme_system), StockIcons.System)
+    StockSegmentedControl(
+        options = listOf(
+            StockSegment(ThemeMode.LIGHT, stringResource(Res.string.settings_theme_light), StockIcons.Light),
+            StockSegment(ThemeMode.DARK, stringResource(Res.string.settings_theme_dark), StockIcons.Dark),
+            StockSegment(ThemeMode.SYSTEM, stringResource(Res.string.settings_theme_system), StockIcons.System)
+        ),
+        selected = mode,
+        onSelect = onSelect,
+        modifier = modifier
     )
-    val modes = listOf(ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.SYSTEM)
-    StockSegmentedControl(segments, selectedIndex = modes.indexOf(mode), onSelect = { onSelect(modes[it]) }, modifier = modifier)
+}
+
+/** Mock vs Real is a development choice, so it uses neutral/blue states, never green/red. */
+@Composable
+private fun BackendSourceSetting(environment: BackendEnvironment, onSelect: (BackendEnvironment) -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    StockSettingsRow(
+        title = stringResource(Res.string.settings_backend_title),
+        subtitle = stringResource(Res.string.settings_backend_subtitle),
+        icon = StockIcons.Storage,
+        contentPadding = PaddingValues(top = spacing.xs, bottom = spacing.sm)
+    )
+    StockSegmentedControl(
+        options = listOf(
+            StockSegment(BackendEnvironment.MOCK, stringResource(Res.string.settings_backend_mock)),
+            StockSegment(BackendEnvironment.REAL, stringResource(Res.string.settings_backend_real))
+        ),
+        selected = environment,
+        onSelect = onSelect
+    )
+    Column(Modifier.padding(top = spacing.sm, bottom = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Box(Modifier.size(StockStepsTheme.dimensions.statusDot).background(colors.primary, CircleShape))
+            Text(
+                stringResource(if (environment == BackendEnvironment.MOCK) Res.string.settings_backend_mock_status else Res.string.settings_backend_real_status),
+                style = StockStepsTheme.typography.small,
+                color = colors.textSecondary
+            )
+        }
+        if (environment == BackendEnvironment.REAL) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                Icon(StockIcons.Warning, contentDescription = null, tint = colors.warning, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+                Text(stringResource(Res.string.settings_backend_quota_warning), style = StockStepsTheme.typography.small, color = colors.textSecondary)
+            }
+        }
+    }
 }
 
 private const val SKELETON_TITLE = 0.4f

@@ -23,17 +23,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.fillMaxWidth
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 
-internal data class StockSegment(val label: String, val icon: ImageVector? = null)
+internal data class StockSegment<T>(val value: T, val label: String, val icon: ImageVector? = null)
 
 /**
- * Equal-width single-choice options (e.g. Light | Dark | System). Selection is informational
- * blue. Large text or narrow widths stack the icon above the label instead of clipping it.
+ * Equal-width single-choice options (Light | Dark | System, Mock Data | Real Data). Selection is
+ * informational blue, never positive/negative. Large text stacks the icon above the label.
  */
 @Composable
-internal fun StockSegmentedControl(
-    segments: List<StockSegment>,
-    selectedIndex: Int,
-    onSelect: (Int) -> Unit,
+internal fun <T> StockSegmentedControl(
+    options: List<StockSegment<T>>,
+    selected: T,
+    onSelect: (T) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = StockStepsTheme.colors
@@ -44,9 +44,9 @@ internal fun StockSegmentedControl(
         modifier = modifier.fillMaxWidth().selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm)
     ) {
-        segments.forEachIndexed { index, segment ->
-            val selected = index == selectedIndex
-            val content = if (selected) colors.primaryText else colors.textSecondary
+        options.forEach { segment ->
+            val isSelected = segment.value == selected
+            val content = if (isSelected) colors.primaryText else colors.textSecondary
             val body: @Composable () -> Unit = {
                 segment.icon?.let { Icon(it, contentDescription = null, tint = content, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall)) }
                 Text(segment.label, style = StockStepsTheme.typography.label, color = content, textAlign = TextAlign.Center)
@@ -55,9 +55,9 @@ internal fun StockSegmentedControl(
                 .weight(1f)
                 .heightIn(min = StockStepsTheme.dimensions.touchTarget)
                 .clip(shape)
-                .background(if (selected) colors.primaryContainer else colors.surfaceSecondary)
-                .border(StockStepsTheme.dimensions.border, if (selected) colors.primary else colors.borderSubtle, shape)
-                .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(index) })
+                .background(if (isSelected) colors.primaryContainer else colors.surfaceSecondary)
+                .border(StockStepsTheme.dimensions.border, if (isSelected) colors.primary else colors.borderSubtle, shape)
+                .selectable(selected = isSelected, role = Role.RadioButton, onClick = { onSelect(segment.value) })
                 .padding(horizontal = spacing.xs, vertical = spacing.sm)
             if (stacked) {
                 Column(itemModifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(spacing.xxs, Alignment.CenterVertically)) { body() }

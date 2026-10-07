@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-06 (America/Toronto). Current commit: "Add shared design system and redesigned Home with logos and sparklines" on `main`.
-Previous commit: `08acba0` (Add beginner company details and financials across Android and iOS).
+Last updated: 2026-10-07 (America/Toronto). Current commit: "Add mock/real backend data modes, fixtures and Development setting" on `main`.
+Previous commit: `c3bc8c4` (Setting tab added.).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -17,13 +17,14 @@ pending items as instructions to implement them automatically.
 ### Repository state and immediate scope
 
 - Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
-- Previous HEAD: `08acba0` — `Add beginner company details and financials across Android and iOS`.
-- Current commit: **Add shared design system and redesigned Home with logos and sparklines**. Includes the shared design-system
-  tokens/components (Compose + SwiftUI mirror), the redesigned Home (brand header,
-  market cards with status indicator, movers section with logos and sparkline support,
-  Learn card, Recent News), the backend sparkline endpoint, mover logo URLs, profile and
-  rate-limit caching. See the "Design system foundation + Home redesign" sections below.
-- The user explicitly requested committing and pushing to `main` on 2026-10-06.
+- Previous HEAD: `c3bc8c4` — `Setting tab added.` (owner-committed Settings screen).
+- Current commit: **Add mock/real backend data modes, fixtures and Development setting**. Includes MOCK/REAL backend data modes (server
+  `STOCKSTEPS_DATA_MODE`, fixture data source, `/api/v1/meta`, `runMock` on 8081, capture
+  script, fixture importer, sample-fixture generator and mixed owner-supplied/synthetic
+  fixtures), configurable app backend URLs, the Settings → Development "Backend Data Source"
+  switch with per-request URL routing, the "Sample data" banner, and sub-dollar price
+  formatting. See the "MOCK / REAL data modes" sections below.
+- The user explicitly requested committing and pushing to `main` on 2026-10-07.
   This authorizes this milestone only, not future commits, pushes or deployments.
 - Check `git status` for any changes made after this commit; do not reset/clean them.
 - Read `AGENTS.md`, this snapshot, `docs/COMPANY_DETAIL.md`, and relevant existing
@@ -1276,7 +1277,7 @@ profiles cached 24 h (including not-found), and profile/sparkline rate-limit res
 cached 10 min (`providerCooldown`). Intraday sparkline entitlement is still unverified.
 Server tests: 65 (3 skips) pass.
 
-## Settings screen (2026-10-06, uncommitted)
+## Settings screen (2026-10-06, included in commit "Setting tab added.")
 
 Structure: header, Account, Appearance, Notifications, About, Sign Out (Data & Display
 intentionally omitted). Compose: `SettingsState.kt` (UiState, `SettingsAccount`
@@ -1307,3 +1308,72 @@ tests); APK, iOS framework and SwiftUI compatibility build pass. Android emulato
 light/dark rendering, Dark persists across a cold restart (new PID), System follows OS
 night-mode toggle live, sign-out dialog opens and Cancel keeps the session, 1.5× font
 stacks theme options without clipping. iOS runtime not verified.
+
+## MOCK / REAL data modes (2026-10-07, included in current commit)
+
+Owner approved: fixtures captured from the REAL backend's public API, a "Sample data"
+banner, and empty/errors/slow scenarios deferred. Backend: `appconfig/DataMode`
+(`STOCKSTEPS_DATA_MODE=real|mock`, default real, mock refused when `K_SERVICE` is set);
+`Application.module` builds a `DataSources` set once (real: FMP/Finnhub/news service as
+before; mock: `repositoryImpl/fixture/FixtureMarketDataSource` implementing the stock,
+market-data, news and price-history provider interfaces, no keys/network/Gemini/Firestore).
+Fixtures layout and age-shifted news times documented in the class. `GET /api/v1/meta`
+→ `BackendInfo(dataMode)`. `PORT` env honoured. `:server:runMock [-Pport=]` Gradle task.
+`scripts/capture-fixtures.sh` captures from a running REAL backend (refuses mock, writes
+only HTTP 200s, stops on rate limit, merges search queries, writes `manifest.json`).
+
+Apps: `GetBackendInfo` (core) → Android `BackendInfoViewModel` + `StockSampleDataBanner`
+above the bottom bar; iOS `IosBackendInfoClient` + `SampleDataBanner` bottom inset.
+Backend URL is configuration: Android `stockstepsBackendUrl` Gradle property →
+`BuildConfig.BACKEND_URL` (debug default 127.0.0.1:8080, release empty); iOS
+`STOCKSTEPS_BACKEND_URL` (Config.xcconfig) → Info.plist `StockStepsBackendURL`.
+
+Validation: 69 server (3 skips; 4 new MockModeTest incl. fixture contract check), 45 core,
+23 host tests pass; APK, iOS framework and SwiftUI compatibility build pass (built
+Info.plist resolves the URL). Mock server ran on 8082/8083 without keys; capture script
+refused it; Android emulator showed the banner and empty states against mock and no
+banner against real (adb reverse restored to 8080). Pending: run the capture script once
+FMP quota resets (no real fixtures committed yet); scenarios later; Cloud Run not started.
+
+### Settings → Development → Backend Data Source (2026-10-07, included in current commit)
+
+Debug-only segmented setting (Mock Data | Real Data) between Notifications and About, built
+on the now-generic `StockSegmentedControl<T>` (also used by Light | Dark | System). Shared
+`settings/BackendEnvironment.kt`: `BackendEnvironment` MOCK/REAL, `BackendEnvironmentStore`
+(key `stocksteps.backendEnvironment`, unsaved → REAL), `BackendEndpoints(real, mock?)`,
+`BackendRouter` (no mock URL ⇒ always REAL). `StockStepsApi` now takes a base-URL provider
+resolved per request (String overload kept), so every existing client switches on its next
+request; Android scene ViewModels are keyed by environment for fresh data; iOS clients take
+a `() -> String` closure (`BackendSettings.currentURL`) and Home reloads on change. Status
+line (blue dot) "Using local sample market data" / "Using live StockSteps backend", amber
+quota warning for Real, Mock→Real confirmation ("Use real market data?"), Real→Mock immediate.
+URLs: Android `BuildConfig.BACKEND_URL` / `MOCK_BACKEND_URL` (release mock empty); iOS
+`STOCKSTEPS_BACKEND_URL` / `STOCKSTEPS_MOCK_BACKEND_URL` (mock DEBUG-only). `runMock` now
+defaults to port 8081 (`adb reverse tcp:8081 tcp:8081`). Firebase auth/watchlist sync are
+not StockSteps-backend calls and are unaffected.
+
+Validation: server/core/host suites pass (new BackendRouterTest ×3, DynamicBaseUrlTest);
+APK and SwiftUI compatibility build pass. Android emulator against a live mock server on 8081:
+selecting Mock showed the sample-data banner; Real asked for confirmation, Cancel kept Mock;
+Mock persisted across a cold restart; confirming Real showed the live status + quota warning
+and removed the banner. App left on Real; mock server stopped. iOS runtime not verified.
+
+### Fixture importer (2026-10-07, included in current commit)
+
+`server/src/test/kotlin/.../tools/FixtureImporter.kt` + `:server:importFixture -Pkind=... -Pinput=...`
+converts raw provider JSON into MOCK fixtures through the backend's own mappers/validation
+(test source set only; not shipped). Supported kinds: `fmp-quote` (more added as owner
+supplies responses). First fixture: `stocks/AAPL/quote.json` from an owner-supplied FMP quote
+response; `manifest.json` records "Provider response examples imported with FixtureImporter".
+Mock server verified: AAPL quote 200, symbols without fixtures 404. The owner's message
+link exposed their FMP API key; owner advised to rotate it (key not stored anywhere).
+Mock fixtures populated (2026-10-07): owner-supplied FMP responses imported through backend
+mappers (AAPL quote; MOTS/SPEC/LUCY movers; market hours — a NASDAQ entry, accepted for
+mocks though the live mapper reads NYSE; one news item in FMP news format via a mock-only
+converter) plus synthetic sample values from `scripts/generate-sample-fixtures.py` (owner
+asked to make up the rest): SPY/QQQ/DIA cards, 5-6 movers per tab, quotes, profiles (name,
+sector, industry, country, logo URL only), smoothed intraday sparklines (none for sub-cent
+stocks), search list, three neutral "Sample story" news items. Manifest labels the mix as
+"Not market data". Home sub-dollar prices now show up to 4 decimals (fixes "$0.0002" →
+"0.00" for live penny-stock movers too). Verified on emulator-5556 in Mock mode as guest:
+full Home with logos, sparklines, Market Open, news and the sample-data banner.

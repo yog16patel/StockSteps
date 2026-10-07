@@ -40,7 +40,7 @@ struct StockColors {
     let appBackground, surface, surfaceSecondary, border, borderSubtle: Color
     let primary, primaryDark, primaryContainer, primaryText, onPrimary: Color
     let educationContainer, educationAccent, logoContainer: Color
-    let positive, negative: Color
+    let positive, negative, warning, warningContainer: Color
     let positiveText, negativeText, negativeContainer, negativeBorder: Color
     let textPrimary, textBody, textSecondary, textTertiary: Color
     let iconSecondary: Color
@@ -52,7 +52,7 @@ struct StockColors {
         primary = c(p.primary); primaryDark = c(p.primaryDark); primaryContainer = c(p.primaryContainer)
         primaryText = c(p.primaryText); onPrimary = c(p.onPrimary)
         educationContainer = c(p.educationContainer); educationAccent = c(p.educationAccent); logoContainer = c(p.logoContainer)
-        positive = c(p.positive); negative = c(p.negative)
+        positive = c(p.positive); negative = c(p.negative); warning = c(p.warning); warningContainer = c(p.warningContainer)
         positiveText = c(p.positiveText); negativeText = c(p.negativeText)
         negativeContainer = c(p.negativeContainer); negativeBorder = c(p.negativeBorder)
         textPrimary = c(p.textPrimary); textBody = c(p.textBody); textSecondary = c(p.textSecondary); textTertiary = c(p.textTertiary)

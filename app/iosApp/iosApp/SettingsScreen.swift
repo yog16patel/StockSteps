@@ -6,10 +6,13 @@ struct SettingsScreen: View {
     @Environment(\.colorScheme) private var scheme
     let state: NativeAccountState
     @Binding var themeMode: String
+    /// Nil hides the Development section (release builds / no mock backend).
+    var backendEnvironment: Binding<String>?
     let appVersion: String?
     let onSignIn: () -> Void
     let onSignOut: () -> Void
     @State private var confirmSignOut = false
+    @State private var confirmRealData = false
     private let space = StockStepsTheme.spacing
     private let type = StockStepsTheme.typography
 
@@ -36,6 +39,9 @@ struct SettingsScreen: View {
                     StockSettingsRow(title: "Price Alerts", subtitle: "Watchlist price updates", systemImage: "bell.fill", comingSoon: true)
                     divider
                     StockSettingsRow(title: "Market News", subtitle: "Important market updates", systemImage: "newspaper.fill", comingSoon: true)
+                }
+                if let backendEnvironment {
+                    section("Development") { backendSource(backendEnvironment, colors) }
                 }
                 section("About") {
                     StockSettingsRow(title: "About StockSteps", subtitle: appVersion.map { "Version \($0)" }, systemImage: "info.circle.fill")
@@ -71,6 +77,12 @@ struct SettingsScreen: View {
             .frame(maxWidth: .infinity)
         }
         .background(colors.appBackground.ignoresSafeArea())
+        .alert("Use real market data?", isPresented: $confirmRealData) {
+            Button("Cancel", role: .cancel) {}
+            Button("Use Real Data") { backendEnvironment?.wrappedValue = BackendSettings.real }
+        } message: {
+            Text("Real data requests may use FMP/Finnhub API quota during development.")
+        }
         .alert("Sign out?", isPresented: $confirmSignOut) {
             Button("Cancel", role: .cancel) {}
             Button("Sign Out", role: .destructive, action: onSignOut)
@@ -96,6 +108,38 @@ struct SettingsScreen: View {
         }
     }
 
+    /// Mock vs Real is a development choice: neutral/blue states, never green/red.
+    @ViewBuilder
+    private func backendSource(_ environment: Binding<String>, _ colors: StockColors) -> some View {
+        let options = [BackendSettings.mock, BackendSettings.real]
+        StockSettingsRow(title: "Backend Data Source", subtitle: "Choose where development data comes from", systemImage: "server.rack")
+        StockSegmentedControl(
+            segments: [("Mock Data", "shippingbox"), ("Real Data", "antenna.radiowaves.left.and.right")],
+            selected: options.firstIndex(of: environment.wrappedValue) ?? 1,
+            onSelect: { index in
+                let selected = options[index]
+                // Mock → Real asks first (quota); Real → Mock applies immediately.
+                if selected == BackendSettings.real && environment.wrappedValue == BackendSettings.mock { confirmRealData = true }
+                else { environment.wrappedValue = selected }
+            }
+        )
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            HStack(spacing: CGFloat(space.sm)) {
+                Circle().fill(colors.primary).frame(width: CGFloat(StockStepsTheme.dimensions.statusDot), height: CGFloat(StockStepsTheme.dimensions.statusDot))
+                Text(environment.wrappedValue == BackendSettings.mock ? "Using local sample market data" : "Using live StockSteps backend")
+                    .font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
+            }
+            if environment.wrappedValue != BackendSettings.mock {
+                Label("Real data may use external API quota.", systemImage: "exclamationmark.triangle.fill")
+                    .font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
+                    .labelStyle(WarningLabelStyle(tint: colors.warning))
+            }
+        }
+        .padding(.top, CGFloat(space.sm))
+        .padding(.bottom, CGFloat(space.md))
+        .accessibilityElement(children: .combine)
+    }
+
     private var divider: some View { StockDivider(inset: CGFloat(StockStepsTheme.dimensions.iconLarge + space.md)) }
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -110,5 +154,15 @@ struct SettingsScreen: View {
                 .overlay(RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)).stroke(colors.border, lineWidth: CGFloat(StockStepsTheme.dimensions.border)))
         }
         .padding(.top, CGFloat(space.xl))
+    }
+}
+
+private struct WarningLabelStyle: LabelStyle {
+    let tint: Color
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: CGFloat(StockStepsTheme.spacing.sm)) {
+            configuration.icon.foregroundStyle(tint).accessibilityHidden(true)
+            configuration.title
+        }
     }
 }

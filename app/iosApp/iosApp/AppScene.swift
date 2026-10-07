@@ -11,7 +11,9 @@ struct AppScene: View {
     @State private var selectedTab = AppRoute.home
 
 
-    init(baseURL: String = "http://localhost:8080", accounts: AccountViewModel) {
+    @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
+
+    init(baseURL: @escaping () -> String = { BackendSettings.currentURL }, accounts: AccountViewModel) {
         self.accounts = accounts
         _searchModel = State(initialValue: StockSearchViewModel(service: StockSearchService(baseURL: baseURL)))
         _homeModel = State(initialValue: HomeViewModel(service: HomeQuoteService(baseURL: baseURL)))
@@ -44,6 +46,11 @@ struct AppScene: View {
             .tint(StockStepsTheme.color(ThemeColors.shared.light.primary))
             // Home and Settings show their own compact headers instead of a navigation title.
             .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .settings))
+            // Every client reads the URL per request; reload Home so its data matches the new backend.
+            .onChange(of: backendEnvironment) { _, _ in
+                homeModel.refreshIndices()
+                homeModel.refreshNews()
+            }
         }
         .sheet(isPresented: $showingAuth) {
             NavigationStack {

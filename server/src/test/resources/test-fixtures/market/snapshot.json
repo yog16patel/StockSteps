@@ -1,0 +1,9 @@
+{
+  "marketStatus": "CLOSED",
+  "indices": [{ "symbol": "SPY", "name": "S&P 500", "price": 500.0, "change": 2.5, "changePercent": 0.5, "isProxy": true }],
+  "gainers": [{ "symbol": "SMPL", "name": "Sample Co", "price": 10.0, "change": 1.0, "changePercent": 11.1, "logoUrl": "https://example.com/smpl.png" }],
+  "losers": [],
+  "mostActive": [],
+  "lastUpdated": "2026-10-01T12:00:00Z",
+  "errors": []
+}

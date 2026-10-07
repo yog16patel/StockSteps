@@ -5,7 +5,8 @@ import org.example.stocksteps.model.StockQuote
 import org.example.stocksteps.model.StockSearchResult
 
 // SwiftUI owns this client. Provider credentials never cross into the app.
-class IosStockStepsClient(baseUrl: String) {
+/** `baseUrl` is read per request, so a backend switch applies to the next call. */
+class IosStockStepsClient(baseUrl: () -> String) {
     private val dependencies = org.example.stocksteps.di.StockStepsDependencies(baseUrl)
     private val searchStocks = dependencies.searchStocks()
     private val getCompanyProfile = dependencies.getCompanyProfile()

@@ -27,3 +27,27 @@ dependencies {
     testImplementation(libs.ktor.serverTestHost)
     testImplementation(libs.kotlin.testJunit)
 }
+// MOCK mode: serves captured fixtures, needs no provider keys. `./gradlew :server:runMock [-Pport=8081]`
+// Port 8081 matches the apps' default mock backend URL; the real backend stays on 8080.
+tasks.register<JavaExec>("runMock") {
+    group = "application"
+    description = "Runs the StockSteps backend with fixture data (STOCKSTEPS_DATA_MODE=mock)."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("org.example.stocksteps.ApplicationKt")
+    environment("STOCKSTEPS_DATA_MODE", "mock")
+    environment("PORT", providers.gradleProperty("port").orElse("8081").get())
+}
+
+// Converts raw provider JSON into MOCK fixtures through the backend's own mappers.
+// `./gradlew :server:importFixture -Pkind=fmp-quote -Pinput=/path/to/response.json`
+tasks.register<JavaExec>("importFixture") {
+    group = "application"
+    description = "Imports a raw provider response as a MOCK-mode fixture."
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("org.example.stocksteps.tools.FixtureImporterKt")
+    args(
+        providers.gradleProperty("kind").orElse("").get(),
+        providers.gradleProperty("input").orElse("").get(),
+        layout.projectDirectory.dir("src/main/resources/fixtures").asFile.absolutePath
+    )
+}
