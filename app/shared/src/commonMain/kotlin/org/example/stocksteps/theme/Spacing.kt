@@ -71,6 +71,7 @@ object ThemeDimensions {
     val sparklineHeight = 28
     val sparklineStroke = 1.5f
     val statusDot = 8
+    val avatar = 44
     val educationIcon = 44
     // Below this width, or above this font scale, side-by-side values stack.
     val multiColumnMinWidth = 300

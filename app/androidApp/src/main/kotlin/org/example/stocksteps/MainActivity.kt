@@ -6,6 +6,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
+import android.graphics.Color
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import org.example.stocksteps.settings.ThemeMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -16,11 +22,24 @@ import androidx.window.layout.FoldingFeature
 import androidx.compose.ui.tooling.preview.Preview
 
 class MainActivity : ComponentActivity() {
+    private val themePreferences by lazy { AndroidThemePreferenceStore(applicationContext) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         setContent {
+            // System bar icons follow the app's chosen theme, not only the OS setting.
+            val mode by themePreferences.themeMode.collectAsState()
+            val dark = when (mode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            }
+            LaunchedEffect(dark) {
+                val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
             val accountOwner = viewModel { AndroidAccountOwner(application) }
             androidx.compose.runtime.DisposableEffect(accountOwner) {
                 accountOwner.google.attach(this@MainActivity)
@@ -50,7 +69,9 @@ class MainActivity : ComponentActivity() {
                 hinge = hinge,
                 baseUrl = if (BuildConfig.DEBUG) "http://127.0.0.1:8080" else null,
                 navigationIcon = { AndroidNavigationIcon(it) },
-                backIcon = { AndroidBackIcon() }
+                backIcon = { AndroidBackIcon() },
+                themePreferences = themePreferences,
+                appVersion = BuildConfig.VERSION_NAME
             )
         }
     }

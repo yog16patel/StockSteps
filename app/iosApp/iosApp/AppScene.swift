@@ -42,8 +42,8 @@ struct AppScene: View {
                     .tag(AppRoute.settings)
             }
             .tint(StockStepsTheme.color(ThemeColors.shared.light.primary))
-            // Home shows its own compact brand header instead of a navigation title.
-            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home))
+            // Home and Settings show their own compact headers instead of a navigation title.
+            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .settings))
         }
         .sheet(isPresented: $showingAuth) {
             NavigationStack {

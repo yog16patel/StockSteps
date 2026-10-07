@@ -37,7 +37,9 @@ internal fun AppNavigation(
     hinge: WindowHinge?,
     navigationIcon: @Composable (MainDestination) -> Unit,
     accounts: AccountDependencies?,
-    backIcon: @Composable () -> Unit
+    backIcon: @Composable () -> Unit,
+    themePreferences: org.example.stocksteps.settings.ThemePreferenceStore,
+    appVersion: String?
 ) {
     val session = accounts?.auth?.session?.collectAsStateWithLifecycle()?.value
     if (session?.initializing == true) {
@@ -75,6 +77,7 @@ internal fun AppNavigation(
     val isSearch = destination?.hasRoute<StockSearchRoute>() == true
 
     val isHome = destination?.hasRoute<DiscoveryRoute>() == true
+    val isSettings = destination?.hasRoute<SettingsRoute>() == true
     // Scaffold applies status/navigation-bar insets once and consumes them for the content,
     // so screens' own safe-content padding does not double them.
     Scaffold(
@@ -89,8 +92,8 @@ internal fun AppNavigation(
                         destination?.hasRoute<SettingsRoute>() == true -> "Settings"
                         else -> "Home"
                     },
-                    // Home renders its own compact brand header instead of a title bar.
-                    visible = !isAuth && !isHome,
+                    // Home and Settings render their own compact headers instead of a title bar.
+                    visible = !isAuth && !isHome && !isSettings,
                     backButton = if (isSearch) AppBarBackButton.BACK else AppBarBackButton.NONE
                 ),
                 onBack = { navController.popBackStack() },
@@ -151,7 +154,13 @@ internal fun AppNavigation(
             }
             composable<LearnRoute> { LearnScene(hinge) }
             composable<SettingsRoute> {
-                if (accounts != null) SettingsScene(accounts, hinge) { navController.navigate(AuthRoute()) }
+                if (accounts != null) SettingsScene(
+                    accounts = accounts,
+                    themePreferences = themePreferences,
+                    appVersion = appVersion,
+                    hinge = hinge,
+                    onSignIn = { navController.navigate(AuthRoute()) }
+                )
             }
             composable<AuthRoute> { entry ->
                 if (accounts != null) AuthScene(accounts, entry.toRoute<AuthRoute>(), hinge) {

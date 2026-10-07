@@ -1274,4 +1274,36 @@ still worked via Finnhub. Likely daily plan quota exhaustion from a day of devel
 traffic plus uncached profile lookups. Mitigations added (backend, needs another restart):
 profiles cached 24 h (including not-found), and profile/sparkline rate-limit responses
 cached 10 min (`providerCooldown`). Intraday sparkline entitlement is still unverified.
-Server tests: 66 (3 skips) pass.
+Server tests: 65 (3 skips) pass.
+
+## Settings screen (2026-10-06, uncommitted)
+
+Structure: header, Account, Appearance, Notifications, About, Sign Out (Data & Display
+intentionally omitted). Compose: `SettingsState.kt` (UiState, `SettingsAccount`
+Loading/Guest/SignedIn, `SettingsLink`, `SettingsAction`), `SettingsScene.kt`,
+`SettingsScreen.kt`, `SettingsPreviews.kt` (light/dark/guest/large font). New shared
+primitives: `StockSettingsRow`, `StockSegmentedControl`, `StockAccountAvatar` (placeholder
+only; `imageUrl` reserved), `designsystem/icons/StockIcons` (Material path vectors, no icon
+library). `StockButton` gained an optional icon and a bordered subtle destructive variant.
+SwiftUI mirror: `SettingsScene.swift`, `SettingsScreen.swift`,
+`DesignSystem/StockSettingsComponents.swift` (SF Symbols).
+
+Theme: `settings/ThemePreferenceStore` (`ThemeMode` LIGHT/DARK/SYSTEM, key
+`stocksteps.themeMode`). Android `AndroidThemePreferenceStore` uses SharedPreferences;
+`App(themePreferences, appVersion)` observes it at the root and `MainActivity` keeps
+status/navigation bar icons in sync. iOS root `ContentView` uses `@AppStorage` with the same
+key and `.preferredColorScheme` (nil for System). No new libraries.
+
+Account: auth model has email only, so title "Account" + email; guests see "Sign in to sync"
+(opens existing Auth) and no Sign Out. Sign out uses the existing AccountViewModel →
+`AuthRepository.signOut()` after a confirmation dialog; existing behavior switches to guest
+mode (no forced login screen). Version from Android `BuildConfig.VERSION_NAME` / iOS
+`CFBundleShortVersionString`. No destinations exist for Account detail, Price Alerts, Market
+News, About, Privacy, Terms or Help: rows show "Coming soon"; `SettingsScene(links = ...)`
+enables them when added. No URLs, emails or notification permissions were introduced.
+
+Validation: 65 server (3 skips), 45 core, 23 shared host tests pass (2 new theme-store
+tests); APK, iOS framework and SwiftUI compatibility build pass. Android emulator verified:
+light/dark rendering, Dark persists across a cold restart (new PID), System follows OS
+night-mode toggle live, sign-out dialog opens and Cancel keeps the session, 1.5× font
+stacks theme options without clipping. iOS runtime not verified.

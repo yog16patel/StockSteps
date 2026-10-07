@@ -4,6 +4,7 @@ struct ContentView: View {
     @State private var accounts = AccountViewModel()
     @Environment(\.scenePhase) private var scenePhase
     @State private var hasEnteredApp = false
+    @AppStorage(AppTheme.storageKey) private var themeMode = AppTheme.system
     private let baseURL: String
     init(baseURL: String = "http://localhost:8080") { self.baseURL = baseURL }
     var body: some View {
@@ -17,6 +18,8 @@ struct ContentView: View {
                 AuthScene(model: accounts, onDone: { hasEnteredApp = true })
             }
         }
+        // The root owns the theme; nil (System) keeps following iOS appearance changes.
+        .preferredColorScheme(AppTheme.colorScheme(themeMode))
         .onChange(of: accounts.state.user?.id, initial: true) { _, userID in
             if userID != nil { hasEnteredApp = true }
         }

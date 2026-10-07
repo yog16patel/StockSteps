@@ -1,22 +1,114 @@
+import Shared
 import SwiftUI
 
+/// Quiet, neutral Settings: Account, Appearance, Notifications, About, then Sign Out.
 struct SettingsScreen: View {
+    @Environment(\.colorScheme) private var scheme
     let state: NativeAccountState
+    @Binding var themeMode: String
+    let appVersion: String?
     let onSignIn: () -> Void
     let onSignOut: () -> Void
+    @State private var confirmSignOut = false
+    private let space = StockStepsTheme.spacing
+    private let type = StockStepsTheme.typography
+
     var body: some View {
-        Form {
-            Section("Account") {
-                if state.busy || state.initializing { ProgressView() }
-                else if let user = state.user {
-                    Text(user.email ?? "Signed in")
-                    Button("Sign out", action: onSignOut)
-                } else {
-                    Text("Use StockSteps without an account, or sign in to sync your watchlist.")
-                    Button("Sign in or create account", action: onSignIn)
+        let colors = StockStepsTheme.colors(scheme)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                    Text("Settings").font(StockStepsTheme.font(type.screenTitle, relativeTo: .title2)).foregroundStyle(colors.textPrimary)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Manage your account and preferences").font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textSecondary)
                 }
-                if let error = state.error ?? state.configurationError { Text(error).foregroundStyle(.red) }
+                section("Account") { accountRow }
+                section("Appearance") {
+                    StockSettingsRow(title: "Theme", subtitle: "Choose how StockSteps looks", systemImage: "circle.lefthalf.filled")
+                    StockSegmentedControl(
+                        segments: [("Light", "sun.max"), ("Dark", "moon"), ("System", "laptopcomputer")],
+                        selected: [AppTheme.light, AppTheme.dark, AppTheme.system].firstIndex(of: themeMode) ?? 2,
+                        onSelect: { themeMode = [AppTheme.light, AppTheme.dark, AppTheme.system][$0] }
+                    )
+                    .padding(.bottom, CGFloat(space.sm))
+                }
+                section("Notifications") {
+                    StockSettingsRow(title: "Price Alerts", subtitle: "Watchlist price updates", systemImage: "bell.fill", comingSoon: true)
+                    divider
+                    StockSettingsRow(title: "Market News", subtitle: "Important market updates", systemImage: "newspaper.fill", comingSoon: true)
+                }
+                section("About") {
+                    StockSettingsRow(title: "About StockSteps", subtitle: appVersion.map { "Version \($0)" }, systemImage: "info.circle.fill")
+                    divider
+                    StockSettingsRow(title: "Privacy Policy", systemImage: "shield.fill", comingSoon: true)
+                    divider
+                    StockSettingsRow(title: "Terms of Service", systemImage: "doc.text.fill", comingSoon: true)
+                    divider
+                    StockSettingsRow(title: "Help & Feedback", systemImage: "questionmark.circle.fill", comingSoon: true)
+                }
+                // Guests have no session, so there is nothing to sign out of.
+                if state.user != nil {
+                    Button { confirmSignOut = true } label: {
+                        Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                            .font(StockStepsTheme.font(type.bodyMedium))
+                            .foregroundStyle(colors.negativeText)
+                            .frame(maxWidth: .infinity, minHeight: CGFloat(StockStepsTheme.dimensions.buttonHeight))
+                            .background(colors.negativeContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.button)))
+                            .overlay(RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.button)).stroke(colors.negativeBorder, lineWidth: CGFloat(StockStepsTheme.dimensions.border)))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(state.busy)
+                    .padding(.top, CGFloat(space.lg))
+                    if let message = state.error ?? state.configurationError {
+                        Text(message).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary).padding(.top, CGFloat(space.sm))
+                    }
+                }
             }
+            .frame(maxWidth: CGFloat(StockStepsTheme.dimensions.contentMaxWidth))
+            .padding(.horizontal, CGFloat(space.screen))
+            .padding(.top, CGFloat(space.sm))
+            .padding(.bottom, CGFloat(space.xl))
+            .frame(maxWidth: .infinity)
         }
+        .background(colors.appBackground.ignoresSafeArea())
+        .alert("Sign out?", isPresented: $confirmSignOut) {
+            Button("Cancel", role: .cancel) {}
+            Button("Sign Out", role: .destructive, action: onSignOut)
+        } message: {
+            Text("You'll need to sign in again to sync your StockSteps account. Your watchlist and account are not deleted.")
+        }
+    }
+
+    @ViewBuilder
+    private var accountRow: some View {
+        if state.initializing {
+            HStack(spacing: CGFloat(space.md)) {
+                StockAccountAvatar()
+                VStack(alignment: .leading, spacing: CGFloat(space.xs)) { StockSkeleton(width: 100); StockSkeleton(width: 160) }
+            }
+            .padding(.vertical, CGFloat(space.md))
+            .accessibilityElement(children: .ignore).accessibilityLabel("Loading")
+        } else if let user = state.user {
+            // The auth model has no display name yet, so only the email is shown.
+            StockSettingsRow(title: "Account", subtitle: user.email ?? "Signed in", leading: AnyView(StockAccountAvatar()))
+        } else {
+            StockSettingsRow(title: "Sign in to sync", subtitle: "Keep your watchlist on every device", leading: AnyView(StockAccountAvatar()), action: onSignIn)
+        }
+    }
+
+    private var divider: some View { StockDivider(inset: CGFloat(StockStepsTheme.dimensions.iconLarge + space.md)) }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        let colors = StockStepsTheme.colors(scheme)
+        return VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textSecondary).accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: 0) { content() }
+                .padding(.horizontal, CGFloat(space.md))
+                .padding(.vertical, CGFloat(space.xxs))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(colors.surface, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
+                .overlay(RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)).stroke(colors.border, lineWidth: CGFloat(StockStepsTheme.dimensions.border)))
+        }
+        .padding(.top, CGFloat(space.xl))
     }
 }

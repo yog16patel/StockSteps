@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.example.stocksteps.settings.ThemeMode
 import org.example.stocksteps.theme.ThemeColors
 import org.example.stocksteps.theme.ThemeCorners
 import org.example.stocksteps.theme.ThemeDimensions
@@ -26,8 +27,6 @@ import org.example.stocksteps.theme.ThemePalette
 import org.example.stocksteps.theme.ThemeSpacing
 import org.example.stocksteps.theme.ThemeTextStyle
 import org.example.stocksteps.theme.ThemeTypography
-
-internal enum class ThemeMode { LIGHT, DARK, SYSTEM }
 
 @Immutable
 internal data class StockStepsColors(
@@ -133,6 +132,7 @@ internal data class StockStepsDimensions(
     val sparklineHeight: Dp = ThemeDimensions.sparklineHeight.dp,
     val sparklineStroke: Dp = ThemeDimensions.sparklineStroke.dp,
     val statusDot: Dp = ThemeDimensions.statusDot.dp,
+    val avatar: Dp = ThemeDimensions.avatar.dp,
     val educationIcon: Dp = ThemeDimensions.educationIcon.dp,
     val multiColumnMinWidth: Dp = ThemeDimensions.multiColumnMinWidth.dp,
     val largeFontScale: Float = ThemeDimensions.largeFontScale

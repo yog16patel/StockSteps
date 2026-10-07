@@ -3,9 +3,13 @@ package org.example.stocksteps.designsystem.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
@@ -13,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 
@@ -24,7 +29,8 @@ internal fun StockButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     variant: StockButtonVariant = StockButtonVariant.PRIMARY,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    icon: ImageVector? = null
 ) {
     val colors = StockStepsTheme.colors
     val shape = StockStepsTheme.shapes.button
@@ -32,7 +38,8 @@ internal fun StockButton(
         StockButtonVariant.PRIMARY -> Triple(colors.primary, colors.onPrimary, null)
         StockButtonVariant.SECONDARY -> Triple(colors.primaryContainer, colors.primaryText, null)
         StockButtonVariant.OUTLINED -> Triple(Color.Transparent, colors.primaryText, colors.border)
-        StockButtonVariant.DESTRUCTIVE -> Triple(colors.negativeContainer, colors.negativeText, null)
+        // Subtle destructive: tinted container + border, never a solid bright-red slab.
+        StockButtonVariant.DESTRUCTIVE -> Triple(colors.negativeContainer, colors.negativeText, colors.negativeBorder)
         StockButtonVariant.TEXT -> Triple(Color.Transparent, colors.primaryText, null)
     }
     val background = if (!enabled && container != Color.Transparent) colors.surfaceSecondary else container
@@ -49,6 +56,9 @@ internal fun StockButton(
             .padding(horizontal = horizontal),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = text, style = StockStepsTheme.typography.bodyMedium, color = textColor)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+            icon?.let { Icon(it, contentDescription = null, tint = textColor, modifier = Modifier.size(StockStepsTheme.dimensions.icon)) }
+            Text(text = text, style = StockStepsTheme.typography.bodyMedium, color = textColor)
+        }
     }
 }

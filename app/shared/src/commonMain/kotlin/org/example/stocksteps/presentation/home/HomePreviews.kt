@@ -3,7 +3,7 @@ package org.example.stocksteps.presentation.home
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
-import org.example.stocksteps.designsystem.theme.ThemeMode
+import org.example.stocksteps.settings.ThemeMode
 import org.example.stocksteps.home.MoverCategory
 import org.example.stocksteps.model.*
 
