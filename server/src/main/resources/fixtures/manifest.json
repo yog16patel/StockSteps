@@ -1,4 +1,8 @@
 {
   "capturedAt": "2026-10-07T21:15:00Z",
-  "source": "Mostly captured from the StockSteps REAL backend public API (snapshot, news, quotes, profiles, daily charts, fundamentals, search). Synthetic sample values remain where the provider plan returned nothing: 1D intraday charts, sparklines, why-moving, LONGN and the older sample movers."
+  "source": "Mostly captured from the StockSteps REAL backend public API (snapshot, news, quotes, profiles, daily charts, fundamentals, search). Synthetic sample values remain where the provider plan returned nothing: 1D intraday charts, sparklines, why-moving, LONGN and the older sample movers. Mock mode fills other gaps (missing quote fields, fundamentals, P/E history) with stable sample values; LONGN and TSLA keep their gaps to exercise missing-data states.",
+  "keepMissing": [
+    "LONGN",
+    "TSLA"
+  ]
 }

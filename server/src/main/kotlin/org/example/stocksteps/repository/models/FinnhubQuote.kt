@@ -26,5 +26,6 @@ fun FinnhubQuote.toStockQuote(symbol: String) = StockQuote(
     dayLow = dayLow,
     previousClose = previousClose,
     volume = null,
-    timestamp = timestamp
+    timestamp = timestamp,
+    open = open.takeIf { it.isFinite() && it > 0 }
 )

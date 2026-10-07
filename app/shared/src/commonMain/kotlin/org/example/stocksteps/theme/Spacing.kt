@@ -80,6 +80,10 @@ object ThemeDimensions {
     val educationIcon = 44
     val learnIllustration = 64
     val learnAction = 36
+    val iconTile = 36
+    val rangeBar = 6
+    val rangeMarker = 12
+    val changeColumn = 64
     // Below this width, or above this font scale, side-by-side values stack.
     val multiColumnMinWidth = 300
     val largeFontScale = 1.3f

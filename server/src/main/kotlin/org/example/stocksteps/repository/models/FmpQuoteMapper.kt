@@ -16,5 +16,8 @@ fun FmpQuote.toStockQuote(): StockQuote = StockQuote(
         it.isFinite() && it >= 0.0 && it < Long.MAX_VALUE.toDouble()
     }?.toLong(),
     timestamp = timestamp,
-    marketCap = marketCap?.takeIf { it >= 0 }
+    marketCap = marketCap?.takeIf { it >= 0 },
+    open = open?.takeIf { it.isFinite() && it > 0 },
+    yearHigh = yearHigh?.takeIf { it.isFinite() && it > 0 },
+    yearLow = yearLow?.takeIf { it.isFinite() && it > 0 }
 )

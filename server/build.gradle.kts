@@ -41,6 +41,8 @@ tasks.register<JavaExec>("runMock") {
     mainClass.set("org.example.stocksteps.ApplicationKt")
     environment("STOCKSTEPS_DATA_MODE", "mock")
     environment("PORT", providers.gradleProperty("port").orElse("8081").get())
+    // stopMock ends the server with SIGTERM (exit 143); that is a normal stop, not a build failure.
+    isIgnoreExitValue = true
 }
 
 // Converts raw provider JSON into MOCK fixtures through the backend's own mappers.

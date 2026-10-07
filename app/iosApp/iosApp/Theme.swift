@@ -40,8 +40,8 @@ struct StockColors {
     let appBackground, surface, surfaceSecondary, border, borderSubtle: Color
     let primary, primaryDark, primaryContainer, primaryText, onPrimary: Color
     let educationContainer, educationAccent, logoContainer: Color
-    let learnContainerStart, learnContainerEnd, learnAccent, onLearnAccent: Color
-    let positive, negative, warning, warningContainer: Color
+    let learnContainerStart, learnContainerEnd, learnAccent, onLearnAccent, cautionText: Color
+    let positive, positiveContainer, negative, warning, warningContainer: Color
     let positiveText, negativeText, negativeContainer, negativeBorder: Color
     let textPrimary, textBody, textSecondary, textTertiary, textDisabled: Color
     let iconSecondary: Color
@@ -54,8 +54,8 @@ struct StockColors {
         primaryText = c(p.primaryText); onPrimary = c(p.onPrimary)
         educationContainer = c(p.educationContainer); educationAccent = c(p.educationAccent); logoContainer = c(p.logoContainer)
         learnContainerStart = c(p.learnContainerStart); learnContainerEnd = c(p.learnContainerEnd)
-        learnAccent = c(p.learnAccent); onLearnAccent = c(p.onLearnAccent)
-        positive = c(p.positive); negative = c(p.negative); warning = c(p.warning); warningContainer = c(p.warningContainer)
+        learnAccent = c(p.learnAccent); onLearnAccent = c(p.onLearnAccent); cautionText = c(p.cautionText)
+        positive = c(p.positive); positiveContainer = c(p.positiveContainer); negative = c(p.negative); warning = c(p.warning); warningContainer = c(p.warningContainer)
         positiveText = c(p.positiveText); negativeText = c(p.negativeText)
         negativeContainer = c(p.negativeContainer); negativeBorder = c(p.negativeBorder)
         textPrimary = c(p.textPrimary); textBody = c(p.textBody); textSecondary = c(p.textSecondary); textTertiary = c(p.textTertiary); textDisabled = c(p.textDisabled)

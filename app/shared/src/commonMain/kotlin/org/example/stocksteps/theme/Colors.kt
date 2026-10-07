@@ -48,6 +48,8 @@ data class ThemePalette(
     val educationContainer: Int,
     val educationAccent: Int,
     // Home "Learn the basics" banner: soft lavender-to-blue gradient with an indigo accent.
+    // Readable amber for small caution text/badges on warningContainer (4.5:1+).
+    val cautionText: Int,
     val learnContainerStart: Int,
     val learnContainerEnd: Int,
     val learnAccent: Int,
@@ -78,6 +80,7 @@ object ThemeColors {
         iconPrimary = 0x1E293B, iconSecondary = 0x64748B,
         primaryText = 0x0866C6, positiveText = 0x0E7F54, negativeText = 0xD13338,
         educationContainer = 0xFFF4E6, educationAccent = 0xE07B1F, logoContainer = 0xFFFFFF,
+        cautionText = 0xB45309,
         learnContainerStart = 0xF1ECFF, learnContainerEnd = 0xE6F0FF, learnAccent = 0x3A3FB8, onLearnAccent = 0xFFFFFF
     )
 
@@ -98,6 +101,7 @@ object ThemeColors {
         iconPrimary = 0xEAF0F6, iconSecondary = 0x8FA0B2,
         primaryText = 0x62AEFF, positiveText = 0x20D98B, negativeText = 0xFF5B57,
         educationContainer = 0x2A2116, educationAccent = 0xF5B942, logoContainer = 0xE8EEF4,
+        cautionText = 0xF5B942,
         learnContainerStart = 0x221D45, learnContainerEnd = 0x132A4A, learnAccent = 0xB4B8FF, onLearnAccent = 0x0D1B2A
     )
 }

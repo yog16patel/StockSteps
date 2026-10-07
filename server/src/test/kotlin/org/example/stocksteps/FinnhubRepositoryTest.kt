@@ -48,7 +48,7 @@ class FinnhubRepositoryTest {
     fun mapsObjectQuoteToPublicContract() = runBlocking<Unit> {
         client("""{"c":150.0,"d":-2.0,"dp":-1.3,"h":153.0,"l":149.0,"o":152.0,"pc":152.0,"t":1700000000}""").use {
             assertEquals(StockQuote("AAPL", null, 150.0, -2.0, -1.3, 153.0, 149.0,
-                previousClose = 152.0, volume = null, timestamp = 1700000000),
+                previousClose = 152.0, volume = null, timestamp = 1700000000, open = 152.0),
                 FinnhubStockProviderRepositoryImpl(it, "test-key").getQuote("AAPL"))
         }
     }

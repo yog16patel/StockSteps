@@ -14,5 +14,9 @@ data class StockQuote(
     val previousClose: Double? = null,
     val volume: Long? = null,
     val timestamp: Long? = null,
-    val marketCap: Long? = null
+    val marketCap: Long? = null,
+    /** Session open and 52-week range; null when the provider does not report them. */
+    val open: Double? = null,
+    val yearHigh: Double? = null,
+    val yearLow: Double? = null
 )

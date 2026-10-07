@@ -66,9 +66,39 @@ class MockModeTest {
         assertEquals(intraday.map { it.close }, sampled.getIntradaySparkline("NONE").closes)
         assertTrue(sampled.getFundamentals("NONE", "annual").valuation.metrics.isNotEmpty())
         // Captured data still wins, and fixture-only content stays absent.
-        assertEquals(fixtures.getQuote("SMPL"), sampled.getQuote("SMPL"))
+        val smpl = assertNotNull(sampled.getQuote("SMPL"))
+        // Captured values win; only missing quote fields are filled.
+        assertEquals(fixtures.getQuote("SMPL"), smpl.copy(yearHigh = null, yearLow = null, open = null, volume = null, marketCap = null))
+        assertNotNull(smpl.marketCap)
+        // 52-week range is derived from the stored daily closes when the captured quote lacks it.
+        assertEquals(10.0, smpl.yearHigh)
+        assertEquals(8.0, smpl.yearLow)
+        val noneQuote = assertNotNull(sampled.getQuote("NONE"))
+        val daily = sampled.getDailyCloses("NONE")
+        assertEquals(noneQuote.previousClose, daily[daily.lastIndex - 1].close, "the day before ends at the previous close")
         assertNull(sampled.getWhyMoving("NONE"))
         assertTrue(sampled.getCompanyNews("NONE").isEmpty())
+    }
+
+    @Test fun gapFillingKeepsCapturedFactsAndNoDividend() {
+        val sample = org.example.stocksteps.repositoryImpl.fixture.SampleMarketData { Instant.parse("2026-10-01T14:00:00Z") }
+        fun fact(value: Double? = null, availability: FinancialAvailability = FinancialAvailability.AVAILABLE) =
+            FinancialFact(value = value, availability = availability, source = FinancialSource.PROVIDER_DIRECT)
+        val stored = CompanyFundamentals("REAL",
+            financials = CompanyFinancials(
+                growth = mapOf("revenueGrowth" to fact(availability = FinancialAvailability.TEMPORARILY_UNAVAILABLE)),
+                profitability = mapOf("netMargin" to fact(12.5)),
+                shareholderReturns = mapOf("dividendYield" to fact(availability = FinancialAvailability.NO_DIVIDEND))
+            ),
+            valuation = CompanyValuation(metrics = mapOf("pe" to fact(20.0))))
+        val generated = sample.fundamentals("REAL", "annual", StockQuote("REAL", "Real", 50.0, 1.0, 2.0, null, null, marketCap = 5_000_000_000))
+        val filled = sample.fillFundamentals(stored, generated, 2025)
+        assertEquals(12.5, filled.financials.profitability.getValue("netMargin").value, "captured fact kept")
+        assertEquals(FinancialAvailability.NO_DIVIDEND, filled.financials.shareholderReturns.getValue("dividendYield").availability)
+        assertEquals(FinancialAvailability.AVAILABLE, filled.financials.growth.getValue("revenueGrowth").availability, "gap filled")
+        assertEquals(20.0, filled.valuation.metrics.getValue("pe").value)
+        val history = filled.valuation.historical.getValue("pe")
+        assertEquals(history.differencePercent!!, (20.0 / history.average!! - 1) * 100, 0.1)
     }
 
     @Test fun newsTimesShiftWithFixtureAge() = runBlocking {

@@ -9,7 +9,8 @@ import org.example.stocksteps.model.WhyMoving
 interface CompanyDetailsRepository {
     suspend fun getDetails(symbol: String): CompanyDetails
     suspend fun getChart(symbol: String, range: ChartRange): PriceChart
-    suspend fun getWhyMoving(symbol: String): WhyMoving
+    /** Null when the backend has no source-backed explanation (a normal state, not a failure). */
+    suspend fun getWhyMoving(symbol: String): WhyMoving?
 }
 
 class GetCompanyDetails(private val repository: CompanyDetailsRepository) {

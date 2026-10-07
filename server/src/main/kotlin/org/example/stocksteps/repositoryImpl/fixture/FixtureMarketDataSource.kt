@@ -36,17 +36,22 @@ class FixtureMarketDataSource(
 ) : StockProviderRepository, MarketDataProvider, NewsProviderRepository, PriceHistoryProvider, WhyMovingSource {
 
     @Serializable
-    private data class Manifest(val capturedAt: String)
+    private data class Manifest(
+        val capturedAt: String,
+        /** Tickers whose gaps stay unfilled, to exercise missing-data states (e.g. LONGN). */
+        val keepMissing: List<String> = emptyList()
+    )
 
     private val json = Json { ignoreUnknownKeys = true }
 
     /** News times are shifted by the fixture's age so "2h ago" stays meaningful. */
     private val age: Duration by lazy {
-        val captured = load("manifest.json", Manifest.serializer())?.capturedAt
+        val captured = manifest?.capturedAt
             ?.let { runCatching { Instant.parse(it) }.getOrNull() }
         captured?.let { Duration.between(it, now()).coerceAtLeast(Duration.ZERO) } ?: Duration.ZERO
     }
 
+    private val manifest: Manifest? by lazy { load("manifest.json", Manifest.serializer()) }
     private val snapshot: MarketSnapshot? by lazy { load("market/snapshot.json", MarketSnapshot.serializer()) }
     private val sample = SampleMarketData(now)
 
@@ -65,13 +70,33 @@ class FixtureMarketDataSource(
     }
 
     override suspend fun getQuote(symbol: String): StockQuote? =
-        stock(symbol, "quote", StockQuote.serializer()) ?: withSample(symbol) { sample.quote(it, knownNames[it]) }
+        stock(symbol, "quote", StockQuote.serializer())?.let(::withYearRange)?.let { if (fillsGaps(it.symbol)) sample.fillQuote(it) else it }
+            ?: withSample(symbol) { sample.quote(it, knownNames[it]) }
+
+    /** Captured quotes predating the 52-week fields get them from the stored daily closes (last year). */
+    private fun withYearRange(quote: StockQuote): StockQuote {
+        if (!sampleFallback || quote.yearHigh != null && quote.yearLow != null) return quote
+        val closes = stock(quote.symbol, "chart-daily", ListSerializer(PricePoint.serializer())).orEmpty()
+            .takeLast(TRADING_DAYS_PER_YEAR).map { it.close }
+        if (closes.isEmpty()) return quote
+        return quote.copy(yearHigh = quote.yearHigh ?: closes.max(), yearLow = quote.yearLow ?: closes.min())
+    }
     override suspend fun getProfile(symbol: String): CompanyProfile? =
         stock(symbol, "profile", CompanyProfile.serializer()) ?: withSample(symbol) { sample.profile(it, knownNames[it]) }
-    override suspend fun getFundamentals(symbol: String, period: String): CompanyFundamentals =
-        stock(symbol, "fundamentals-$period", CompanyFundamentals.serializer())
-            ?: withSample(symbol) { s -> getQuote(s)?.let { sample.fundamentals(s, period, it) } }
-            ?: CompanyFundamentals(symbol)
+    override suspend fun getFundamentals(symbol: String, period: String): CompanyFundamentals {
+        val stored = stock(symbol, "fundamentals-$period", CompanyFundamentals.serializer())
+        val quote = if (sampleFallback) getQuote(symbol) else null
+        val generated = quote?.let { q -> safeSymbol(symbol)?.let { sample.fundamentals(it, period, q) } }
+        return when {
+            stored == null -> generated ?: CompanyFundamentals(symbol)
+            generated != null && fillsGaps(stored.symbol) -> sample.fillFundamentals(stored, generated, sample.sessionDate(quote).year - 1)
+            else -> stored
+        }
+    }
+
+    /** Mock mode fills gaps in captured data, except for tickers kept sparse on purpose. */
+    private fun fillsGaps(symbol: String) =
+        sampleFallback && manifest?.keepMissing.orEmpty().none { it.equals(symbol, ignoreCase = true) }
 
     override suspend fun getIntradaySparkline(symbol: String): Sparkline {
         val stored = stock(symbol, "sparkline", Sparkline.serializer())
@@ -85,12 +110,12 @@ class FixtureMarketDataSource(
     override suspend fun getIntradayPoints(symbol: String): List<PricePoint> =
         series(symbol, "chart-intraday", INTRADAY_TOLERANCE) { s, quote ->
             val price = quote.price ?: return@series emptyList()
-            sample.intraday(s, quote.previousClose ?: price, price, sample.sessionDate(quote))
+            sample.intraday(s, quote.previousClose ?: price, price, sample.sessionDate(quote), quote.dayLow, quote.dayHigh)
         }
 
     override suspend fun getDailyCloses(symbol: String): List<PricePoint> =
         series(symbol, "chart-daily", DAILY_TOLERANCE) { s, quote ->
-            quote.price?.let { sample.dailyCloses(s, it, sample.sessionDate(quote)) }.orEmpty()
+            quote.price?.let { sample.dailyCloses(s, it, quote.previousClose, sample.sessionDate(quote)) }.orEmpty()
         }
     override suspend fun getWhyMoving(symbol: String): WhyMoving? = stock(symbol, "why-moving", WhyMoving.serializer())
 
@@ -145,5 +170,6 @@ class FixtureMarketDataSource(
         /** Stored series whose last close is further than this from the quote are replaced. */
         const val INTRADAY_TOLERANCE = 0.03
         const val DAILY_TOLERANCE = 0.15
+        const val TRADING_DAYS_PER_YEAR = 252
     }
 }

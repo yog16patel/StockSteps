@@ -14,7 +14,8 @@ class FixtureImporterTest {
         val quote = files.single().readText()
         assertTrue(files.single().path.endsWith("stocks/AAPL/quote.json"))
         assertTrue(quote.contains("\"changePercent\": -1.87") && quote.contains("\"volume\": 28718014"))
-        assertFalse(quote.contains("open"))
+        // The session open is part of the public contract now.
+        assertTrue(quote.contains("\"open\": 333.13"))
         assertTrue(root.resolve("manifest.json").readText().contains("2026-10-07T12:00:00Z"))
         assertFailsWith<IllegalArgumentException> {
             FixtureImporter(root).import("fmp-quote", """[{"symbol":"AAPL","price":-1}]""")

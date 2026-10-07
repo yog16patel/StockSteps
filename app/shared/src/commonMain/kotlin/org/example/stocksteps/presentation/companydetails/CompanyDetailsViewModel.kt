@@ -32,7 +32,8 @@ internal data class CompanyDetailsState(
     val overview: Section<CompanyOverview> = Section.Loading,
     val range: ChartRange = ChartRange.ONE_MONTH,
     val chart: Section<PriceChart> = Section.Loading,
-    val whyMoving: Section<WhyMoving> = Section.Loading,
+    /** Content(null) means no source-backed explanation exists, so the section is hidden. */
+    val whyMoving: Section<WhyMoving?> = Section.Loading,
     val news: Section<List<NewsUiModel>> = Section.Loading
 )
 

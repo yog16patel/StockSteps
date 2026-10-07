@@ -1,5 +1,9 @@
 package org.example.stocksteps.designsystem.components
 
+import androidx.compose.foundation.layout.widthIn
+
+import androidx.compose.foundation.layout.Box
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,14 +53,32 @@ internal fun StockMetric(
     }
 }
 
-/** Compact label/value line for grouped lists (financial highlights, valuation). */
+/**
+ * Compact label/value line for grouped lists (financial highlights, ratios, valuation).
+ * [change] adds a signed change column; [direction] colors it and adds an arrow.
+ */
 @Composable
-internal fun StockInfoRow(label: String, value: String, modifier: Modifier = Modifier, helper: String? = null) {
+internal fun StockInfoRow(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    helper: String? = null,
+    change: String? = null,
+    direction: PriceDirection? = null,
+    compact: Boolean = false
+) {
     val colors = StockStepsTheme.colors
-    Column(modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(vertical = StockStepsTheme.spacing.sm)) {
+    val typography = StockStepsTheme.typography
+    Column(modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(vertical = if (compact) StockStepsTheme.spacing.xs else StockStepsTheme.spacing.sm)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
-            Text(label, modifier = Modifier.weight(1f), style = StockStepsTheme.typography.body, color = colors.textBody)
-            Text(value, style = StockStepsTheme.typography.numberMedium, color = colors.textPrimary, textAlign = TextAlign.End)
+            Text(label, modifier = Modifier.weight(1f), style = if (compact) typography.small else typography.body, color = if (compact) colors.textSecondary else colors.textBody)
+            Text(value, style = if (compact) typography.numberLabelStrong else typography.numberMedium, color = colors.textPrimary, textAlign = TextAlign.End)
+            if (change != null) {
+                Box(Modifier.widthIn(min = StockStepsTheme.dimensions.changeColumn), contentAlignment = Alignment.CenterEnd) {
+                    if (direction != null && direction != PriceDirection.UNAVAILABLE) StockPriceChange(change, direction, style = typography.numberLabel)
+                    else Text(change, style = typography.numberLabel, color = colors.textSecondary)
+                }
+            }
         }
         if (helper != null) {
             Text(helper, modifier = Modifier.padding(top = StockStepsTheme.spacing.xxs), style = StockStepsTheme.typography.caption, color = colors.textSecondary)

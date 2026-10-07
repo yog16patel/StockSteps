@@ -35,7 +35,10 @@ internal class SampleMarketData(private val now: () -> Instant) {
             previousClose = previousClose,
             volume = 200_000L + (rng.nextDouble() * 40_000_000).toLong(),
             timestamp = now().epochSecond,
-            marketCap = (price * shares).toLong()
+            marketCap = (price * shares).toLong(),
+            open = round2(previousClose * (1 + rng.nextGaussian() * 0.004)),
+            yearHigh = round2(maxOf(price, previousClose) * (1.08 + rng.nextDouble() * 0.4)),
+            yearLow = round2(minOf(price, previousClose) * (0.55 + rng.nextDouble() * 0.35))
         )
     }
 
@@ -54,23 +57,27 @@ internal class SampleMarketData(private val now: () -> Instant) {
         )
     }
 
-    /** About five years of weekday closes, oldest first, ending at [lastPrice]. */
-    fun dailyCloses(symbol: String, lastPrice: Double, sessionDate: LocalDate): List<PricePoint> {
+    /**
+     * About five years of weekday closes, oldest first, ending at [lastPrice]; the close before
+     * it is [previousClose] so ranges agree with today's quote change.
+     */
+    fun dailyCloses(symbol: String, lastPrice: Double, previousClose: Double?, sessionDate: LocalDate): List<PricePoint> {
         val rng = rng(symbol, "daily")
         val days = generateSequence(sessionDate) { it.minusDays(1) }
             .filter { it.dayOfWeek != DayOfWeek.SATURDAY && it.dayOfWeek != DayOfWeek.SUNDAY }
             .take(DAILY_POINTS).toList()
         var close = lastPrice
-        val closes = days.map { day ->
+        val closes = days.mapIndexed { index, day ->
             PricePoint(day.toString(), round2(close)).also {
-                close = (close / (1 + 0.0004 + rng.nextGaussian() * 0.018)).coerceAtLeast(0.5)
+                close = if (index == 0 && previousClose != null && previousClose > 0) previousClose
+                    else (close / (1 + 0.0004 + rng.nextGaussian() * 0.018)).coerceAtLeast(0.01)
             }
         }
         return closes.reversed()
     }
 
-    /** One session of 5-minute closes from the previous close to [price]. */
-    fun intraday(symbol: String, previousClose: Double, price: Double, sessionDate: LocalDate): List<PricePoint> {
+    /** One session of 5-minute closes from the previous close to [price], kept inside the day's low/high when known. */
+    fun intraday(symbol: String, previousClose: Double, price: Double, sessionDate: LocalDate, low: Double? = null, high: Double? = null): List<PricePoint> {
         val rng = rng(symbol, "intraday")
         // Noise grows with the day's move so large movers still get a lifelike, wiggly line.
         val volatility = maxOf(0.0015, abs(price / previousClose - 1) * 0.04)
@@ -81,7 +88,9 @@ internal class SampleMarketData(private val now: () -> Instant) {
             // Bridge: the noise returns to zero at the close, so the line ends exactly at the quote.
             val drift = previousClose + (price - previousClose) * i / last
             val time = sessionDate.atTime(OPEN.plusMinutes(5L * i)).format(INTRADAY_TIME)
-            PricePoint(time, round2(drift * (1 + walk[i] - walk[last] * i / last)))
+            val close = drift * (1 + walk[i] - walk[last] * i / last)
+            val bounded = if (low != null && high != null && high > low && i in 1 until last) close.coerceIn(low, high) else close
+            PricePoint(time, round2(bounded))
         }
     }
 
@@ -105,8 +114,6 @@ internal class SampleMarketData(private val now: () -> Instant) {
         val operatingMargin = netMargin + 2 + rng.nextDouble() * 10
         val operatingCashFlow = annualNetIncome * (1.1 + rng.nextDouble() * 0.4)
         val freeCashFlow = operatingCashFlow * (0.5 + rng.nextDouble() * 0.4)
-        val history = (1..5).map { pe * (0.7 + rng.nextDouble() * 0.6) }
-        val average = history.average()
         val dividend = if (rng.nextDouble() < 0.35) FinancialFact(availability = FinancialAvailability.NO_DIVIDEND, basis = ttm)
             else value(0.2 + rng.nextDouble() * 3, ttm)
         return CompanyFundamentals(
@@ -130,15 +137,61 @@ internal class SampleMarketData(private val now: () -> Instant) {
             ),
             valuation = CompanyValuation(
                 metrics = mapOf("pe" to value(pe, ttm), "priceSales" to value(priceSales, ttm)),
-                historical = mapOf("pe" to HistoricalComparison(
-                    observations = history.mapIndexed { i, v -> FinancialObservation(year - 4 + i, "${year - 4 + i}-12-31", round2(v)) },
-                    average = round2(average), median = round2(history.sorted()[2]),
-                    minimum = round2(history.min()), maximum = round2(history.max()), validCount = history.size,
-                    differencePercent = round2((pe / average - 1) * 100), reliable = true
-                ))
+                historical = mapOf("pe" to peHistory(symbol, pe, year))
             ),
             warnings = listOf("Sample values for development; not real financial data."),
             retrievedAt = now().toString()
+        )
+    }
+
+    /** Five yearly P/E observations around [pe] with the comparison the backend would calculate. */
+    fun peHistory(symbol: String, pe: Double, year: Int): HistoricalComparison {
+        val rng = rng(symbol, "history")
+        val history = (1..5).map { pe * (0.7 + rng.nextDouble() * 0.6) }
+        val average = history.average()
+        return HistoricalComparison(
+            observations = history.mapIndexed { i, v -> FinancialObservation(year - 4 + i, "${year - 4 + i}-12-31", round2(v)) },
+            average = round2(average), median = round2(history.sorted()[2]),
+            minimum = round2(history.min()), maximum = round2(history.max()), validCount = history.size,
+            differencePercent = round2((pe / average - 1) * 100), reliable = true
+        )
+    }
+
+    /** Fills quote fields a captured quote lacks (open, volume, market cap) in proportion to its price. */
+    fun fillQuote(stored: StockQuote): StockQuote {
+        val price = stored.price ?: return stored
+        val sample = quote(stored.symbol, stored.companyName)
+        val samplePrice = sample.price ?: return stored
+        val reference = stored.previousClose ?: price
+        return stored.copy(
+            open = stored.open ?: sample.open?.let { round2(reference * it / (sample.previousClose ?: samplePrice)) },
+            volume = stored.volume ?: sample.volume,
+            marketCap = stored.marketCap ?: sample.marketCap?.let { (it / samplePrice * price).toLong() }
+        )
+    }
+
+    /**
+     * Keeps every captured fact and fills only missing ones from [generated]. A captured P/E gets a
+     * history built around it, so the comparison stays consistent with the real value.
+     */
+    fun fillFundamentals(stored: CompanyFundamentals, generated: CompanyFundamentals, year: Int): CompanyFundamentals {
+        fun merge(captured: Map<String, FinancialFact>, sample: Map<String, FinancialFact>) =
+            sample + captured.filterValues { it.availability == FinancialAvailability.AVAILABLE || it.availability == FinancialAvailability.NO_DIVIDEND }
+        val financials = CompanyFinancials(
+            growth = merge(stored.financials.growth, generated.financials.growth),
+            profitability = merge(stored.financials.profitability, generated.financials.profitability),
+            financialHealth = merge(stored.financials.financialHealth, generated.financials.financialHealth),
+            cashFlow = merge(stored.financials.cashFlow, generated.financials.cashFlow),
+            shareholderReturns = merge(stored.financials.shareholderReturns, generated.financials.shareholderReturns)
+        )
+        val metrics = merge(stored.valuation.metrics, generated.valuation.metrics)
+        val pe = metrics["pe"]?.takeIf { it.availability == FinancialAvailability.AVAILABLE }?.value
+        val history = stored.valuation.historical["pe"]?.takeIf { it.reliable }
+            ?: pe?.let { peHistory(stored.symbol, it, year) }
+        return stored.copy(
+            financials = financials,
+            valuation = CompanyValuation(metrics, stored.valuation.historical + listOfNotNull(history?.let { "pe" to it })),
+            warnings = (stored.warnings + "Some values are sample data for development.").distinct()
         )
     }
 

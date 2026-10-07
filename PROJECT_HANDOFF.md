@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-07 (America/Toronto). Current commit: "Add Company Details page, mock sample data and Home visual refresh" on `main`.
-Previous commit: `0d7a19d` (Add mock/real backend data modes, fixtures and Development setting).
+Last updated: 2026-10-07 (America/Toronto). Current commit: "Complete Company Details reference design on Android and iOS" on `main`.
+Previous commit: `af299e9` (Add Company Details page, mock sample data and Home visual refresh).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -17,7 +17,8 @@ pending items as instructions to implement them automatically.
 ### Repository state and immediate scope
 
 - Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
-- Current commit: **Add Company Details page, mock sample data and Home visual refresh**. Includes the canonical Company Details page
+- Current commit: **Complete Company Details reference design on Android and iOS**: the full reference layout for Company Details on both platforms, iOS Financials/News destinations, mock gap filling and previews (see "Company Details reference-design pass" at the end).
+- Previous commit `af299e9`, **Add Company Details page, mock sample data and Home visual refresh**. Included the canonical Company Details page
   (backend `/details`, `/chart`, `/why-moving`; Android + SwiftUI), mock tooling (`stopMock`,
   `runMock` from `installDist`, importer path fix, chart capture), fixtures recaptured from the
   REAL backend, MOCK `SampleMarketData` fallback for any ticker, the Home reference-matching
@@ -1490,3 +1491,53 @@ label still announces the state ("Market closed"). UNKNOWN still renders nothing
 `statusSwitchWidth/Height/Thumb`; iOS `StockColors` gained `textDisabled`. Validation: Android
 assembleDebug passes; not visually checked (emulator closed); iOS not compiled (Xcode 16.2 vs
 firebase-ios-sdk 12.19.2).
+
+### Company Details reference-design pass (2026-10-07, in commit "Complete Company Details reference design on Android and iOS")
+
+Implemented the full reference layout (owner's 3-column Microsoft mock) on Android and iOS:
+header with tags (sector, industry, size band) and "Updated <time> ET"; pill range selector,
+area chart with y/x axis labels, range change ("+7.25% past 1M") and touch-to-inspect scrub;
+quick stats (Open/High/Low/Volume/Market Cap/P/E, "—" when not reported); Why Did It Move card
+(warm educational surface, "Why this matters" box, source links + sources sheet; hidden when the
+backend has no explanation, retry state on failure); At a Glance 2×2 tiles with icons; How Does
+<Company> Look? rows with icon tiles and rule-based badges; Beginner Insight; About with See
+More/Less, country and tags; Financial Highlights with change column and basis footnote;
+Valuation three-tile comparison + tinted headline (amber only when above history) + links;
+52-week and day range bars; Key Ratios; Sector & Industry tiles. Skipped (no reliable data):
+Analyst Outlook, Earnings, Comparable Companies, People Also Viewed.
+
+- Contract: `StockQuote.open/yearHigh/yearLow` (FMP quote mapper; Finnhub maps `o`).
+  `CompanyDetailsRepository.getWhyMoving` returns null for 404 `WHY_MOVING_UNAVAILABLE`.
+- Shared: `CompanyOverview` extended (tags, updatedAt, quickStats, dayRange/yearRange,
+  aboutFull, sector/industry/country/website, highlight changes + basis, keyRatios, valuation
+  position/headline); `AssessmentRules` (documented thresholds); `ChartPresentation`.
+- Compose components (generic): `StockTag`, `StockBadge`, `StockIconTile`, `toneColors`,
+  `StockRangeBar`, `StockLineChart`, `StockAssessmentRow`, `StockPillSelector`; `StockInfoRow`
+  gained change/direction/compact. Tokens: `cautionText`, `iconTile`, `rangeBar`, `rangeMarker`,
+  `changeColumn`; icons TrendingUp, PieChart, Tag, Bank, Coin, Lightbulb, Globe.
+  `formatQuoteTime` expect/actual (Android/JVM java.time, iOS NSDateFormatter).
+- SwiftUI: `DesignSystem/StockDetailComponents.swift` mirrors the above; `CompanyDetailsScreen`
+  rewritten; new `CompanyFinancialsScene.swift` (Financials + valuation, Annual/Quarterly via
+  shared `FinancialsPresenter`) and `CompanyNewsScene`; both pushed from Company Details, so iOS
+  "See Financials", "See Details", "See detailed valuation" and "View All" now work.
+  `StockColors` gained `positiveContainer`, `cautionText`, `textDisabled` (iOS).
+- Mock: sample gap filling — captured quotes get missing open/volume/market cap, captured
+  fundamentals get missing facts and a P/E history around the real P/E (captured facts and
+  NO_DIVIDEND always win); `manifest.json` `keepMissing` (LONGN, TSLA) keeps missing-data
+  scenarios. 52-week range derived from stored daily closes; generated daily history passes
+  through the previous close; generated intraday stays inside the day low/high.
+- `runMock` ignores exit 143 so `stopMock` no longer reports BUILD FAILED.
+- Previews: `CompanyDetailsPreviews.kt` (light, dark, negative day/no dividend/negative
+  earnings, long name + partial failure, loading, large text).
+
+Validation: core jvmTest (presenter: quick stats/ranges, valuation position, rules, chart
+labels; repository: why-moving 404 → null, other errors stay failures), shared host tests
+(why-moving hidden vs retry, route carries only the symbol), server tests (gap filling keeps
+captured facts/NO_DIVIDEND, year range, previous-close continuity), Android assembleDebug,
+iOS Kotlin framework link, and **Swift type-check of all iOS sources** against the Shared
+framework (`swiftc -typecheck`, all files incl. Firebase-guarded ones) — passes. Android
+emulator in Mock mode: SXTC (sample-filled) and MSFT (captured + gap-filled) checked top to
+bottom in light and dark; 1D range and touch scrub verified; backend log confirms 4 requests
+on open. Not verified: iOS runtime (Xcode 16.2 cannot resolve firebase-ios-sdk 12.19.2), the
+watchlist star tap (it would change the signed-in account's real watchlist), REAL mode for
+this pass. Pending: real why-moving pipeline; analyst/earnings/comparables need a data source.

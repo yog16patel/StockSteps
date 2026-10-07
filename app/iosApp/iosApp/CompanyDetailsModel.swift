@@ -18,9 +18,10 @@ final class CompanyDetailsModel {
     private(set) var overview: SectionState<CompanyOverview> = .loading
     private(set) var range: ChartRange = .oneMonth
     private(set) var chart: SectionState<PriceChart> = .loading
-    private(set) var whyMoving: SectionState<WhyMoving> = .loading
+    /// `.content(nil)`: no source-backed explanation exists, so the section is hidden.
+    private(set) var whyMoving: SectionState<WhyMoving?> = .loading
     private(set) var news: SectionState<[NewsUiModel]> = .loading
-    @ObservationIgnored private let client: IosCompanyDetailsClient
+    @ObservationIgnored let client: IosCompanyDetailsClient
     @ObservationIgnored private var charts: [ChartRange: PriceChart] = [:]
     @ObservationIgnored private var chartTask: Task<Void, Never>?
 
@@ -64,7 +65,9 @@ final class CompanyDetailsModel {
 
     func loadWhyMoving() {
         whyMoving = .loading
-        Task { whyMoving = (try? await client.getWhyMoving(symbol: symbol)).map(SectionState.content) ?? .unavailable }
+        Task {
+            do { whyMoving = .content(try await client.getWhyMoving(symbol: symbol)) } catch { whyMoving = .unavailable }
+        }
     }
 
     func loadNews() {

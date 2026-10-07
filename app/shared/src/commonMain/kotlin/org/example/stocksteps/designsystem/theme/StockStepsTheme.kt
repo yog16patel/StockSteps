@@ -68,6 +68,7 @@ internal data class StockStepsColors(
     val educationContainer: Color,
     val educationAccent: Color,
     val logoContainer: Color,
+    val cautionText: Color,
     val learnContainerStart: Color,
     val learnContainerEnd: Color,
     val learnAccent: Color,
@@ -144,6 +145,10 @@ internal data class StockStepsDimensions(
     val educationIcon: Dp = ThemeDimensions.educationIcon.dp,
     val learnIllustration: Dp = ThemeDimensions.learnIllustration.dp,
     val learnAction: Dp = ThemeDimensions.learnAction.dp,
+    val iconTile: Dp = ThemeDimensions.iconTile.dp,
+    val rangeBar: Dp = ThemeDimensions.rangeBar.dp,
+    val rangeMarker: Dp = ThemeDimensions.rangeMarker.dp,
+    val changeColumn: Dp = ThemeDimensions.changeColumn.dp,
     val multiColumnMinWidth: Dp = ThemeDimensions.multiColumnMinWidth.dp,
     val largeFontScale: Float = ThemeDimensions.largeFontScale
 )
@@ -228,6 +233,7 @@ private fun ThemePalette.toComposeColors(isDark: Boolean) = StockStepsColors(
     iconPrimary = iconPrimary.color(), iconSecondary = iconSecondary.color(),
     educationContainer = educationContainer.color(), educationAccent = educationAccent.color(),
     logoContainer = logoContainer.color(),
+    cautionText = cautionText.color(),
     learnContainerStart = learnContainerStart.color(), learnContainerEnd = learnContainerEnd.color(),
     learnAccent = learnAccent.color(), onLearnAccent = onLearnAccent.color()
 )

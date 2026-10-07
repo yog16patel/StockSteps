@@ -86,7 +86,15 @@ honours `PORT`.
 | `GET /api/v1/stocks/{symbol}/news` | Company news (existing) | Finnhub |
 
 The apps open Company Details with one core request plus lazy chart (1M), why-moving and news
-requests; other chart ranges load when selected and are cached per screen.
+requests; other chart ranges load when selected and are cached per screen. A 404
+`WHY_MOVING_UNAVAILABLE` means "no source-backed explanation" and hides the section; any other
+failure shows a compact retry state. `StockQuote` also carries `open`, `yearHigh` and `yearLow`
+(from FMP's quote, no extra call) for the quick stats and the day/52-week range bars.
+
+Shared presentation lives in `core/companydetail`: `CompanyOverviewPresenter` (numbers →
+context, deterministic copy, never advice), `AssessmentRules` (the documented thresholds behind
+"Growing fast", "High margin", "More cash than debt", "Above/Near/Below History") and
+`ChartPresentation` (axis, range-change and touch labels).
 
 
 
