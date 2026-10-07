@@ -1,113 +1,76 @@
 package org.example.stocksteps.presentation.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import org.example.stocksteps.WindowHinge
+import org.example.stocksteps.designsystem.components.*
+import org.example.stocksteps.designsystem.theme.StockStepsTheme
+import org.example.stocksteps.home.HomePresentation
+import org.example.stocksteps.news.NewsPresentation
+import org.example.stocksteps.news.NewsUiModel
 import org.example.stocksteps.presentation.AdaptiveSinglePane
-import org.example.stocksteps.theme.*
 
+/**
+ * Beginner order: greeting, what the market is doing, what is moving, what to learn,
+ * then news. One lazy vertical scroll; sections load and fail independently.
+ * Search and the watchlist live in their own destinations.
+ */
 @Composable
-internal fun HomeScreen(state: HomeState, hinge: WindowHinge?, onRefresh: () -> Unit, onSearch: () -> Unit, onExplore: (String) -> Unit, onRetryNews: () -> Unit) {
-    var showingLesson by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxSize().background(homeColor(HomeTokens.background))) {
+internal fun HomeScreen(
+    state: HomeState,
+    signedIn: Boolean,
+    hinge: WindowHinge?,
+    onAction: (HomeAction) -> Unit,
+    // "View All" renders only when its destination exists; Markets and News screens are pending.
+    viewAllMovers: Boolean = false,
+    viewAllNews: Boolean = false,
+    news: List<NewsUiModel> = rememberHomeNews(state)
+) {
+    val spacing = StockStepsTheme.spacing
+    val content = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxWidth()
+    val section = content.padding(top = spacing.sectionGap)
+    Box(Modifier.fillMaxSize().background(StockStepsTheme.colors.appBackground)) {
         AdaptiveSinglePane(hinge) { region ->
-            Column(
-                modifier = region.verticalScroll(rememberScrollState()).padding(HomeTokens.screenPadding.dp),
+            LazyColumn(
+                modifier = region,
+                contentPadding = PaddingValues(start = spacing.screen, top = spacing.sm, end = spacing.screen, bottom = spacing.lg),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    modifier = Modifier.widthIn(max = HomeTokens.contentWidth.dp).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(HomeTokens.sectionGap.dp)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(ThemeSpacing.extraLarge.dp)) {
-                        Column {
-                            Text("Good morning", style = HomeTokens.title.homeStyle(), color = homeColor(HomeTokens.ink))
-                            Text("Markets made simple.", style = HomeTokens.body.homeStyle(), color = homeColor(HomeTokens.muted))
-                        }
-                        Box(
-                            modifier = Modifier.fillMaxWidth().heightIn(min = HomeTokens.searchHeight.dp)
-                                .background(homeColor(HomeTokens.surface), RoundedCornerShape(HomeTokens.cardRadius.dp))
-                                .clickable(onClick = onSearch).padding(horizontal = ThemeSpacing.extraLarge.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            Text("Search stocks or companies", style = HomeTokens.body.homeStyle(), color = homeColor(HomeTokens.muted))
-                        }
-                    }
-                    Column(verticalArrangement = Arrangement.spacedBy(ThemeSpacing.small.dp)) {
-                        Text("Market snapshot", style = HomeTokens.section.homeStyle(), color = homeColor(HomeTokens.ink))
-                        state.snapshot?.let { snapshot ->
-                            Text(
-                                text = when (snapshot.marketStatus) {
-                                    org.example.stocksteps.model.MarketStatus.OPEN -> "US market open"
-                                    org.example.stocksteps.model.MarketStatus.CLOSED -> "US regular session closed"
-                                    org.example.stocksteps.model.MarketStatus.PRE_MARKET -> "Pre-market"
-                                    org.example.stocksteps.model.MarketStatus.AFTER_HOURS -> "After-hours"
-                                    org.example.stocksteps.model.MarketStatus.UNKNOWN -> "Market status unavailable"
-                                },
-                                style = HomeTokens.caption.homeStyle(),
-                                color = homeColor(HomeTokens.muted)
-                            )
-                            Text("ETF proxies · USD", style = HomeTokens.caption.homeStyle(), color = homeColor(HomeTokens.muted))
-                        }
-                        if (state.snapshotLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-                        state.snapshotError?.let {
-                            Text(it, style = HomeTokens.caption.homeStyle(), color = homeColor(HomeTokens.muted))
-                            TextButton(onClick = onRefresh) { Text("Retry") }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(ThemeSpacing.tiny.dp)) {
-                            state.indices.forEach { HomeIndexCard(it, Modifier.weight(1f)) }
-                        }
-                        if (state.indices.any { it.error }) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Some index data is unavailable.", style = HomeTokens.caption.homeStyle(), color = homeColor(HomeTokens.muted), modifier = Modifier.weight(1f))
-                                TextButton(onClick = onRefresh) { Text("Retry") }
-                            }
-                        }
-                    }
-                    Column(verticalArrangement = Arrangement.spacedBy(ThemeSpacing.medium.dp)) {
-                        Text("Your watchlist", style = HomeTokens.section.homeStyle(), color = homeColor(HomeTokens.ink))
-                        if (state.stocks.isEmpty()) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth()
-                                    .background(homeColor(HomeTokens.surface), RoundedCornerShape(HomeTokens.cardRadius.dp))
-                                    .padding(ThemeSpacing.large.dp)
-                            ) {
-                                Text("Your next step starts with a stock.", style = HomeTokens.body.homeStyle(), color = homeColor(HomeTokens.ink))
-                                TextButton(onClick = onSearch) { Text("Find stocks to follow") }
-                            }
-                        }
-                        state.stocks.forEach { HomeStockRow(it, onExplore) }
-                    }
-                    state.snapshot?.let { snapshot ->
-                        Text("Updated ${snapshot.lastUpdated}", style = HomeTokens.caption.homeStyle(), color = homeColor(HomeTokens.muted))
-                        HomeMovers("Top Gainers", "gainers", snapshot.gainers, state, onRefresh, onExplore)
-                        HomeMovers("Top Losers", "losers", snapshot.losers, state, onRefresh, onExplore)
-                        HomeMovers("Most Active", "mostActive", snapshot.mostActive, state, onRefresh, onExplore)
-                    }
-                    org.example.stocksteps.presentation.news.NewsSection(
-                        articles = state.news,
-                        loading = state.newsLoading,
-                        error = state.newsError,
-                        onRetry = onRetryNews
+                item(key = "header") { HomeHeader(signedIn, content) }
+                item(key = "market") {
+                    MarketSummarySection(state.market, onRetry = { onAction(HomeAction.RetryMarket) }, modifier = content.padding(top = spacing.md))
+                }
+                item(key = "movers") {
+                    MoversSection(
+                        movers = state.movers,
+                        onSelect = { onAction(HomeAction.SelectMovers(it)) },
+                        onOpenStock = { onAction(HomeAction.OpenStock(it)) },
+                        onRetry = { onAction(HomeAction.RetryMarket) },
+                        onViewAll = if (viewAllMovers) { { onAction(HomeAction.ViewAllMovers) } } else null,
+                        modifier = section
                     )
-                    HomeLessonCard { showingLesson = true }
+                }
+                item(key = "learn") { HomeLearnCard(onLearn = { onAction(HomeAction.Learn) }, modifier = section) }
+                item(key = "news") {
+                    HomeNewsSection(
+                        status = state.newsStatus,
+                        news = news,
+                        onOpenArticle = { onAction(HomeAction.OpenArticle(it)) },
+                        onRetry = { onAction(HomeAction.RetryNews) },
+                        onViewAll = if (viewAllNews) { { onAction(HomeAction.ViewAllNews) } } else null,
+                        modifier = section
+                    )
                 }
             }
         }
     }
-    if (showingLesson) AlertDialog(
-        onDismissRequest = { showingLesson = false },
-        title = { Text("What is a P/E ratio?") },
-        text = { Text("P/E compares a company's share price with its yearly earnings per share.\n\nA $100 share with $5 in yearly earnings per share has a P/E of 20. Investors are paying $20 for each $1 of earnings.\n\nCompare similar companies. A higher or lower P/E alone does not tell you whether a stock is a good investment. Companies with losses may not have a meaningful P/E.") },
-        confirmButton = { TextButton(onClick = { showingLesson = false }) { Text("Got it") } }
-    )
+}
+
+@Composable
+private fun rememberHomeNews(state: HomeState): List<NewsUiModel> = remember(state.news) {
+    state.news.map(NewsPresentation::model).distinctBy { it.id }.take(HomePresentation.MAX_NEWS)
 }

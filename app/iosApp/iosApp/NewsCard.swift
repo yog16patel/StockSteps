@@ -32,25 +32,3 @@ struct NewsCard: View {
         .background(.background, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.spacing.large)))
     }
 }
-
-struct HomeNewsSection: View {
-    let articles: [NewsArticle]
-    let loading: Bool
-    let error: String?
-    let onRefresh: () -> Void
-    var body: some View {
-        VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.medium)) {
-            HStack {
-                Text("Market news").font(.title3.bold())
-                Spacer()
-                Button("Refresh", action: onRefresh)
-            }
-            if loading { ProgressView() }
-            if let error { Text(error).foregroundStyle(.secondary) }
-            if !loading && error == nil && articles.isEmpty { Text("No news available.") }
-            ForEach(Array(articles.prefix(20).enumerated()), id: \.offset) { _, article in
-                NewsCard(article: article)
-            }
-        }
-    }
-}

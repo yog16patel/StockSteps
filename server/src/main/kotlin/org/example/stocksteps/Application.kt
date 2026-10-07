@@ -75,6 +75,9 @@ fun Application.module() {
             )
         ))
         newsRoutes(newsService)
+        sparklineRoutes(org.example.stocksteps.service.SparklineService(
+            org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(HttpClientProvider.client, AppConfig.fmpApiKey)
+        ))
     }
 
 }
@@ -160,4 +163,21 @@ fun Route.newsRoutes(newsService: NewsService) {
 fun Route.marketSnapshotRoutes(service: org.example.stocksteps.service.MarketSnapshotService) {
     get("/market/snapshot") { call.respond(service.getSnapshot()) }
     get("/api/v1/market/snapshot") { call.respond(service.getSnapshot()) }
+}
+
+fun Route.sparklineRoutes(service: org.example.stocksteps.service.SparklineService) {
+    get("/api/v1/stocks/{symbol}/sparkline") {
+        val symbol = call.parameters["symbol"]?.uppercase(Locale.ROOT)
+        if (symbol == null || !Regex("[A-Z0-9][A-Z0-9.-]{0,19}").matches(symbol)) {
+            call.respond(HttpStatusCode.BadRequest,
+                ApiError("INVALID_SYMBOL", "Use a stock symbol of 1–20 letters, digits, dots, or hyphens."))
+            return@get
+        }
+        val sparkline = service.getSparkline(symbol)
+        if (sparkline == null) {
+            call.respond(HttpStatusCode.NotFound, ApiError("SPARKLINE_NOT_FOUND", "No recent price history is available for this symbol."))
+            return@get
+        }
+        call.respond(sparkline)
+    }
 }

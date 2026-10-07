@@ -1,105 +1,138 @@
 import Shared
 import SwiftUI
 
-enum HomeTheme {
-    static let tokens = HomeTokens.shared
-    static let spacing = StockStepsTheme.spacing
-    static func color(_ value: Int32) -> Color { StockStepsTheme.color(value) }
-    static func font(_ value: ThemeTextStyle, _ role: UIFont.TextStyle = .body) -> Font { StockStepsTheme.font(value, relativeTo: role) }
-}
+private let space = StockStepsTheme.spacing
+private let type = StockStepsTheme.typography
+private let dims = StockStepsTheme.dimensions
 
-struct HomeChange: View {
-    let row: HomeStock
-    var index = false
-    private let t = HomeTheme.tokens
+/// Brand row, then greeting and tagline. No bell: notifications do not exist yet.
+struct HomeHeader: View {
+    @Environment(\.colorScheme) private var scheme
+    let signedIn: Bool
     var body: some View {
-        if row.loading { ProgressView() }
-        else if let change = row.change {
-            Text(String(format: "%@%.1f%%", change > 0 ? "+" : "", change))
-                .font(HomeTheme.font(index ? t.indexChange : t.change))
-                .foregroundStyle(HomeTheme.color(change < 0 ? t.negative : (change > 0 ? t.positive : t.muted)))
-        } else { Text("—").foregroundStyle(HomeTheme.color(t.muted)) }
-    }
-}
-
-struct HomeIndexCard: View {
-    let row: HomeStock
-    private let t = HomeTheme.tokens
-    var body: some View {
-        VStack(alignment: .leading, spacing: CGFloat(HomeTheme.spacing.medium)) {
-            Text(row.name ?? row.symbol).font(HomeTheme.font(t.indexLabel, .caption2)).foregroundStyle(HomeTheme.color(t.muted))
-            Text(row.price.map { String(format: "$%.2f", $0) } ?? "—")
-                .font(HomeTheme.font(t.body)).foregroundStyle(HomeTheme.color(t.ink))
-            HomeChange(row: row, index: true)
+        let colors = StockStepsTheme.colors(scheme)
+        VStack(alignment: .leading, spacing: 0) {
+            StockBrandMark(name: "StockSteps")
+            Text(signedIn ? "Welcome back!" : "Welcome to StockSteps!")
+                .font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3).bold())
+                .foregroundStyle(colors.textPrimary)
+                .padding(.top, CGFloat(space.sm))
+            Text("Learn · Explore · Grow")
+                .font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.regular))
+                .foregroundStyle(colors.textSecondary)
+                .padding(.top, CGFloat(space.xxs))
         }
-        .frame(maxWidth: .infinity, minHeight: CGFloat(t.indexHeight) - CGFloat(HomeTheme.spacing.space10) * 2, alignment: .leading)
-        .padding(CGFloat(HomeTheme.spacing.space10))
-        .background(HomeTheme.color(t.surface), in: RoundedRectangle(cornerRadius: CGFloat(t.cardRadius)))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-struct HomeStockRow: View {
-    let row: HomeStock
-    let onExplore: (String) -> Void
-    private let t = HomeTheme.tokens
-    var body: some View {
-        Button { onExplore(row.symbol) } label: {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(row.symbol).font(HomeTheme.font(t.ticker, .headline)).foregroundStyle(HomeTheme.color(t.ink))
-                    Text(row.name ?? (row.error ? "Quote unavailable" : "Saved stock"))
-                        .font(HomeTheme.font(t.caption, .caption1)).foregroundStyle(HomeTheme.color(t.muted))
-                }
-                Spacer()
-                VStack(alignment: .trailing) {
-                    if let price = row.price { Text(String(format: "$%.2f", price)).font(HomeTheme.font(t.caption, .caption1)).foregroundStyle(HomeTheme.color(t.ink)) }
-                    HomeChange(row: row)
-                }
-            }
-            .padding(.horizontal, CGFloat(HomeTheme.spacing.large))
-            .padding(.vertical, CGFloat(HomeTheme.spacing.small))
-            .frame(minHeight: CGFloat(t.rowHeight))
-            .background(HomeTheme.color(t.surface), in: RoundedRectangle(cornerRadius: CGFloat(t.cardRadius)))
-        }.buttonStyle(.plain)
-    }
-}
-
-struct HomeLessonCard: View {
-    let onLearn: () -> Void
-    private let t = HomeTheme.tokens
-    var body: some View {
-        Button(action: onLearn) {
-            VStack(alignment: .leading, spacing: CGFloat(HomeTheme.spacing.small)) {
-                Text("Today's 2-minute lesson").font(HomeTheme.font(t.caption, .caption1)).fontWeight(.semibold).foregroundStyle(HomeTheme.color(t.positive))
-                Text("What is a P/E ratio?").font(HomeTheme.font(t.section, .headline)).foregroundStyle(HomeTheme.color(t.ink))
-                Text("Learn with a simple example →").font(HomeTheme.font(t.caption, .caption1)).foregroundStyle(HomeTheme.color(t.muted))
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(CGFloat(HomeTheme.spacing.large))
-            .background(HomeTheme.color(t.lesson), in: RoundedRectangle(cornerRadius: CGFloat(t.lessonRadius)))
-        }.buttonStyle(.plain)
-    }
-}
-
-struct HomeMovers: View {
-    let title: String
-    let key: String
-    let movers: [MarketMover]
-    let snapshot: MarketSnapshot
+/// "Market" header with the backend status, two compact index cards, and the ETF-proxy disclosure.
+struct MarketSummarySection: View {
+    @Environment(\.colorScheme) private var scheme
+    let market: MarketSnapshotUiModel
     let onRetry: () -> Void
-    let onExplore: (String) -> Void
     var body: some View {
-        VStack(alignment: .leading, spacing: CGFloat(HomeTheme.spacing.medium)) {
-            Text(title).font(HomeTheme.font(HomeTheme.tokens.section, .headline)).foregroundStyle(HomeTheme.color(HomeTheme.tokens.ink))
-            if let error = snapshot.errors.first(where: { $0.section == key }) {
-                Text(error.error.message).font(HomeTheme.font(HomeTheme.tokens.caption, .caption1)).foregroundStyle(HomeTheme.color(HomeTheme.tokens.muted))
-                Button("Retry", action: onRetry)
-            } else if movers.isEmpty {
-                Text("Nothing available right now.").font(HomeTheme.font(HomeTheme.tokens.caption, .caption1)).foregroundStyle(HomeTheme.color(HomeTheme.tokens.muted))
-            }
-            ForEach(Array(movers.enumerated()), id: \.offset) { _, mover in
-                HomeStockRow(row: HomeStock(symbol: mover.symbol, name: mover.name, change: mover.changePercent?.doubleValue, price: mover.price?.doubleValue), onExplore: onExplore)
+        let colors = StockStepsTheme.colors(scheme)
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            StockSectionHeader(title: "Market") { MarketStatusIndicator(status: market.marketStatus) }
+            if market.status == .error {
+                StockSectionMessage(message: "Market data isn't available right now.", actionTitle: "Try again", action: onRetry).stockCard()
+            } else {
+                HStack(spacing: CGFloat(space.sm)) {
+                    ForEach(market.indices, id: \.symbol) { card($0, colors) }
+                }
+                Text("ETF prices (\(market.indices.map(\.symbol).joined(separator: ", "))) in USD")
+                    .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2))
+                    .foregroundStyle(colors.textTertiary)
+                if market.partiallyUnavailable {
+                    StockSectionMessage(message: "Some market values aren't available right now.", actionTitle: "Try again", action: onRetry)
+                }
             }
         }
+    }
+
+    private func card(_ index: MarketIndexUiModel, _ colors: StockColors) -> some View {
+        let loading = market.status == .loading
+        return VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            HStack(spacing: CGFloat(space.xs)) {
+                Text(index.name).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary).lineLimit(1)
+                Spacer(minLength: 0)
+                if loading { StockSkeleton(width: 48) } else {
+                    StockPriceChange(percentage: index.change, direction: index.direction, style: type.numberLabelStrong)
+                }
+            }
+            if loading { StockSkeleton(width: 96).accessibilityLabel("Loading") } else {
+                Text(index.price ?? "—").font(StockStepsTheme.font(type.numberEmphasis, relativeTo: .headline))
+                    .foregroundStyle(index.price == nil ? colors.textTertiary : colors.textPrimary).lineLimit(1)
+            }
+        }
+        .stockCard(padding: CGFloat(space.sm))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// One section surface: header, filter chips and up to three flat rows (no per-row cards).
+/// "View All" appears only when a destination exists (`onViewAll` non-nil).
+struct MoversSection: View {
+    let movers: MoversUiModel
+    let onSelect: (MoverCategory) -> Void
+    let onOpenStock: (String) -> Void
+    let onRetry: () -> Void
+    var onViewAll: (() -> Void)?
+    private let categories: [(MoverCategory, String)] = [(.gainers, "Top Gainers"), (.losers, "Top Losers"), (.mostActive, "High Volume")]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            StockSectionHeader(title: "Today's Movers", actionTitle: onViewAll == nil ? nil : "View All", action: onViewAll)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: CGFloat(space.sm)) {
+                    ForEach(categories, id: \.1) { category, title in
+                        StockChip(title: title, selected: movers.category == category) { onSelect(category) }
+                    }
+                }
+            }
+            switch movers.status {
+            case .loading:
+                ForEach(0..<3, id: \.self) { _ in StockRowSkeleton(compact: true, horizontalPadding: 0) }
+                    .accessibilityElement(children: .ignore).accessibilityLabel("Loading")
+            case .error:
+                StockSectionMessage(message: "Market movers aren't available right now.", actionTitle: "Try again", action: onRetry)
+            case .empty:
+                StockSectionMessage(message: "No movers to show right now.")
+            default:
+                ForEach(Array(movers.rows.enumerated()), id: \.element.symbol) { offset, row in
+                    if offset > 0 { StockDivider(inset: CGFloat(dims.logoCompact + space.sm)) }
+                    StockRow(model: row, compact: true, horizontalPadding: 0) { onOpenStock(row.symbol) }
+                }
+            }
+        }
+        .stockCard()
+    }
+}
+
+/// One section surface with up to three compact news rows separated by dividers.
+struct HomeNewsSection: View {
+    let status: SectionStatus
+    let news: [NewsUiModel]
+    let onOpenArticle: (URL) -> Void
+    let onRetry: () -> Void
+    var onViewAll: (() -> Void)?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            StockSectionHeader(title: "Recent News", actionTitle: onViewAll == nil ? nil : "View All", action: onViewAll)
+            switch status {
+            case .loading:
+                ForEach(0..<2, id: \.self) { _ in StockNewsCardSkeleton() }
+            case .error:
+                StockSectionMessage(message: "News isn't available right now.", actionTitle: "Try again", action: onRetry)
+            case .empty:
+                StockSectionMessage(message: "No recent market news.")
+            default:
+                ForEach(Array(news.enumerated()), id: \.element.id) { offset, article in
+                    if offset > 0 { StockDivider() }
+                    StockNewsCard(model: article, onOpen: onOpenArticle)
+                }
+            }
+        }
+        .stockCard()
     }
 }

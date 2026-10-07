@@ -7,6 +7,7 @@ import org.koin.dsl.onClose
 import org.koin.core.parameter.parametersOf
 import org.example.stocksteps.createBackendClient
 import org.example.stocksteps.data.RemoteMarketSnapshotRepository
+import org.example.stocksteps.data.RemoteSparklineRepository
 import org.example.stocksteps.data.RemoteMarketRepository
 import org.example.stocksteps.presentation.discovery.DiscoveryViewModel
 import org.example.stocksteps.data.RemoteStockRepository
@@ -26,6 +27,8 @@ internal class StockStepsDependencies(baseUrl: String, clientFactory: () -> Http
             single<StockRepository> { RemoteStockRepository(get()) }
             single<MarketSnapshotRepository> { RemoteMarketSnapshotRepository(get()) }
             factory { GetMarketSnapshot(get()) }
+            single<SparklineRepository> { RemoteSparklineRepository(get()) }
+            factory { GetSparkline(get()) }
             single<MarketRepository> { RemoteMarketRepository(get()) }
             factory { GetMarketGainers(get()) }
             factory { GetMarketLosers(get()) }
@@ -52,6 +55,7 @@ internal class StockStepsDependencies(baseUrl: String, clientFactory: () -> Http
     fun getCompanyFundamentals(): GetCompanyFundamentals = application.koin.get()
     fun getCompanyProfile(): GetCompanyProfile = application.koin.get()
     fun getMarketSnapshot(): GetMarketSnapshot = application.koin.get()
+    fun getSparkline(): GetSparkline = application.koin.get()
     fun getStockQuote(): GetStockQuote = application.koin.get()
     fun searchViewModel(query: String, selection: StockSearchResult?): StockSearchViewModel =
         application.koin.get { parametersOf(SearchInitialState(query, selection)) }

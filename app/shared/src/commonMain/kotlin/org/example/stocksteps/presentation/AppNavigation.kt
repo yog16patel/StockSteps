@@ -24,6 +24,12 @@ import org.example.stocksteps.presentation.stocksearch.StockSearchRoute
 import org.example.stocksteps.presentation.stocksearch.StockSearchScene
 import org.example.stocksteps.model.*
 import org.example.stocksteps.presentation.components.StockStepsTopBar
+import org.example.stocksteps.designsystem.components.StockBottomNavigation
+import org.example.stocksteps.designsystem.components.StockBottomNavigationItem
+import org.example.stocksteps.designsystem.theme.StockStepsTheme
+import org.example.stocksteps.resources.*
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun AppNavigation(
@@ -68,37 +74,64 @@ internal fun AppNavigation(
     val isAuth = destination?.hasRoute<AuthRoute>() == true
     val isSearch = destination?.hasRoute<StockSearchRoute>() == true
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        StockStepsTopBar(
-            configuration = AppBarConfiguration(
-                title = when {
-                    isSearch -> "Search stocks"
-                    destination?.hasRoute<WatchListRoute>() == true -> "WatchList"
-                    destination?.hasRoute<LearnRoute>() == true -> "Learn"
-                    destination?.hasRoute<SettingsRoute>() == true -> "Settings"
-                    else -> "Home"
-                },
-                visible = !isAuth,
-                backButton = if (isSearch) AppBarBackButton.BACK else AppBarBackButton.NONE
-            ),
-            onBack = { navController.popBackStack() },
-            backIcon = backIcon
-        )
+    val isHome = destination?.hasRoute<DiscoveryRoute>() == true
+    // Scaffold applies status/navigation-bar insets once and consumes them for the content,
+    // so screens' own safe-content padding does not double them.
+    Scaffold(
+        containerColor = StockStepsTheme.colors.appBackground,
+        topBar = {
+            StockStepsTopBar(
+                configuration = AppBarConfiguration(
+                    title = when {
+                        isSearch -> "Search stocks"
+                        destination?.hasRoute<WatchListRoute>() == true -> "Watchlist"
+                        destination?.hasRoute<LearnRoute>() == true -> "Learn"
+                        destination?.hasRoute<SettingsRoute>() == true -> "Settings"
+                        else -> "Home"
+                    },
+                    // Home renders its own compact brand header instead of a title bar.
+                    visible = !isAuth && !isHome,
+                    backButton = if (isSearch) AppBarBackButton.BACK else AppBarBackButton.NONE
+                ),
+                onBack = { navController.popBackStack() },
+                backIcon = backIcon
+            )
+        },
+        bottomBar = {
+            if (destination != null && !isSearch && !isAuth) {
+                StockBottomNavigation {
+                    MainDestination.entries.forEach { tab ->
+                        val selected = when (tab) {
+                            MainDestination.HOME -> isHome
+                            MainDestination.WATCHLIST -> destination.hasRoute<WatchListRoute>()
+                            MainDestination.LEARN -> destination.hasRoute<LearnRoute>()
+                            MainDestination.SETTINGS -> destination.hasRoute<SettingsRoute>()
+                        }
+                        StockBottomNavigationItem(
+                            selected = selected,
+                            label = stringResource(tab.labelResource()),
+                            onClick = { openTab(tab) },
+                            icon = { navigationIcon(tab) }
+                        )
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = initialRoute,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
         ) {
             composable<DiscoveryRoute> {
                 if (accounts != null) HomeScene(
                     baseUrl = baseUrl,
                     accounts = accounts,
                     hinge = hinge,
-                    onSearch = { navController.navigate(StockSearchRoute()) },
+                    onLearn = { openTab(MainDestination.LEARN) },
                     onExplore = { stock ->
                         navController.navigate(StockSearchRoute(stock.symbol, stock.name, stock.exchange, stock.currency, stock.exchangeFullName)) {
                             popUpTo(DiscoveryRoute)
@@ -141,23 +174,12 @@ internal fun AppNavigation(
                 )
             }
         }
-        if (destination != null && !isSearch && !isAuth) {
-            NavigationBar {
-                MainDestination.entries.forEach { tab ->
-                    val selected = when (tab) {
-                        MainDestination.HOME -> destination?.hasRoute<DiscoveryRoute>() == true
-                        MainDestination.WATCHLIST -> destination?.hasRoute<WatchListRoute>() == true
-                        MainDestination.LEARN -> destination?.hasRoute<LearnRoute>() == true
-                        MainDestination.SETTINGS -> destination?.hasRoute<SettingsRoute>() == true
-                    }
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { openTab(tab) },
-                        icon = { navigationIcon(tab) },
-                        label = { Text(text = tab.label) }
-                    )
-                }
-            }
-        }
     }
+}
+
+private fun MainDestination.labelResource(): StringResource = when (this) {
+    MainDestination.HOME -> Res.string.nav_home
+    MainDestination.WATCHLIST -> Res.string.nav_watchlist
+    MainDestination.LEARN -> Res.string.nav_learn
+    MainDestination.SETTINGS -> Res.string.nav_settings
 }

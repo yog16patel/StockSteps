@@ -10,5 +10,7 @@ data class MarketMover(
     val change: Double? = null,
     val changePercent: Double? = null,
     val exchange: String? = null,
-    val volume: Double? = null
+    val volume: Double? = null,
+    /** Company logo image, when the provider has one; clients must tolerate it failing to load. */
+    val logoUrl: String? = null
 )

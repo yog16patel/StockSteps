@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import org.example.stocksteps.model.AppBarBackButton
 import org.example.stocksteps.model.AppBarConfiguration
+import org.example.stocksteps.designsystem.theme.StockStepsTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -19,9 +20,14 @@ internal fun StockStepsTopBar(
     if (!configuration.visible) return
     TopAppBar(
         modifier = modifier,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = StockStepsTheme.colors.appBackground,
+            titleContentColor = StockStepsTheme.colors.textPrimary
+        ),
         title = {
             Text(
                 text = configuration.title,
+                style = StockStepsTheme.typography.sectionTitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

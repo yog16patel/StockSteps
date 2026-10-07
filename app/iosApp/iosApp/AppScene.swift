@@ -20,7 +20,7 @@ struct AppScene: View {
     var body: some View {
         NavigationStack {
             TabView(selection: $selectedTab) {
-                HomeScene(model: homeModel, accounts: accounts, onSearch: { initialStock = nil; showingSearch = true }) { symbol in
+                HomeScene(model: homeModel, accounts: accounts, onLearn: { selectedTab = .learn }) { symbol in
                     initialStock = accounts.state.items.first { $0.symbol == symbol }?.listing() ?? StockSearchResult(symbol: symbol, name: symbol, currency: nil, exchange: nil, exchangeFullName: nil)
                     searchModel.query = symbol
                     searchModel.scheduleSearch()
@@ -30,7 +30,7 @@ struct AppScene: View {
                 .tag(AppRoute.home)
 
                 WatchListScene(model: accounts, onSignIn: { showingAuth = true }, onSearch: { initialStock = nil; showingSearch = true }, onExplore: explore)
-                    .tabItem { Label("WatchList", systemImage: "star") }
+                    .tabItem { Label("Watchlist", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 
                 LearnScene()
@@ -41,7 +41,9 @@ struct AppScene: View {
                     .tabItem { Label("Settings", systemImage: "gearshape") }
                     .tag(AppRoute.settings)
             }
-            .stockStepsTopBar(.screen(tabTitle))
+            .tint(StockStepsTheme.color(ThemeColors.shared.light.primary))
+            // Home shows its own compact brand header instead of a navigation title.
+            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home))
         }
         .sheet(isPresented: $showingAuth) {
             NavigationStack {
@@ -59,7 +61,7 @@ struct AppScene: View {
     private var tabTitle: String {
         switch selectedTab {
         case .home: "Home"
-        case .watchlist: "WatchList"
+        case .watchlist: "Watchlist"
         case .learn: "Learn"
         case .settings: "Settings"
         }

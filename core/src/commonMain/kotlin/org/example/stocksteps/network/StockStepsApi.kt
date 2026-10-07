@@ -34,6 +34,11 @@ class StockStepsApi(private val client: HttpClient, baseUrl: String) {
         return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/quote") }
     }
 
+    suspend fun getSparkline(symbol: String): Sparkline {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/sparkline") }
+    }
+
     suspend fun getProfile(symbol: String): CompanyProfile {
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/profile") }

@@ -11,6 +11,10 @@ class IosHomeClient(baseUrl: String) {
     @Throws(Exception::class)
     suspend fun getSnapshot() = dependencies.getMarketSnapshot()()
     @Throws(Exception::class)
+    suspend fun getProfile(symbol: String) = dependencies.getCompanyProfile()(symbol)
+    @Throws(Exception::class)
+    suspend fun getSparkline(symbol: String) = dependencies.getSparkline()(symbol)
+    @Throws(Exception::class)
     suspend fun getNews() = dependencies.marketNews()()
     fun close() = dependencies.close()
 }

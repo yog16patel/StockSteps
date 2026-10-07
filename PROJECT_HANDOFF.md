@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-06 (America/Toronto). Current commit: "Add beginner company details and financials across Android and iOS" on `main`.
-Previous implementation baseline: `582e539` (Firestore news summaries and restored signed-in sessions).
+Last updated: 2026-10-06 (America/Toronto). Current commit: "Add shared design system and redesigned Home with logos and sparklines" on `main`.
+Previous commit: `08acba0` (Add beginner company details and financials across Android and iOS).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -17,12 +17,13 @@ pending items as instructions to implement them automatically.
 ### Repository state and immediate scope
 
 - Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
-- Previous HEAD: `57d7929` — `Add configurable top app bars and Android back icon`.
-- Current commit: **Add beginner company details and financials across Android and iOS**.
-  Includes exchange-aware watchlists, US-only search, beginner company details,
-  company-news relevance, Financials/Valuation mapping, Financials UX redesign,
-  regression tests and the Claude-ready handoff. Preserve this implementation.
-- The user explicitly requested committing and pushing these changes on 2026-10-06.
+- Previous HEAD: `08acba0` — `Add beginner company details and financials across Android and iOS`.
+- Current commit: **Add shared design system and redesigned Home with logos and sparklines**. Includes the shared design-system
+  tokens/components (Compose + SwiftUI mirror), the redesigned Home (brand header,
+  market cards with status indicator, movers section with logos and sparkline support,
+  Learn card, Recent News), the backend sparkline endpoint, mover logo URLs, profile and
+  rate-limit caching. See the "Design system foundation + Home redesign" sections below.
+- The user explicitly requested committing and pushing to `main` on 2026-10-06.
   This authorizes this milestone only, not future commits, pushes or deployments.
 - Check `git status` for any changes made after this commit; do not reset/clean them.
 - Read `AGENTS.md`, this snapshot, `docs/COMPANY_DETAIL.md`, and relevant existing
@@ -1131,3 +1132,146 @@ No application code changed during commit preparation; whitespace and changed-fi
 credential-pattern checks passed. This does not replace production iOS validation.
 Remaining limitations and next steps are recorded in the authoritative snapshot
 above. Backend restart has not been confirmed; no deployment is part of this commit.
+
+## Design system foundation + Home redesign (2026-10-06, included in current commit)
+
+Owner decisions: iOS stays native SwiftUI and **mirrors** the shared design (no
+Compose on iOS); keep the current four tabs (Home, WatchList, Learn, Settings) —
+the reference's Markets/More tabs have no destinations yet. The canonical reference
+image was not received; the implementation follows the written token/component spec.
+
+Shared tokens (`app/shared/.../theme/`): new light/dark `ThemePalette` (spec values,
+navy dark theme, legacy getters kept), plus accessible text-role colors
+`primaryText`/`positiveText`/`negativeText` because the brand blue/green/red fills
+are below 4.5:1 for small text on white. 11-step type scale with tabular-digit
+number styles, 4pt spacing, `ThemeCorners`, `ThemeDimensions`. `HomeTokens` removed.
+The palette switch changes the app-wide primary from green to blue on both platforms.
+
+Compose design system (`designsystem/`, all `internal`): `StockStepsTheme(mode)` with
+Light/Dark/System + CompositionLocals (`StockStepsTheme.colors/typography/spacing/
+dimensions/shapes`) and MaterialTheme mapping for unmigrated screens; components
+StockCard, StockSectionHeader, StockButton, StockChip, StockPriceChange, StockRow
+(+avatar/skeleton), StockInsightCard, StockNewsCard (+skeleton), StockSearchEntry
+(opens Search; editable bar deferred to Search migration), StockBottomNavigation,
+StockDivider, StockLoading/Empty/ErrorState. Shared strings in Compose resources
+(`composeResources/values/strings.xml`, `Res` in `org.example.stocksteps.resources`).
+SwiftUI equivalents: `iosApp/DesignSystem/StockComponents.swift`, `StockNewsCard.swift`,
+updated `Theme.swift` (`StockColors`, medium weight, monospaced digits).
+
+Shared presentation in core: `home/HomePresentation.kt` (section status, mover
+category, percent/price formatting, direction from rounded value, no currency claimed
+for movers) and `news/NewsPresentation.kt` (`NewsUiModel`, relative time, drops
+descriptions that echo the headline). Used by Compose and Swift.
+
+Home (both platforms): brand header → search entry → Market Snapshot card (3 columns,
+stacked on narrow/large text, status pill, ETF-proxy note) → Today's Movers with
+local chip switching (no extra requests) → Your Watchlist (kept existing feature) →
+Learn card (navigates to Learn tab; P/E dialog removed) → up to 3 news cards.
+Sections load/fail independently with skeletons and calm retry messages; no
+provider errors shown. No market-summary sentence, notification bell or "See All"
+(no domain rule / destinations exist). Android shell now uses Scaffold (insets
+applied once), shared bottom navigation, hidden title bar on Home; `AdaptiveSinglePane`
+uses `safeDrawingPadding` (gesture insets no longer pad content on any screen using it).
+
+Validation: 58 server (3 skips), 43 core JVM (11 new), 21 shared host (1 new) tests,
+zero failures; Android APK + iOS simulator framework built; SwiftUI compiled in the
+isolated Firebase 12.11 compatibility project. Android emulator: light, dark, scrolled
+and 1.5× font Home checked with live backend data. Not verified: iOS runtime/visuals
+(no simulator run), small-phone/tablet devices, TalkBack/VoiceOver passes, production
+Firebase pin build (Xcode 26.2+ still required).
+
+Next: owner review of Home; then migrate Watchlist, Stock Detail, Financials, News,
+Learn, Search in order, deleting `AuthTokens`/legacy token aliases as screens move.
+
+### Home visual refinement pass (2026-10-06, included in current commit)
+
+Density pass on the same state/data/navigation. Tokens: section gap 20→16, chip 32→28
+(48 touch kept), bottom bar 64→56 (+ system inset), new `bodySemiBold` ticker style.
+Shared components: StockRow (semibold ticker, 8dp logo gap), StockChip (surface +
+subtle border unselected; container, no border selected), StockSearchEntry (16dp glyph,
+12dp radius). Home: tighter snapshot (2dp hierarchy gaps, 8dp divider, tertiary ETF note,
+tiny status pill), 4 movers (`MAX_MOVERS`), watchlist preview of 3 with "See All" →
+Watchlist tab, neutral "— / Price unavailable" rows, 8dp top inset. Tab label is now
+"Watchlist" (shared Compose string resources for nav labels; iOS label/title too).
+Markets, More and News destinations do not exist, so no "See All" on movers/news and
+the four-tab structure is unchanged; no "why the market moved" data source exists.
+Validation: same 58/43/21 test totals, zero failures; APK + iOS framework built;
+SwiftUI compatibility build passed; Android emulator light/dark checked, See All
+navigation verified. iOS runtime still unverified.
+
+### Home reference-matching pass (2026-10-06, included in current commit)
+
+Owner-specified structure (reference images were not received in the session; the
+written target was followed): brand row ("S" tile from the login design + wordmark),
+greeting + "Learn · Explore · Grow", two compact index cards (S&P 500 + Nasdaq-100 via
+`HOME_MARKET_CARDS`; TSX is not provided by the backend) with one tiny footnote for
+market status + ETF-proxy disclosure, Today's Movers with strong-blue chips (PrimaryDark
+for 4.5:1 white text) and 3 borderless compact rows (`MAX_MOVERS = 3`), warm
+`educationContainer`/`educationAccent` Learn card with the shared `ic_learn` vector
+(copied into composeResources from the Android drawable), and 3 compact news rows.
+Removed from Home only: search entry, Market Snapshot heading/card, status pill,
+watchlist preview. StockRow gained compact density, padding control and an optional
+sparkline slot (unused: movers carry no price history); StockNewsCard compact is now a
+borderless row; StockInsightCard has INFO/EDUCATION tones and a leading icon slot.
+No bell (no notifications), no "See All" (no Markets/News destinations), no Markets/More
+tabs, no user name (User has no display name), no time-of-day greeting (no shared local
+time support). HomeViewModel unchanged except market card limit; it still fetches
+watchlist quotes Home no longer renders (cleanup candidate). Search is now reached from
+the Watchlist screen, not Home. Validation: 58 server (3 skips) / 44 core / 21 host tests
+pass; APK + iOS framework built; SwiftUI compatibility build passed; Android emulator
+light/dark checked. News failed twice immediately after APK reinstall, not in 3 cold
+starts; Try again recovered. iOS runtime unverified.
+
+### Mover logos and sparklines (2026-10-06, included in current commit)
+
+Backend: `MarketMover.logoUrl` from FMP's public image CDN (same path as the profile
+`image` field; verified 200 for AAPL/OLB/MOBX, 404 for unknown tickers → client
+fallback). New `GET /api/v1/stocks/{symbol}/sparkline` → `Sparkline(symbol, closes,
+sessionDate)` from FMP `/stable/historical-chart/5min`, latest session only, oldest
+first; cached 5 min, access denials 1 h, other failures 30 s; 404 when fewer than two
+points. Mobile: `GetSparkline` use case/repository/API; Home requests sparklines only
+for the 3 visible movers, once per symbol until refresh, failures leave no line.
+`StockSparkline` (Compose Canvas / SwiftUI Path) draws real closes only; logos render
+on a light `logoContainer` tile with ticker fallback. Tests: 63 server (3 skips),
+45 core, 21 host pass; APK, iOS framework and SwiftUI compatibility build pass.
+Pending: restart the IDE backend, then confirm live FMP intraday access for this
+account (endpoint may be plan-restricted; Home then simply omits lines).
+Follow-up: Home also fetches each visible mover's company profile (existing endpoint)
+when the snapshot has no `logoUrl`, so logos work against older running backends;
+backend logo URLs now use the profile's CDN (`images.financialmodelingprep.com/symbol/`).
+Verified on the Android emulator: real logos render (OLB, FRGT, ARAI). Sparklines still
+need the backend restart. Tests: 63 server / 45 core / 21 host pass; SwiftUI build passes.
+
+### Home section surfaces (2026-10-06, included in current commit)
+
+Movers and Recent News are each one `StockCard` section surface (flat rows + dividers
+inside, no per-row cards); market index cards and the warm Learn card stay standalone;
+gap between sections 12dp (`sectionGap`). Header action standardized to "View All"
+(`action_view_all`). Owner chose to hide View All until destinations exist: HomeScene
+exposes `onViewAllMovers`/`onViewAllNews` (null today → not rendered; Swift mirrors with
+optional closures). Compact news rows always show a 48dp tile (cropped photo or neutral
+placeholder). Removed the unused legacy SwiftUI `HomeNewsSection` from NewsCard.swift.
+Validation: 63/45/21 tests pass; APK, iOS framework and SwiftUI compatibility build pass;
+Android emulator light/dark checked. Sparkline endpoint still 404 on the running IDE
+backend until restart.
+
+### Market status indicator (2026-10-06, included in current commit)
+
+Shared `MarketStatusIndicator` (Compose + SwiftUI): 8dp dot (`statusDot`) + 12sp label in
+TextSecondary, in a compact "Market" header above the index cards. OPEN → positive dot,
+CLOSED → negative dot, PRE_MARKET/AFTER_HOURS → primary (informational) dot, UNKNOWN →
+nothing. Status comes only from the backend snapshot flag (never the device clock).
+Screen readers hear one label ("Market closed"); the dot is decorative. The footnote
+now carries only the ETF-proxy disclosure. Validation: 63/45/21 tests pass; APK, iOS
+framework and SwiftUI compatibility build pass; Android emulator light/dark checked and
+TalkBack description "Market closed" confirmed in the accessibility tree.
+
+### FMP rate limit observed (2026-10-06, included in current commit)
+
+After the owner restarted the IDE backend, the sparkline route existed but FMP returned
+HTTP 429 for every FMP call (profile, search, sparkline, snapshot movers/status); quotes
+still worked via Finnhub. Likely daily plan quota exhaustion from a day of development
+traffic plus uncached profile lookups. Mitigations added (backend, needs another restart):
+profiles cached 24 h (including not-found), and profile/sparkline rate-limit responses
+cached 10 min (`providerCooldown`). Intraday sparkline entitlement is still unverified.
+Server tests: 66 (3 skips) pass.

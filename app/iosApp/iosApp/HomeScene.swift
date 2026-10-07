@@ -3,26 +3,26 @@ import SwiftUI
 struct HomeScene: View {
     let model: HomeViewModel
     let accounts: AccountViewModel
-    let onSearch: () -> Void
+    let onLearn: () -> Void
     let onExplore: (String) -> Void
+    @Environment(\.openURL) private var openURL
     private var symbols: [String] { accounts.state.items.map(\.symbol) }
     private var ownerKey: String { (accounts.state.user?.id ?? "guest") + "|" + symbols.joined(separator: "|") }
     var body: some View {
         HomeScreen(
-            news: model.news,
-            newsLoading: model.newsLoading,
-            newsError: model.newsError,
-            onRefreshNews: model.refreshNews,
-            indices: model.indices,
-            snapshot: model.snapshot,
-            loading: model.snapshotLoading,
-            error: model.snapshotError,
-            stocks: model.stocks.filter { symbols.contains($0.symbol) },
-            onSearch: onSearch,
-            onExplore: onExplore,
-            onRefresh: { model.refreshIndices(); model.loadWatchlist(symbols) }
+            signedIn: accounts.state.user != nil,
+            market: model.market,
+            movers: model.movers,
+            newsStatus: model.newsStatus,
+            news: model.newsCards,
+            onSelectMovers: model.selectMovers,
+            onOpenStock: onExplore,
+            onLearn: onLearn,
+            onOpenArticle: { openURL($0) },
+            onRetryMarket: { model.refreshIndices(); model.loadWatchlist(accounts.state.items) },
+            onRetryNews: model.refreshNews
         )
         .task { model.loadIfNeeded() }
-        .task(id: ownerKey) { model.loadWatchlist(symbols) }
+        .task(id: ownerKey) { model.loadWatchlist(accounts.state.items) }
     }
 }

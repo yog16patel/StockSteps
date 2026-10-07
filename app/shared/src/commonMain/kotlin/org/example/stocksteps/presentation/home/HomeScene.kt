@@ -1,6 +1,7 @@
 package org.example.stocksteps.presentation.home
 
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.example.stocksteps.WindowHinge
@@ -9,7 +10,15 @@ import org.example.stocksteps.di.AccountDependencies
 import org.example.stocksteps.di.StockStepsDependencies
 
 @Composable
-internal fun HomeScene(baseUrl: String?, accounts: AccountDependencies, hinge: WindowHinge?, onSearch: () -> Unit, onExplore: (org.example.stocksteps.model.StockSearchResult) -> Unit) {
+internal fun HomeScene(
+    baseUrl: String?,
+    accounts: AccountDependencies,
+    hinge: WindowHinge?,
+    onLearn: () -> Unit,
+    onViewAllMovers: (() -> Unit)? = null,
+    onViewAllNews: (() -> Unit)? = null,
+    onExplore: (org.example.stocksteps.model.StockSearchResult) -> Unit
+) {
     val model = viewModel(key = "home:${baseUrl.orEmpty()}") {
         val data = StockStepsDependencies(baseUrl ?: localBackendUrl())
         HomeViewModel(
@@ -18,6 +27,8 @@ internal fun HomeScene(baseUrl: String?, accounts: AccountDependencies, hinge: W
             auth = accounts.auth,
             snapshot = data.getMarketSnapshot(),
             news = data.marketNews(),
+            sparkline = data.getSparkline(),
+            profile = data.getCompanyProfile(),
             closeResources = data::close
         )
     }
@@ -26,8 +37,27 @@ internal fun HomeScene(baseUrl: String?, accounts: AccountDependencies, hinge: W
         org.example.stocksteps.model.WatchlistSnapshot(null, emptyList())
     )
     val session by accounts.auth.session.collectAsStateWithLifecycle()
-    HomeScreen(state, hinge, model::refresh, onSearch, { symbol ->
-        val item = saved.items.takeIf { saved.userId == session.user?.id }?.firstOrNull { it.symbol == symbol }
-        onExplore(item?.listing() ?: org.example.stocksteps.model.StockSearchResult(symbol, symbol))
-    }, model::refreshNews)
+    val uriHandler = LocalUriHandler.current
+    HomeScreen(
+        state,
+        signedIn = session.user != null,
+        hinge = hinge,
+        viewAllMovers = onViewAllMovers != null,
+        viewAllNews = onViewAllNews != null,
+        onAction = { action ->
+            when (action) {
+                HomeAction.Learn -> onLearn()
+                HomeAction.ViewAllMovers -> onViewAllMovers?.invoke()
+                HomeAction.ViewAllNews -> onViewAllNews?.invoke()
+                HomeAction.RetryMarket -> model.refresh()
+                HomeAction.RetryNews -> model.refreshNews()
+                is HomeAction.SelectMovers -> model.selectMovers(action.category)
+                is HomeAction.OpenArticle -> runCatching { uriHandler.openUri(action.url) }
+                is HomeAction.OpenStock -> {
+                    val item = saved.items.takeIf { saved.userId == session.user?.id }?.firstOrNull { it.symbol == action.symbol }
+                    onExplore(item?.listing() ?: org.example.stocksteps.model.StockSearchResult(action.symbol, action.symbol))
+                }
+            }
+        }
+    )
 }

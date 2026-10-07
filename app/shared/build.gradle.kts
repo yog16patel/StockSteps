@@ -9,6 +9,11 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
+compose.resources {
+    packageOfResClass = "org.example.stocksteps.resources"
+    publicResClass = false
+}
+
 kotlin {
     listOf(
         iosArm64(),

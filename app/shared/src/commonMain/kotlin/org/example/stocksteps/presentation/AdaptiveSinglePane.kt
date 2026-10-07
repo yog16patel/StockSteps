@@ -16,7 +16,7 @@ internal fun AdaptiveSinglePane(hinge: WindowHinge?, content: @Composable (Modif
     var origin by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
     BoxWithConstraints(
-        modifier = Modifier.fillMaxSize().safeContentPadding()
+        modifier = Modifier.fillMaxSize().safeDrawingPadding()
             .onGloballyPositioned { origin = it.positionInWindow() }
     ) {
         val pane = paneLayout(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat(), density.density, origin.x, origin.y, hinge).search
