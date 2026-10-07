@@ -1,11 +1,11 @@
 {
     "symbol": "MSFT",
-    "companyName": "Microsoft Corporation",
-    "price": 425.18,
-    "change": 7.72,
-    "changePercent": 1.8493,
-    "previousClose": 417.46,
-    "dayHigh": 428.5814,
-    "dayLow": 414.1203,
-    "volume": 21300000
+    "companyName": null,
+    "price": 529.76,
+    "change": 0.46,
+    "changePercent": 0.0869,
+    "dayHigh": 531.73,
+    "dayLow": 524.69,
+    "previousClose": 529.3,
+    "timestamp": 1791403200
 }

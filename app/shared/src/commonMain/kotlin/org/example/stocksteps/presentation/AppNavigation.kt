@@ -21,6 +21,7 @@ import org.example.stocksteps.presentation.discovery.DiscoveryRoute
 import org.example.stocksteps.presentation.discovery.DiscoveryScene
 import org.example.stocksteps.presentation.home.HomeScene
 import org.example.stocksteps.presentation.stocksearch.StockSearchRoute
+import org.example.stocksteps.presentation.companydetails.*
 import org.example.stocksteps.presentation.stocksearch.StockSearchScene
 import org.example.stocksteps.model.*
 import org.example.stocksteps.presentation.components.StockStepsTopBar
@@ -91,6 +92,12 @@ internal fun AppNavigation(
     }
     val sampleData by backendInfo.isMock.collectAsStateWithLifecycle()
     val isSettings = destination?.hasRoute<SettingsRoute>() == true
+    val isCompanyDetails = destination?.hasRoute<CompanyDetailsRoute>() == true
+    val isCompanyFinancials = destination?.hasRoute<CompanyFinancialsRoute>() == true
+    val isCompanyNews = destination?.hasRoute<CompanyNewsRoute>() == true
+    val hasBack = isSearch || isCompanyFinancials || isCompanyNews
+    // Every stock tap (Home movers, Watchlist, Search) opens the same Company Details page.
+    val openStock: (String) -> Unit = { symbol -> navController.navigate(CompanyDetailsRoute(symbol)) }
     // Scaffold applies status/navigation-bar insets once and consumes them for the content,
     // so screens' own safe-content padding does not double them.
     Scaffold(
@@ -100,14 +107,16 @@ internal fun AppNavigation(
                 configuration = AppBarConfiguration(
                     title = when {
                         isSearch -> "Search stocks"
+                        isCompanyFinancials -> "Financials"
+                        isCompanyNews -> "Company news"
                         destination?.hasRoute<WatchListRoute>() == true -> "Watchlist"
                         destination?.hasRoute<LearnRoute>() == true -> "Learn"
                         destination?.hasRoute<SettingsRoute>() == true -> "Settings"
                         else -> "Home"
                     },
-                    // Home and Settings render their own compact headers instead of a title bar.
-                    visible = !isAuth && !isHome && !isSettings,
-                    backButton = if (isSearch) AppBarBackButton.BACK else AppBarBackButton.NONE
+                    // Home, Settings and Company Details render their own compact headers.
+                    visible = !isAuth && !isHome && !isSettings && !isCompanyDetails,
+                    backButton = if (hasBack) AppBarBackButton.BACK else AppBarBackButton.NONE
                 ),
                 onBack = { navController.popBackStack() },
                 backIcon = backIcon
@@ -158,12 +167,7 @@ internal fun AppNavigation(
                     accounts = accounts,
                     hinge = hinge,
                     onLearn = { openTab(MainDestination.LEARN) },
-                    onExplore = { stock ->
-                        navController.navigate(StockSearchRoute(stock.symbol, stock.name, stock.exchange, stock.currency, stock.exchangeFullName)) {
-                            popUpTo(DiscoveryRoute)
-                            launchSingleTop = true
-                        }
-                    }
+                    onExplore = { stock -> openStock(stock.symbol) }
                 )
             }
             composable<WatchListRoute> {
@@ -172,7 +176,7 @@ internal fun AppNavigation(
                     hinge = hinge,
                     onSignIn = { navController.navigate(AuthRoute()) },
                     onSearch = { navController.navigate(StockSearchRoute()) },
-                    onExplore = { stock -> navController.navigate(StockSearchRoute(stock.symbol, stock.name ?: stock.symbol, stock.exchange, stock.currency, stock.exchangeFullName)) }
+                    onExplore = { stock -> openStock(stock.symbol) }
                 )
             }
             composable<LearnRoute> { LearnScene(hinge) }
@@ -204,8 +208,28 @@ internal fun AppNavigation(
                     backend = backend,
                     environment = environment,
                     hinge = hinge,
-                    accounts = accounts
+                    accounts = accounts,
+                    onOpenStock = { stock -> openStock(stock.symbol) }
                 )
+            }
+            composable<CompanyDetailsRoute> { entry ->
+                CompanyDetailsScene(
+                    route = entry.toRoute<CompanyDetailsRoute>(),
+                    backend = backend,
+                    environment = environment,
+                    accounts = accounts,
+                    hinge = hinge,
+                    backIcon = backIcon,
+                    onBack = { navController.popBackStack() },
+                    onOpenFinancials = { symbol -> navController.navigate(CompanyFinancialsRoute(symbol)) },
+                    onOpenNews = { symbol -> navController.navigate(CompanyNewsRoute(symbol)) }
+                )
+            }
+            composable<CompanyFinancialsRoute> { entry ->
+                CompanyFinancialsScene(entry.toRoute<CompanyFinancialsRoute>(), backend, environment, hinge)
+            }
+            composable<CompanyNewsRoute> { entry ->
+                CompanyNewsScene(entry.toRoute<CompanyNewsRoute>(), backend, environment, hinge)
             }
         }
     }

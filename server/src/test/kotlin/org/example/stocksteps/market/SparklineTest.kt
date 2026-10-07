@@ -62,6 +62,8 @@ class SparklineTest {
     @Test fun serviceCachesSuccessAndAccessDenials() = runBlocking {
         var calls = 0
         val service = SparklineService(object : PriceHistoryProvider {
+            override suspend fun getIntradayPoints(symbol: String) = emptyList<org.example.stocksteps.model.PricePoint>()
+            override suspend fun getDailyCloses(symbol: String) = emptyList<org.example.stocksteps.model.PricePoint>()
             override suspend fun getIntradaySparkline(symbol: String): Sparkline {
                 calls++
                 if (symbol == "DENY") throw StockProviderException(StockProviderException.Failure.UNAVAILABLE, 402)
@@ -87,6 +89,8 @@ class SparklineTest {
             install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json() }
             routing {
                 sparklineRoutes(SparklineService(object : PriceHistoryProvider {
+                    override suspend fun getIntradayPoints(symbol: String) = emptyList<org.example.stocksteps.model.PricePoint>()
+                    override suspend fun getDailyCloses(symbol: String) = emptyList<org.example.stocksteps.model.PricePoint>()
                     override suspend fun getIntradaySparkline(symbol: String) =
                         if (symbol == "AAPL") Sparkline(symbol, listOf(1.0, 2.0), "2026-10-06") else Sparkline(symbol, listOf(1.0))
                 }))

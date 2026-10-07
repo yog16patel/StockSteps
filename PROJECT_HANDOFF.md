@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-07 (America/Toronto). Current commit: "Add mock/real backend data modes, fixtures and Development setting" on `main`.
-Previous commit: `c3bc8c4` (Setting tab added.).
+Last updated: 2026-10-07 (America/Toronto). Current commit: "Add Company Details page, mock sample data and Home visual refresh" on `main`.
+Previous commit: `0d7a19d` (Add mock/real backend data modes, fixtures and Development setting).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -17,15 +17,22 @@ pending items as instructions to implement them automatically.
 ### Repository state and immediate scope
 
 - Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
-- Previous HEAD: `c3bc8c4` — `Setting tab added.` (owner-committed Settings screen).
-- Current commit: **Add mock/real backend data modes, fixtures and Development setting**. Includes MOCK/REAL backend data modes (server
+- Current commit: **Add Company Details page, mock sample data and Home visual refresh**. Includes the canonical Company Details page
+  (backend `/details`, `/chart`, `/why-moving`; Android + SwiftUI), mock tooling (`stopMock`,
+  `runMock` from `installDist`, importer path fix, chart capture), fixtures recaptured from the
+  REAL backend, MOCK `SampleMarketData` fallback for any ticker, the Home reference-matching
+  pass (borderless white cards, index sparklines, pill chips, Learn banner, price over change)
+  and the read-only market status switch. See the 2026-10-07 sections at the end of this file.
+- Previous HEAD: `0d7a19d` — `Add mock/real backend data modes, fixtures and Development setting`.
+  That commit added MOCK/REAL backend data modes (server
   `STOCKSTEPS_DATA_MODE`, fixture data source, `/api/v1/meta`, `runMock` on 8081, capture
   script, fixture importer, sample-fixture generator and mixed owner-supplied/synthetic
   fixtures), configurable app backend URLs, the Settings → Development "Backend Data Source"
   switch with per-request URL routing, the "Sample data" banner, and sub-dollar price
   formatting. See the "MOCK / REAL data modes" sections below.
-- The user explicitly requested committing and pushing to `main` on 2026-10-07.
-  This authorizes this milestone only, not future commits, pushes or deployments.
+- The user explicitly requested committing and pushing to `main` on 2026-10-07 (twice: the
+  data-modes milestone and this one). Each request authorizes that milestone only, not future
+  commits, pushes or deployments.
 - Check `git status` for any changes made after this commit; do not reset/clean them.
 - Read `AGENTS.md`, this snapshot, `docs/COMPANY_DETAIL.md`, and relevant existing
   code before changes. Recheck `git status`; state can change after this handoff.
@@ -1377,3 +1384,109 @@ stocks), search list, three neutral "Sample story" news items. Manifest labels t
 "Not market data". Home sub-dollar prices now show up to 4 decimals (fixes "$0.0002" →
 "0.00" for live penny-stock movers too). Verified on emulator-5556 in Mock mode as guest:
 full Home with logos, sparklines, Market Open, news and the sample-data banner.
+
+## Company Details page (2026-10-07, in commit "Add Company Details page, mock sample data and Home visual refresh")
+
+One canonical destination for every stock tap. Android: `CompanyDetailsRoute(symbol)` (plus
+`CompanyFinancialsRoute(symbol)` reusing the existing Annual/Quarterly Financials + Valuation UI
+and `CompanyNewsRoute(symbol)`); Home movers, Watchlist rows and Search results all navigate
+there; the shell hides its title bar and the page renders `StockStepsTopBar` (new trailing slot)
+with a watchlist star using the shared `StockWatchlistViewModel`. iOS: `CompanyDetailsScene`
+pushed via `navigationDestination(item:)` from Home, Watchlist and Search (the search sheet
+closes, then the page is pushed); watchlist star uses `AccountViewModel.toggle`. iOS has no
+Financials/News deep destinations yet (links hidden there). The old tabbed in-search detail
+remains in source but is no longer the entry point.
+
+Backend (core models `CompanyDetails`, `ChartRange`, `PricePoint`, `PriceChart`, `WhyMoving`):
+`/details` aggregation (`CompanyDetailsService`, sections fail independently with sanitized
+errors), `/chart` (`PriceChartService`: 1D intraday, other ranges sliced from one daily history;
+FMP `historical-price-eod/light`, live entitlement unverified), `/why-moving`
+(`WhyMovingService`; REAL has no source yet → 404; MOCK fixtures). `PriceHistoryProvider`
+gained intraday points + daily closes; fixture source implements them plus `WhyMovingSource`.
+
+Shared presentation: `core/companydetail/CompanyOverview.kt` (`CompanyOverviewPresenter`):
+At a glance (market cap size band, P/E "Nx earnings" or N/A, revenue growth, dividend with
+NO_DIVIDEND vs missing), factual assessment rows (no ratings; valuation "Above/Below/Near its
+history" from the backend difference, ±5%), deterministic beginner insight ending "This is
+context, not a recommendation." with an evidence sheet, concise About, Financial highlights
+with net-margin explanation, valuation summary. Education sheets for the four metrics.
+`CompanyDetailsViewModel` (sealed `Section` states, chart cache per range). New generic
+components: `StockMetric`, `StockInfoRow`, star icons, `chartHeight` token.
+
+Mock fixtures (generator): MSFT complete/up, AAPL complete (real quote) without why-moving,
+NVDA large move + P/E below history, TSLA down + no dividend + no P/E history, LONGN long
+name + no logo + sparse data + no news/chart; daily (5y) and intraday charts, why-moving for
+MSFT/NVDA/TSLA, company news. Initial page load = 4 backend requests (details, chart 1M,
+why-moving, news).
+
+Validation: server 75 (3 skips; new CompanyDetailsTest ×5), core 53 (new presenter ×7),
+host 27 (new ViewModel test), APK + iOS framework + SwiftUI compatibility build pass. Mock
+endpoints probed (details/chart ranges/why-moving/news). Android emulator in Mock mode showed
+AAPL Company Details (header, price, Market Open, chart 1D/1Y, At a glance, assessment,
+insight, About, highlights, valuation); the emulator was being used concurrently, so further
+automated taps (search/watchlist entry, star toggle, news/financials links) were not run.
+iOS runtime not verified. REAL mode not exercised (FMP quota). Pending: real why-moving
+pipeline, iOS Financials/News destinations, live chart entitlement check.
+
+### Mock tooling + real fixture capture (2026-10-07, in commit "Add Company Details page, mock sample data and Home visual refresh")
+
+- `runMock` now runs from `installDist` (`build/install/server/lib`), so rebuilds no longer
+  crash a running mock server (`NoClassDefFoundError`). New `:server:stopMock [-Pport=8081]`
+  stops only a server whose `/api/v1/meta` reports `dataMode: mock` (uses `lsof`).
+- `importFixture`: relative `-Pinput` resolves against the directory `./gradlew` ran from;
+  missing input gives a clear message.
+- `scripts/capture-fixtures.sh` also captures Company Details charts (`chart?range=1D` →
+  `chart-intraday.json`, `range=ALL` → `chart-daily.json`). Fixtures recaptured from the REAL
+  backend: snapshot, market news, quotes/profiles for 20 tickers, company news + 5y daily for
+  AAPL/MSFT/NVDA/TSLA/AMZN/GOOGL/META, annual+quarter fundamentals for AAPL/MSFT/NVDA, search.
+  The FMP plan returned errors for intraday (`historical-chart/5min`), so 1D/sparklines are
+  not captured. Earlier designed scenarios (MSFT complete, NVDA P/E below history) now reflect
+  real numbers; why-moving, LONGN and TSLA annual fundamentals remain sample data.
+- MOCK sample fallback: `SampleMarketData` (server `repositoryImpl/fixture`) generates stable
+  per-symbol quote, profile, 1D intraday (ends at quote, starts at previous close), ~5y daily,
+  sparkline and fundamentals for any ticker without fixtures; stored series whose last close
+  is >3% (intraday/sparkline) or >15% (daily) away from the quote are replaced. Enabled only
+  via `FixtureMarketDataSource(sampleFallback = true)` in `mockDataSources()`; tests and REAL
+  are unaffected. Why-moving and news remain fixture-only. Stale sample sparkline/intraday
+  files for AMZN/META/MSFT/NVDA/TSLA were deleted.
+
+Validation: server tests pass (new `MockModeTest.sampleFallbackFillsMissingTickersConsistently`);
+mock server probed for SXTC/MSFT/NVDA/unknown ZZZQ: quote, sparkline, 1D and 1M all end at the
+quote price, details include profile + fundamentals. Pending: mock empty/error/slow scenarios.
+
+### Home reference-matching pass (2026-10-07, in commit "Add Company Details page, mock sample data and Home visual refresh")
+
+- Home keeps the light grey `appBackground`. Its cards (index cards, Today's Movers, Recent
+  News) are white with no border and no shadow, via `StockCard(bordered = false)` /
+  `.stockCard(bordered: false)`; rows keep their dividers. Index cards now show name, price,
+  change and a session sparkline (`MarketIndexUiModel.sparkline`,
+  `HomePresentation.visibleIndexSymbols`; both ViewModels request index sparklines with the
+  movers'). (A white-page variant was tried and reverted at the owner's request.)
+- `StockChip` is a borderless pill (`shapes.pill` / `Capsule`), `chipHeight` 28 → 34.
+- `StockRow` trailing column is now price (strong) over change, on both platforms (affects
+  Watchlist/Search rows too).
+- New Learn banner (`HomeLearnCard` / `HomeLearnBanner`): lavender-to-blue gradient tokens
+  (`learnContainerStart/End`, `learnAccent`, `onLearnAccent`), decorative books-and-sprout
+  illustration (`drawable/ill_learn_basics.xml`, iOS `LearnBasics.imageset` SVG), round arrow cue,
+  copy "Learn the Basics" / "How the stock market works, step by step."
+- New tokens: `learnIllustration`, `learnAction`; `StockIcons.ArrowForward`.
+- Mock sample intraday noise scales with the day's move, so big movers get lifelike lines.
+- Not adopted from the reference: notification bell (no notifications yet), personalised
+  "Good morning, <name>" greeting, green brand chips (brand stays blue), five-tab bar.
+
+Validation: core jvmTest, shared host tests (HomeViewModelTest updated for index sparkline
+requests), server tests, Android assembleDebug pass; Android Home checked on emulator in Mock
+mode. iOS NOT compiled: local Xcode 16.2 cannot resolve firebase-ios-sdk 12.19.2 (needs Swift
+tools 6.1 / newer Xcode) — environment issue, predates this change.
+
+### Market status switch (2026-10-07, in commit "Add Company Details page, mock sample data and Home visual refresh")
+
+`MarketStatusIndicator` (Compose + SwiftUI; used on Home and Company Details) now shows the
+label followed by a small read-only switch instead of the colored dot: green track/thumb right
+for OPEN, red (`negative`) track/thumb left for CLOSED, grey (`textDisabled`) track/thumb left
+for PRE_MARKET and AFTER_HOURS; white thumb. It is
+drawn, not a real Switch/Toggle, so it is never focusable or tappable; the merged accessibility
+label still announces the state ("Market closed"). UNKNOWN still renders nothing. New tokens
+`statusSwitchWidth/Height/Thumb`; iOS `StockColors` gained `textDisabled`. Validation: Android
+assembleDebug passes; not visually checked (emulator closed); iOS not compiled (Xcode 16.2 vs
+firebase-ios-sdk 12.19.2).

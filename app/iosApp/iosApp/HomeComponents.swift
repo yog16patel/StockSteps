@@ -16,11 +16,11 @@ struct HomeHeader: View {
             Text(signedIn ? "Welcome back!" : "Welcome to StockSteps!")
                 .font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3).bold())
                 .foregroundStyle(colors.textPrimary)
-                .padding(.top, CGFloat(space.sm))
+                .padding(.top, CGFloat(space.lg))
             Text("Learn · Explore · Grow")
                 .font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.regular))
                 .foregroundStyle(colors.textSecondary)
-                .padding(.top, CGFloat(space.xxs))
+                .padding(.top, CGFloat(space.xs))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -51,27 +51,40 @@ struct MarketSummarySection: View {
         }
     }
 
+    /// Borderless white card: name, price, change, and the session trend line when available.
     private func card(_ index: MarketIndexUiModel, _ colors: StockColors) -> some View {
         let loading = market.status == .loading
         return VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-            HStack(spacing: CGFloat(space.xs)) {
-                Text(index.name).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary).lineLimit(1)
-                Spacer(minLength: 0)
-                if loading { StockSkeleton(width: 48) } else {
-                    StockPriceChange(percentage: index.change, direction: index.direction, style: type.numberLabelStrong)
+            Text(index.name).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary).lineLimit(1)
+            if loading {
+                VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                    StockSkeleton(width: 96)
+                    StockSkeleton(width: 48)
+                }
+                .accessibilityLabel("Loading")
+            } else {
+                HStack(alignment: .bottom, spacing: CGFloat(space.xs)) {
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        Text(index.price ?? "—").font(StockStepsTheme.font(type.numberEmphasis, relativeTo: .headline))
+                            .foregroundStyle(index.price == nil ? colors.textTertiary : colors.textPrimary).lineLimit(1)
+                        StockPriceChange(percentage: index.change, direction: index.direction, style: type.numberLabelStrong)
+                    }
+                    Spacer(minLength: 0)
+                    if let closes = index.sparkline {
+                        StockSparkline(closes: closes.map(\.doubleValue), direction: index.direction)
+                            .frame(width: CGFloat(dims.sparklineWidth), height: CGFloat(dims.sparklineHeight))
+                            .accessibilityHidden(true)
+                    }
                 }
             }
-            if loading { StockSkeleton(width: 96).accessibilityLabel("Loading") } else {
-                Text(index.price ?? "—").font(StockStepsTheme.font(type.numberEmphasis, relativeTo: .headline))
-                    .foregroundStyle(index.price == nil ? colors.textTertiary : colors.textPrimary).lineLimit(1)
-            }
         }
-        .stockCard(padding: CGFloat(space.sm))
+        .padding(.horizontal, CGFloat(space.md - space.sm))
+        .stockCard(padding: CGFloat(space.sm), bordered: false)
         .accessibilityElement(children: .combine)
     }
 }
 
-/// One section surface: header, filter chips and up to three flat rows (no per-row cards).
+/// One borderless white section: header, pill filters and up to three rows split by dividers.
 /// "View All" appears only when a destination exists (`onViewAll` non-nil).
 struct MoversSection: View {
     let movers: MoversUiModel
@@ -105,11 +118,11 @@ struct MoversSection: View {
                 }
             }
         }
-        .stockCard()
+        .stockCard(bordered: false)
     }
 }
 
-/// One section surface with up to three compact news rows separated by dividers.
+/// One borderless white section with up to three compact news rows separated by dividers.
 struct HomeNewsSection: View {
     let status: SectionStatus
     let news: [NewsUiModel]
@@ -133,6 +146,49 @@ struct HomeNewsSection: View {
                 }
             }
         }
-        .stockCard()
+        .stockCard(bordered: false)
+    }
+}
+
+/// Inviting learning banner: soft gradient, decorative illustration, indigo title and a round
+/// arrow cue. The whole banner is one button; Learn owns the content.
+struct HomeLearnBanner: View {
+    @Environment(\.colorScheme) private var scheme
+    let action: () -> Void
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        Button(action: action) {
+            HStack(spacing: CGFloat(space.md)) {
+                Image("LearnBasics")
+                    .resizable()
+                    .frame(width: CGFloat(dims.learnIllustration), height: CGFloat(dims.learnIllustration))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                    Text("Learn the Basics")
+                        .font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline).bold())
+                        .foregroundStyle(colors.learnAccent)
+                    Text("How the stock market works, step by step.")
+                        .font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
+                        .foregroundStyle(colors.textBody)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(colors.onLearnAccent)
+                    .frame(width: CGFloat(dims.learnAction), height: CGFloat(dims.learnAction))
+                    .background(colors.learnAccent, in: Circle())
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, CGFloat(space.md))
+            .padding(.vertical, CGFloat(space.sm))
+            .background(
+                LinearGradient(colors: [colors.learnContainerStart, colors.learnContainerEnd], startPoint: .leading, endPoint: .trailing),
+                in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.cardLarge))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.cardLarge)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Start learning")
     }
 }

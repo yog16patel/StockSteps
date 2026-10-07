@@ -1,0 +1,19 @@
+{
+    "symbol": "MSFT",
+    "summary": "Sample explanation: Microsoft shares moved higher after the company reported stronger cloud revenue growth.",
+    "whyItMatters": "Cloud services are one of Microsoft's largest growth businesses, so changes there can shift expectations for future earnings.",
+    "changePercent": 1.85,
+    "generatedAt": "2026-10-07T21:02:40Z",
+    "sources": [
+        {
+            "title": "Sample source 1 for MSFT",
+            "url": "https://example.com/stocksteps/msft-source-1",
+            "publisher": "StockSteps Sample"
+        },
+        {
+            "title": "Sample source 2 for MSFT",
+            "url": "https://example.com/stocksteps/msft-source-2",
+            "publisher": "StockSteps Sample"
+        }
+    ]
+}

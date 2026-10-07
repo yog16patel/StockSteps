@@ -9,11 +9,13 @@ private let type = StockStepsTheme.typography
 private let dims = StockStepsTheme.dimensions
 
 /// Groups related information: semantic surface, 12pt radius, 1pt border, no heavy shadow.
+/// `bordered: false` keeps the plain surface without the outline (Home sections).
 struct StockCardModifier: ViewModifier {
     @Environment(\.colorScheme) private var scheme
     var padding: CGFloat = CGFloat(space.cardPadding)
     var fill: KeyPath<StockColors, Color> = \.surface
     var stroke: KeyPath<StockColors, Color> = \.border
+    var bordered = true
     func body(content: Content) -> some View {
         let colors = StockStepsTheme.colors(scheme)
         let shape = RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card))
@@ -21,13 +23,13 @@ struct StockCardModifier: ViewModifier {
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(colors[keyPath: fill], in: shape)
-            .overlay(shape.stroke(colors[keyPath: stroke], lineWidth: CGFloat(dims.border)))
+            .overlay(shape.stroke(bordered ? colors[keyPath: stroke] : .clear, lineWidth: CGFloat(dims.border)))
     }
 }
 
 extension View {
-    func stockCard(padding: CGFloat = CGFloat(space.cardPadding)) -> some View {
-        modifier(StockCardModifier(padding: padding))
+    func stockCard(padding: CGFloat = CGFloat(space.cardPadding), bordered: Bool = true) -> some View {
+        modifier(StockCardModifier(padding: padding, bordered: bordered))
     }
 }
 
@@ -83,7 +85,7 @@ struct StockPriceChange: View {
     }
 }
 
-/// Compact single-choice filter: 28pt visual, 48pt touch target.
+/// Compact single-choice pill filter: 34pt visual, 48pt touch target.
 struct StockChip: View {
     @Environment(\.colorScheme) private var scheme
     let title: String
@@ -91,17 +93,16 @@ struct StockChip: View {
     let action: () -> Void
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
-        let shape = RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.chip))
+        let shape = Capsule()
         Button(action: action) {
             Text(title)
                 .font(StockStepsTheme.font(type.label, relativeTo: .footnote))
                 .foregroundStyle(selected ? colors.onPrimary : colors.textSecondary)
                 .lineLimit(1)
-                .padding(.horizontal, CGFloat(space.md))
+                .padding(.horizontal, CGFloat(space.lg))
                 .frame(minHeight: CGFloat(dims.chipHeight))
                 // Strong blue selection; PrimaryDark keeps white text above 4.5:1.
                 .background(selected ? colors.primaryDark : colors.surfaceSecondary, in: shape)
-                .overlay(shape.stroke(selected ? colors.primaryDark : colors.borderSubtle, lineWidth: CGFloat(dims.border)))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -110,7 +111,7 @@ struct StockChip: View {
     }
 }
 
-/// Shared stock/company row: logo · ticker/company · optional sparkline · change over price.
+/// Shared stock/company row: logo · ticker/company · optional sparkline · price over change.
 /// `compact` is the dense list treatment; `trailing` replaces the change/price column.
 struct StockRow<Trailing: View>: View {
     @Environment(\.colorScheme) private var scheme
@@ -168,11 +169,11 @@ struct StockRowValues: View {
     let change: String
     let direction: PriceDirection
     var body: some View {
-        StockPriceChange(percentage: change, direction: direction, style: type.numberLabelStrong)
         if let price {
-            Text(price).font(StockStepsTheme.font(type.numberLabel, relativeTo: .footnote))
-                .foregroundStyle(StockStepsTheme.colors(scheme).textSecondary).lineLimit(1)
+            Text(price).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .footnote))
+                .foregroundStyle(StockStepsTheme.colors(scheme).textPrimary).lineLimit(1)
         }
+        StockPriceChange(percentage: change, direction: direction, style: type.numberLabel)
     }
 }
 
@@ -289,8 +290,8 @@ struct StockRowSkeleton: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: CGFloat(space.xs)) {
-                StockSkeleton(width: 44)
                 StockSkeleton(width: 56)
+                StockSkeleton(width: 44)
             }
         }
         .padding(.horizontal, horizontalPadding)
@@ -408,17 +409,32 @@ struct MarketStatusIndicator: View {
     let status: MarketStatus
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
-        let style: (Color, String, String)? = switch status {
-        case .open: (colors.positive, "Market Open", "Market open")
-        case .closed: (colors.negative, "Market Closed", "Market closed")
-        case .preMarket: (colors.primary, "Pre-market", "Pre-market trading")
-        case .afterHours: (colors.primary, "After hours", "After-hours trading")
+        let style: (String, String)? = switch status {
+        case .open: ("Open", "open")
+        case .closed: ("Closed", "closed")
+        case .preMarket: ("Pre-market", "Pre-market trading")
+        case .afterHours: ("After hours", "After-hours trading")
         default: nil
         }
-        if let (dot, label, spoken) = style {
-            HStack(spacing: CGFloat(space.xs)) {
-                Circle().fill(dot).frame(width: CGFloat(dims.statusDot), height: CGFloat(dims.statusDot))
+        if let (label, spoken) = style {
+            let on = status == .open
+            let track = switch status {
+            case .open: colors.positive
+            case .closed: colors.negative
+            default: colors.textDisabled
+            }
+            let inset = CGFloat(dims.statusSwitchHeight - dims.statusSwitchThumb) / 2
+            HStack(spacing: CGFloat(space.sm)) {
                 Text(label).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary).lineLimit(1)
+                // Read-only switch: shows the session state, never focusable or tappable.
+                Capsule()
+                    .fill(track)
+                    .frame(width: CGFloat(dims.statusSwitchWidth), height: CGFloat(dims.statusSwitchHeight))
+                    .overlay(alignment: on ? .trailing : .leading) {
+                        Circle().fill(colors.onPrimary)
+                            .frame(width: CGFloat(dims.statusSwitchThumb), height: CGFloat(dims.statusSwitchThumb))
+                            .padding(.horizontal, inset)
+                    }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(spoken)

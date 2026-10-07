@@ -40,6 +40,24 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
         return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/quote") }
     }
 
+    suspend fun getCompanyDetails(symbol: String): CompanyDetails {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/details") }
+    }
+
+    suspend fun getPriceChart(symbol: String, range: ChartRange): PriceChart {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request {
+            url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/chart")
+            parameter("range", range.label)
+        }
+    }
+
+    suspend fun getWhyMoving(symbol: String): WhyMoving {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/why-moving") }
+    }
+
     suspend fun getSparkline(symbol: String): Sparkline {
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/sparkline") }

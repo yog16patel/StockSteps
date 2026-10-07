@@ -1,0 +1,19 @@
+{
+    "symbol": "TSLA",
+    "summary": "Sample explanation: Tesla shares moved lower after a delivery update came in below what some investors expected.",
+    "whyItMatters": "Vehicle deliveries drive most of Tesla's revenue, so delivery numbers can change expectations for upcoming results.",
+    "changePercent": -3.12,
+    "generatedAt": "2026-10-07T21:02:40Z",
+    "sources": [
+        {
+            "title": "Sample source 1 for TSLA",
+            "url": "https://example.com/stocksteps/tsla-source-1",
+            "publisher": "StockSteps Sample"
+        },
+        {
+            "title": "Sample source 2 for TSLA",
+            "url": "https://example.com/stocksteps/tsla-source-2",
+            "publisher": "StockSteps Sample"
+        }
+    ]
+}

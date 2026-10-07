@@ -52,8 +52,11 @@ hide the setting, and always use the real backend.
 
 Mock mode makes no provider calls, so development does not spend FMP quota. It is refused
 on Cloud Run (`K_SERVICE` set), and `GET /api/v1/meta` reports `{"dataMode":"mock"}` so
-the apps show a "Sample data · mock backend" banner. Missing fixtures behave like missing
-provider data (404/empty), never fabricated values.
+the apps show a "Sample data · mock backend" banner. For tickers or series with no
+fixture, the mock backend serves stable sample values seeded by symbol (quote, profile,
+1D/daily charts, sparkline, fundamentals), with price series ending at the quote; stored
+series that no longer match the quote are replaced the same way. Why-moving and news stay
+fixture-only. The REAL backend never serves sample values.
 
 Current fixtures mix owner-supplied provider responses (imported with
 `./gradlew :server:importFixture -Pkind=fmp-quote|fmp-gainers|fmp-losers|fmp-most-actives|fmp-market-hours|fmp-news -Pinput=file.json`)
@@ -73,7 +76,19 @@ App backend URLs are build configuration: Android `-PstockstepsBackendUrl=...` a
 `app/iosApp/Configuration/Config.xcconfig` (mock honoured in DEBUG only). The server also
 honours `PORT`.
 
-### Running tests
+### Company Details API
+
+| Endpoint | Purpose | Provider calls (REAL) |
+| --- | --- | --- |
+| `GET /api/v1/stocks/{symbol}/details` | Profile, quote, market status and annual fundamentals in one response; per-section `errors` | Reuses cached profile (24h), quote (30s), fundamentals (5min–24h); market status cached 60s |
+| `GET /api/v1/stocks/{symbol}/chart?range=1D\|1W\|1M\|3M\|1Y\|5Y\|ALL` | `PriceChart` points, oldest first | 1D: FMP 5-minute bars (5min cache); other ranges sliced from one FMP daily history (6h cache) |
+| `GET /api/v1/stocks/{symbol}/why-moving` | Source-backed explanation of a move | REAL: not implemented yet (404 `WHY_MOVING_UNAVAILABLE`); MOCK: fixtures |
+| `GET /api/v1/stocks/{symbol}/news` | Company news (existing) | Finnhub |
+
+The apps open Company Details with one core request plus lazy chart (1M), why-moving and news
+requests; other chart ranges load when selected and are cached per screen.
+
+
 
 Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 

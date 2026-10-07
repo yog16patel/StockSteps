@@ -1,86 +1,310 @@
 [
-    {
-        "symbol": "AAPL",
-        "name": "Apple Inc.",
-        "currency": "USD",
-        "exchange": "NASDAQ",
-        "exchangeFullName": "NASDAQ"
-    },
-    {
-        "symbol": "AMD",
-        "name": "Advanced Micro Devices, Inc.",
-        "currency": "USD",
-        "exchange": "NASDAQ",
-        "exchangeFullName": "NASDAQ"
-    },
-    {
-        "symbol": "AMZN",
-        "name": "Amazon.com, Inc.",
-        "currency": "USD",
-        "exchange": "NASDAQ",
-        "exchangeFullName": "NASDAQ"
-    },
-    {
-        "symbol": "INTC",
-        "name": "Intel Corporation",
-        "currency": "USD",
-        "exchange": "NASDAQ",
-        "exchangeFullName": "NASDAQ"
-    },
-    {
-        "symbol": "LUCY",
-        "name": "Innovative Eyewear, Inc.",
-        "currency": "USD",
-        "exchange": "NASDAQ",
-        "exchangeFullName": "NASDAQ"
-    },
-    {
-        "symbol": "META",
-        "name": "Meta Platforms, Inc.",
-        "currency": "USD",
-        "exchange": "NASDAQ",
-        "exchangeFullName": "NASDAQ"
-    },
-    {
-        "symbol": "MOTS",
-        "name": "Motus GI Holdings, Inc.",
-        "currency": "USD",
-        "exchange": "OTC",
-        "exchangeFullName": "OTC"
-    },
-    {
-        "symbol": "MSFT",
-        "name": "Microsoft Corporation",
-        "currency": "USD",
-        "exchange": "NASDAQ",
-        "exchangeFullName": "NASDAQ"
-    },
-    {
-        "symbol": "NFLX",
-        "name": "Netflix, Inc.",
-        "currency": "USD",
-        "exchange": "NASDAQ",
-        "exchangeFullName": "NASDAQ"
-    },
-    {
-        "symbol": "NVDA",
-        "name": "NVIDIA Corporation",
-        "currency": "USD",
-        "exchange": "NASDAQ",
-        "exchangeFullName": "NASDAQ"
-    },
-    {
-        "symbol": "SPEC",
-        "name": "Spectaire Holdings Inc.",
-        "currency": "USD",
-        "exchange": "OTC",
-        "exchangeFullName": "OTC"
-    },
-    {
-        "symbol": "TSLA",
-        "name": "Tesla, Inc.",
-        "currency": "USD",
-        "exchange": "NASDAQ",
-        "exchangeFullName": "NASDAQ"
-    }
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc.",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Global Select"
+  },
+  {
+    "symbol": "APPLX",
+    "name": "Appleseed Fund",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ"
+  },
+  {
+    "symbol": "AAPI",
+    "name": "Apple iSports Group Inc",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "APRU",
+    "name": "Apple Rush Company, Inc.",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "APLE",
+    "name": "Apple Hospitality REIT, Inc.",
+    "currency": "USD",
+    "exchange": "NYSE",
+    "exchangeFullName": "New York Stock Exchange"
+  },
+  {
+    "symbol": "PNPL",
+    "name": "Pineapple, Inc.",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "PEGY",
+    "name": "Pineapple Energy Inc.",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Capital Market"
+  },
+  {
+    "symbol": "PAPL",
+    "name": "Pineapple Financial Inc.",
+    "currency": "USD",
+    "exchange": "AMEX",
+    "exchangeFullName": "New York Stock Exchange Arca"
+  },
+  {
+    "symbol": "MNAO",
+    "name": "Pineapple Express Cannabis Company",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "GAPJ",
+    "name": "Golden Apple Oil & Gas Inc.",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "AAPX",
+    "name": "T-REX 2X Long Apple Daily Target ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "MLP",
+    "name": "Maui Land & Pineapple Company, Inc.",
+    "currency": "USD",
+    "exchange": "NYSE",
+    "exchangeFullName": "New York Stock Exchange"
+  },
+  {
+    "symbol": "AAPY",
+    "name": "Kurv Yield Premium Strategy Apple (AAPL) ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "MSFT",
+    "name": "Microsoft Corporation",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Global Select"
+  },
+  {
+    "symbol": "MSFX",
+    "name": "T-Rex 2X Long Microsoft Daily Target ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "MSFY",
+    "name": "Kurv Yield Premium Strategy Microsoft (MSFT) ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "NVDA",
+    "name": "NVIDIA Corporation",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Global Select"
+  },
+  {
+    "symbol": "NVPS",
+    "name": "PurePlay Nvidia Ecosystem Picks & Shovels Index ETF",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ"
+  },
+  {
+    "symbol": "NVDX",
+    "name": "T-REX 2X Long NVIDIA Daily Target ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "NVDQ",
+    "name": "T-REX 2X Inverse NVIDIA Daily Target ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "TSLA",
+    "name": "Tesla, Inc.",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Global Select"
+  },
+  {
+    "symbol": "TXLZF",
+    "name": "Tesla Exploration Ltd.",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "TSLT",
+    "name": "T-REX 2X Long Tesla Daily Target ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "TSLZ",
+    "name": "T-REX 2X Inverse Tesla Daily Target ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "TSLP",
+    "name": "Kurv Yield Premium Strategy Tesla ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "AMZN",
+    "name": "Amazon.com, Inc.",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Global Select"
+  },
+  {
+    "symbol": "AZFL",
+    "name": "Amazonas Florestal, Ltd",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "AMZP",
+    "name": "Kurv Yield Premium Strategy Amazon (AMZN) ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "GOOG",
+    "name": "Alphabet Inc.",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Global Select"
+  },
+  {
+    "symbol": "GOOGL",
+    "name": "Alphabet Inc.",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Global Select"
+  },
+  {
+    "symbol": "GOOGN",
+    "name": "Alphabet Inc. Depository Shs Repr 1/20th Conv Pfd Registered Shs",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ"
+  },
+  {
+    "symbol": "GOOGM",
+    "name": "Alphabet Inc. Depository Shs Repr 1/20th Conv Pfd Registered Shs",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ"
+  },
+  {
+    "symbol": "GOOX",
+    "name": "T-REX 2X Long Alphabet Daily Target ETF",
+    "currency": "USD",
+    "exchange": "CBOE",
+    "exchangeFullName": "Chicago Board Options Exchange"
+  },
+  {
+    "symbol": "META",
+    "name": "Meta Platforms, Inc.",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Global Select"
+  },
+  {
+    "symbol": "MTVA",
+    "name": "MetaVia Inc.",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Global Market"
+  },
+  {
+    "symbol": "MTST",
+    "name": "MetaStat Inc",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "MTLK",
+    "name": "Metalink Ltd.",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "MTLZF",
+    "name": "Metall Zug AG",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "MTUS",
+    "name": "Metallus Inc.",
+    "currency": "USD",
+    "exchange": "NYSE",
+    "exchangeFullName": "New York Stock Exchange"
+  },
+  {
+    "symbol": "MRNJ",
+    "name": "Metatron Inc.",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "MLRT",
+    "name": "Metalert, Inc.",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "GTXO",
+    "name": "Metalert, Inc.",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "MVCO",
+    "name": "Metavesco, Inc.",
+    "currency": "USD",
+    "exchange": "OTC",
+    "exchangeFullName": "Other OTC"
+  },
+  {
+    "symbol": "MTCR",
+    "name": "Metacrine, Inc.",
+    "currency": "USD",
+    "exchange": "NASDAQ",
+    "exchangeFullName": "NASDAQ Capital Market"
+  }
 ]

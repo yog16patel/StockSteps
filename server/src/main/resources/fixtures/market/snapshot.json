@@ -1,204 +1,175 @@
 {
-    "marketStatus": "OPEN",
+    "marketStatus": "CLOSED",
     "indices": [
         {
             "symbol": "SPY",
             "name": "S&P 500",
-            "price": 669.21,
-            "change": 3.66,
-            "changePercent": 0.55,
-            "isProxy": true
+            "price": 777.22,
+            "change": -1.87,
+            "changePercent": -0.24002,
+            "isProxy": true,
+            "error": null
         },
         {
             "symbol": "QQQ",
             "name": "Nasdaq-100",
-            "price": 602.34,
-            "change": 2.76,
-            "changePercent": 0.46,
-            "isProxy": true
+            "price": 757.73,
+            "change": -1.93,
+            "changePercent": -0.2541,
+            "isProxy": true,
+            "error": null
         },
         {
             "symbol": "DIA",
             "name": "Dow 30",
-            "price": 465.8,
-            "change": -0.56,
-            "changePercent": -0.12,
-            "isProxy": true
+            "price": 511.02,
+            "change": -3.54,
+            "changePercent": -0.688,
+            "isProxy": true,
+            "error": null
         }
     ],
     "gainers": [
         {
-            "symbol": "MOTS",
-            "name": "Motus GI Holdings, Inc.",
-            "price": 0.0002,
-            "change": 0.0001,
-            "changePercent": 100.0,
-            "exchange": "OTC",
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/MOTS.png"
+            "symbol": "SXTC",
+            "name": "China SXT Pharmaceuticals, Inc.",
+            "price": 2.83,
+            "change": 1.58,
+            "changePercent": 126.4,
+            "exchange": "NASDAQ",
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/SXTC.png"
         },
         {
-            "symbol": "NVDA",
-            "name": "NVIDIA Corporation",
-            "price": 125.48,
-            "change": 5.2,
-            "changePercent": 4.3232,
+            "symbol": "PFAI",
+            "name": "Pinnacle Food Group Limited Class A Common Shares",
+            "price": 5.07,
+            "change": 2.73,
+            "changePercent": 116.66667,
             "exchange": "NASDAQ",
-            "volume": 210000000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/NVDA.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/PFAI.png"
         },
         {
-            "symbol": "META",
-            "name": "Meta Platforms, Inc.",
-            "price": 598.1,
-            "change": 14.07,
-            "changePercent": 2.4091,
+            "symbol": "CCAQU",
+            "name": "Collective Acquisition Corp.",
+            "price": 19.49,
+            "change": 8.81,
+            "changePercent": 82.49064,
             "exchange": "NASDAQ",
-            "volume": 14500000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/META.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/CCAQU.png"
         },
         {
-            "symbol": "AMD",
-            "name": "Advanced Micro Devices, Inc.",
-            "price": 158.64,
-            "change": 3.11,
-            "changePercent": 1.9996,
+            "symbol": "SBFM",
+            "name": "Sunshine Biopharma, Inc.",
+            "price": 0.7,
+            "change": 0.3021,
+            "changePercent": 75.9236,
             "exchange": "NASDAQ",
-            "volume": 45200000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/AMD.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/SBFM.png"
         },
         {
-            "symbol": "MSFT",
-            "name": "Microsoft Corporation",
-            "price": 425.18,
-            "change": 7.72,
-            "changePercent": 1.8493,
+            "symbol": "BIYA",
+            "name": "Baiya International Group Inc.",
+            "price": 2.3,
+            "change": 0.935,
+            "changePercent": 68.49817,
             "exchange": "NASDAQ",
-            "volume": 21300000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/MSFT.png"
-        },
-        {
-            "symbol": "AMZN",
-            "name": "Amazon.com, Inc.",
-            "price": 186.42,
-            "change": 2.06,
-            "changePercent": 1.1174,
-            "exchange": "NASDAQ",
-            "volume": 38900000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/AMZN.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/BIYA.png"
         }
     ],
     "losers": [
         {
-            "symbol": "SPEC",
-            "name": "Spectaire Holdings Inc.",
-            "price": 0.0002,
-            "change": -0.002,
-            "changePercent": -90.90909,
-            "exchange": "OTC",
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/SPEC.png"
+            "symbol": "INV",
+            "name": "Innventure, Inc.",
+            "price": 0.2686,
+            "change": -0.2976,
+            "changePercent": -52.56093,
+            "exchange": "NASDAQ",
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/INV.png"
         },
         {
-            "symbol": "TSLA",
-            "name": "Tesla, Inc.",
-            "price": 241.05,
-            "change": -7.76,
-            "changePercent": -3.1188,
-            "exchange": "NASDAQ",
-            "volume": 98400000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/TSLA.png"
+            "symbol": "GCDT",
+            "name": "Green Circle Decarbonize Technology Ltd.",
+            "price": 0.727,
+            "change": -0.683,
+            "changePercent": -48.43972,
+            "exchange": "AMEX",
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/GCDT.png"
         },
         {
-            "symbol": "AAPL",
-            "name": "Apple Inc.",
-            "price": 331.85501,
-            "change": -6.33498,
-            "changePercent": -1.8732,
+            "symbol": "CRBU",
+            "name": "Caribou Biosciences, Inc.",
+            "price": 0.6174,
+            "change": -0.5176,
+            "changePercent": -45.60352,
             "exchange": "NASDAQ",
-            "volume": 28718014.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/AAPL.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/CRBU.png"
         },
         {
-            "symbol": "NFLX",
-            "name": "Netflix, Inc.",
-            "price": 702.33,
-            "change": -10.33,
-            "changePercent": -1.4495,
+            "symbol": "VCIG",
+            "name": "VCI Global Limited",
+            "price": 0.771,
+            "change": -0.639,
+            "changePercent": -45.31915,
             "exchange": "NASDAQ",
-            "volume": 3100000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/NFLX.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/VCIG.png"
         },
         {
-            "symbol": "INTC",
-            "name": "Intel Corporation",
-            "price": 22.71,
-            "change": -0.22,
-            "changePercent": -0.9594,
+            "symbol": "BULG",
+            "name": "Leverage Shares 2x Long BULL Daily ETF",
+            "price": 21.1116,
+            "change": -12.9859,
+            "changePercent": -38.08461,
             "exchange": "NASDAQ",
-            "volume": 61700000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/INTC.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/BULG.png"
         }
     ],
     "mostActive": [
         {
-            "symbol": "NVDA",
-            "name": "NVIDIA Corporation",
-            "price": 125.48,
-            "change": 5.2,
-            "changePercent": 4.3232,
-            "exchange": "NASDAQ",
-            "volume": 210000000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/NVDA.png"
+            "symbol": "TOPP",
+            "name": "Toppoint Holdings Inc.",
+            "price": 0.172,
+            "change": 0.0604,
+            "changePercent": 54.12186,
+            "exchange": "AMEX",
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/TOPP.png"
         },
         {
-            "symbol": "TSLA",
-            "name": "Tesla, Inc.",
-            "price": 241.05,
-            "change": -7.76,
-            "changePercent": -3.1188,
+            "symbol": "SBFM",
+            "name": "Sunshine Biopharma, Inc.",
+            "price": 0.7,
+            "change": 0.3021,
+            "changePercent": 75.9236,
             "exchange": "NASDAQ",
-            "volume": 98400000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/TSLA.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/SBFM.png"
         },
         {
-            "symbol": "INTC",
-            "name": "Intel Corporation",
-            "price": 22.71,
-            "change": -0.22,
-            "changePercent": -0.9594,
+            "symbol": "NIVF",
+            "name": "NewGenIvf Group Limited",
+            "price": 0.106,
+            "change": 0.0073,
+            "changePercent": 7.39615,
             "exchange": "NASDAQ",
-            "volume": 61700000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/INTC.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/NIVF.png"
         },
         {
-            "symbol": "AMD",
-            "name": "Advanced Micro Devices, Inc.",
-            "price": 158.64,
-            "change": 3.11,
-            "changePercent": 1.9996,
+            "symbol": "SXTC",
+            "name": "China SXT Pharmaceuticals, Inc.",
+            "price": 2.83,
+            "change": 1.58,
+            "changePercent": 126.4,
             "exchange": "NASDAQ",
-            "volume": 45200000.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/AMD.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/SXTC.png"
         },
         {
-            "symbol": "AAPL",
-            "name": "Apple Inc.",
-            "price": 331.85501,
-            "change": -6.33498,
-            "changePercent": -1.8732,
+            "symbol": "GIPR",
+            "name": "Generation Income Properties, Inc.",
+            "price": 0.494,
+            "change": 0.1134,
+            "changePercent": 29.79506,
             "exchange": "NASDAQ",
-            "volume": 28718014.0,
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/AAPL.png"
-        },
-        {
-            "symbol": "LUCY",
-            "name": "Innovative Eyewear, Inc.",
-            "price": 1.85,
-            "change": 0.06,
-            "changePercent": 3.35196,
-            "exchange": "NASDAQ",
-            "logoUrl": "https://images.financialmodelingprep.com/symbol/LUCY.png"
+            "logoUrl": "https://images.financialmodelingprep.com/symbol/GIPR.png"
         }
     ],
-    "lastUpdated": "2026-10-07T12:30:44Z",
+    "lastUpdated": "2026-10-07T21:13:09.309879Z",
     "errors": []
 }

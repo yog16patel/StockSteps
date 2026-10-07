@@ -36,7 +36,7 @@ import org.example.stocksteps.home.StockRowUiModel
 
 /**
  * Shared stock/company row for movers, watchlist, search results and holdings:
- * logo · ticker/company · optional sparkline · change over price.
+ * logo · ticker/company · optional sparkline · price over change.
  * `compact` is the dense list treatment; `trailing` replaces the change/price column.
  */
 @Composable
@@ -103,16 +103,16 @@ internal fun StockRow(
             if (trailing != null) {
                 trailing()
             } else {
-                if (change != null) {
-                    StockPriceChange(percentage = change, direction = direction, style = typography.numberLabelStrong)
-                }
                 if (price != null) {
                     Text(
                         text = price,
-                        style = typography.numberLabel,
-                        color = StockStepsTheme.colors.textSecondary,
+                        style = typography.numberLabelStrong,
+                        color = StockStepsTheme.colors.textPrimary,
                         maxLines = 1
                     )
+                }
+                if (change != null) {
+                    StockPriceChange(percentage = change, direction = direction, style = typography.numberLabel)
                 }
             }
         }
@@ -214,8 +214,8 @@ internal fun StockRowSkeleton(
             StockSkeleton(Modifier.width(SKELETON_NAME))
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            StockSkeleton(Modifier.width(SKELETON_CHANGE))
             StockSkeleton(Modifier.width(SKELETON_PRICE))
+            StockSkeleton(Modifier.width(SKELETON_CHANGE))
         }
     }
 }

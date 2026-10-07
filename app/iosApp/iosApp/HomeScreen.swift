@@ -29,15 +29,8 @@ struct HomeScreen: View {
                     .padding(.top, CGFloat(space.md))
                 MoversSection(movers: movers, onSelect: onSelectMovers, onOpenStock: onOpenStock, onRetry: onRetryMarket, onViewAll: onViewAllMovers)
                     .padding(.top, CGFloat(space.sectionGap))
-                StockInsightCard(
-                    title: "Learn the basics",
-                    message: "Understand how the stock market works in simple steps.",
-                    tone: .education,
-                    actionTitle: "Start learning",
-                    systemImage: "play.rectangle",
-                    action: onLearn
-                )
-                .padding(.top, CGFloat(space.sectionGap))
+                HomeLearnBanner(action: onLearn)
+                    .padding(.top, CGFloat(space.sectionGap))
                 HomeNewsSection(status: newsStatus, news: news, onOpenArticle: onOpenArticle, onRetry: onRetryNews, onViewAll: onViewAllNews)
                     .padding(.top, CGFloat(space.sectionGap))
             }

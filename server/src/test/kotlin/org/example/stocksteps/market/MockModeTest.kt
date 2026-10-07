@@ -54,6 +54,23 @@ class MockModeTest {
         assertTrue(client.get("/api/v1/stocks/NONE/news").bodyAsText().trim() == "[]")
     }
 
+    @Test fun sampleFallbackFillsMissingTickersConsistently() = runBlocking {
+        val sampled = FixtureMarketDataSource(root = "test-fixtures", now = { Instant.parse("2026-10-01T14:00:00Z") }, sampleFallback = true)
+        val quote = assertNotNull(sampled.getQuote("NONE"))
+        assertEquals(quote, sampled.getQuote("none"), "sample values are stable per symbol")
+        assertNotNull(sampled.getProfile("NONE")?.companyName)
+        val intraday = sampled.getIntradayPoints("NONE")
+        assertEquals(quote.previousClose, intraday.first().close)
+        assertEquals(quote.price, intraday.last().close)
+        assertEquals(quote.price, sampled.getDailyCloses("NONE").last().close)
+        assertEquals(intraday.map { it.close }, sampled.getIntradaySparkline("NONE").closes)
+        assertTrue(sampled.getFundamentals("NONE", "annual").valuation.metrics.isNotEmpty())
+        // Captured data still wins, and fixture-only content stays absent.
+        assertEquals(fixtures.getQuote("SMPL"), sampled.getQuote("SMPL"))
+        assertNull(sampled.getWhyMoving("NONE"))
+        assertTrue(sampled.getCompanyNews("NONE").isEmpty())
+    }
+
     @Test fun newsTimesShiftWithFixtureAge() = runBlocking {
         // Captured 2026-10-01T12:00Z, "now" two hours later: an article from 10:00 becomes 12:00.
         val news = fixtures.getNews(page = 0, limit = 1)
@@ -78,6 +95,9 @@ class MockModeTest {
                     path.endsWith("/profile.json") -> json.decodeFromString(CompanyProfile.serializer(), text)
                     path.endsWith("/sparkline.json") -> json.decodeFromString(Sparkline.serializer(), text)
                     path.contains("/fundamentals-") -> json.decodeFromString(CompanyFundamentals.serializer(), text)
+                    path.endsWith("/chart-daily.json") || path.endsWith("/chart-intraday.json") ->
+                        json.decodeFromString(ListSerializer(PricePoint.serializer()), text)
+                    path.endsWith("/why-moving.json") -> json.decodeFromString(WhyMoving.serializer(), text)
                     else -> fail("Unexpected fixture file: $path")
                 }
             }.onFailure { fail("Fixture $path does not match the public contract: ${it.message}") }

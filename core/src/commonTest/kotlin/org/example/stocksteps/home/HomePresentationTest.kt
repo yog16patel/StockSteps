@@ -51,6 +51,13 @@ class HomePresentationTest {
         assertFalse(market.partiallyUnavailable)
     }
 
+    @Test fun indexCardsCarryOnlyRealSparklines() {
+        val market = HomePresentation.market(snapshot(), loading = false, failed = false, maxIndices = 2, sparklines = mapOf("SPY" to listOf(1.0, 2.0), "QQQ" to listOf(1.0)))
+        assertEquals(listOf(1.0, 2.0), market.indices[0].sparkline)
+        assertNull(market.indices[1].sparkline)
+        assertEquals(listOf("SPY", "QQQ"), HomePresentation.visibleIndexSymbols(snapshot()))
+    }
+
     @Test fun closedMarketIsContentNotError() {
         val market = HomePresentation.market(snapshot(status = MarketStatus.CLOSED), loading = false, failed = false, maxIndices = 3)
         assertEquals(SectionStatus.SUCCESS, market.status)

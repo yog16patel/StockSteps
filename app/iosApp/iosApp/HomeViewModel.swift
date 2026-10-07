@@ -64,7 +64,7 @@ final class HomeViewModel {
     private(set) var logos: [String: String] = [:]
     @ObservationIgnored private var requestedLogos = Set<String>()
     var market: MarketSnapshotUiModel {
-        HomePresentation.shared.market(snapshot: snapshot, loading: snapshotLoading, failed: snapshotError != nil, maxIndices: HomePresentation.shared.HOME_MARKET_CARDS)
+        HomePresentation.shared.market(snapshot: snapshot, loading: snapshotLoading, failed: snapshotError != nil, maxIndices: HomePresentation.shared.HOME_MARKET_CARDS, sparklines: sparklines)
     }
     var movers: MoversUiModel {
         HomePresentation.shared.movers(snapshot: snapshot, loading: snapshotLoading, failed: snapshotError != nil, category: selectedMovers, sparklines: sparklines, logos: logos)
@@ -111,7 +111,8 @@ final class HomeViewModel {
 
     /// Requested once per symbol until the next refresh; failures leave the row without a line.
     private func loadSparklines() {
-        let symbols = HomePresentation.shared.visibleMoverSymbols(snapshot: snapshot, category: selectedMovers)
+        let symbols = HomePresentation.shared.visibleIndexSymbols(snapshot: snapshot)
+            + HomePresentation.shared.visibleMoverSymbols(snapshot: snapshot, category: selectedMovers)
         for symbol in symbols where requestedSparklines.insert(symbol).inserted {
             Task { [weak self] in
                 guard let self, let line = try? await service.sparkline(symbol: symbol) else { return }

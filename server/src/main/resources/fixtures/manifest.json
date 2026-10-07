@@ -1,4 +1,4 @@
 {
-    "capturedAt": "2026-10-07T12:30:44Z",
-    "source": "Mixed: owner-supplied provider responses (AAPL quote, MOTS/SPEC/LUCY movers, market hours, one news article) plus synthetic sample values (index cards, other movers, quotes, sparklines, sample news). Not market data."
+  "capturedAt": "2026-10-07T21:15:00Z",
+  "source": "Mostly captured from the StockSteps REAL backend public API (snapshot, news, quotes, profiles, daily charts, fundamentals, search). Synthetic sample values remain where the provider plan returned nothing: 1D intraday charts, sparklines, why-moving, LONGN and the older sample movers."
 }

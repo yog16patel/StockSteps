@@ -13,6 +13,7 @@ import java.util.Locale
 import org.example.stocksteps.appconfig.AppConfig
 import org.example.stocksteps.appconfig.DataMode
 import org.example.stocksteps.model.BackendInfo
+import org.example.stocksteps.model.ChartRange
 import org.example.stocksteps.repository.MarketDataProvider
 import org.example.stocksteps.repository.PriceHistoryProvider
 import org.example.stocksteps.repository.StockProviderRepository
@@ -72,6 +73,15 @@ fun Application.module() {
         marketSnapshotRoutes(org.example.stocksteps.service.MarketSnapshotService(sources.marketData))
         newsRoutes(sources.news)
         sparklineRoutes(org.example.stocksteps.service.SparklineService(sources.priceHistory))
+        companyDetailsRoutes(
+            details = org.example.stocksteps.service.CompanyDetailsService(
+                stocks = stockService,
+                financials = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider),
+                marketData = sources.marketData
+            ),
+            charts = org.example.stocksteps.service.PriceChartService(sources.priceHistory),
+            whyMoving = org.example.stocksteps.service.WhyMovingService(sources.whyMoving)
+        )
     }
 
 }
@@ -182,7 +192,9 @@ private class DataSources(
     val quoteProvider: StockQuoteProviderRepository,
     val marketData: MarketDataProvider,
     val priceHistory: PriceHistoryProvider,
-    val news: NewsService
+    val news: NewsService,
+    /** Null until the real explanation pipeline exists; the endpoint then reports "unavailable". */
+    val whyMoving: org.example.stocksteps.service.WhyMovingSource? = null
 )
 
 private fun Application.realDataSources(): DataSources {
@@ -211,8 +223,54 @@ private fun Application.realDataSources(): DataSources {
     )
 }
 
-/** Captured fixtures only: no provider keys, network calls, Gemini or Firestore. */
+/** Captured fixtures plus sample values for gaps: no provider keys, network calls, Gemini or Firestore. */
 private fun mockDataSources(): DataSources {
-    val fixtures = FixtureMarketDataSource()
-    return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null))
+    val fixtures = FixtureMarketDataSource(sampleFallback = true)
+    return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null), whyMoving = fixtures)
+}
+
+fun Route.companyDetailsRoutes(
+    details: org.example.stocksteps.service.CompanyDetailsService,
+    charts: org.example.stocksteps.service.PriceChartService,
+    whyMoving: org.example.stocksteps.service.WhyMovingService
+) {
+    route("/api/v1/stocks/{symbol}") {
+        get("/details") {
+            val symbol = call.validSymbol() ?: return@get
+            call.respond(details.getDetails(symbol))
+        }
+        get("/chart") {
+            val symbol = call.validSymbol() ?: return@get
+            val range = ChartRange.parse(call.request.queryParameters["range"] ?: "1M")
+            if (range == null) {
+                call.respond(HttpStatusCode.BadRequest, ApiError("INVALID_RANGE", "Range must be 1D, 1W, 1M, 3M, 1Y, 5Y or ALL."))
+                return@get
+            }
+            val chart = charts.getChart(symbol, range)
+            if (chart == null) {
+                call.respond(HttpStatusCode.NotFound, ApiError("CHART_NOT_FOUND", "Price history is not available for this range."))
+                return@get
+            }
+            call.respond(chart)
+        }
+        get("/why-moving") {
+            val symbol = call.validSymbol() ?: return@get
+            val explanation = whyMoving.getWhyMoving(symbol)
+            if (explanation == null) {
+                call.respond(HttpStatusCode.NotFound, ApiError("WHY_MOVING_UNAVAILABLE", "An explanation for this move is not available yet."))
+                return@get
+            }
+            call.respond(explanation)
+        }
+    }
+}
+
+/** Same symbol rule as the other stock routes; responds 400 and returns null when invalid. */
+private suspend fun io.ktor.server.application.ApplicationCall.validSymbol(): String? {
+    val symbol = parameters["symbol"]?.uppercase(Locale.ROOT)
+    if (symbol == null || !Regex("[A-Z0-9][A-Z0-9.-]{0,19}").matches(symbol)) {
+        respond(HttpStatusCode.BadRequest, ApiError("INVALID_SYMBOL", "Use a stock symbol of 1–20 letters, digits, dots, or hyphens."))
+        return null
+    }
+    return symbol
 }

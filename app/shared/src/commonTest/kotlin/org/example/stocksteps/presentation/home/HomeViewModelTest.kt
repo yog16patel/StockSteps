@@ -118,7 +118,9 @@ class HomeViewModelTest {
             model.selectMovers(org.example.stocksteps.home.MoverCategory.GAINERS)
             runCurrent()
             assertEquals(listOf(1.0, 2.0), model.state.value.movers.rows.single().sparkline)
-            assertEquals(listOf("UP", "DOWN"), sparklineRequests)
+            // Index cards request their trend line once, alongside the visible movers.
+            assertEquals(listOf("SPY", "UP", "DOWN"), sparklineRequests)
+            assertEquals(listOf(1.0, 2.0), model.state.value.market.indices.first().sparkline)
             assertEquals(org.example.stocksteps.companydetail.SectionStatus.ERROR, model.state.value.newsStatus)
             assertEquals(org.example.stocksteps.companydetail.SectionStatus.SUCCESS, model.state.value.market.status)
         } finally { store.clear(); Dispatchers.resetMain() }

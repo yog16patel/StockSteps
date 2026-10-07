@@ -1,7 +1,6 @@
 package org.example.stocksteps.designsystem.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -15,7 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 
-/** Compact single-choice filter (movers, periods, Annual/Quarterly): 28dp visual, 48dp touch target. Place in a `selectableGroup()`. */
+/** Compact single-choice pill filter (movers, periods, Annual/Quarterly): 34dp visual, 48dp touch target. Place in a `selectableGroup()`. */
 @Composable
 internal fun StockChip(
     text: String,
@@ -24,7 +23,7 @@ internal fun StockChip(
     modifier: Modifier = Modifier
 ) {
     val colors = StockStepsTheme.colors
-    val shape = StockStepsTheme.shapes.chip
+    val shape = StockStepsTheme.shapes.pill
     Box(
         modifier = modifier
             .minimumInteractiveComponentSize()
@@ -32,9 +31,8 @@ internal fun StockChip(
             .clip(shape)
             // Strong blue selection; PrimaryDark keeps white text above 4.5:1 (Primary is 3.7:1).
             .background(if (selected) colors.primaryDark else colors.surfaceSecondary)
-            .border(StockStepsTheme.dimensions.border, if (selected) colors.primaryDark else colors.borderSubtle, shape)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
-            .padding(horizontal = StockStepsTheme.spacing.md),
+            .padding(horizontal = StockStepsTheme.spacing.lg),
         contentAlignment = Alignment.Center
     ) {
         Text(

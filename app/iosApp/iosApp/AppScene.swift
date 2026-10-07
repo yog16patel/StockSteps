@@ -9,6 +9,8 @@ struct AppScene: View {
     @State private var showingSearch = false
     @State private var initialStock: StockSearchResult?
     @State private var selectedTab = AppRoute.home
+    /// Symbol of the Company Details page pushed on the main stack (Home, Watchlist and Search share it).
+    @State private var detailsSymbol: String?
 
 
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
@@ -23,10 +25,7 @@ struct AppScene: View {
         NavigationStack {
             TabView(selection: $selectedTab) {
                 HomeScene(model: homeModel, accounts: accounts, onLearn: { selectedTab = .learn }) { symbol in
-                    initialStock = accounts.state.items.first { $0.symbol == symbol }?.listing() ?? StockSearchResult(symbol: symbol, name: symbol, currency: nil, exchange: nil, exchangeFullName: nil)
-                    searchModel.query = symbol
-                    searchModel.scheduleSearch()
-                    showingSearch = true
+                    detailsSymbol = symbol
                 }
                 .tabItem { Label("Home", systemImage: "house") }
                 .tag(AppRoute.home)
@@ -47,6 +46,9 @@ struct AppScene: View {
             // Home and Settings show their own compact headers instead of a navigation title.
             .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .settings))
             // Every client reads the URL per request; reload Home so its data matches the new backend.
+            .navigationDestination(item: $detailsSymbol) { symbol in
+                CompanyDetailsScene(symbol: symbol, accounts: accounts)
+            }
             .onChange(of: backendEnvironment) { _, _ in
                 homeModel.refreshIndices()
                 homeModel.refreshNews()
@@ -62,7 +64,12 @@ struct AppScene: View {
             }.interactiveDismissDisabled(accounts.state.busy)
         }
         .sheet(isPresented: $showingSearch) {
-            StockSearchScene(model: searchModel, accounts: accounts, initialStock: initialStock, onClose: { showingSearch = false })
+            StockSearchScene(model: searchModel, accounts: accounts, initialStock: initialStock, onClose: { showingSearch = false },
+                             onOpenStock: { stock in
+                                 // Close search, then push the shared Company Details page.
+                                 showingSearch = false
+                                 detailsSymbol = stock.symbol
+                             })
         }
     }
     private var tabTitle: String {
@@ -74,9 +81,6 @@ struct AppScene: View {
         }
     }
     private func explore(_ symbol: String) {
-        initialStock = accounts.state.items.first { $0.symbol == symbol }?.listing() ?? StockSearchResult(symbol: symbol, name: symbol, currency: nil, exchange: nil, exchangeFullName: nil)
-        searchModel.query = symbol
-        searchModel.scheduleSearch()
-        showingSearch = true
+        detailsSymbol = symbol
     }
 }

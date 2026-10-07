@@ -1,11 +1,11 @@
 {
     "symbol": "TSLA",
-    "companyName": "Tesla, Inc.",
-    "price": 241.05,
-    "change": -7.76,
-    "changePercent": -3.1188,
-    "previousClose": 248.81,
-    "dayHigh": 250.8005,
-    "dayLow": 239.1216,
-    "volume": 98400000
+    "companyName": null,
+    "price": 377.81,
+    "change": -2.87,
+    "changePercent": -0.7539,
+    "dayHigh": 382.3499,
+    "dayLow": 374.43,
+    "previousClose": 380.68,
+    "timestamp": 1791403200
 }

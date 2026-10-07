@@ -9,6 +9,7 @@ import org.example.stocksteps.repository.MarketDataProvider
 import org.example.stocksteps.repository.NewsProviderRepository
 import org.example.stocksteps.repository.PriceHistoryProvider
 import org.example.stocksteps.repository.StockProviderRepository
+import org.example.stocksteps.service.WhyMovingSource
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
@@ -16,19 +17,23 @@ import java.util.Locale
 /**
  * MOCK-mode data: responses previously captured from the REAL backend's public API
  * (see `scripts/capture-fixtures.sh`), served with no provider calls. Missing fixtures
- * behave like the provider having no data (404/empty), never like fabricated values.
+ * behave like the provider having no data (404/empty), unless [sampleFallback] is on: then
+ * quotes, profiles, price series and fundamentals come from [SampleMarketData] instead, and
+ * stored series that no longer match the quote are replaced too. Why-moving and news stay
+ * fixture-only so their unavailable states remain testable.
  *
  * Layout under [root]: `manifest.json`, `market/snapshot.json`, `stocks/search.json`,
- * `stocks/{SYMBOL}/{quote,profile,sparkline,fundamentals-annual,fundamentals-quarter}.json`,
+ * `stocks/{SYMBOL}/{quote,profile,sparkline,chart-intraday,chart-daily,why-moving,fundamentals-annual,fundamentals-quarter}.json`,
  * `news/market.json`, `news/company/{SYMBOL}.json`.
  */
 class FixtureMarketDataSource(
     private val root: String = "fixtures",
     private val now: () -> Instant = Instant::now,
+    private val sampleFallback: Boolean = false,
     private val read: (String) -> String? = { path ->
         FixtureMarketDataSource::class.java.classLoader.getResource(path)?.readText()
     }
-) : StockProviderRepository, MarketDataProvider, NewsProviderRepository, PriceHistoryProvider {
+) : StockProviderRepository, MarketDataProvider, NewsProviderRepository, PriceHistoryProvider, WhyMovingSource {
 
     @Serializable
     private data class Manifest(val capturedAt: String)
@@ -43,6 +48,14 @@ class FixtureMarketDataSource(
     }
 
     private val snapshot: MarketSnapshot? by lazy { load("market/snapshot.json", MarketSnapshot.serializer()) }
+    private val sample = SampleMarketData(now)
+
+    /** Names known from the snapshot or search fixtures, so sample values keep a real company name. */
+    private val knownNames: Map<String, String> by lazy {
+        val movers = snapshot?.let { it.gainers + it.losers + it.mostActive }.orEmpty().mapNotNull { m -> m.name?.let { m.symbol to it } }
+        val search = load("stocks/search.json", ListSerializer(StockSearchResult.serializer())).orEmpty().map { it.symbol to it.name }
+        (search + movers).toMap()
+    }
 
     override suspend fun searchStocks(query: String): List<StockSearchResult> {
         val needle = query.trim().lowercase(Locale.ROOT)
@@ -51,12 +64,35 @@ class FixtureMarketDataSource(
         }
     }
 
-    override suspend fun getQuote(symbol: String): StockQuote? = stock(symbol, "quote", StockQuote.serializer())
-    override suspend fun getProfile(symbol: String): CompanyProfile? = stock(symbol, "profile", CompanyProfile.serializer())
+    override suspend fun getQuote(symbol: String): StockQuote? =
+        stock(symbol, "quote", StockQuote.serializer()) ?: withSample(symbol) { sample.quote(it, knownNames[it]) }
+    override suspend fun getProfile(symbol: String): CompanyProfile? =
+        stock(symbol, "profile", CompanyProfile.serializer()) ?: withSample(symbol) { sample.profile(it, knownNames[it]) }
     override suspend fun getFundamentals(symbol: String, period: String): CompanyFundamentals =
-        stock(symbol, "fundamentals-$period", CompanyFundamentals.serializer()) ?: CompanyFundamentals(symbol)
-    override suspend fun getIntradaySparkline(symbol: String): Sparkline =
-        stock(symbol, "sparkline", Sparkline.serializer()) ?: Sparkline(symbol, emptyList())
+        stock(symbol, "fundamentals-$period", CompanyFundamentals.serializer())
+            ?: withSample(symbol) { s -> getQuote(s)?.let { sample.fundamentals(s, period, it) } }
+            ?: CompanyFundamentals(symbol)
+
+    override suspend fun getIntradaySparkline(symbol: String): Sparkline {
+        val stored = stock(symbol, "sparkline", Sparkline.serializer())
+        if (!sampleFallback || stored != null && SampleMarketData.matches(stored.closes, quoteFor(symbol)?.price, INTRADAY_TOLERANCE)) {
+            return stored ?: Sparkline(symbol, emptyList())
+        }
+        val closes = getIntradayPoints(symbol).map { it.close }
+        return Sparkline(symbol, closes, sessionDate = quoteFor(symbol)?.let { sample.sessionDate(it).toString() })
+    }
+
+    override suspend fun getIntradayPoints(symbol: String): List<PricePoint> =
+        series(symbol, "chart-intraday", INTRADAY_TOLERANCE) { s, quote ->
+            val price = quote.price ?: return@series emptyList()
+            sample.intraday(s, quote.previousClose ?: price, price, sample.sessionDate(quote))
+        }
+
+    override suspend fun getDailyCloses(symbol: String): List<PricePoint> =
+        series(symbol, "chart-daily", DAILY_TOLERANCE) { s, quote ->
+            quote.price?.let { sample.dailyCloses(s, it, sample.sessionDate(quote)) }.orEmpty()
+        }
+    override suspend fun getWhyMoving(symbol: String): WhyMoving? = stock(symbol, "why-moving", WhyMoving.serializer())
 
     override suspend fun getMarketIndices(): List<MarketIndex> = snapshot?.indices.orEmpty()
     override suspend fun getGainers(): List<MarketMover> = snapshot?.gainers.orEmpty()
@@ -77,6 +113,23 @@ class FixtureMarketDataSource(
     private fun shifted(timestamp: String): String =
         runCatching { Instant.parse(timestamp).plus(age).toString() }.getOrDefault(timestamp)
 
+    /** A stored price series, or a sample one ending at the quote when it is missing or stale. */
+    private suspend fun series(
+        symbol: String, name: String, tolerance: Double,
+        generate: (String, StockQuote) -> List<PricePoint>
+    ): List<PricePoint> {
+        val stored = stock(symbol, name, ListSerializer(PricePoint.serializer())).orEmpty()
+        if (!sampleFallback) return stored
+        val quote = quoteFor(symbol) ?: return stored
+        if (SampleMarketData.matches(stored.map { it.close }, quote.price, tolerance)) return stored
+        return generate(safeSymbol(symbol) ?: return stored, quote)
+    }
+
+    private suspend fun quoteFor(symbol: String): StockQuote? = getQuote(symbol)
+
+    private inline fun <T> withSample(symbol: String, block: (String) -> T?): T? =
+        if (sampleFallback) safeSymbol(symbol)?.let(block) else null
+
     private fun <T> stock(symbol: String, name: String, serializer: KSerializer<T>): T? =
         safeSymbol(symbol)?.let { load("stocks/$it/$name.json", serializer) }
 
@@ -89,5 +142,8 @@ class FixtureMarketDataSource(
 
     private companion object {
         val SYMBOL = Regex("[A-Z0-9][A-Z0-9.-]{0,19}")
+        /** Stored series whose last close is further than this from the quote are replaced. */
+        const val INTRADAY_TOLERANCE = 0.03
+        const val DAILY_TOLERANCE = 0.15
     }
 }

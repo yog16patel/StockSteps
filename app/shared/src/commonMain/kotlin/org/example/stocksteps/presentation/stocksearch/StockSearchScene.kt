@@ -15,7 +15,8 @@ internal fun StockSearchScene(
     backend: org.example.stocksteps.settings.BackendRouter,
     environment: org.example.stocksteps.settings.BackendEnvironment,
     hinge: WindowHinge?,
-    accounts: org.example.stocksteps.di.AccountDependencies? = null
+    accounts: org.example.stocksteps.di.AccountDependencies? = null,
+    onOpenStock: ((StockSearchResult) -> Unit)? = null
 ) {
     var savedQuery by rememberSaveable { mutableStateOf("") }
     var savedSelection by rememberSaveable(stateSaver = listSaver<StockSearchResult?, String>(
@@ -48,7 +49,8 @@ internal fun StockSearchScene(
         state = state,
         hinge = hinge,
         onQueryChange = model::changeQuery,
-        onSelect = model::selectStock,
+        // Results open the shared Company Details page; inline selection remains only as a fallback.
+        onSelect = { stock -> onOpenStock?.invoke(stock) ?: model.selectStock(stock) },
         onRetryQuote = model::retryQuote,
         onRetryProfile = model::retryProfile,
         saved = state.selected?.symbol in watchlistState.symbols,

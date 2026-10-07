@@ -56,7 +56,7 @@ object ThemeDimensions {
     val topBarMaxHeight = 56
     val bottomBarHeight = 56
     val rowMinHeight = 56
-    val chipHeight = 28
+    val chipHeight = 34
     val buttonHeight = 44
     val searchHeight = 44
     val border = 1
@@ -71,8 +71,15 @@ object ThemeDimensions {
     val sparklineHeight = 28
     val sparklineStroke = 1.5f
     val statusDot = 8
+    // Read-only market-status switch: track and thumb.
+    val statusSwitchWidth = 32
+    val statusSwitchHeight = 18
+    val statusSwitchThumb = 14
     val avatar = 44
+    val chartHeight = 160
     val educationIcon = 44
+    val learnIllustration = 64
+    val learnAction = 36
     // Below this width, or above this font scale, side-by-side values stack.
     val multiColumnMinWidth = 300
     val largeFontScale = 1.3f

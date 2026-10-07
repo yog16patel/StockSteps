@@ -29,7 +29,12 @@ import java.time.Instant
  */
 fun main(args: Array<String>) {
     val (kind, inputPath, outputRoot) = args.toList().also { require(it.size == 3) { "usage: <kind> <input> <fixturesDir>" } }
-    val written = FixtureImporter(File(outputRoot)).import(kind, File(inputPath).readText())
+    val input = File(inputPath)
+    if (!input.isFile) {
+        System.err.println("Input file not found: ${input.absolutePath}\nSave the provider response there first, or pass -Pinput=/full/path/to/file.json")
+        kotlin.system.exitProcess(1)
+    }
+    val written = FixtureImporter(File(outputRoot)).import(kind, input.readText())
     written.forEach { println("saved  ${it.relativeTo(File(outputRoot))}") }
 }
 

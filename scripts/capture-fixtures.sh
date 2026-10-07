@@ -36,6 +36,19 @@ fetch() {
   esac
 }
 
+# fetch_points <api path> <fixture path>: saves only the "points" array of a PriceChart response.
+fetch_points() {
+  local before=""
+  [[ -f "$OUT/$2" ]] && before="$(cksum < "$OUT/$2")"
+  fetch "$1" "$2"
+  [[ -f "$OUT/$2" && "$(cksum < "$OUT/$2")" != "$before" ]] || return 0
+  python3 -c '
+import json,sys
+p=sys.argv[1]; d=json.load(open(p))
+if isinstance(d,dict): json.dump(d.get("points",[]), open(p,"w"), indent=4)
+' "$OUT/$2"
+}
+
 mkdir -p "$OUT"
 fetch /api/v1/market/snapshot market/snapshot.json
 fetch "/api/v1/news?page=0&limit=20" news/market.json
@@ -60,6 +73,11 @@ for symbol in $symbols; do
 done
 for symbol in $EXTRA_SYMBOLS; do
   fetch "/api/v1/stocks/$symbol/news" "news/company/$symbol.json"
+done
+# Company Details charts: 1D intraday and the full daily history other ranges are sliced from.
+for symbol in $EXTRA_SYMBOLS; do
+  fetch_points "/api/v1/stocks/$symbol/chart?range=1D" "stocks/$symbol/chart-intraday.json"
+  fetch_points "/api/v1/stocks/$symbol/chart?range=ALL" "stocks/$symbol/chart-daily.json"
 done
 for symbol in $FUNDAMENTALS_SYMBOLS; do
   fetch "/api/v1/stocks/$symbol/fundamentals?period=annual" "stocks/$symbol/fundamentals-annual.json"

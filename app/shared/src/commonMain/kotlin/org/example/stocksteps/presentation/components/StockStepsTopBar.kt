@@ -15,7 +15,8 @@ internal fun StockStepsTopBar(
     onBack: () -> Unit = {},
     onAction: (String) -> Unit = {},
     backIcon: @Composable () -> Unit = { Text("Back") },
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    trailing: (@Composable androidx.compose.foundation.layout.RowScope.() -> Unit)? = null
 ) {
     if (!configuration.visible) return
     TopAppBar(
@@ -46,6 +47,7 @@ internal fun StockStepsTopBar(
             }
         },
         actions = {
+            trailing?.invoke(this)
             configuration.actions.forEach { action ->
                 TextButton(onClick = { onAction(action.id) }, enabled = action.enabled) {
                     Text(action.label)

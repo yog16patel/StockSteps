@@ -1,11 +1,11 @@
 {
     "symbol": "AMZN",
-    "companyName": "Amazon.com, Inc.",
-    "price": 186.42,
-    "change": 2.06,
-    "changePercent": 1.1174,
-    "previousClose": 184.36,
-    "dayHigh": 187.9114,
-    "dayLow": 182.8851,
-    "volume": 38900000
+    "companyName": null,
+    "price": 259.92,
+    "change": 3.63,
+    "changePercent": 1.4164,
+    "dayHigh": 260.14,
+    "dayLow": 253.17,
+    "previousClose": 256.29,
+    "timestamp": 1791403200
 }

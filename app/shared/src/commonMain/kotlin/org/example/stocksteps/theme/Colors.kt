@@ -47,6 +47,11 @@ data class ThemePalette(
     // Warm surface for learning content; deliberately separate from Warning semantics.
     val educationContainer: Int,
     val educationAccent: Int,
+    // Home "Learn the basics" banner: soft lavender-to-blue gradient with an indigo accent.
+    val learnContainerStart: Int,
+    val learnContainerEnd: Int,
+    val learnAccent: Int,
+    val onLearnAccent: Int,
     // Brand logos are drawn for light backgrounds, so their tile stays light in dark mode.
     val logoContainer: Int
 ) {
@@ -72,7 +77,8 @@ object ThemeColors {
         textTertiary = 0x64748B, textDisabled = 0x94A3B8,
         iconPrimary = 0x1E293B, iconSecondary = 0x64748B,
         primaryText = 0x0866C6, positiveText = 0x0E7F54, negativeText = 0xD13338,
-        educationContainer = 0xFFF4E6, educationAccent = 0xE07B1F, logoContainer = 0xFFFFFF
+        educationContainer = 0xFFF4E6, educationAccent = 0xE07B1F, logoContainer = 0xFFFFFF,
+        learnContainerStart = 0xF1ECFF, learnContainerEnd = 0xE6F0FF, learnAccent = 0x3A3FB8, onLearnAccent = 0xFFFFFF
     )
 
     // Dark is not an inverted light theme: navy grounds, lighter surfaces, subtle borders.
@@ -91,6 +97,7 @@ object ThemeColors {
         textTertiary = 0x718091, textDisabled = 0x526171,
         iconPrimary = 0xEAF0F6, iconSecondary = 0x8FA0B2,
         primaryText = 0x62AEFF, positiveText = 0x20D98B, negativeText = 0xFF5B57,
-        educationContainer = 0x2A2116, educationAccent = 0xF5B942, logoContainer = 0xE8EEF4
+        educationContainer = 0x2A2116, educationAccent = 0xF5B942, logoContainer = 0xE8EEF4,
+        learnContainerStart = 0x221D45, learnContainerEnd = 0x132A4A, learnAccent = 0xB4B8FF, onLearnAccent = 0x0D1B2A
     )
 }

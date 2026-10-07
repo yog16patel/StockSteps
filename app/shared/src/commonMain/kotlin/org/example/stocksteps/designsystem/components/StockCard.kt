@@ -15,7 +15,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 
-/** Groups related information: semantic surface, 12dp radius, 1dp border, no heavy shadow. */
+/**
+ * Groups related information: semantic surface, 12dp radius, 1dp border, no heavy shadow.
+ * `bordered = false` keeps the plain surface without the outline (Home sections).
+ */
 @Composable
 internal fun StockCard(
     modifier: Modifier = Modifier,
@@ -24,6 +27,7 @@ internal fun StockCard(
     containerColor: Color = StockStepsTheme.colors.surface,
     borderColor: Color = StockStepsTheme.colors.border,
     contentPadding: PaddingValues = PaddingValues(StockStepsTheme.spacing.cardPadding),
+    bordered: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val shape = StockStepsTheme.shapes.card
@@ -32,7 +36,7 @@ internal fun StockCard(
             .fillMaxWidth()
             .clip(shape)
             .background(containerColor)
-            .border(StockStepsTheme.dimensions.border, borderColor, shape)
+            .then(if (bordered) Modifier.border(StockStepsTheme.dimensions.border, borderColor, shape) else Modifier)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(onClickLabel = onClickLabel, role = Role.Button, onClick = onClick)

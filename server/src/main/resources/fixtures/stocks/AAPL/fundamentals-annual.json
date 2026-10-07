@@ -1,0 +1,359 @@
+{
+    "symbol": "AAPL",
+    "financials": {
+        "growth": {
+            "revenue": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "revenueGrowth": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "revenueCagr3": {
+                "availability": "INSUFFICIENT_HISTORY",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "revenueCagr5": {
+                "availability": "INSUFFICIENT_HISTORY",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "netIncome": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "netIncomeGrowth": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "eps": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "epsGrowth": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "epsCagr3": {
+                "availability": "INSUFFICIENT_HISTORY",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "epsCagr5": {
+                "availability": "INSUFFICIENT_HISTORY",
+                "basis": {
+                    "period": "annual"
+                }
+            }
+        },
+        "profitability": {
+            "grossMargin": {
+                "value": 48.65291555900202,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "operatingMargin": {
+                "value": 33.17295848747812,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "netMargin": {
+                "value": 27.618604910212223,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "roe": {
+                "value": 137.18365457766524,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "roa": {
+                "value": 33.639821951334056,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "roic": {
+                "value": 51.86736691216669,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            }
+        },
+        "financialHealth": {
+            "cash": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "debt": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "assets": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "liabilities": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "equity": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "netDebt": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "debtEquity": {
+                "value": 0.7841052827380952,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "currentRatio": {
+                "value": 1.0032948046555858,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "quickRatio": {
+                "value": 0.9290143712414449,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "interestCoverage": {
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "netDebtEbitda": {
+                "value": 0.2656778604750543,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            }
+        },
+        "cashFlow": {
+            "operatingCashFlow": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "capex": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "freeCashFlow": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "fcfMargin": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            }
+        },
+        "shareholderReturns": {
+            "dividendYield": {
+                "value": 0.314848,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "dividendPerShare": {
+                "value": 1.06,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "dividendGrowth": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "calendar year",
+                    "fiscalYear": 2025
+                }
+            },
+            "payoutRatio": {
+                "value": 12.130613511207631,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "buybacks": {
+                "availability": "TEMPORARILY_UNAVAILABLE",
+                "basis": {
+                    "period": "annual"
+                }
+            },
+            "shares": {
+                "amount": 14594180000,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "point in time",
+                    "date": "2026-10-06 22:37:15"
+                }
+            },
+            "sharesChange5": {
+                "basis": {
+                    "period": "annual"
+                }
+            }
+        }
+    },
+    "valuation": {
+        "metrics": {
+            "pe": {
+                "value": 38.43264840182649,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "peg": {
+                "value": 1.1743309233891415,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "priceSales": {
+                "value": 10.592434701203667,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "priceBook": {
+                "value": 46.00566429547992,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "priceFcf": {
+                "value": 36.17708233298947,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "enterpriseValue": {
+                "amount": 4989555144520,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "evEbitda": {
+                "value": 29.614063747254963,
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "TTM"
+                }
+            },
+            "forwardPe": {
+                "basis": {
+                    "period": "next fiscal year estimate",
+                    "date": "2027-09-27"
+                }
+            }
+        },
+        "historical": {
+            "pe": {},
+            "priceSales": {},
+            "priceBook": {},
+            "priceFcf": {},
+            "evEbitda": {}
+        }
+    },
+    "datasets": {
+        "income": "TEMPORARILY_UNAVAILABLE",
+        "annualIncome": "TEMPORARILY_UNAVAILABLE",
+        "balance": "TEMPORARILY_UNAVAILABLE",
+        "cashFlow": "TEMPORARILY_UNAVAILABLE",
+        "ratiosTtm": "AVAILABLE",
+        "keyMetricsTtm": "AVAILABLE",
+        "historicalRatios": "TEMPORARILY_UNAVAILABLE",
+        "incomeTtm": "TEMPORARILY_UNAVAILABLE",
+        "cashFlowTtm": "TEMPORARILY_UNAVAILABLE",
+        "estimates": "AVAILABLE",
+        "dividends": "TEMPORARILY_UNAVAILABLE",
+        "shares": "AVAILABLE"
+    },
+    "retrievedAt": "2026-10-07T21:13:43.554575Z"
+}

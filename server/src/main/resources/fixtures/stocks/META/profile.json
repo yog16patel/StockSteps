@@ -1,8 +1,10 @@
 {
     "symbol": "META",
     "companyName": "Meta Platforms, Inc.",
+    "description": "Meta Platforms Inc., which operated as Facebook, Inc. until its October 2021 rebranding, is a technology enterprise focused on developing innovative products that empower people globally to connect and share with their friends and family. These services are accessible across a variety of digital platforms, including mobile phones, personal computers, virtual reality devices, and wearables. The company's activities are organized into two principal divisions: the Family of Apps and Reality Labs. The Family of Apps segment encompasses well-known platforms such as: Facebook, where users can share content, participate in discussions, explore new interests, and build connections. Instagram, a vibrant community dedicated to sharing visual media like photos and videos, sending private messages, and utilizing features such as user feeds, ephemeral stories, short video reels, live streams, and integrated shopping functionalities. Messenger, a dedicated application that facilitates text, audio, and video communications, enabling individuals to communicate with their social networks, communities, and even businesses across different devices and operating systems. WhatsApp, a widely adopted and secure messaging service employed by individuals and enterprises for private communication and financial transactions. The Reality Labs division concentrates on pioneering augmented and virtual reality technologies. This segment is responsible for creating consumer-grade hardware, sophisticated software, and engaging content, all aimed at fostering a sense of connection among people, regardless of their physical location or time zone. Meta Platforms Inc. was founded in 2004 and its corporate headquarters are situated in Menlo Park, California.",
     "sector": "Communication Services",
     "industry": "Internet Content & Information",
+    "website": "https://www.meta.com",
     "country": "US",
     "currency": "USD",
     "exchange": "NASDAQ",

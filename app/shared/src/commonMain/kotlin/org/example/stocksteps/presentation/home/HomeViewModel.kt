@@ -25,7 +25,7 @@ internal data class HomeState(
     val sparklines: Map<String, List<Double>> = emptyMap(),
     val logos: Map<String, String> = emptyMap()
 ) {
-    val market: MarketSnapshotUiModel get() = HomePresentation.market(snapshot, snapshotLoading, snapshotError != null, HomePresentation.HOME_MARKET_CARDS)
+    val market: MarketSnapshotUiModel get() = HomePresentation.market(snapshot, snapshotLoading, snapshotError != null, HomePresentation.HOME_MARKET_CARDS, sparklines)
     val movers: MoversUiModel get() = HomePresentation.movers(snapshot, snapshotLoading, snapshotError != null, selectedMovers, sparklines, logos)
     val newsStatus: SectionStatus get() = HomePresentation.newsStatus(news.size, newsLoading, newsError != null)
 
@@ -126,7 +126,7 @@ internal class HomeViewModel(
     private fun loadSparklines() {
         val getSparkline = sparkline ?: return
         val current = state.value
-        HomePresentation.visibleMoverSymbols(current.snapshot, current.selectedMovers)
+        (HomePresentation.visibleIndexSymbols(current.snapshot) + HomePresentation.visibleMoverSymbols(current.snapshot, current.selectedMovers))
             .filter(requestedSparklines::add)
             .forEach { symbol ->
                 viewModelScope.launch {

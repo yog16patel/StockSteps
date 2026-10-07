@@ -1,11 +1,11 @@
 {
     "symbol": "META",
-    "companyName": "Meta Platforms, Inc.",
-    "price": 598.1,
-    "change": 14.07,
-    "changePercent": 2.4091,
-    "previousClose": 584.03,
-    "dayHigh": 602.8848,
-    "dayLow": 579.3578,
-    "volume": 14500000
+    "companyName": null,
+    "price": 721.31,
+    "change": -17.57,
+    "changePercent": -2.3779,
+    "dayHigh": 738.29,
+    "dayLow": 720.1503,
+    "previousClose": 738.88,
+    "timestamp": 1791403200
 }

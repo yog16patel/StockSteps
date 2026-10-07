@@ -7,6 +7,8 @@ struct StockSearchScene: View {
     let accounts: AccountViewModel
     var initialStock: StockSearchResult? = nil
     var onClose: () -> Void = {}
+    /// When set, results open the shared Company Details page instead of the inline detail.
+    var onOpenStock: ((StockSearchResult) -> Void)? = nil
     @State private var selectedStock: StockSearchResult?
     @State private var compactColumn: NavigationSplitViewColumn = .sidebar
 
@@ -21,6 +23,7 @@ struct StockSearchScene: View {
                 onQueryChanged: model.scheduleSearch,
                 onRetry: model.search
             ) { stock in
+                if let onOpenStock { onOpenStock(stock); return }
                 selectedStock = stock
                 compactColumn = .detail
                 model.selectStock(stock)

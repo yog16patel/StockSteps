@@ -18,7 +18,9 @@ data class MarketIndexUiModel(
     val name: String,
     val price: String?,
     val change: String,
-    val direction: PriceDirection
+    val direction: PriceDirection,
+    /** Latest-session closes, oldest first; null hides the trend line. */
+    val sparkline: List<Double>? = null
 )
 
 data class MarketSnapshotUiModel(
@@ -59,7 +61,13 @@ object HomePresentation {
     const val MIN_SPARKLINE_POINTS = 2
     private val defaultIndices = listOf("SPY" to "S&P 500", "QQQ" to "Nasdaq-100", "DIA" to "Dow 30")
 
-    fun market(snapshot: MarketSnapshot?, loading: Boolean, failed: Boolean, maxIndices: Int): MarketSnapshotUiModel {
+    fun market(
+        snapshot: MarketSnapshot?,
+        loading: Boolean,
+        failed: Boolean,
+        maxIndices: Int,
+        sparklines: Map<String, List<Double>> = emptyMap()
+    ): MarketSnapshotUiModel {
         val indices = snapshot?.indices.orEmpty().take(maxIndices)
         val marketStatus = snapshot?.marketStatus ?: MarketStatus.UNKNOWN
         if (indices.isEmpty()) {
@@ -76,7 +84,8 @@ object HomePresentation {
                 name = index.name,
                 price = index.price?.takeIf { index.error == null }?.let { price(it, "USD") },
                 change = percent(percent),
-                direction = direction(percent)
+                direction = direction(percent),
+                sparkline = sparklines[index.symbol]?.takeIf { index.error == null && it.size >= MIN_SPARKLINE_POINTS }
             )
         }
         val unavailable = rows.count { it.direction == PriceDirection.UNAVAILABLE }
@@ -135,6 +144,10 @@ object HomePresentation {
     /** Symbols whose sparklines Home should request for the visible movers. */
     fun visibleMoverSymbols(snapshot: MarketSnapshot?, category: MoverCategory): List<String> =
         visibleMovers(snapshot, category).map { it.symbol }
+
+    /** Symbols of the index cards Home shows, for their sparklines. */
+    fun visibleIndexSymbols(snapshot: MarketSnapshot?): List<String> =
+        snapshot?.indices.orEmpty().take(HOME_MARKET_CARDS).filter { it.error == null }.map { it.symbol }
 
     private fun visibleMovers(snapshot: MarketSnapshot?, category: MoverCategory): List<MarketMover> = when (category) {
         MoverCategory.GAINERS -> snapshot?.gainers

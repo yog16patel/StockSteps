@@ -1,0 +1,213 @@
+{
+    "symbol": "LONGN",
+    "financials": {
+        "growth": {
+            "revenue": {
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                },
+                "amount": 2100000000
+            },
+            "revenueGrowth": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "netIncome": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "netIncomeGrowth": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "eps": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "epsGrowth": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            }
+        },
+        "profitability": {
+            "grossMargin": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "operatingMargin": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "netMargin": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            }
+        },
+        "financialHealth": {
+            "cash": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "debt": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "debtEquity": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "currentRatio": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            }
+        },
+        "cashFlow": {
+            "operatingCashFlow": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "freeCashFlow": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "fcfMargin": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "annual",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            }
+        },
+        "shareholderReturns": {
+            "dividendYield": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "TTM",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            }
+        }
+    },
+    "valuation": {
+        "metrics": {
+            "pe": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "TTM",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            },
+            "priceSales": {
+                "source": "NOT_AVAILABLE",
+                "availability": "MISSING",
+                "basis": {
+                    "period": "TTM",
+                    "date": "2025-12-31",
+                    "fiscalYear": 2025,
+                    "currency": "USD"
+                }
+            }
+        },
+        "historical": {}
+    },
+    "datasets": {},
+    "retrievedAt": "2026-10-07T21:02:40Z"
+}
