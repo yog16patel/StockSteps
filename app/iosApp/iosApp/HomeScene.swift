@@ -11,6 +11,7 @@ struct HomeScene: View {
     let onPortfolio: () -> Void
     let onAlerts: (String?) -> Void
     let onExplore: (String) -> Void
+    var onEarnings: (String) -> Void = { _ in }
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @State private var localHour = Calendar.current.component(.hour, from: Date())
@@ -28,6 +29,7 @@ struct HomeScene: View {
             onSettings: onSettings,
             onAlerts: onAlerts,
             onExplore: onExplore,
+            onEarnings: onEarnings,
             onArticle: { if let url = URL(string: $0) { openURL(url) } },
             onRefresh: model.refresh,
             onRetryQuotes: model.retryQuotes,

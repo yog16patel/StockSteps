@@ -22,7 +22,8 @@ internal fun HomeScene(
     onSettings: () -> Unit,
     onPortfolio: () -> Unit,
     onAlerts: (String?) -> Unit,
-    onExplore: (String) -> Unit
+    onExplore: (String) -> Unit,
+    onEarnings: (String) -> Unit = onExplore
 ) {
     val model = viewModel(key = "home:$environment") { HomeViewModel(accounts.home) }
     val state by model.state.collectAsStateWithLifecycle()
@@ -50,6 +51,7 @@ internal fun HomeScene(
             HomeAction.Alerts -> onAlerts(null)
             is HomeAction.OpenStockAlerts -> onAlerts(action.symbol)
             is HomeAction.OpenStock -> onExplore(action.symbol)
+            is HomeAction.OpenEarnings -> onEarnings(action.symbol)
             is HomeAction.OpenArticle -> runCatching { uriHandler.openUri(action.url) }
         }
     }

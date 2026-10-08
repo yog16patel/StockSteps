@@ -84,6 +84,7 @@ struct MarketsScene: View {
     let onSearch: () -> Void
     var onDiscover: () -> Void = {}
     var onCompare: () -> Void = {}
+    var onEarnings: () -> Void = {}
     @State private var lesson: MarketLesson?
     @State private var movementSymbol: String?
 
@@ -134,9 +135,12 @@ struct MarketsScene: View {
 
     /// Market Overview (this screen) plus entry points to Discover Stocks and Compare Stocks.
     private func researchTools(_ colors: StockColors) -> some View {
-        HStack(spacing: CGFloat(space.sm)) {
-            tool("Discover Stocks", "Find companies by growth, dividends, strength or valuation", "magnifyingglass", colors, onDiscover)
-            tool("Compare Stocks", "See 2–4 companies side by side", "square.split.2x1", colors, onCompare)
+        VStack(spacing: CGFloat(space.sm)) {
+            HStack(spacing: CGFloat(space.sm)) {
+                tool("Discover Stocks", "Find companies by growth, dividends, strength or valuation", "magnifyingglass", colors, onDiscover)
+                tool("Compare Stocks", "See 2–4 companies side by side", "square.split.2x1", colors, onCompare)
+            }
+            tool("Earnings Center", "Upcoming dates, recent results and the companies you follow", "calendar", colors, onEarnings)
         }
     }
 

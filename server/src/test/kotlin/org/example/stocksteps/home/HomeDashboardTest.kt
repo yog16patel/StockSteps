@@ -38,7 +38,11 @@ class HomeDashboardTest {
                 "no-news" -> assertTrue(state.stories.isEmpty())
                 "stale-quotes" -> { assertTrue(state.highlights.all { it.stale }); assertTrue(state.brief.isEmpty()) }
                 "partial-failures" -> { assertNotNull(state.newsError); assertNotNull(state.quotesError) }
-                "upcoming-earnings" -> { assertEquals(2, state.events.size); assertTrue(state.events.first().detail.startsWith("Estimated")) }
+                "upcoming-earnings" -> {
+                    val calendar = state.events.filter { it.id.startsWith("earnings:") }
+                    assertEquals(2, calendar.size); assertTrue(calendar.first().detail.startsWith("Estimated"))
+                    assertEquals("2 companies you follow report earnings this week", state.events.first().title) // weekly summary, never displacing events
+                }
                 "triggered-alerts" -> assertTrue(state.events.single().alerts)
             }
         }

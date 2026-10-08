@@ -147,7 +147,7 @@ private fun HomeFactsSection(title: String, facts: List<HomeFact>, onAction: (Ho
         StockSectionHeader(title)
         facts.forEach { fact ->
             TextButton(onClick = {
-                onAction(if (fact.alerts) HomeAction.OpenStockAlerts(fact.symbol) else HomeAction.OpenStock(fact.symbol))
+                onAction(if (fact.alerts) HomeAction.OpenStockAlerts(fact.symbol) else if (fact.earnings) HomeAction.OpenEarnings(fact.symbol) else HomeAction.OpenStock(fact.symbol))
             }) {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
                     Text(fact.title, style = StockStepsTheme.typography.bodySemiBold, color = StockStepsTheme.colors.textPrimary)

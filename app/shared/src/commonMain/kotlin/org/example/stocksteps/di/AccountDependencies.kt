@@ -52,7 +52,15 @@ class AccountDependencies(
                     get(), get(), get(), get<WatchlistRepository>(), environment, get(), get(),
                     companyNews = { symbol -> get<StockStepsApi>().getCompanyNews(symbol, category = null, page = 0, limit = 10, enrich = false) },
                     scope = scope,
-                    mockPersona = { id -> get<StockStepsApi>().getHomePersona(id) }
+                    mockPersona = { id -> get<StockStepsApi>().getHomePersona(id) },
+                    ownedSymbols = {
+                        val ledger = get<org.example.stocksteps.portfolio.PortfolioRepository>().state.value.value
+                        ledger?.accounts.orEmpty().flatMap { account ->
+                            org.example.stocksteps.portfolio.PortfolioEngine.replay(ledger!!, account.id).holdings
+                                .filter { org.example.stocksteps.portfolio.Decimal.parse(it.quantity) > org.example.stocksteps.portfolio.Decimal.ZERO }
+                                .map { it.instrument.symbol.uppercase() }
+                        }.toSet()
+                    }
                 )
             }
             single { org.example.stocksteps.portfolio.PortfolioPresenter(get(), get(), scope) }
@@ -79,6 +87,8 @@ class AccountDependencies(
     val portfolio: org.example.stocksteps.portfolio.PortfolioRepository = graph.koin.get()
     val entitlements: org.example.stocksteps.portfolio.analytics.EntitlementsRepository = graph.koin.get()
     val savedScreens: org.example.stocksteps.screener.SavedScreensRepository = graph.koin.get()
+    /** Signed-in API (Firebase token per request), e.g. for tier-aware earnings. */
+    val userApi: UserApi = graph.koin.get()
     /** Created on first use (Insights), not at app start. */
     val insightsPresenter: org.example.stocksteps.portfolio.analytics.PortfolioAnalyticsPresenter by lazy { graph.koin.get() }
     val alerts: AlertsRepository = graph.koin.get()

@@ -24,7 +24,9 @@ class PersonalDashboardStore(
     private val scope: CoroutineScope,
     private val mockPersona: (suspend (String) -> HomePersonaFixture)? = null,
     private val now: () -> Long = { Clock.System.now().toEpochMilliseconds() },
-    private val briefPolicy: DailyBriefPolicy = VerifiedDailyBrief()
+    private val briefPolicy: DailyBriefPolicy = VerifiedDailyBrief(),
+    /** Symbols with positive portfolio holdings (earnings for them come first; never inferred from watchlists). */
+    private val ownedSymbols: () -> Set<String> = { emptySet() }
 ) {
     private val mutable = MutableStateFlow(PersonalDashboard())
     val state = mutable.asStateFlow()
@@ -163,7 +165,7 @@ class PersonalDashboardStore(
 
     private fun loadQuotes() {
         val key = owner ?: return
-        val symbols = instruments.map { it.symbol }
+        val symbols = (instruments.map { it.symbol } + ownedSymbols()).distinct()
         if (symbols.isEmpty()) {
             mutable.update { it.copy(quotesLoading = false, highlights = emptyList(), brief = emptyList(), events = emptyList()) }
             return
@@ -247,7 +249,7 @@ class PersonalDashboardStore(
         val myHistory = currentAlerts?.value?.history.orEmpty()
         val personalSymbols = (instruments.map { it.symbol } + myHistory.map { it.symbol }).toSet()
         val events = PersonalDashboardRules.events(data?.earnings.orEmpty(), myHistory,
-            personalSymbols, data?.session?.sessionDate ?: Clock.System.now().toString().take(10), now())
+            personalSymbols, data?.session?.sessionDate ?: Clock.System.now().toString().take(10), now(), ownedSymbols())
         if (key == owner) mutable.update { it.copy(
             highlights = PersonalDashboardRules.highlights(instruments, quotes, offline),
             events = events,

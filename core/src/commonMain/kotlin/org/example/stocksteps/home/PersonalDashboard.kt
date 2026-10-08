@@ -1,12 +1,16 @@
 package org.example.stocksteps.home
 
+import org.example.stocksteps.markets.MarketsPresenter
+
 import kotlinx.serialization.Serializable
 import org.example.stocksteps.model.*
 import kotlin.math.abs
 
 /** Personal facts only: watchlists are never treated as holdings or investment returns. */
 data class HomeHighlight(val instrument: InstrumentRef, val row: StockRowUiModel, val stale: Boolean)
-data class HomeFact(val id: String, val title: String, val detail: String, val symbol: String, val alerts: Boolean = false)
+data class HomeFact(val id: String, val title: String, val detail: String, val symbol: String, val alerts: Boolean = false,
+    /** Opens Earnings Details for [symbol]. */
+    val earnings: Boolean = false)
 @Serializable data class HomeStory(val symbol: String, val article: NewsArticle)
 @Serializable data class RecentCompany(val instrument: InstrumentRef, val openedAt: Long)
 
@@ -84,18 +88,33 @@ object PersonalDashboardRules {
         }
     }
 
-    /** Only dates on/after the exchange trading date; never relabel an estimate as confirmed. */
-    fun events(earnings: List<UpcomingEarnings>, history: List<AlertEvent>, symbols: Set<String>, today: String, now: Long): List<HomeFact> {
-        val calendar = earnings.filter { it.symbol in symbols && it.date >= today && Regex("\\d{4}-\\d{2}-\\d{2}").matches(it.date) }
-            .sortedWith(compareBy<UpcomingEarnings> { it.date }.thenBy { it.symbol }).map {
-                HomeFact("earnings:${it.symbol}:${it.date}", "${it.symbol} earnings · ${it.date}",
-                    "${if (it.status == EarningsDateStatus.CONFIRMED) "Confirmed" else "Estimated"} · ${it.time.name.lowercase().replace('_', ' ')} · ${it.source}", it.symbol)
-            }
+    /**
+     * Only dates on/after the exchange trading date; never relabel an estimate as confirmed.
+     * Portfolio holdings come first, then watchlist companies; each symbol appears once.
+     */
+    fun events(earnings: List<UpcomingEarnings>, history: List<AlertEvent>, symbols: Set<String>, today: String, now: Long, owned: Set<String> = emptySet()): List<HomeFact> {
+        val upcoming = earnings.filter { (it.symbol in symbols || it.symbol in owned) && it.date >= today && Regex("\\d{4}-\\d{2}-\\d{2}").matches(it.date) }
+            .distinctBy { it.symbol }
+            .sortedWith(compareBy<UpcomingEarnings> { if (it.symbol in owned) 0 else 1 }.thenBy { it.date }.thenBy { it.symbol })
+        val calendar = upcoming.map {
+            val event = org.example.stocksteps.earnings.EarningsEvent(it.eventId ?: it.symbol, it.symbol, it.symbol, fiscalYear = 0, fiscalQuarter = 1,
+                date = it.date, session = it.time, dateStatus = it.status, source = it.source, updatedAt = "")
+            val countdown = org.example.stocksteps.earnings.EarningsFormatter.countdown(event, today)?.substringBefore(" (")?.replaceFirst("Earnings", "earnings")
+            HomeFact("earnings:${it.symbol}:${it.date}", "${it.symbol} ${countdown ?: "earnings · ${it.date}"}",
+                listOf(org.example.stocksteps.earnings.EarningsFormatter.dateStatus(it.status),
+                    org.example.stocksteps.earnings.EarningsFormatter.date(it.date),
+                    org.example.stocksteps.earnings.EarningsFormatter.session(it.time),
+                    if (it.symbol in owned) "In your portfolio" else "On your watchlist").joinToString(" · "), it.symbol, earnings = true)
+        }
+        val thisWeek = upcoming.count { (MarketsPresenter.dayNumber(it.date) ?: Int.MAX_VALUE) - (MarketsPresenter.dayNumber(today) ?: 0) in 0..6 }
+        val summary = if (thisWeek >= 2) listOf(HomeFact("earnings-week", "$thisWeek companies you follow report earnings this week",
+            "Tap one to see the date, session and what analysts expect.", upcoming.first().symbol, earnings = true)) else emptyList()
         val triggered = history.filter { it.symbol in symbols && it.triggeredAt <= now && now - it.triggeredAt <= RECENT_ALERT_MS }
             .sortedBy { it.triggeredAt }.takeLast(MAX_EVENTS).map {
                 HomeFact("alert:${it.id}", it.title, it.body, it.symbol, alerts = true)
             }
-        return (triggered + calendar).take(MAX_EVENTS)
+        // The weekly summary is extra context; it never displaces an actual event.
+        return summary + (triggered + calendar).take(MAX_EVENTS)
     }
 
     /** Backend company feeds already enforce relevance. Never substitute the market-wide feed. */

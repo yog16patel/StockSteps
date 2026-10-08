@@ -122,6 +122,7 @@ class IosAccountClient(auth: PlatformAuthGateway, baseUrl: () -> String, environ
     fun showPortfolioScenario(id: String?) { dependencies.portfolioPresenter.showScenario(id) }
     /** Signed-in saved screens for the Screener (same repository as Android). */
     val savedScreens: org.example.stocksteps.screener.SavedScreensRepository get() = dependencies.savedScreens
+    internal val dependenciesForEarnings: org.example.stocksteps.di.AccountDependencies get() = dependencies
 
     // Portfolio Intelligence: the same shared presenter as Android.
     fun observeInsights(onChange: (org.example.stocksteps.portfolio.analytics.InsightsUiState) -> Unit): AccountSubscription {

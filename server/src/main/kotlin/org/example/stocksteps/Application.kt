@@ -15,6 +15,7 @@ import org.example.stocksteps.screener.RequestRateLimiter
 import org.example.stocksteps.screener.SavedScreensService
 import org.example.stocksteps.screener.savedScreenRoutes
 import org.example.stocksteps.screener.screenerRoutes
+import org.example.stocksteps.earnings.earningsRoutes
 import org.example.stocksteps.userdata.ChartBenchmarkHistory
 import org.example.stocksteps.userdata.MockBenchmarkHistory
 import org.example.stocksteps.userdata.PortfolioAnalyticsService
@@ -103,20 +104,33 @@ fun Application.module() {
         ))
         movementRoutes(movement)
         val userData = sources.userData()
-        val watchMarket = org.example.stocksteps.userdata.WatchMarketData(stockService, sources.earningsCalendar, sources.news)
+        val portfolioClock = if (dataMode == DataMode.MOCK) java.time.Clock.systemUTC() else sources.marketClock
+        val entitlements = org.example.stocksteps.userdata.EntitlementService(userData, portfolioClock::millis, debugAllowed = dataMode == DataMode.MOCK)
+        // One earnings source per environment feeds the calendar, details, watch-data, Home and reminders.
+        val earnings = org.example.stocksteps.earnings.EarningsService(
+            source = sources.earningsData ?: org.example.stocksteps.earnings.FinnhubEarningsDataSource(HttpClientProvider.client, AppConfig.finnhubApiKey),
+            stocks = stockService, charts = charts, store = userData, entitlements = entitlements, clock = sources.marketClock,
+            sampleData = dataMode == DataMode.MOCK,
+            research = if (dataMode == DataMode.MOCK) org.example.stocksteps.earnings.TemplateEarningsResearch else null,
+            aiDailyLimit = System.getenv("EARNINGS_AI_DAILY_LIMIT")?.toIntOrNull() ?: 20
+        )
+        val earningsCalendar = object : org.example.stocksteps.userdata.EarningsCalendarSource {
+            override suspend fun upcoming(symbol: String) = earnings.next(symbol)
+            override suspend fun recentResult(symbol: String) = earnings.recentResult(symbol)
+        }
+        earningsRoutes(earnings, sources.userAuth, RequestRateLimiter(System.getenv("EARNINGS_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 120))
+        val watchMarket = org.example.stocksteps.userdata.WatchMarketData(stockService, earningsCalendar, sources.news)
         val alertRules = org.example.stocksteps.userdata.AlertRules()
         val evaluator = org.example.stocksteps.userdata.AlertEvaluator(userData, watchMarket, sources.pushSender(), alertRules, sources.marketClock)
         run {
             watchDataRoutes(WatchDataService(watchMarket, alertRules, org.example.stocksteps.service.UsMarketCalendar(), sources.marketClock,
                 if (dataMode == DataMode.MOCK) "Sample data, not live prices." else "Quotes may be delayed. Times show when each price was last updated."))
-            val portfolioClock = if (dataMode == DataMode.MOCK) java.time.Clock.systemUTC() else sources.marketClock
             val portfolios = org.example.stocksteps.userdata.PortfolioService(userData, portfolioClock::millis)
             val portfolioMarket = org.example.stocksteps.userdata.PortfolioMarketService(
                 portfolios, sources.priceHistory, watchMarket,
                 if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client),
                 portfolioClock, dailyCloses = charts::getDailyCloses)
             portfolioRoutes(sources.userAuth, portfolios, portfolioMarket)
-            val entitlements = org.example.stocksteps.userdata.EntitlementService(userData, portfolioClock::millis, debugAllowed = dataMode == DataMode.MOCK)
             portfolioAnalyticsRoutes(sources.userAuth, PortfolioAnalyticsService(
                 portfolioMarket, watchMarket,
                 sources.indexData?.takeIf { dataMode == DataMode.MOCK }?.let { MockBenchmarkHistory(it) } ?: ChartBenchmarkHistory(charts::getDailyCloses),
@@ -143,7 +157,7 @@ fun Application.module() {
             screenerRoutes(screener, RequestRateLimiter(System.getenv("SCREENER_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 60))
             savedScreenRoutes(sources.userAuth, SavedScreensService(userData, entitlements, sources.marketClock::millis))
             userRoutes(sources.userAuth, WatchlistsService(userData, now = sources.marketClock::millis),
-                AlertsService(userData, watchMarket, alertRules, sources.alertsDeliveryNote, now = sources.marketClock::millis), userData, now = sources.marketClock::millis)
+                AlertsService(userData, watchMarket, alertRules, sources.alertsDeliveryNote, now = sources.marketClock::millis, isPlus = { entitlements.get(it).plus }), userData, now = sources.marketClock::millis)
             alertEvaluationRoutes(evaluator, System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
         }
         if (dataMode == DataMode.MOCK) startMockAlertLoop(evaluator)
@@ -298,6 +312,8 @@ internal class DataSources(
     /** Optional AI wording of computed movement facts; null keeps the deterministic template. */
     val narrator: org.example.stocksteps.service.MovementNarrator? = null,
     val movementVersion: String = "movement-template-v1",
+    /** Earnings events: fixtures in MOCK; null in REAL, where Finnhub's earnings calendar is used. */
+    val earningsData: org.example.stocksteps.earnings.EarningsDataSource? = null,
     /** The screener universe: fixture symbols in MOCK; null in REAL, where FMP's company screener defines it. */
     val screenerUniverse: org.example.stocksteps.screener.ScreenerUniverseSource? = null,
     /** Index levels; null in REAL, where the module builds one from the stock provider and charts. */
@@ -314,7 +330,6 @@ internal class DataSources(
     val userData: () -> org.example.stocksteps.userdata.UserDataStore = { org.example.stocksteps.userdata.InMemoryUserDataStore() },
     val userAuth: org.example.stocksteps.userdata.UserAuthenticator = org.example.stocksteps.userdata.MockUserAuthenticator(),
     val pushSender: () -> org.example.stocksteps.userdata.PushSender = { org.example.stocksteps.userdata.SimulatedPushSender() },
-    val earningsCalendar: org.example.stocksteps.userdata.EarningsCalendarSource? = null,
     val alertsDeliveryNote: String = "Alerts are checked about every 15 minutes during US market hours using quotes that may be delayed. They aren't real-time.",
     /** Reported quarterly EPS for the historical P/E series. */
     val earnings: org.example.stocksteps.service.QuarterlyEarningsSource = org.example.stocksteps.service.QuarterlyEarningsSource { emptyList() }
@@ -368,9 +383,6 @@ private fun Application.realDataSources(): DataSources {
             runCatching { org.example.stocksteps.userdata.FcmPushSender(HttpClientProvider.client, AppConfig.firebaseProjectId) }
                 .getOrElse { org.example.stocksteps.userdata.PushSender { org.example.stocksteps.userdata.PushResult.Failed("Push credentials not configured") } }
         },
-        earningsCalendar = org.example.stocksteps.userdata.FinnhubEarningsCalendar(HttpClientProvider.client, AppConfig.finnhubApiKey) {
-            java.time.LocalDate.now(java.time.ZoneId.of("America/New_York"))
-        },
         movementVersion = AppConfig.geminiApiKey?.let { "${AppConfig.geminiNewsModel}:${org.example.stocksteps.news.GeminiMovementNarrator.PROMPT_VERSION}" } ?: "movement-template-v1"
     )
 }
@@ -385,6 +397,7 @@ internal fun mockDataSources(): DataSources {
         insights = org.example.stocksteps.news.TemplateArticleInsightGenerator(), insightVersion = "mock-template-v1",
         indexData = fixtures,
         screenerUniverse = org.example.stocksteps.screener.FixtureScreenerUniverse(),
+        earningsData = org.example.stocksteps.earnings.FixtureEarningsDataSource(),
         marketsLabels = org.example.stocksteps.service.MarketsSourceLabels(
             movers = "Sample: movers captured from FMP's daily lists",
             quotes = "StockSteps sample fixtures",
@@ -393,7 +406,6 @@ internal fun mockDataSources(): DataSources {
         ),
         // Mock time starts at the capture instant and advances, so sessions and alerts behave consistently.
         marketClock = java.time.Clock.offset(java.time.Clock.systemUTC(), java.time.Duration.between(java.time.Instant.now(), pinned)),
-        earningsCalendar = fixtures,
         alertsDeliveryNote = "Sample mode: alerts are checked every minute against sample prices. Notifications are simulated on the server, not sent to your device.")
 }
 

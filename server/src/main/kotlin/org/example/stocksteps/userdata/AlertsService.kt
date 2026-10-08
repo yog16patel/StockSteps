@@ -23,8 +23,20 @@ class AlertsService(
     private val rules: AlertRules = AlertRules(),
     private val deliveryNote: String,
     private val now: () -> Long = System::currentTimeMillis,
-    private val newId: () -> String = { UUID.randomUUID().toString() }
+    private val newId: () -> String = { UUID.randomUUID().toString() },
+    /** Server-side StockSteps+ check for advanced earnings reminder options. */
+    private val isPlus: suspend (String) -> Boolean = { false }
 ) {
+    /** Lead days, results and surprise options are StockSteps+; basic day-before/day-of stays free. */
+    private suspend fun advancedEarnings(uid: String, leadDays: Int?, results: Boolean?, surprise: Double?): Triple<Int?, Boolean, Double?> {
+        val advanced = leadDays != null && leadDays != 1 || results == true || surprise != null
+        if (advanced && !isPlus(uid)) fail(403, "PLUS_REQUIRED", "Custom lead times and results notifications are part of StockSteps+.")
+        if (leadDays != null && leadDays !in 1..7) fail(400, "INVALID_LEAD", "Choose 1–7 days before earnings.")
+        if (surprise != null && (!surprise.isFinite() || surprise < 1 || surprise > 100)) fail(400, "INVALID_SURPRISE", "Choose a surprise threshold between 1% and 100%.")
+        if (surprise != null && results != true) fail(400, "INVALID_SURPRISE", "A surprise threshold needs results notifications.")
+        return Triple(leadDays, results == true, surprise)
+    }
+
     suspend fun list(uid: String): AlertsResponse = AlertsResponse(
         alerts = store.updateAlerts(uid) { it to it }.sortedByDescending { it.createdAt },
         history = store.history(uid, HISTORY_LIMIT),
@@ -59,6 +71,8 @@ class AlertsService(
             AlertType.DAILY_MOVE -> threshold = validPercent(threshold)
             AlertType.EARNINGS, AlertType.NEWS -> threshold = null
         }
+        val (leadDays, results, surprise) = if (type == AlertType.EARNINGS)
+            advancedEarnings(uid, request.earningsLeadDays, request.earningsResults, request.earningsSurprisePercent) else Triple(null, false, null)
         val time = now()
         val rule = AlertRule(
             id = newId(),
@@ -68,6 +82,9 @@ class AlertsService(
             currency = currency,
             direction = if (type == AlertType.DAILY_MOVE) request.direction ?: MoveDirection.EITHER else null,
             earningsTiming = if (type == AlertType.EARNINGS) request.earningsTiming ?: EarningsTiming.BOTH else null,
+            earningsLeadDays = leadDays,
+            earningsResults = results,
+            earningsSurprisePercent = surprise,
             repeat = request.repeat ?: if (type == AlertType.DAILY_MOVE) RepeatPolicy.REPEAT else RepeatPolicy.ONCE,
             status = AlertStatus.ACTIVE,
             armed = armed,
@@ -90,6 +107,10 @@ class AlertsService(
         val validated = newThreshold?.let { if (priceType) validPrice(it) else if (existing.type == AlertType.DAILY_MOVE) validPercent(it) else null }
         val rearm = priceType && (validated != null || request.status == AlertStatus.ACTIVE)
         val currentPrice = if (rearm) runCatching { market.quote(existing.instrument.symbol) }.getOrNull()?.price else null
+        val earningsOptions = if (existing.type == AlertType.EARNINGS && (request.earningsLeadDays != null || request.earningsResults != null || request.earningsSurprisePercent != null))
+            advancedEarnings(uid, request.earningsLeadDays ?: existing.earningsLeadDays, request.earningsResults ?: existing.earningsResults,
+                request.earningsSurprisePercent ?: existing.earningsSurprisePercent.takeIf { request.earningsResults != false })
+            else null
         store.updateAlerts(uid) { current ->
             val rule = current.firstOrNull { it.id == id } ?: fail(404, "ALERT_NOT_FOUND", "That alert doesn't exist.")
             if (request.status == AlertStatus.TRIGGERED) fail(400, "INVALID_STATUS", "Alerts can be resumed or paused.")
@@ -99,6 +120,9 @@ class AlertsService(
                 threshold = threshold,
                 direction = if (rule.type == AlertType.DAILY_MOVE) request.direction ?: rule.direction else rule.direction,
                 earningsTiming = if (rule.type == AlertType.EARNINGS) request.earningsTiming ?: rule.earningsTiming else rule.earningsTiming,
+                earningsLeadDays = earningsOptions?.first ?: rule.earningsLeadDays,
+                earningsResults = earningsOptions?.second ?: rule.earningsResults,
+                earningsSurprisePercent = if (earningsOptions != null) earningsOptions.third else rule.earningsSurprisePercent,
                 repeat = request.repeat ?: rule.repeat,
                 updatedAt = now()
             )

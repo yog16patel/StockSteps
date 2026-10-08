@@ -90,6 +90,7 @@ internal fun CompanyDetailsScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
                         TextButton(onClick = { onAction(CompanyDetailsAction.AddPortfolio) }) { Text("Add to portfolio") }
                         TextButton(onClick = { onAction(CompanyDetailsAction.Compare) }) { Text("Compare") }
+                        TextButton(onClick = { onAction(CompanyDetailsAction.Earnings) }) { Text("Earnings") }
                     }
                 }
                 item(key = "header") { CompanyHeader(state.overview, onRetry = { onAction(CompanyDetailsAction.RetryCore) }, modifier = content) }

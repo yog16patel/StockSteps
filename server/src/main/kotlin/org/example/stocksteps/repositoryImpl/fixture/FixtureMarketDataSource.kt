@@ -61,8 +61,19 @@ class FixtureMarketDataSource(
         load("market/indices.json", ListSerializer(org.example.stocksteps.service.IndexFixture.serializer())).orEmpty()
             .associateBy { it.quote.symbol.uppercase(Locale.ROOT) }
     }
-    /** `stocks/{SYMBOL}/earnings-upcoming.json` (sample dates; ESTIMATED unless the fixture says CONFIRMED). */
-    override suspend fun upcoming(symbol: String): UpcomingEarnings? = stock(symbol, "earnings-upcoming", UpcomingEarnings.serializer())
+    /**
+     * Next unreported event from `earnings/events.json` (the same fixtures as the Earnings Center),
+     * on or after the capture date. Sample dates; CONFIRMED only where the fixture says so.
+     */
+    override suspend fun upcoming(symbol: String): UpcomingEarnings? {
+        val from = capturedAt?.atZone(java.time.ZoneId.of("America/New_York"))?.toLocalDate()?.toString() ?: return null
+        val event = earningsEvents.filter { it.symbol.equals(symbol, ignoreCase = true) && it.actual == null && it.date >= from }.minByOrNull { it.date } ?: return null
+        return UpcomingEarnings(event.symbol, event.date, event.session, event.dateStatus, event.source, event.id)
+    }
+    private val earningsEvents by lazy {
+        Json { ignoreUnknownKeys = true }.decodeFromString(kotlinx.serialization.builtins.ListSerializer(org.example.stocksteps.earnings.EarningsEvent.serializer()),
+            requireNotNull(javaClass.classLoader.getResource("fixtures/earnings/events.json")).readText())
+    }
 
     override suspend fun indexQuote(symbol: String): StockQuote? = indices[symbol.uppercase(Locale.ROOT)]?.quote
     override suspend fun indexHistory(symbol: String): List<PricePoint> = indices[symbol.uppercase(Locale.ROOT)]?.history.orEmpty()
@@ -130,7 +141,9 @@ class FixtureMarketDataSource(
         }
 
     override suspend fun getDailyCloses(symbol: String): List<PricePoint> =
-        series(symbol, "chart-daily", DAILY_TOLERANCE) { s, quote ->
+        // Tickers kept sparse on purpose (manifest keepMissing) never get generated history.
+        if (!fillsGaps(symbol)) stock(symbol, "chart-daily", ListSerializer(PricePoint.serializer())).orEmpty()
+        else series(symbol, "chart-daily", DAILY_TOLERANCE) { s, quote ->
             quote.price?.let { sample.dailyCloses(s, it, quote.previousClose, sample.sessionDate(quote)) }.orEmpty()
         }
     override suspend fun getWhyMoving(symbol: String): WhyMoving? = stock(symbol, "why-moving", WhyMoving.serializer())

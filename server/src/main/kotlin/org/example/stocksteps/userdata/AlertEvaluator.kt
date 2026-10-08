@@ -31,6 +31,7 @@ class WatchMarketData(
     suspend fun profile(symbol: String): CompanyProfile? = cached("profile|$symbol", PROFILE_TTL) { stocks.getProfile(symbol) }
     override suspend fun currency(symbol: String): String? = profile(symbol)?.currency
     suspend fun upcomingEarnings(symbol: String): UpcomingEarnings? = earnings?.let { source -> cached("earnings|$symbol", EARNINGS_TTL) { source.upcoming(symbol) } }
+    suspend fun recentEarningsResult(symbol: String): org.example.stocksteps.earnings.EarningsEvent? = earnings?.let { source -> cached("earnings-result|$symbol", RESULT_TTL) { source.recentResult(symbol) } }
     suspend fun companyNews(symbol: String): List<NewsArticle> = runCatching { news.companyFeed(symbol) }.getOrDefault(emptyList())
 
     private suspend fun <T> cached(key: String, ttl: Long, load: suspend () -> T?): T? =
@@ -47,6 +48,8 @@ class WatchMarketData(
         private const val QUOTE_TTL = 60_000L
         private const val PROFILE_TTL = 24 * 3_600_000L
         private const val EARNINGS_TTL = 12 * 3_600_000L
+        /** Results arrive after the scheduled time; check more often than dates. */
+        private const val RESULT_TTL = 30 * 60_000L
         private const val FAILURE_TTL = 60_000L
     }
 }
@@ -133,6 +136,7 @@ class AlertEvaluator(
             name = market.profile(symbol)?.companyName ?: quote?.companyName,
             quote = quote,
             earnings = if (AlertType.EARNINGS in types) market.upcomingEarnings(symbol) else null,
+            earningsResult = if (AlertType.EARNINGS in types) market.recentEarningsResult(symbol) else null,
             news = if (AlertType.NEWS in types) market.companyNews(symbol) else emptyList()
         )
     }

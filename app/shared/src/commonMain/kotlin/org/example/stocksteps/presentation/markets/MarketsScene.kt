@@ -51,6 +51,7 @@ internal sealed interface MarketsAction {
     data class OpenUrl(val url: String) : MarketsAction
     data object Discover : MarketsAction
     data object Compare : MarketsAction
+    data object Earnings : MarketsAction
 }
 
 /** Owns the Markets ViewModel (keyed by environment so Mock and Real never share data) and wires navigation. */
@@ -63,7 +64,8 @@ internal fun MarketsScene(
     onWhyMoved: (String) -> Unit,
     onSearch: () -> Unit,
     onDiscover: () -> Unit = {},
-    onCompare: () -> Unit = {}
+    onCompare: () -> Unit = {},
+    onEarnings: () -> Unit = {}
 ) {
     val model = viewModel(key = "markets:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
@@ -83,6 +85,7 @@ internal fun MarketsScene(
             is MarketsAction.OpenUrl -> runCatching { uriHandler.openUri(action.url) }
             MarketsAction.Discover -> onDiscover()
             MarketsAction.Compare -> onCompare()
+            MarketsAction.Earnings -> onEarnings()
         }
     }
 }
@@ -172,7 +175,8 @@ private fun Title(modifier: Modifier, onSearch: () -> Unit) {
 private fun ResearchTools(modifier: Modifier, onAction: (MarketsAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
-    Row(modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
         listOf(
             Triple("Discover Stocks", "Find companies by growth, dividends, strength or valuation", MarketsAction.Discover),
             Triple("Compare Stocks", "See 2–4 companies side by side", MarketsAction.Compare)
@@ -183,6 +187,11 @@ private fun ResearchTools(modifier: Modifier, onAction: (MarketsAction) -> Unit)
                 Text(subtitle, style = StockStepsTheme.typography.caption, color = colors.textSecondary)
             }
         }
+    }
+    StockCard(Modifier.fillMaxWidth(), onClick = { onAction(MarketsAction.Earnings) }, onClickLabel = "Open Earnings Center") {
+        Text("Earnings Center", style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
+        Text("Upcoming dates, recent results and the companies you follow", style = StockStepsTheme.typography.caption, color = colors.textSecondary)
+    }
     }
 }
 

@@ -13,6 +13,7 @@ struct HomeScreen: View {
     let onSettings: () -> Void
     let onAlerts: (String?) -> Void
     let onExplore: (String) -> Void
+    var onEarnings: (String) -> Void = { _ in }
     let onArticle: (String) -> Void
     let onRefresh: () -> Void
     let onRetryQuotes: () -> Void
@@ -121,7 +122,7 @@ struct HomeScreen: View {
             sectionTitle(title)
             ForEach(values, id: \.id) { fact in
                 Button {
-                    if fact.alerts { onAlerts(fact.symbol) } else { onExplore(fact.symbol) }
+                    if fact.alerts { onAlerts(fact.symbol) } else if fact.earnings { onEarnings(fact.symbol) } else { onExplore(fact.symbol) }
                 } label: {
                     VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                         Text(fact.title).font(StockStepsTheme.font(type.bodySemiBold))

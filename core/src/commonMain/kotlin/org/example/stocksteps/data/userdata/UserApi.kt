@@ -33,6 +33,27 @@ class UserApi(
         send(HttpMethod.Get, "portfolio/accounts/${accountId.segment()}/analytics?period=${period.label}" + (benchmark?.let { "&benchmark=${it.name}" } ?: ""), expectedOwner = expectedOwner)
     suspend fun entitlements(): org.example.stocksteps.portfolio.analytics.Entitlements = send(HttpMethod.Get, "entitlements")
     suspend fun savedScreens(): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Get, "screens")
+    suspend fun earningsFollowing(query: org.example.stocksteps.earnings.EarningsCalendarQuery): org.example.stocksteps.earnings.EarningsCalendarPage {
+        val params = io.ktor.http.ParametersBuilder().apply {
+            append("from", query.from); append("to", query.to); append("pageSize", query.pageSize.toString())
+            if (query.exchanges.isNotEmpty()) append("exchange", query.exchanges.joinToString(","))
+            if (query.countries.isNotEmpty()) append("country", query.countries.joinToString(","))
+            if (query.sessions.isNotEmpty()) append("session", query.sessions.joinToString(",") { it.name })
+            query.view?.let { append("view", it) }
+            query.cursor?.let { append("cursor", it) }
+        }.build().formUrlEncode()
+        return send(HttpMethod.Get, "earnings/following?$params")
+    }
+    /** Tier-aware details (extended history and advanced insights for StockSteps+). */
+    suspend fun earningsDetails(symbol: String): org.example.stocksteps.earnings.EarningsDetails {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return send(HttpMethod.Get, "earnings/${symbol.uppercase()}")
+    }
+    /** StockSteps+ only; the server refuses (403) before any AI provider is called. */
+    suspend fun askEarnings(symbol: String, question: String): org.example.stocksteps.earnings.EarningsAnswer {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return send(HttpMethod.Post, "earnings/${symbol.uppercase()}/ask", org.example.stocksteps.earnings.EarningsQuestion(question))
+    }
     suspend fun saveScreen(request: org.example.stocksteps.screener.SaveScreenRequest): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Post, "screens", request)
     suspend fun updateScreen(id: String, request: org.example.stocksteps.screener.UpdateScreenRequest): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Put, "screens/${id.segment()}", request)
     suspend fun deleteScreen(id: String): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Delete, "screens/${id.segment()}")

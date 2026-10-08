@@ -15,6 +15,8 @@ struct CompanyDetailsScene: View {
     @State private var showPortfolio = false
     @State private var showCompare = false
     @State private var compareModel: ScreenerModel?
+    @State private var earningsModel: EarningsModel?
+    @State private var showEarnings = false
     @State private var portfolioModel = PortfolioViewModel()
     @Environment(\.openURL) private var openURL
 
@@ -49,8 +51,15 @@ struct CompanyDetailsScene: View {
                 SharedComparisonSelection.shared.instance.add(symbol: symbol, name: model.overview.value?.name ?? symbol)
                 if compareModel == nil { compareModel = ScreenerModel(accounts: accounts) }
                 showCompare = true
+            },
+            onEarnings: {
+                if earningsModel == nil { earningsModel = EarningsModel(accounts: accounts) }
+                showEarnings = true
             }
         )
+        .navigationDestination(isPresented: $showEarnings) {
+            if let earningsModel { EarningsDetailsScene(symbol: symbol, client: earningsModel.client, onCompany: { showEarnings = false }) }
+        }
         .navigationDestination(isPresented: $showCompare) {
             if let compareModel { CompareStocksScene(model: compareModel, onOpenStock: { _ in showCompare = false }) }
         }

@@ -1,6 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **Add Smart Stock Screener and Stock Comparison on Android and iOS** on `main`.
+Last updated: 2026-10-08 (America/Toronto). Current commit: **Add Earnings Intelligence and earnings calendar on Android and iOS** on `main`.
+Includes Earnings Intelligence & Earnings Calendar (next section, `docs/EARNINGS.md`).
+Previous commit: `4c65521` (Add Smart Stock Screener and Stock Comparison on Android and iOS).
 Includes the Smart Stock Screener & Stock Comparison (next section, `docs/SCREENER_AND_COMPARISON.md`).
 Previous commit: `bf44bd7` (Add Portfolio Intelligence and advanced performance analytics on Android and iOS).
 Includes Portfolio Intelligence (next section, `docs/PORTFOLIO_INTELLIGENCE.md`) on top of the Portfolio
@@ -11,7 +13,43 @@ item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
 
-## Current milestone — Smart Stock Screener & Stock Comparison (2026-10-08, commit: “Add Smart Stock Screener and Stock Comparison on Android and iOS”)
+## Current milestone — Earnings Intelligence & Earnings Calendar (2026-10-08, commit: “Add Earnings Intelligence and earnings calendar on Android and iOS”)
+
+Read `docs/EARNINGS.md` (architecture, API, calculations, reaction methodology, reminders, tiers,
+AI boundary, capability matrix, MOCK scenarios, tests, limits).
+
+Completed:
+- Markets → Earnings Center (Upcoming/Results/Following; week/month ranges; market, exchange and
+  session filters; cursor paging) and Earnings Details (EPS and revenue vs consensus with documented
+  tolerance, basis/currency/period compatibility, YoY/QoQ growth, summary, history with chart,
+  session-aware price reaction vs SPY, deterministic insights, education, reminders, StockSteps+ AI)
+  on Compose and SwiftUI via shared presenters (`IosEarningsClient`).
+- Server `earnings` package: fixture (MOCK) and Finnhub (REAL) sources with normalization, one source
+  per event; `EarningsService` caches windows/history/reactions; public + signed-in routes; AI
+  Plus-only with fair-use limit (MOCK template answers; REAL 503 until a provider is configured).
+- Reused infrastructure: reminders are the existing EARNINGS alerts (new Plus options: lead days,
+  results, surprise threshold; stable fiscal-period event keys so a moved date never notifies twice);
+  watch-data, Home and alerts read upcoming dates from the same earnings service; Home now prioritizes
+  portfolio holdings, deduplicates and adds "N companies you follow report earnings this week".
+- MOCK: `fixtures/earnings/events.json` (136 events, 22 companies) generated consistently with
+  Financials and price fixtures; the old per-stock `earnings-upcoming.json` files were removed. Daily
+  closes now honour manifest `keepMissing` (no generated history for those tickers).
+- `EarningsDateStatus` gained TENTATIVE/UNKNOWN; `UpcomingEarnings` gained `eventId`; AlertRule
+  gained trailing optional earnings fields (positional constructors unchanged).
+
+Validation (final run): core JVM 235, core iOS 235, backend 189, shared Android host 55, shared iOS 49 —
+0 failures (one Home persona assertion was updated for the new weekly-summary line); Android
+assembleDebug and iOS xcodebuild BUILD SUCCEEDED.
+
+Limitations / next:
+- REAL Finnhub coverage (history depth, TSX) and confirmation flags not verified live; REAL dates stay
+  "Estimated" until reported. No guidance/commentary; AI provider not wired in REAL.
+- No TSX market proxy for reactions; no watchlist-row earnings badge; portfolio value/weight per event
+  not shown (shares only). UI/accessibility device checks are manual.
+- Commit and push were requested by the user; no production deployment was performed. Restart the
+  local MOCK server (`./gradlew :server:stopMock` then `:server:runMock`) to serve the earnings routes.
+
+## Previous milestone — Smart Stock Screener & Stock Comparison (2026-10-08, commit: “Add Smart Stock Screener and Stock Comparison on Android and iOS”)
 
 Read `docs/SCREENER_AND_COMPARISON.md` (architecture, metric normalization, presets, backend
 strategy, capability matrix, MOCK scenarios, tests, limits).

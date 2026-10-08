@@ -20,6 +20,9 @@ struct AppScene: View {
     @State private var showingDiscover = false
     @State private var showingCompare = false
     @State private var screenerModel: ScreenerModel
+    @State private var earningsModel: EarningsModel
+    @State private var showingEarnings = false
+    @State private var earningsSymbol: String?
 
 
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
@@ -32,6 +35,7 @@ struct AppScene: View {
         _marketsModel = State(initialValue: MarketsModel(baseURL: baseURL))
         _watchlistsModel = State(initialValue: WatchlistsModel(client: accounts.client))
         _screenerModel = State(initialValue: ScreenerModel(accounts: accounts, baseURL: baseURL))
+        _earningsModel = State(initialValue: EarningsModel(accounts: accounts, baseURL: baseURL))
     }
 
     var body: some View {
@@ -48,7 +52,8 @@ struct AppScene: View {
                             onSettings: { showingSettings = true },
                             onPortfolio: { selectedTab = .portfolio },
                             onAlerts: { alertsTarget = $0 ?? "" },
-                            onExplore: explore
+                            onExplore: explore,
+                            onEarnings: { earningsSymbol = $0 }
                         )
                     } else {
                         Color.clear
@@ -58,7 +63,7 @@ struct AppScene: View {
                 .tag(AppRoute.home)
 
                 MarketsScene(model: marketsModel, onOpenStock: explore, onSearch: { initialStock = nil; showingSearch = true },
-                             onDiscover: { showingDiscover = true }, onCompare: { showingCompare = true })
+                             onDiscover: { showingDiscover = true }, onCompare: { showingCompare = true }, onEarnings: { showingEarnings = true })
                     .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
                     .tag(AppRoute.markets)
 
@@ -87,6 +92,13 @@ struct AppScene: View {
             // Every client reads the URL per request; reload Home so its data matches the new backend.
             .navigationDestination(item: $detailsSymbol) { symbol in
                 CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel)
+            }
+            .navigationDestination(isPresented: $showingEarnings) {
+                EarningsCenterScene(model: earningsModel, onOpen: { earningsSymbol = $0 }, onSignIn: { showingAuth = true })
+            }
+            .navigationDestination(item: $earningsSymbol) { symbol in
+                EarningsDetailsScene(symbol: symbol, client: earningsModel.client, onCompany: { explore(symbol) },
+                                     onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true })
             }
             .navigationDestination(isPresented: $showingDiscover) {
                 DiscoverStocksScene(model: screenerModel, accounts: accounts, watchlists: watchlistsModel, onOpenStock: explore,

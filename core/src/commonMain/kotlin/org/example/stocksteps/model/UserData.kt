@@ -80,8 +80,11 @@ data class WatchQuote(
 
 @Serializable enum class EarningsTime { BEFORE_OPEN, AFTER_CLOSE, DURING_MARKET, UNKNOWN }
 
-/** CONFIRMED only when the source says so; provider calendar dates are otherwise ESTIMATED. */
-@Serializable enum class EarningsDateStatus { CONFIRMED, ESTIMATED }
+/**
+ * CONFIRMED only when the source says the company confirmed it; provider calendar dates are
+ * otherwise ESTIMATED. TENTATIVE: announced but subject to change; UNKNOWN: no date information.
+ */
+@Serializable enum class EarningsDateStatus { CONFIRMED, ESTIMATED, TENTATIVE, UNKNOWN }
 
 @Serializable
 data class UpcomingEarnings(
@@ -90,7 +93,9 @@ data class UpcomingEarnings(
     val date: String,
     val time: EarningsTime = EarningsTime.UNKNOWN,
     val status: EarningsDateStatus = EarningsDateStatus.ESTIMATED,
-    val source: String
+    val source: String,
+    /** Stable fiscal-period identity ("SYMBOL:2026-Q3"); reminders key on it, so a moved date never re-notifies. */
+    val eventId: String? = null
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -136,7 +141,13 @@ data class AlertRule(
     val createdAt: Long,
     val updatedAt: Long,
     val lastTriggeredAt: Long? = null,
-    @EncodeDefault val triggerCount: Int = 0
+    @EncodeDefault val triggerCount: Int = 0,
+    /** StockSteps+: remind this many days before (2–7) instead of the day before. */
+    val earningsLeadDays: Int? = null,
+    /** StockSteps+: notify once results for the event are reported. */
+    @EncodeDefault val earningsResults: Boolean = false,
+    /** StockSteps+: with [earningsResults], only notify when |EPS or revenue surprise| ≥ this percent. */
+    val earningsSurprisePercent: Double? = null
 )
 
 @Serializable
@@ -147,6 +158,9 @@ data class CreateAlertRequest(
     val currency: String? = null,
     val direction: MoveDirection? = null,
     val earningsTiming: EarningsTiming? = null,
+    val earningsLeadDays: Int? = null,
+    val earningsResults: Boolean? = null,
+    val earningsSurprisePercent: Double? = null,
     val repeat: RepeatPolicy? = null,
     /** Required when a price condition is already met at creation (otherwise 409 CONDITION_ALREADY_MET). */
     val whenAlreadyMet: AlreadyMetChoice? = null
@@ -159,6 +173,9 @@ data class UpdateAlertRequest(
     val threshold: Double? = null,
     val direction: MoveDirection? = null,
     val earningsTiming: EarningsTiming? = null,
+    val earningsLeadDays: Int? = null,
+    val earningsResults: Boolean? = null,
+    val earningsSurprisePercent: Double? = null,
     val repeat: RepeatPolicy? = null
 )
 

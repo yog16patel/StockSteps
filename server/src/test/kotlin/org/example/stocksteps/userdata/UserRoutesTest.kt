@@ -98,7 +98,7 @@ class UserRoutesTest {
         assertIs<InMemoryUserDataStore>(sources.userData())
         assertIs<MockUserAuthenticator>(sources.userAuth)
         assertIs<SimulatedPushSender>(sources.pushSender())
-        assertIs<FixtureMarketDataSource>(sources.earningsCalendar)
+        assertIs<org.example.stocksteps.earnings.FixtureEarningsDataSource>(sources.earningsData)
         assertTrue(sources.alertsDeliveryNote.contains("simulated"))
     }
 

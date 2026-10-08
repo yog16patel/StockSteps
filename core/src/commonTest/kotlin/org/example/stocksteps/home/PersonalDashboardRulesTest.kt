@@ -40,9 +40,24 @@ class PersonalDashboardRulesTest {
             UpcomingEarnings("NVDA", "2026-10-10", status = EarningsDateStatus.CONFIRMED, source = "calendar"),
             UpcomingEarnings("AAPL", "2026-10-09", source = "calendar"),
             UpcomingEarnings("MSFT", "2026-10-07", source = "calendar")), emptyList(), instruments.map { it.symbol }.toSet(), "2026-10-08", 0)
+            .filter { it.id.startsWith("earnings:") } // the "N companies report this week" summary is separate
         assertEquals(listOf("AAPL", "NVDA"), result.map { it.symbol })
         assertTrue(result.first().detail.startsWith("Estimated"))
         assertTrue(result.last().detail.startsWith("Confirmed"))
+    }
+    @Test fun earningsPrioritizePortfolioHoldingsAndDeduplicate() {
+        val earnings = listOf(
+            UpcomingEarnings("AAPL", "2026-10-09", source = "calendar", eventId = "AAPL:2026-Q4"),
+            UpcomingEarnings("AAPL", "2026-10-09", source = "calendar", eventId = "AAPL:2026-Q4"),
+            UpcomingEarnings("KO", "2026-10-13", status = EarningsDateStatus.CONFIRMED, source = "calendar"),
+            UpcomingEarnings("JPM", "2026-10-12", status = EarningsDateStatus.CONFIRMED, source = "calendar"))
+        val result = PersonalDashboardRules.events(earnings, emptyList(), setOf("AAPL", "JPM"), "2026-10-08", 0, owned = setOf("KO"))
+        val calendar = result.filter { it.id.startsWith("earnings:") }
+        assertEquals(listOf("KO", "AAPL", "JPM"), calendar.map { it.symbol }) // holdings first, then watchlist by date
+        assertTrue(calendar.first().detail.contains("In your portfolio"))
+        assertTrue(calendar.all { it.earnings })
+        assertEquals("3 companies you follow report earnings this week", result.first { it.id == "earnings-week" }.title)
+        assertTrue(PersonalDashboardRules.events(earnings, emptyList(), emptySet(), "2026-10-08", 0).isEmpty()) // new users: nothing invented
     }
     @Test fun irrelevantEarningsAreNotShown() {
         assertTrue(PersonalDashboardRules.events(listOf(UpcomingEarnings("OTHER", "2026-10-10", source = "calendar")), emptyList(), setOf("AAPL"), "2026-10-08", 0).isEmpty())

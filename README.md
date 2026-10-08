@@ -538,6 +538,19 @@ dated FX, precision policies, MOCK scenarios, persistence setup and known limits
 Authenticated routes start at `/api/v1/me/portfolio`; REAL requires the existing
 Firebase Admin credentials, while MOCK uses isolated in-memory data.
 
+### Earnings Intelligence and Earnings Calendar
+
+Markets → **Earnings Center** (Upcoming, Results, Following) and per-company **Earnings Details**
+(EPS/revenue vs estimates, history, session-aware price reaction, insights, education, reminders,
+StockSteps+ AI research). See [Earnings](docs/EARNINGS.md) for methodology and provider coverage.
+
+- `GET /api/v1/earnings/calendar?from=&to=` (≤ 62 days), `GET /api/v1/earnings/{symbol}`
+- `GET /api/v1/me/earnings/following`, `GET /api/v1/me/earnings/{symbol}` (tier-aware),
+  `POST /api/v1/me/earnings/{symbol}/ask` (StockSteps+)
+- Reminders use `/api/v1/me/alerts` type `EARNINGS` (+ `earningsLeadDays`, `earningsResults`,
+  `earningsSurprisePercent` for StockSteps+).
+- Regenerate MOCK events with `python3 scripts/generate_earnings_fixtures.py`.
+
 ### Smart Stock Screener and Stock Comparison
 
 Markets → **Discover Stocks** (presets and filters, server-side filtering/sorting/paging) and

@@ -136,7 +136,10 @@ class MockModeTest {
                     path.endsWith("/chart-daily.json") || path.endsWith("/chart-intraday.json") ->
                         json.decodeFromString(ListSerializer(PricePoint.serializer()), text)
                     path.endsWith("/why-moving.json") -> json.decodeFromString(WhyMoving.serializer(), text)
-                    path.endsWith("/earnings-upcoming.json") -> json.decodeFromString(UpcomingEarnings.serializer(), text)
+                    path == "earnings/events.json" -> json.decodeFromString(ListSerializer(org.example.stocksteps.earnings.EarningsEvent.serializer()), text).let { events ->
+                        assertEquals(events.map { it.id }.distinct().size, events.size, "Event ids are unique")
+                        events.forEach { e -> e.actual?.let { assertTrue(it.source == e.estimate?.source || e.estimate == null, "One source per event: ${e.id}") } }
+                    }
                     path.endsWith("/earnings-quarterly.json") -> json.decodeFromString(ListSerializer(org.example.stocksteps.service.QuarterlyEarnings.serializer()), text)
                     else -> fail("Unexpected fixture file: $path")
                 }

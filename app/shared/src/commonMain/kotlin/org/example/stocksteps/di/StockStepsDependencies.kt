@@ -85,6 +85,9 @@ internal class StockStepsDependencies(baseUrl: () -> String, clientFactory: () -
     fun getArticleInsight(): GetArticleInsight = application.koin.get()
     fun getMovementExplanation(): GetMovementExplanation = application.koin.get()
     fun getMarketsOverview(): GetMarketsOverview = application.koin.get()
+    /** Public earnings calls, plus signed-in ones (following, tier-aware details, AI) when [accounts] exist. */
+    fun earningsRemote(accounts: AccountDependencies?): org.example.stocksteps.earnings.EarningsRemote =
+        org.example.stocksteps.earnings.RemoteEarnings(application.koin.get(), accounts?.userApi)
     fun screenerData(): org.example.stocksteps.screener.ScreenerDataSource = org.example.stocksteps.screener.RemoteScreenerDataSource(application.koin.get())
     fun searchViewModel(query: String, selection: StockSearchResult?): StockSearchViewModel =
         application.koin.get { parametersOf(SearchInitialState(query, selection)) }

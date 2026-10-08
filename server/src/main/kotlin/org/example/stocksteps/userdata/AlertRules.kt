@@ -33,7 +33,9 @@ data class InstrumentSnapshot(
     val name: String?,
     val quote: StockQuote? = null,
     val earnings: UpcomingEarnings? = null,
-    val news: List<NewsArticle> = emptyList()
+    val news: List<NewsArticle> = emptyList(),
+    /** Latest reported earnings within the last few days (for results reminders). */
+    val earningsResult: org.example.stocksteps.earnings.EarningsEvent? = null
 )
 
 /**
@@ -137,27 +139,38 @@ class AlertRules(private val calendar: UsMarketCalendar = UsMarketCalendar()) {
         }
     }
 
+    /**
+     * Earnings reminders. Keys use the event's stable fiscal-period id when known, so a moved date
+     * never sends the same reminder again; results notifications fire once per event.
+     */
     private fun earnings(rule: AlertRule, data: InstrumentSnapshot, now: Instant): AlertDecision {
+        if (rule.earningsResults) results(rule, data)?.let { return it }
         val earnings = data.earnings ?: return AlertDecision.None
         val date = runCatching { LocalDate.parse(earnings.date) }.getOrNull() ?: return AlertDecision.None
         val local = now.atZone(calendar.zone)
         val today = local.toLocalDate()
         val timing = rule.earningsTiming ?: EarningsTiming.BOTH
+        val lead = (rule.earningsLeadDays ?: 1).toLong().coerceIn(1, 7)
         val which = when {
-            today == date.minusDays(1) && timing != EarningsTiming.DAY_OF && !local.toLocalTime().isBefore(LocalTime.of(9, 0)) -> EarningsTiming.DAY_BEFORE
+            today == date.minusDays(lead) && timing != EarningsTiming.DAY_OF && !local.toLocalTime().isBefore(LocalTime.of(9, 0)) -> EarningsTiming.DAY_BEFORE
             today == date && timing != EarningsTiming.DAY_BEFORE && !local.toLocalTime().isBefore(LocalTime.of(7, 0)) -> EarningsTiming.DAY_OF
             else -> return AlertDecision.None
         }
-        val whenText = if (which == EarningsTiming.DAY_BEFORE) "tomorrow" else "today"
+        val whenText = if (which == EarningsTiming.DAY_OF) "today" else if (lead == 1L) "tomorrow" else "in $lead days"
         val timeText = when (earnings.time) {
             EarningsTime.BEFORE_OPEN -> " before the market opens"
             EarningsTime.AFTER_CLOSE -> " after the market closes"
             EarningsTime.DURING_MARKET -> " during market hours"
             EarningsTime.UNKNOWN -> ""
         }
-        val certainty = if (earnings.status == EarningsDateStatus.CONFIRMED) "The company has confirmed the date." else "The date is estimated and may change."
+        val certainty = when (earnings.status) {
+            EarningsDateStatus.CONFIRMED -> "The company has confirmed the date."
+            EarningsDateStatus.TENTATIVE -> "The date is tentative and may change."
+            else -> "The date is estimated and may change."
+        }
+        val identity = earnings.eventId ?: earnings.date
         return AlertDecision.Trigger(
-            eventKey = "${rule.id}:earnings-${earnings.date}-${which.name}",
+            eventKey = "${rule.id}:earnings-$identity-${which.name}",
             title = "${rule.instrument.symbol} earnings $whenText",
             body = "${display(data)} is expected to report earnings $whenText$timeText. $certainty",
             observedValue = null,
@@ -166,6 +179,29 @@ class AlertRules(private val calendar: UsMarketCalendar = UsMarketCalendar()) {
             val time = now.toEpochMilli()
             current.copy(triggerCount = current.triggerCount + 1, lastTriggeredAt = time, updatedAt = time)
         }
+    }
+
+    /** Results available (StockSteps+): once per event; optional verified-surprise threshold. */
+    private fun results(rule: AlertRule, data: InstrumentSnapshot): AlertDecision.Trigger? {
+        val event = data.earningsResult ?: return null
+        val eps = org.example.stocksteps.earnings.EarningsCalculator.eps(event.estimate, event.actual)
+        val revenue = org.example.stocksteps.earnings.EarningsCalculator.revenue(event.estimate, event.actual)
+        rule.earningsSurprisePercent?.let { threshold ->
+            val biggest = listOfNotNull(eps.percent, revenue.percent).maxOfOrNull { kotlin.math.abs(it) } ?: return null
+            if (biggest < threshold) return null
+        }
+        fun part(label: String, r: org.example.stocksteps.earnings.SurpriseResult) = when (r.classification) {
+            org.example.stocksteps.earnings.Classification.UNAVAILABLE -> null
+            else -> "$label ${r.classification.label.lowercase()}" + (r.percent?.let { " (${if (it >= 0) "+" else ""}${"%.1f".format(java.util.Locale.US, it)}%)" } ?: "")
+        }
+        val summary = listOfNotNull(part("EPS", eps), part("revenue", revenue)).joinToString(", ").ifBlank { "Results are available" }
+        return AlertDecision.Trigger(
+            eventKey = "${rule.id}:earnings-results-${event.id}",
+            title = "${rule.instrument.symbol} reported ${event.period} results",
+            body = "${display(data)}: $summary versus analyst estimates. Results don't determine how the stock moves.",
+            observedValue = null,
+            sessionDate = event.date
+        ) { current -> current.copy(triggerCount = current.triggerCount + 1, lastTriggeredAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()) }
     }
 
     private fun news(rule: AlertRule, data: InstrumentSnapshot, now: Instant, recentTitles: List<String>): AlertDecision {

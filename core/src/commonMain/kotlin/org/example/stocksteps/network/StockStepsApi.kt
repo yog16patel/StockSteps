@@ -136,6 +136,15 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
 
     suspend fun getBackendInfo(): BackendInfo = request { url("$baseUrl/api/v1/meta") }
 
+    // Earnings (public; free tier).
+    suspend fun earningsCalendar(query: org.example.stocksteps.earnings.EarningsCalendarQuery): org.example.stocksteps.earnings.EarningsCalendarPage = request {
+        url("$baseUrl/api/v1/earnings/calendar"); earningsParameters(query)
+    }
+    suspend fun earningsDetails(symbol: String): org.example.stocksteps.earnings.EarningsDetails {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request { url("$baseUrl/api/v1/earnings/${symbol.uppercase()}") }
+    }
+
     // Screener and comparison (public; all provider access stays on the server).
     suspend fun getScreenerCatalog(): org.example.stocksteps.screener.ScreenerCatalog = request { url("$baseUrl/api/v1/screener/catalog") }
     suspend fun searchScreener(query: org.example.stocksteps.screener.ScreenerQuery): org.example.stocksteps.screener.ScreenerPage = send(io.ktor.http.HttpMethod.Post) {
@@ -190,6 +199,18 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
         }
         return response.body()
     }
+}
+
+/** Calendar query → URL parameters (shared by the public and signed-in earnings calls). */
+fun io.ktor.client.request.HttpRequestBuilder.earningsParameters(query: org.example.stocksteps.earnings.EarningsCalendarQuery) {
+    parameter("from", query.from); parameter("to", query.to)
+    if (query.exchanges.isNotEmpty()) parameter("exchange", query.exchanges.joinToString(","))
+    if (query.countries.isNotEmpty()) parameter("country", query.countries.joinToString(","))
+    if (query.sessions.isNotEmpty()) parameter("session", query.sessions.joinToString(",") { it.name })
+    query.symbol?.let { parameter("symbol", it) }
+    query.view?.let { parameter("view", it) }
+    parameter("pageSize", query.pageSize)
+    query.cursor?.let { parameter("cursor", it) }
 }
 
 fun io.ktor.client.HttpClientConfig<*>.configureStockStepsClient() {

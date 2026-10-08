@@ -17,4 +17,5 @@ internal sealed interface HomeAction {
     data class OpenStock(val symbol: String) : HomeAction
     data class OpenArticle(val url: String) : HomeAction
     data class OpenStockAlerts(val symbol: String) : HomeAction
+    data class OpenEarnings(val symbol: String) : HomeAction
 }

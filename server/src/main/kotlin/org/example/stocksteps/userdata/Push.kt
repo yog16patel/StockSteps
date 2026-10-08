@@ -90,30 +90,7 @@ class FcmPushSender(
 /** Next scheduled earnings for a symbol, or null when none is known in the next 90 days. */
 fun interface EarningsCalendarSource {
     suspend fun upcoming(symbol: String): UpcomingEarnings?
+    /** The latest reported event if it was reported in the last few days (results reminders). */
+    suspend fun recentResult(symbol: String): org.example.stocksteps.earnings.EarningsEvent? = null
 }
 
-/**
- * REAL: Finnhub earnings calendar. Finnhub doesn't say whether a date is confirmed by the company,
- * so every date is reported as ESTIMATED; the time is mapped from its bmo/amc/dmh hint.
- */
-class FinnhubEarningsCalendar(private val client: HttpClient, private val apiKey: String, private val today: () -> java.time.LocalDate) : EarningsCalendarSource {
-    override suspend fun upcoming(symbol: String): UpcomingEarnings? {
-        val start = today()
-        val response = client.apiCall<JsonObject>("https://finnhub.io/api/v1/calendar/earnings") {
-            header("X-Finnhub-Token", apiKey)
-            parameter("symbol", symbol)
-            parameter("from", start.toString())
-            parameter("to", start.plusDays(90).toString())
-        }
-        val rows = response["earningsCalendar"]?.jsonArray.orEmpty().mapNotNull { it as? JsonObject }
-            .filter { it["symbol"]?.jsonPrimitive?.content.equals(symbol, ignoreCase = true) }
-        val next = rows.mapNotNull { row -> row["date"]?.jsonPrimitive?.contentOrNull?.let { it to row } }.minByOrNull { it.first } ?: return null
-        val time = when (next.second["hour"]?.jsonPrimitive?.contentOrNull) {
-            "bmo" -> EarningsTime.BEFORE_OPEN
-            "amc" -> EarningsTime.AFTER_CLOSE
-            "dmh" -> EarningsTime.DURING_MARKET
-            else -> EarningsTime.UNKNOWN
-        }
-        return UpcomingEarnings(symbol, next.first, time, EarningsDateStatus.ESTIMATED, "Finnhub earnings calendar")
-    }
-}
