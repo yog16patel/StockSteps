@@ -124,6 +124,8 @@ struct WatchListScene: View {
     let onSearch: () -> Void
     let onExplore: (String) -> Void
     let onOpenAlerts: (String?) -> Void
+    @State private var portfolioInstrument: InstrumentRef?
+    @State private var portfolioModel = PortfolioViewModel()
     @State private var sheet: WatchSheet?
     @State private var naming: Watchlist??
     @State private var name = ""
@@ -204,6 +206,9 @@ struct WatchListScene: View {
         .refreshable { await model.refresh(symbols: symbols) }
         .background(colors.appBackground.ignoresSafeArea())
         .onChange(of: symbols, initial: true) { _, value in model.loadData(symbols: value) }
+        .sheet(isPresented: Binding(get: { portfolioInstrument != nil }, set: { if !$0 { portfolioInstrument = nil } })) {
+            PortfolioEntryScene(accounts: accounts, model: portfolioModel, existing: nil, initialInstrument: portfolioInstrument)
+        }
         .sheet(item: $sheet) { open in
             switch open {
             case .note(let row): NoteEditor(row: row) { note in
@@ -234,6 +239,11 @@ struct WatchListScene: View {
         .alert(model.message ?? "", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("OK", role: .cancel) { model.message = nil }
         }
+    }
+
+    private func stateInstrument(_ row: WatchlistRowModel) -> InstrumentRef {
+        model.watchlists.flatMap { $0.entries }.first { $0.instrument.symbol == row.symbol }?.instrument
+            ?? InstrumentRef(symbol: row.symbol, name: row.name, exchange: nil, currency: row.currency)
     }
 
     private func header(signedIn: Bool, _ colors: StockColors) -> some View {
@@ -325,6 +335,9 @@ struct WatchListScene: View {
     private func rowMenu(_ row: WatchlistRowModel, index: Int, count: Int, signedIn: Bool, _ colors: StockColors) -> some View {
         Menu {
             if signedIn, let list = model.selected {
+                Button("Add to portfolio", systemImage: "briefcase") {
+                    portfolioInstrument = stateInstrument(row)
+                }
                 Button("Add alert", systemImage: "bell") { sheet = .alert(InstrumentRef(symbol: row.symbol, name: row.name, exchange: nil, currency: row.currency), row.price) }
                 Button(row.note == nil ? "Add note" : "Edit note", systemImage: "note.text") { sheet = .note(row) }
                 let others = model.watchlists.filter { $0.id != list.id }

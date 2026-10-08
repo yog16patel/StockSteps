@@ -25,6 +25,18 @@ import java.util.concurrent.TimeUnit
 class FirestoreUserDataStore(private val db: Firestore) : UserDataStore {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
+    override suspend fun <T> updatePortfolio(uid: String, block: (org.example.stocksteps.portfolio.PortfolioLedger) -> Pair<org.example.stocksteps.portfolio.PortfolioLedger, T>): T = io {
+        val reference = db.collection("users").document(uid).collection("portfolio").document("ledger")
+        db.runTransaction { tx ->
+            val doc = tx.get(reference).get()
+            val serializer = org.example.stocksteps.portfolio.PortfolioLedger.serializer()
+            val current = doc.getString("data")?.let { decode(serializer, it) } ?: org.example.stocksteps.portfolio.PortfolioLedger()
+            val (next, result) = block(current)
+            if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next), "revision" to next.revision))
+            result
+        }.await()
+    }
+
     private fun watchlistsOf(uid: String) = db.collection("users").document(uid).collection("watchlists")
     private fun meta(uid: String) = db.collection("users").document(uid).collection("meta").document("watchlists")
     private val rules get() = db.collection("alertRules")

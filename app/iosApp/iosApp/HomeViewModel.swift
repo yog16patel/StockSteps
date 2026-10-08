@@ -5,6 +5,8 @@ import Observation
 @MainActor
 @Observable
 final class HomeViewModel {
+    private(set) var portfolio: PortfolioUiState?
+    @ObservationIgnored private var portfolioSubscription: (any AccountSubscription)?
     private(set) var dashboard: PersonalDashboard?
     @ObservationIgnored private var subscription: (any AccountSubscription)?
     @ObservationIgnored private weak var accounts: AccountViewModel?
@@ -13,6 +15,8 @@ final class HomeViewModel {
         guard self.accounts !== accounts || subscription == nil else { return }
         subscription?.cancel()
         self.accounts = accounts
+        portfolioSubscription?.cancel()
+        portfolioSubscription = accounts.client?.observePortfolio { [weak self] state in self?.portfolio = state }
         subscription = accounts.client?.observeHome { [weak self] state in
             self?.dashboard = state
         }
@@ -28,5 +32,5 @@ final class HomeViewModel {
         if let id { accounts?.client?.showHomePersona(id: id) }
         else { accounts?.client?.useSavedHomeCompanies() }
     }
-    deinit { subscription?.cancel() }
+    deinit { subscription?.cancel(); portfolioSubscription?.cancel() }
 }

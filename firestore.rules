@@ -24,7 +24,7 @@ service cloud.firestore {
       allow read, delete: if owns(uid);
       allow create, update: if owns(uid) && validItem(symbol);
     }
-    // Watchlists, notes, alert rules/events, the notification outbox and push devices
+    // Portfolio ledgers (users/{uid}/portfolio/ledger), watchlists, notes, alert rules/events, the notification outbox and push devices
     // (users/{uid}/watchlists, users/{uid}/meta, alertRules, alertEvents, notificationOutbox,
     // pushDevices) are written only by the backend with its service account. Rules don't apply
     // to that access, and no client rule grants them, so apps can never read or write them directly.

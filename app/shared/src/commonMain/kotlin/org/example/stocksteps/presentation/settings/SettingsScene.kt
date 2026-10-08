@@ -58,7 +58,7 @@ internal fun SettingsScene(
         securityMessage = securityMessage,
         securityBusy = securityBusy
     )
-    SettingsScreen(state, hinge) { event ->
+    SettingsScreen(state, hinge, showHeader = false) { event ->
         when (event) {
             is SettingsAction.SelectTheme -> themePreferences.setThemeMode(event.mode)
             is SettingsAction.SelectBackend -> backend.select(event.environment)

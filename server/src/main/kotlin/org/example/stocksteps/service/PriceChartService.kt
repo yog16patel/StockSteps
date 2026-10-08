@@ -35,6 +35,17 @@ class PriceChartService(
         }
     }
 
+    /** Shared daily observations for dated portfolio valuation; uses the same provider cache. */
+    suspend fun getDailyCloses(symbol: String): List<PricePoint> {
+        val outcome = cache.getOrLoad("daily:$symbol", DAILY_TTL,
+            resultTtl = { providerCooldown(it.failure, DAILY_TTL) }) {
+            try { Outcome(provider.getDailyCloses(symbol), null) }
+            catch (cause: StockProviderException) { Outcome(emptyList(), cause) }
+        }
+        outcome.failure?.let { throw it }
+        return outcome.points
+    }
+
     /** Daily points (oldest first) within the range, measured back from the latest point. */
     internal fun slice(points: List<PricePoint>, range: ChartRange): List<PricePoint> {
         val latest = points.lastOrNull()?.time?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() } ?: return points

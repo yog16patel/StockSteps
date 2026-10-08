@@ -8,6 +8,7 @@ struct HomeScene: View {
     let onSearch: () -> Void
     let onWatchlist: () -> Void
     let onSettings: () -> Void
+    let onPortfolio: () -> Void
     let onAlerts: (String?) -> Void
     let onExplore: (String) -> Void
     @Environment(\.openURL) private var openURL
@@ -18,6 +19,8 @@ struct HomeScene: View {
     var body: some View {
         HomeScreen(
             state: model.dashboard,
+            portfolio: model.portfolio,
+            onPortfolio: onPortfolio,
             localHour: localHour,
             onLearn: onLearn,
             onSearch: onSearch,

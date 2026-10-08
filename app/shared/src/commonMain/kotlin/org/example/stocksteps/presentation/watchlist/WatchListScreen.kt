@@ -45,6 +45,7 @@ internal sealed interface WatchListAction {
     data class SaveNote(val entryId: String, val note: String?) : WatchListAction
     data class Move(val entryId: String, val targetId: String, val copy: Boolean) : WatchListAction
     data class Shift(val entryId: String, val by: Int) : WatchListAction
+    data class AddPortfolio(val instrument: InstrumentRef) : WatchListAction
     data class AddAlert(val instrument: InstrumentRef, val price: String?) : WatchListAction
     data object DismissMessage : WatchListAction
 }
@@ -277,6 +278,11 @@ private fun RowActionsSheet(open: Sheet.RowActions, state: WatchListState, onAct
             if (!state.signedIn) {
                 SheetAction(stringResource(Res.string.watchlist_remove)) { onAction(WatchListAction.RemoveGuest(row.symbol)); onDismiss() }
                 return@Column
+            }
+            SheetAction("Add to portfolio") {
+                val instrument = state.watchlists.flatMap { it.entries }.firstOrNull { it.instrument.symbol == row.symbol }?.instrument
+                    ?: InstrumentRef(row.symbol, row.name, currency = row.currency)
+                onAction(WatchListAction.AddPortfolio(instrument)); onDismiss()
             }
             SheetAction(stringResource(Res.string.alert_add)) {
                 onAction(WatchListAction.AddAlert(InstrumentRef(row.symbol, row.name, currency = row.currency), row.price)); onDismiss()

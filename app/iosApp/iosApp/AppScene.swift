@@ -12,6 +12,7 @@ struct AppScene: View {
     var appLock: AppLockModel?
     @State private var showingAuth = false
     @State private var showingSearch = false
+    @State private var showingSettings = false
     @State private var initialStock: StockSearchResult?
     @State private var selectedTab = AppRoute.home
     /// Symbol of the Company Details page pushed on the main stack (Home, Watchlist and Search share it).
@@ -40,7 +41,8 @@ struct AppScene: View {
                             onLearn: { selectedTab = .learn },
                             onSearch: { initialStock = nil; showingSearch = true },
                             onWatchlist: { selectedTab = .watchlist },
-                            onSettings: { selectedTab = .settings },
+                            onSettings: { showingSettings = true },
+                            onPortfolio: { selectedTab = .portfolio },
                             onAlerts: { alertsTarget = $0 ?? "" },
                             onExplore: explore
                         )
@@ -55,6 +57,15 @@ struct AppScene: View {
                     .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
                     .tag(AppRoute.markets)
 
+                Group {
+                    if appLock?.locked != true {
+                        PortfolioScene(accounts: accounts, watchlists: watchlistsModel, onCompany: explore,
+                            onSignIn: { showingAuth = true }, onAlerts: { alertsTarget = $0 })
+                    } else { Color.clear }
+                }
+                .tabItem { Label("Portfolio", systemImage: "briefcase") }
+                .tag(AppRoute.portfolio)
+
                 WatchListScene(accounts: accounts, model: watchlistsModel, onSignIn: { showingAuth = true }, onSearch: { initialStock = nil; showingSearch = true },
                                onExplore: explore, onOpenAlerts: { alertsTarget = $0 ?? "" })
                     .tabItem { Label("Watchlist", systemImage: "star") }
@@ -64,13 +75,10 @@ struct AppScene: View {
                     .tabItem { Label("Learn", systemImage: "book") }
                     .tag(AppRoute.learn)
 
-                SettingsScene(model: accounts, onSignIn: { showingAuth = true }, appLock: appLock)
-                    .tabItem { Label("Settings", systemImage: "gearshape") }
-                    .tag(AppRoute.settings)
             }
             .tint(StockStepsTheme.color(ThemeColors.shared.light.primary))
             // Home and Settings show their own compact headers instead of a navigation title.
-            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .markets && selectedTab != .watchlist && selectedTab != .settings))
+            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .markets && selectedTab != .watchlist && selectedTab != .portfolio))
             // Every client reads the URL per request; reload Home so its data matches the new backend.
             .navigationDestination(item: $detailsSymbol) { symbol in
                 CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel)
@@ -86,6 +94,12 @@ struct AppScene: View {
                 marketsModel.reset()
                 // Watchlists, notes, alerts and the push registration follow the selected backend.
                 accounts.client?.setEnvironment(environment: BackendSettings.environment)
+            }
+        }
+        .sheet(isPresented: $showingSettings) {
+            NavigationStack {
+                SettingsScene(model: accounts, onSignIn: { showingAuth = true }, appLock: appLock)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingSettings = false } } }
             }
         }
         .sheet(isPresented: $showingAuth) {
@@ -110,9 +124,9 @@ struct AppScene: View {
         switch selectedTab {
         case .home: "Home"
         case .markets: "Markets"
+        case .portfolio: "Portfolio"
         case .watchlist: "Watchlist"
         case .learn: "Learn"
-        case .settings: "Settings"
         }
     }
     private func explore(_ symbol: String) {

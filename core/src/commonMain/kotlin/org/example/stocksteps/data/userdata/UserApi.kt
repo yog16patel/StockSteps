@@ -17,8 +17,19 @@ import org.example.stocksteps.network.StockStepsApiException
 class UserApi(
     private val client: HttpClient,
     private val baseUrl: () -> String,
-    private val token: suspend (forceRefresh: Boolean) -> String?
+    private val token: suspend (forceRefresh: Boolean) -> String?,
+    private val identity: () -> String? = { null }
 ) {
+    suspend fun portfolioReport(accountId: String, range: String? = null): org.example.stocksteps.portfolio.PortfolioReport {
+        require(range == null || range in setOf("1D", "1W", "1M", "3M", "1Y", "ALL"))
+        return send(HttpMethod.Get, "portfolio/accounts/${accountId.segment()}/${if (range == null) "summary" else "history?range=$range"}")
+    }
+    suspend fun portfolio(): org.example.stocksteps.portfolio.PortfolioLedger = send(HttpMethod.Get, "portfolio")
+    suspend fun savePortfolioAccount(account: org.example.stocksteps.portfolio.PortfolioAccount): org.example.stocksteps.portfolio.PortfolioLedger = send(HttpMethod.Put, "portfolio/accounts", account)
+    suspend fun deletePortfolioAccount(id: String): org.example.stocksteps.portfolio.PortfolioLedger = send(HttpMethod.Delete, "portfolio/accounts/${id.segment()}")
+    suspend fun savePortfolioTransaction(transaction: org.example.stocksteps.portfolio.PortfolioTransaction, edit: Boolean): org.example.stocksteps.portfolio.PortfolioLedger = send(if (edit) HttpMethod.Put else HttpMethod.Post, "portfolio/transactions", transaction)
+    suspend fun deletePortfolioTransaction(id: String): org.example.stocksteps.portfolio.PortfolioLedger = send(HttpMethod.Delete, "portfolio/transactions/${id.segment()}")
+
     suspend fun watchlists(): WatchlistsResponse = send(HttpMethod.Get, "watchlists")
     suspend fun createWatchlist(name: String): WatchlistsResponse = send(HttpMethod.Post, "watchlists", CreateWatchlistRequest(name))
     suspend fun renameWatchlist(id: String, name: String): WatchlistsResponse = send(HttpMethod.Patch, "watchlists/${id.segment()}", RenameWatchlistRequest(name))
@@ -42,8 +53,10 @@ class UserApi(
     suspend fun unregisterDevice(deviceId: String) { send<Unit>(HttpMethod.Delete, "devices/${deviceId.segment()}") }
 
     private suspend inline fun <reified T> send(method: HttpMethod, path: String, body: Any? = null): T {
-        var response = request(method, path, body, refresh = false)
-        if (response.status == HttpStatusCode.Unauthorized) response = request(method, path, body, refresh = true)
+        val owner = identity()
+        val endpoint = baseUrl()
+        var response = request(method, path, body, refresh = false, owner, endpoint)
+        if (response.status == HttpStatusCode.Unauthorized) response = request(method, path, body, refresh = true, owner, endpoint)
         if (response.status.value !in 200..299) {
             val error = try { response.body<ApiError>() } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
@@ -55,9 +68,12 @@ class UserApi(
         return if (T::class == Unit::class) Unit as T else response.body()
     }
 
-    private suspend fun request(method: HttpMethod, path: String, body: Any?, refresh: Boolean): HttpResponse {
+    private suspend fun request(method: HttpMethod, path: String, body: Any?, refresh: Boolean, owner: String?, endpoint: String): HttpResponse {
+        if (identity() != owner || baseUrl() != endpoint) throw CancellationException("Account or environment changed")
+        val requestUrl = "${endpoint.trimEnd('/')}/api/v1/me/$path"
         val bearer = token(refresh) ?: throw StockStepsApiException(401, ApiError("SIGN_IN_REQUIRED", "Sign in to use watchlists and alerts."))
-        return client.request("${baseUrl().trimEnd('/')}/api/v1/me/$path") {
+        if (identity() != owner || baseUrl() != endpoint) throw CancellationException("Account changed before request")
+        return client.request(requestUrl) {
             this.method = method
             expectSuccess = false
             header(HttpHeaders.Authorization, "Bearer $bearer")

@@ -22,6 +22,8 @@ internal fun HomeScreen(
     localHour: Int,
     hinge: WindowHinge?,
     showMockPersonas: Boolean = false,
+    portfolio: org.example.stocksteps.portfolio.PortfolioUiState? = null,
+    onPortfolio: () -> Unit = {},
     onAction: (HomeAction) -> Unit
 ) {
     val spacing = StockStepsTheme.spacing
@@ -57,6 +59,7 @@ internal fun HomeScreen(
                                 color = StockStepsTheme.colors.textSecondary)
                         }
                     }
+                    if (portfolio != null) item("portfolio") { org.example.stocksteps.presentation.portfolio.PortfolioSummaryCard(portfolio, onPortfolio) }
                     item("watchlist") { HomeWatchlistSection(state, onAction, content) }
                     if (state.brief.isNotEmpty()) {
                         item("brief") {

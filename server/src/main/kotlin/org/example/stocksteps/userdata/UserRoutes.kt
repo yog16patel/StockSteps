@@ -143,7 +143,7 @@ fun Route.alertEvaluationRoutes(evaluator: AlertEvaluator, secret: String?, mock
 
 private val ID = Regex("[A-Za-z0-9_-]{1,64}")
 
-private suspend fun io.ktor.server.routing.RoutingContext.user(auth: UserAuthenticator, block: suspend (String) -> Unit) {
+internal suspend fun io.ktor.server.routing.RoutingContext.user(auth: UserAuthenticator, block: suspend (String) -> Unit) {
     val uid = call.requireUser(auth) ?: return
     try {
         block(uid)

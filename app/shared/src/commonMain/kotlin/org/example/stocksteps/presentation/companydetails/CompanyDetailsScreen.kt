@@ -9,6 +9,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -85,6 +86,7 @@ internal fun CompanyDetailsScreen(
                 contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, bottom = spacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                item(key = "portfolio") { TextButton(onClick = { onAction(CompanyDetailsAction.AddPortfolio) }) { Text("Add to portfolio") } }
                 item(key = "header") { CompanyHeader(state.overview, onRetry = { onAction(CompanyDetailsAction.RetryCore) }, modifier = content) }
                 item(key = "chart") {
                     ChartSection(

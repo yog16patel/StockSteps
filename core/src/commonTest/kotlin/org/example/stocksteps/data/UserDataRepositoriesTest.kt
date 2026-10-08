@@ -183,7 +183,7 @@ class UserDataRepositoriesTest {
         val repo = WatchDataRepository(StockStepsApi(client, "https://stocksteps.test"), InMemoryUserDataCache(), now = { 42 })
         assertFalse(repo.load("o", listOf("AAPL", "MSFT")).fromCache)
         online = false
-        val cached = repo.load("o", listOf("AAPL", "MSFT"))
+        val cached = repo.load("o", listOf("AAPL", "MSFT"), force = true)
         assertTrue(cached.fromCache); assertEquals(42, cached.savedAt)
         assertFails { repo.load("other", listOf("AAPL", "MSFT")) }
     }

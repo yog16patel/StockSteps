@@ -528,3 +528,12 @@ in MOCK. Home requests company news with `enrich=false`, avoiding automatic AI w
 
 See [Personalized Home implementation report](docs/PERSONALIZED_HOME.md) for rules,
 architecture, privacy, endpoints, complete verification and remaining work.
+
+## Portfolio tracker
+
+Android and native iOS now share an independent portfolio ledger and calculation
+engine. Home observes the same portfolio state; Watchlist membership stays separate.
+See [Portfolio implementation](docs/PORTFOLIO.md) for account/transaction APIs,
+dated FX, precision policies, MOCK scenarios, persistence setup and known limits.
+Authenticated routes start at `/api/v1/me/portfolio`; REAL requires the existing
+Firebase Admin credentials, while MOCK uses isolated in-memory data.

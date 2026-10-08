@@ -16,6 +16,7 @@ internal fun WatchListScene(
     onSignIn: () -> Unit,
     onSearch: () -> Unit,
     onOpenStock: (String) -> Unit,
+    onAddPortfolio: (InstrumentRef) -> Unit,
     onOpenAlerts: (String?) -> Unit
 ) {
     val model = viewModel(key = "watchlist") {
@@ -27,6 +28,7 @@ internal fun WatchListScene(
     var editor by remember { mutableStateOf<Pair<InstrumentRef, String?>?>(null) }
     WatchListScreen(state, hinge) { action ->
         when (action) {
+            is WatchListAction.AddPortfolio -> onAddPortfolio(action.instrument)
             WatchListAction.Refresh -> model.refresh()
             WatchListAction.SignIn -> onSignIn()
             WatchListAction.Search -> onSearch()

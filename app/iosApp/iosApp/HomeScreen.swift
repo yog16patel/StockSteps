@@ -4,6 +4,8 @@ import SwiftUI
 /// Personal facts in one lazy scroll. Never displays invented holdings or learning progress.
 struct HomeScreen: View {
     let state: PersonalDashboard?
+    let portfolio: PortfolioUiState?
+    let onPortfolio: () -> Void
     let localHour: Int
     let onLearn: () -> Void
     let onSearch: () -> Void
@@ -45,6 +47,7 @@ struct HomeScreen: View {
                             .font(StockStepsTheme.font(type.small, relativeTo: .subheadline))
                             .foregroundStyle(StockStepsTheme.colors(scheme).textSecondary)
                     }
+                    if let portfolio { PortfolioSummaryCard(state: portfolio, onOpen: onPortfolio) }
                     watchlist(state)
                     if !state.brief.isEmpty { facts("Your Daily Brief", state.brief) }
                     if !state.events.isEmpty { facts("Upcoming & alerts", state.events) }

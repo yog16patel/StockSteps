@@ -1,16 +1,88 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **Add personalized Home dashboard on Android and iOS** on `main`.
-Includes shared personalization, native screens, isolated recent history, mock personas and validation (see the final section and `docs/PERSONALIZED_HOME.md`).
+Last updated: 2026-10-08 (America/Toronto). Current commit: **Add shared portfolio tracker on Android and iOS** on `main`.
+Includes the Portfolio tracker described immediately below and in `docs/PORTFOLIO.md`, built on the personalized Home baseline.
 Previous commit: `e559ffe` (Market and watchlist data updated), including Watchlist & Smart Alerts.
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
 
+## Current milestone — Portfolio tracker (2026-10-08)
+
+The Portfolio implementation is committed as **Add shared portfolio tracker on
+Android and iOS**, after **Add personalized Home dashboard on Android and iOS**
+(`a6b3e2f`). This section supersedes
+older statements that Portfolio is unsupported. Read `docs/PORTFOLIO.md` for the
+model, arithmetic policy, API, scenarios and remaining work. Commit and push were
+requested by the user. No production deployment was performed.
+
+Completed:
+- Independent shared portfolio ledger/repository/presenter, Koin DI, native SwiftUI
+  and Compose screens. Five tabs: Home, Markets, Portfolio, Watchlist, Learn;
+  Settings opens from Home profile. Route/Scene/Screen boundaries are preserved.
+- Multiple CAD/USD accounts; categories, unique names, rename/archive/delete,
+  selection and combined total. Transactions include buys/sells, opening positions,
+  cash flows, dividends/DRIP, fees, adjustments, manual transfers and splits;
+  editing/deletion replays the full chronology and rejects oversells atomically.
+- Exact eight-place decimal arithmetic, fractional shares, moving-average basis,
+  realized/unrealized gains, cash, dividends, holding/currency allocations, dated
+  FX cost and actual-date account-value charts. Full trade amounts are converted
+  before allocating basis, avoiding per-share FX rounding amplification.
+- Authenticated `/api/v1/me/portfolio` CRUD, account summary/history; stable IDs,
+  retry-safe writes and server sequence. REAL uses server-only Firestore ledger;
+  MOCK uses isolated memory. SQL cache and requests are owner/backend scoped.
+- Shared Home snapshot, Watchlist/Company Details add-entry actions, holding links
+  to Company Details, existing watchlist chooser and existing alerts. Watchlist
+  membership never creates an owned position.
+- Keyless Bank of Canada dated FX in REAL; deterministic fixture FX in MOCK.
+  Shared quote/history caches, lazy bounded history loading and explicit missing/
+  stale data. Eighteen read-only MOCK scenarios never seed real saved data.
+
+Validation and operational notes:
+- Final automated suite passed: core JVM 141 tests, core iOS simulator 141,
+  shared Android host 55, shared iOS simulator 49, backend 148 total with three
+  existing skipped (145 executed). No failures/errors. Command:
+  `./gradlew :core:jvmTest :server:test :app:shared:testAndroidHostTest :app:androidApp:assembleDebug :core:iosSimulatorArm64Test :app:shared:iosSimulatorArm64Test`.
+  Log: `/tmp/stocksteps-portfolio-final-check.log`.
+- Final Android `assembleDebug` also passed after the saved-state selection fix;
+  log: `/tmp/stocksteps-portfolio-android-final.log`. Search returns selection through
+  saved-state string fields; form drafts survive returning from search.
+- Earlier native SwiftUI simulator build passed (log
+  `/tmp/stocksteps-portfolio-xcode-latest.log`). A final native build was started
+  after later portfolio model/UI changes, but the turn was interrupted before a
+  successful result was confirmed. Do not treat the final native build as verified.
+  Inspect `/tmp/stocksteps-portfolio-xcode-final.log` and any running build before
+  rerunning; then resolve diagnostics and confirm `BUILD SUCCEEDED`.
+- Android emulator smoke verified a
+  CAD account with 0.5 AAPL NASDAQ shares at USD 100: CAD 227.25 current value,
+  CAD 67.50 basis and CAD 159.75 unrealized with mock quotes/FX. Home matched and
+  Watchlist stayed empty. The temporary account was deleted with confirmation.
+- Task mock server was started on 8095; emulator reverse maps 8081 to 8095. The
+  installed APK/server smoke-test versions precede the last UI/precision changes:
+  rebuild/restart the isolated server and reinstall the latest APK for final UI
+  acceptance. Verify running processes rather than assuming they remain alive.
+  The user's
+  original 8081 process was left intact; restore `adb reverse tcp:8081 tcp:8081`
+  to return to it. Restart/rebuild older servers before expecting portfolio routes.
+- No REAL portfolio writes, credential reads, Firebase deployment, or live provider
+  acceptance checks were performed. Existing Firebase Admin configuration is needed
+  for REAL persistence; client Firestore default-deny rules cover this server path.
+
+Remaining / next:
+- First finish the final native SwiftUI build and reinstall/recheck latest Android
+  and MOCK server artifacts. Then live authenticated Firestore/FX/provider acceptance; native device visual,
+  accessibility, tablet and physical fold-posture checks.
+- Automatic corporate-action-normalized history, intraday valuations, TWR/XIRR,
+  linked transfer wizard, paged ledger and optional asset/sector metadata. Manual
+  splits/transfers work; charts do not invent adjusted historical total returns.
+- Ledger limits are 20 accounts, 100 securities, 1,000 transactions and <800 KB.
+- Learn remains a placeholder. Other historical pending items remain independent.
+
 ## Start here — Claude / replacement agent handoff (2026-10-06)
 
-This section is the authoritative current snapshot. Later sections retain the
+The Portfolio milestone section above is the newest authoritative snapshot.
+This older baseline section and later sections retain the
 project's chronological history; older endpoint descriptions, test totals and
 "current commit" headings may describe earlier milestones. Do not treat historical
 pending items as instructions to implement them automatically.

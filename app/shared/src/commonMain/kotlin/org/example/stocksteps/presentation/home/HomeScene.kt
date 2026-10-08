@@ -20,6 +20,7 @@ internal fun HomeScene(
     onSearch: () -> Unit,
     onWatchlist: () -> Unit,
     onSettings: () -> Unit,
+    onPortfolio: () -> Unit,
     onAlerts: (String?) -> Unit,
     onExplore: (String) -> Unit
 ) {
@@ -32,7 +33,8 @@ internal fun HomeScene(
         model.onVisible()
         onPauseOrDispose { }
     }
-    HomeScreen(state, hour, hinge, showMockPersonas = environment == BackendEnvironment.MOCK) { action ->
+    val portfolio by accounts.portfolioPresenter.state.collectAsStateWithLifecycle()
+    HomeScreen(state, hour, hinge, portfolio = portfolio, onPortfolio = onPortfolio, showMockPersonas = environment == BackendEnvironment.MOCK) { action ->
         when (action) {
             HomeAction.Refresh -> model.refresh()
             HomeAction.RetryQuotes -> model.retryQuotes()

@@ -94,13 +94,13 @@ abstract class ServerBackedRepository<T : Any>(
 
     suspend fun refresh() {
         val (uid, env) = mutable.value.uid to mutable.value.environment
-        if (uid == null || env == null) return
+        if (uid == null || env == null || auth.session.value.user?.id != uid || environment.value != env) return
         mutable.update { it.copy(loading = true, error = null) }
         try {
             apply(uid, env, fetch())
         } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
-            mutable.update { if (it.uid == uid) it.copy(loading = false, offline = it.value != null, error = userDataError(cause)) else it }
+            mutable.update { if (it.uid == uid && it.environment == env) it.copy(loading = false, offline = it.value != null, error = userDataError(cause)) else it }
         }
     }
 
@@ -108,6 +108,7 @@ abstract class ServerBackedRepository<T : Any>(
     protected suspend fun mutate(request: suspend () -> T): T = writes.withLock {
         val uid = mutable.value.uid ?: throw IllegalStateException("Sign in to make changes.")
         val env = mutable.value.environment ?: throw IllegalStateException("Sign in to make changes.")
+        if (auth.session.value.user?.id != uid || environment.value != env) throw CancellationException("Account or environment changed")
         val response = try { request() } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
             throw UserDataRequestException(userDataError(cause), cause)
@@ -118,10 +119,11 @@ abstract class ServerBackedRepository<T : Any>(
 
     private suspend fun apply(uid: String, env: String, value: T) {
         // A response for a previous account or environment is never shown.
-        if (mutable.value.uid != uid || mutable.value.environment != env) return
+        if (mutable.value.uid != uid || mutable.value.environment != env || auth.session.value.user?.id != uid || environment.value != env) return
         val time = now()
         mutable.update { it.copy(value = value, loading = false, offline = false, savedAt = time, error = null) }
         cache.write(userCacheOwner(env, uid), cacheKey, json.encodeToString(serializer, value), time)
+        if (auth.session.value.user?.id != uid) cache.clearAccount(uid)
     }
 }
 
@@ -176,18 +178,29 @@ class WatchDataRepository(
     data class Result(val data: WatchDataResponse, val fromCache: Boolean, val savedAt: Long)
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
+    private val loads = Mutex()
+    private val memory = LinkedHashMap<String, Result>()
+
     /** Fresh data when reachable; otherwise the cached copy (fromCache) if it covers the request; otherwise throws. */
-    suspend fun load(owner: String, symbols: List<String>): Result {
+    suspend fun load(owner: String, symbols: List<String>, force: Boolean = false): Result = loads.withLock {
         if (symbols.isEmpty()) throw IllegalArgumentException("No symbols")
-        return try {
+        val cached = memory[owner]
+        if (!force && cached != null && now() - cached.savedAt < 60_000 && symbols.all { symbol -> cached.data.quotes.any { it.symbol == symbol } }) {
+            return@withLock cached.copy(data = cached.data.copy(quotes = cached.data.quotes.filter { it.symbol in symbols }))
+        }
+        try {
             val data = api.getWatchData(symbols)
             val time = now()
             cache.write(owner, KEY, json.encodeToString(WatchDataResponse.serializer(), data), time)
-            Result(data, fromCache = false, savedAt = time)
+            Result(data, fromCache = false, savedAt = time).also {
+                memory[owner] = it
+                if (memory.size > 8) memory.remove(memory.keys.first())
+            }
         } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
             val (text, savedAt) = cache.read(owner, KEY) ?: throw cause
             val cached = runCatching { json.decodeFromString(WatchDataResponse.serializer(), text) }.getOrNull() ?: throw cause
+            if (symbols.any { symbol -> cached.quotes.none { it.symbol == symbol } }) throw cause
             Result(cached.copy(quotes = cached.quotes.filter { it.symbol in symbols }), fromCache = true, savedAt = savedAt)
         }
     }

@@ -12,6 +12,7 @@ import androidx.navigation.compose.*
 import androidx.navigation.toRoute
 import org.example.stocksteps.di.AccountDependencies
 import org.example.stocksteps.presentation.account.*
+import org.example.stocksteps.presentation.portfolio.*
 import org.example.stocksteps.MainDestination
 import org.example.stocksteps.presentation.watchlist.*
 import org.example.stocksteps.presentation.learn.*
@@ -86,20 +87,20 @@ internal fun AppNavigation(
     fun openTab(tab: MainDestination) {
         val route: Any = when (tab) {
             MainDestination.HOME -> DiscoveryRoute
+            MainDestination.PORTFOLIO -> PortfolioRoute
             MainDestination.MARKETS -> MarketsRoute
             MainDestination.WATCHLIST -> WatchListRoute
             MainDestination.LEARN -> LearnRoute
-            MainDestination.SETTINGS -> SettingsRoute
         }
         navController.navigate(route) {
             popUpTo(DiscoveryRoute) { saveState = true }
             launchSingleTop = true
-            restoreState = true
+            restoreState = tab != MainDestination.HOME
         }
     }
 
     val isAuth = destination?.hasRoute<AuthRoute>() == true
-    val isSearch = destination?.hasRoute<StockSearchRoute>() == true
+    val isSearch = destination?.hasRoute<StockSearchRoute>() == true || destination?.hasRoute<PortfolioSearchRoute>() == true
 
     val isHome = destination?.hasRoute<DiscoveryRoute>() == true
     // Keyed by environment: switching creates fresh scene models (fresh data), while every
@@ -124,8 +125,11 @@ internal fun AppNavigation(
     val isCompanyNews = destination?.hasRoute<CompanyNewsRoute>() == true
     val isNewsInsight = destination?.hasRoute<NewsInsightRoute>() == true
     val isMovement = destination?.hasRoute<StockMovementRoute>() == true
-    val hasBack = isSearch || isCompanyFinancials || isCompanyNews
+    val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true
     // Every stock tap (Home movers, Watchlist, Search) opens the same Company Details page.
+    val addPortfolio: (InstrumentRef) -> Unit = { instrument ->
+        navController.navigate(PortfolioEntryRoute(instrument.symbol, instrument.name, instrument.exchange, instrument.currency))
+    }
     val openStock: (String) -> Unit = { symbol -> navController.navigate(CompanyDetailsRoute(symbol)) }
     // Scaffold applies status/navigation-bar insets once and consumes them for the content,
     // so screens' own safe-content padding does not double them.
@@ -135,6 +139,9 @@ internal fun AppNavigation(
             StockStepsTopBar(
                 configuration = AppBarConfiguration(
                     title = when {
+                        destination?.hasRoute<PortfolioEntryRoute>() == true -> "Add transaction"
+                        destination?.hasRoute<HoldingDetailsRoute>() == true -> "Holding details"
+                        destination?.hasRoute<PortfolioRoute>() == true -> "Portfolio"
                         isSearch -> "Search stocks"
                         isCompanyFinancials -> "Financials"
                         isCompanyNews -> "Company news"
@@ -144,7 +151,7 @@ internal fun AppNavigation(
                         else -> "Home"
                     },
                     // Home, Settings, Company Details and Financials render their own headers.
-                    visible = !isAuth && !isHome && !isSettings && !isMarkets && !isWatchlist && !isAlerts && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation && !isNewsInsight && !isMovement,
+                    visible = !isAuth && !isHome && destination?.hasRoute<PortfolioRoute>() != true && !isMarkets && !isWatchlist && !isAlerts && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation && !isNewsInsight && !isMovement,
                     backButton = if (hasBack) AppBarBackButton.BACK else AppBarBackButton.NONE
                 ),
                 onBack = { navController.popBackStack() },
@@ -165,10 +172,10 @@ internal fun AppNavigation(
                         MainDestination.entries.forEach { tab ->
                             val selected = when (tab) {
                                 MainDestination.HOME -> isHome
+                                MainDestination.PORTFOLIO -> destination.hasRoute<PortfolioRoute>()
                                 MainDestination.MARKETS -> isMarkets
                                 MainDestination.WATCHLIST -> destination.hasRoute<WatchListRoute>()
                                 MainDestination.LEARN -> destination.hasRoute<LearnRoute>()
-                                MainDestination.SETTINGS -> destination.hasRoute<SettingsRoute>()
                             }
                             StockBottomNavigationItem(
                                 selected = selected,
@@ -200,9 +207,51 @@ internal fun AppNavigation(
                     onLearn = { openTab(MainDestination.LEARN) },
                     onSearch = { navController.navigate(StockSearchRoute()) },
                     onWatchlist = { openTab(MainDestination.WATCHLIST) },
-                    onSettings = { openTab(MainDestination.SETTINGS) },
+                    onPortfolio = { openTab(MainDestination.PORTFOLIO) },
+                    onSettings = { navController.navigate(SettingsRoute) },
                     onAlerts = { symbol -> navController.navigate(AlertsRoute(symbol)) },
                     onExplore = openStock
+                )
+            }
+            composable<PortfolioRoute> {
+                if (accounts != null) PortfolioScene(accounts,
+                    onAdd = { navController.navigate(PortfolioEntryRoute()) },
+                    onHolding = { account, symbol -> navController.navigate(HoldingDetailsRoute(account, symbol)) },
+                    onOpenCompany = openStock, hinge = hinge,
+                    onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) })
+            }
+            composable<HoldingDetailsRoute> { entry ->
+                if (accounts != null) PortfolioScene(accounts,
+                    onAdd = { navController.navigate(PortfolioEntryRoute()) },
+                    onHolding = { _, _ -> }, onOpenCompany = openStock, holding = entry.toRoute(), hinge = hinge,
+                    onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) })
+            }
+            composable<PortfolioSearchRoute> {
+                StockSearchScene(
+                    route = StockSearchRoute(),
+                    backend = backend,
+                    environment = environment,
+                    hinge = hinge,
+                    accounts = accounts,
+                    onOpenStock = { stock ->
+                        val selected = PortfolioEntryRoute(stock.symbol, stock.name, stock.exchange, stock.currency)
+                        navController.previousBackStackEntry?.savedStateHandle?.set(
+                            "portfolio.selection", arrayOf(selected.symbol, selected.name.orEmpty(), selected.exchange.orEmpty(), selected.currency.orEmpty())
+                        )
+                        navController.popBackStack()
+                    }
+                )
+            }
+            composable<PortfolioEntryRoute> { entry ->
+                val selection by entry.savedStateHandle.getStateFlow("portfolio.selection", emptyArray<String>()).collectAsStateWithLifecycle()
+                val selected = remember(selection) {
+                    selection.takeIf { it.size == 4 }?.let { PortfolioEntryRoute(it[0], it[1], it[2], it[3]) }
+                }
+                if (accounts != null) PortfolioEntryScene(
+                    accounts,
+                    selected ?: entry.toRoute(),
+                    onSearch = { navController.navigate(PortfolioSearchRoute) },
+                    onDone = { navController.popBackStack() }
                 )
             }
             composable<MarketsRoute> {
@@ -223,6 +272,7 @@ internal fun AppNavigation(
                     onSignIn = { navController.navigate(AuthRoute()) },
                     onSearch = { navController.navigate(StockSearchRoute()) },
                     onOpenStock = openStock,
+                    onAddPortfolio = addPortfolio,
                     onOpenAlerts = { symbol -> navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(symbol)) }
                 )
             }
@@ -284,6 +334,7 @@ internal fun AppNavigation(
                     onOpenFinancials = { symbol -> navController.navigate(CompanyFinancialsRoute(symbol)) },
                     onOpenValuation = { symbol -> navController.navigate(CompanyValuationRoute(symbol)) },
                     onOpenNews = { symbol -> navController.navigate(CompanyNewsRoute(symbol)) },
+                    onAddPortfolio = addPortfolio,
                     onOpenMovement = { symbol -> navController.navigate(StockMovementRoute(symbol)) }
                 )
             }
@@ -310,8 +361,8 @@ internal fun AppNavigation(
 
 private fun MainDestination.labelResource(): StringResource = when (this) {
     MainDestination.HOME -> Res.string.nav_home
+    MainDestination.PORTFOLIO -> Res.string.nav_portfolio
     MainDestination.MARKETS -> Res.string.nav_markets
     MainDestination.WATCHLIST -> Res.string.nav_watchlist
     MainDestination.LEARN -> Res.string.nav_learn
-    MainDestination.SETTINGS -> Res.string.nav_settings
 }

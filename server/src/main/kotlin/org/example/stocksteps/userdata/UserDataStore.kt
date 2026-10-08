@@ -41,6 +41,8 @@ data class OutboxItem(
  * and tests use [InMemoryUserDataStore]. Every read-modify-write is atomic.
  */
 interface UserDataStore {
+    suspend fun <T> updatePortfolio(uid: String, block: (org.example.stocksteps.portfolio.PortfolioLedger) -> Pair<org.example.stocksteps.portfolio.PortfolioLedger, T>): T
+
     suspend fun <T> updateWatchlists(uid: String, block: (UserWatchlists) -> Pair<UserWatchlists, T>): T
     /** Stocks saved with the previous single-list watchlist (imported once into "My Stocks"). */
     suspend fun legacyWatchlist(uid: String): List<InstrumentRef> = emptyList()
@@ -74,6 +76,12 @@ interface UserDataStore {
 /** MOCK and tests: process memory, one lock (fine for a local server). */
 class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>> = emptyMap()) : UserDataStore {
     private val lock = Mutex()
+    private val portfolios = HashMap<String, org.example.stocksteps.portfolio.PortfolioLedger>()
+    override suspend fun <T> updatePortfolio(uid: String, block: (org.example.stocksteps.portfolio.PortfolioLedger) -> Pair<org.example.stocksteps.portfolio.PortfolioLedger, T>): T = lock.withLock {
+        val (next, result) = block(portfolios[uid] ?: org.example.stocksteps.portfolio.PortfolioLedger())
+        portfolios[uid] = next
+        result
+    }
     private val watchlists = HashMap<String, UserWatchlists>()
     private val alerts = HashMap<String, List<AlertRule>>()
     private val events = LinkedHashMap<String, Pair<String, AlertEvent>>()
@@ -160,6 +168,7 @@ class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>>
  * Deliberately not an in-memory fallback, which would silently lose users' watchlists and alerts.
  */
 object UnavailableUserDataStore : UserDataStore {
+    override suspend fun <T> updatePortfolio(uid: String, block: (org.example.stocksteps.portfolio.PortfolioLedger) -> Pair<org.example.stocksteps.portfolio.PortfolioLedger, T>): T = unavailable()
     private fun unavailable(): Nothing =
         throw UserDataException(503, "USER_DATA_UNAVAILABLE", "Watchlists and alerts are temporarily unavailable.")
     override suspend fun <T> updateWatchlists(uid: String, block: (UserWatchlists) -> Pair<UserWatchlists, T>): T = unavailable()

@@ -4,6 +4,7 @@ import org.example.stocksteps.model.ChartRange
 
 internal sealed interface CompanyDetailsAction {
     data object Back : CompanyDetailsAction
+    data object AddPortfolio : CompanyDetailsAction
     data object ToggleWatchlist : CompanyDetailsAction
     data object RetryCore : CompanyDetailsAction
     data object RetryChart : CompanyDetailsAction

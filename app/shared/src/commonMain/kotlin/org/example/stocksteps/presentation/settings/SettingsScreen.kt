@@ -30,7 +30,7 @@ import org.jetbrains.compose.resources.stringResource
  * tappable that is not.
  */
 @Composable
-internal fun SettingsScreen(state: SettingsUiState, hinge: WindowHinge?, onAction: (SettingsAction) -> Unit) {
+internal fun SettingsScreen(state: SettingsUiState, hinge: WindowHinge?, showHeader: Boolean = true, onAction: (SettingsAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val content = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxWidth()
     var confirmSignOut by remember { mutableStateOf(false) }
@@ -42,7 +42,7 @@ internal fun SettingsScreen(state: SettingsUiState, hinge: WindowHinge?, onActio
                 contentPadding = PaddingValues(start = spacing.screen, top = spacing.sm, end = spacing.screen, bottom = spacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                item(key = "header") { SettingsHeader(content) }
+                if (showHeader) item(key = "header") { SettingsHeader(content) }
                 item(key = "account") {
                     SettingsSection(Res.string.settings_section_account, content.padding(top = spacing.xl)) {
                         AccountRow(state.account, state.availableLinks, onAction)

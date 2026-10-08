@@ -313,4 +313,5 @@
     <string name="alert_already_met">Notify you right away, or wait until the price moves back and crosses again?</string>
     <string name="alert_notify_now">Notify me now</string>
     <string name="alert_wait_cross">Wait for the next cross</string>
+    <string name="nav_portfolio">Portfolio</string>
 </resources>

@@ -115,6 +115,32 @@ class IosAccountClient(auth: PlatformAuthGateway, baseUrl: () -> String, environ
     suspend fun remove(symbol: String) = dependencies.removeFromWatchlist()(symbol)
     fun retrySync() = dependencies.watchlist.retrySync()
 
+    fun observePortfolio(onChange: (org.example.stocksteps.portfolio.PortfolioUiState) -> Unit): AccountSubscription {
+        val job = scope.launch { dependencies.portfolioPresenter.state.collect(onChange) }
+        return object : AccountSubscription { override fun cancel() { job.cancel() } }
+    }
+    fun showPortfolioScenario(id: String?) { dependencies.portfolioPresenter.showScenario(id) }
+    fun loadPortfolioHistory(range: String) { dependencies.portfolioPresenter.loadHistory(range) }
+    fun refreshPortfolio() { dependencies.portfolioPresenter.refresh() }
+    fun selectPortfolioAccount(id: String) { dependencies.portfolioPresenter.selectAccount(id) }
+    fun savePortfolioAccount(id: String, name: String, category: String, currency: String, archived: Boolean) {
+        dependencies.portfolioPresenter.saveAccount(org.example.stocksteps.portfolio.PortfolioAccount(
+            id.ifBlank { org.example.stocksteps.portfolio.PortfolioPresenter.newId() }, name,
+            org.example.stocksteps.portfolio.PortfolioCategory.valueOf(category),
+            org.example.stocksteps.portfolio.PortfolioCurrency.valueOf(currency), archived))
+    }
+    fun deletePortfolioAccount(id: String) { dependencies.portfolioPresenter.deleteAccount(id) }
+    fun deletePortfolioTransaction(id: String) { dependencies.portfolioPresenter.deleteTransaction(id) }
+    fun savePortfolioTransaction(id: String, accountId: String, type: String, date: String, currency: String,
+        symbol: String, name: String, exchange: String, quantity: String, price: String, amount: String, fees: String, notes: String, cashCurrency: String, fxRate: String, settlementDate: String, securityCurrency: String, edit: Boolean) {
+        dependencies.portfolioPresenter.saveTransaction(org.example.stocksteps.portfolio.PortfolioTransaction(
+            id, accountId, org.example.stocksteps.portfolio.TransactionType.valueOf(type), date,
+            org.example.stocksteps.portfolio.PortfolioCurrency.valueOf(currency),
+            symbol.takeIf { it.isNotBlank() }?.let { InstrumentRef(it, name.ifBlank { null }, exchange.ifBlank { null }, securityCurrency.ifBlank { currency }) },
+            quantity.ifBlank { "0" }, price.ifBlank { "0" }, amount.ifBlank { "0" }, fees = fees.ifBlank { "0" }, notes = notes.ifBlank { null },
+            cashCurrency = org.example.stocksteps.portfolio.PortfolioCurrency.valueOf(cashCurrency), fxRate = fxRate.ifBlank { null }, settlementDate = settlementDate.ifBlank { null }), edit)
+    }
+
     fun observeHome(onChange: (org.example.stocksteps.home.PersonalDashboard) -> Unit): AccountSubscription {
         val job = scope.launch { dependencies.home.state.collect(onChange) }
         return object : AccountSubscription { override fun cancel() { job.cancel() } }

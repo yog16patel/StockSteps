@@ -67,7 +67,7 @@ class PersonalDashboardStoreTest {
             }
             respond(text, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
         }})) { install(ContentNegotiation) { json() } }
-        private val userApi = UserApi(client, { "http://${environment.value}" }) { auth.idToken(it) }
+        private val userApi = UserApi(client, { "http://${environment.value}" }, token = { auth.idToken(it) })
         val lists = UserWatchlistsRepository(auth, userApi, cache, environment, test.backgroundScope).also { it.start() }
         val alerts = AlertsRepository(auth, userApi, cache, environment, test.backgroundScope).also { it.start() }
         val store = PersonalDashboardStore(auth, lists, alerts, guest, environment,

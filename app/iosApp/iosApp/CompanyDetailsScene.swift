@@ -12,6 +12,8 @@ struct CompanyDetailsScene: View {
     @State private var showNews = false
     @State private var showValuation = false
     @State private var showMovement = false
+    @State private var showPortfolio = false
+    @State private var portfolioModel = PortfolioViewModel()
     @Environment(\.openURL) private var openURL
 
     init(symbol: String, accounts: AccountViewModel, watchlists: WatchlistsModel? = nil, baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
@@ -38,7 +40,8 @@ struct CompanyDetailsScene: View {
             onOpenFinancials: { showFinancials = true },
             onOpenValuation: { showValuation = true },
             onOpenNews: { showNews = true },
-            onOpenMovement: { showMovement = true }
+            onOpenMovement: { showMovement = true },
+            onAddPortfolio: { showPortfolio = true }
         )
         // Deeper destinations stay inside the same navigation stack, so Back returns here.
         .navigationDestination(isPresented: $showFinancials) { CompanyFinancialsScene(symbol: symbol, client: model.client) }
@@ -48,6 +51,10 @@ struct CompanyDetailsScene: View {
         .task {
             accounts.client?.recordViewedCompany(symbol: symbol)
             if model.overview.value == nil { model.load() }
+        }
+        .sheet(isPresented: $showPortfolio) {
+            PortfolioEntryScene(accounts: accounts, model: portfolioModel, existing: nil,
+                initialInstrument: InstrumentRef(symbol: symbol, name: model.overview.value?.name, exchange: nil, currency: nil))
         }
         .sheet(isPresented: $choosingList) {
             WatchlistChooser(symbol: symbol, lists: watchlists?.watchlists ?? []) { list in
