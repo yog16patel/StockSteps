@@ -1,14 +1,73 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **Add shared portfolio tracker on Android and iOS** on `main`.
-Includes the Portfolio tracker described immediately below and in `docs/PORTFOLIO.md`, built on the personalized Home baseline.
+Last updated: 2026-10-08 (America/Toronto). Current commit: **Add Portfolio Intelligence and advanced performance analytics on Android and iOS** on `main`.
+Includes Portfolio Intelligence (next section, `docs/PORTFOLIO_INTELLIGENCE.md`) on top of the Portfolio
+tracker (`docs/PORTFOLIO.md`). Previous commit: `187d130` (Add shared portfolio tracker on Android and iOS).
 Previous commit: `e559ffe` (Market and watchlist data updated), including Watchlist & Smart Alerts.
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
 
-## Current milestone — Portfolio tracker (2026-10-08)
+## Current milestone — Portfolio Intelligence & Advanced Performance Analytics (2026-10-08, commit: “Add Portfolio Intelligence and advanced performance analytics on Android and iOS”)
+
+Read `docs/PORTFOLIO_INTELLIGENCE.md` for architecture, API, methodology, tiers, fixtures,
+tests and limits. Built on the tracker commit; reuses `PortfolioEngine` and the existing
+ledger/market pipeline (no second ledger or valuation engine).
+
+Completed:
+- Portfolio → Insights (pushed destination, no new tab) on Compose and SwiftUI from the
+  shared `PortfolioAnalyticsPresenter`/`InsightsFormatter`: health overview (no score),
+  performance (TWR chain-linked at flows, annualized ≥1Y, XIRR with unique-root check),
+  periods enabled only with enough history, benchmark comparison (S&P 500, S&P/TSX, NASDAQ;
+  price-return labelled; dated FX; normalized to 100; per-user choice persisted),
+  allocation by holding/sector/asset class/currency, concentration (top 1/3/5, sector,
+  HHI, effective N), period contributors with local/FX split and "other", dividends,
+  denomination currency exposure, 3–5 deterministic insights, and a Learn section.
+- `StockTrendChart` gained an optional dashed comparison series + legend (no new chart).
+- Server: `GET /api/v1/me/portfolio/accounts/{id}/analytics`, `GET /api/v1/me/entitlements`,
+  MOCK-only `PUT /api/v1/me/entitlements/debug`. Ownership from token; tier enforced and
+  shaped on the server; cache keyed by revision/period/benchmark/tier/day.
+  `PortfolioMarketService` now builds one shared context used by report and analytics.
+- Minimal server-authoritative entitlements (none existed): REAL Firestore
+  `users/{uid}/meta/entitlements` (server-only), MOCK memory; debug records ignored outside
+  MOCK. Settings → Development "Simulated StockSteps+ plan" (MOCK + signed in only).
+- `CompanyProfile.isEtf` (from FMP `isEtf`/`isFund`); MOCK ETFs no longer get random sectors.
+- 20 deterministic MOCK analytics scenarios; optional AI explanation interface with a
+  consent model (no provider, no calls).
+- Fixes found while testing: presenter never shows a previous user's view/accounts/choices
+  after sign-out or user switch; `UserApi` portfolio calls carry an expected owner and
+  `PortfolioRepository` re-checks identity before sending/caching (prevents a response being
+  cached under the wrong user during an account switch); JVM-only collection calls removed
+  from common code; the flaky `PortfolioRepositoryTest` now waits for the cache write it asserts.
+
+Validation:
+- `./gradlew :core:jvmTest :server:test :app:shared:testAndroidHostTest :app:androidApp:assembleDebug`
+  → core JVM 190, backend 156, shared Android host 55 tests, 0 failures; APK built.
+  After adding the 3 AI-consent tests: core JVM 193, 0 failures; core iOS test sources compile.
+- `./gradlew :app:shared:iosSimulatorArm64Test :core:iosSimulatorArm64Test` → core iOS 190
+  (run before the AI-consent tests were added), shared iOS 49, 0 failures.
+- `xcodebuild -project app/iosApp/iosApp.xcodeproj -scheme app.iosApp -sdk iphonesimulator
+  -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`
+  → BUILD SUCCEEDED.
+- Presenter tests run 10× consecutively without failure after the owner-isolation fixes.
+- Live MOCK server smoke (scratch port, since stopped): 401 unauthenticated, free tier without
+  premium fields, debug Plus unlocks performance/benchmark, SPY classified ETF, other user 404,
+  invalid period 400.
+
+Limitations / next:
+- No billing purchase flow; REAL users stay FREE until billing writes the entitlement doc.
+- REAL index history (`^GSPC`/`^GSPTSE`/`^IXIC` via provider daily closes) not verified live.
+- Price-return benchmarks only; split-adjusted history vs ledger splits can misstate periods
+  spanning a split; MOCK FX constant (FX effects zero in MOCK except fixtures).
+- Not visually checked on emulator/simulator; TalkBack/VoiceOver/Dynamic Type device pass pending.
+- Local MOCK server restarted on 8081 with this code (background `runMock`); emulator reverse
+  8081 → 8081. Restart with `./gradlew :server:runMock` if it's stopped.
+- Settings is not a tab (replaced by Portfolio in the tracker commit); it opens from the Home
+  profile icon.
+- Commit and push were requested by the user; no production deployment was performed.
+
+## Previous milestone — Portfolio tracker (2026-10-08)
 
 The Portfolio implementation is committed as **Add shared portfolio tracker on
 Android and iOS**, after **Add personalized Home dashboard on Android and iOS**

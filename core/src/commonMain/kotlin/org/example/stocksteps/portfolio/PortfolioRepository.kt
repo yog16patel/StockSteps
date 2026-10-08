@@ -23,7 +23,7 @@ data class PortfolioSnapshot(
 
 /** Separate account resource and cache key. Neither watchlist membership nor alerts affect it. */
 class PortfolioRepository(
-    auth: AuthRepository,
+    private val auth: AuthRepository,
     private val api: UserApi,
     private val cache: UserDataCache,
     environment: StateFlow<String>,
@@ -68,8 +68,9 @@ class PortfolioRepository(
         val time = Clock.System.now().toEpochMilliseconds()
         marketCache[memoryKey]?.takeIf { time - it.first < 60_000 }?.let { return@withLock it.second }
         try {
-            val result = api.portfolioReport(accountId, range)
-            if (state.value.uid != uid || state.value.environment != environment) throw CancellationException("Account changed")
+            ensureOwner(uid, environment)
+            val result = api.portfolioReport(accountId, range, expectedOwner = uid)
+            ensureOwner(uid, environment)
             marketCache[memoryKey] = time to result
             if (marketCache.size > 32) marketCache.remove(marketCache.keys.first())
             cache.write(owner, key, json.encodeToString(PortfolioReport.serializer(), result), time)
@@ -80,7 +81,64 @@ class PortfolioRepository(
             cached?.takeIf { it.revision == resource.value?.revision }?.copy(notice = "Cached market observations. ${cached.notice}") ?: throw cause
         }
     }
-    suspend fun invalidateMarketCache() = marketLock.withLock { marketCache.clear() }
+    suspend fun invalidateMarketCache() {
+        marketLock.withLock { marketCache.clear() }
+        analyticsLock.withLock { analyticsCache.clear() }
+    }
+
+    private val analyticsLock = Mutex()
+    private val analyticsCache = LinkedHashMap<String, Pair<Long, org.example.stocksteps.portfolio.analytics.PortfolioAnalytics>>()
+
+    /**
+     * Server-computed Insights for one account (the server enforces the tier). Memory-cached for a
+     * minute per owner, ledger revision, period and benchmark; the last result for the same revision
+     * is shown offline. Never mixes accounts, users or Mock/Real.
+     */
+    suspend fun analytics(accountId: String, period: org.example.stocksteps.portfolio.analytics.AnalyticsPeriod, benchmark: org.example.stocksteps.portfolio.analytics.BenchmarkId?, tier: String?): org.example.stocksteps.portfolio.analytics.PortfolioAnalytics = analyticsLock.withLock {
+        val serializer = org.example.stocksteps.portfolio.analytics.PortfolioAnalytics.serializer()
+        val resource = state.value
+        val uid = resource.uid ?: throw IllegalStateException("Sign in to view your portfolio.")
+        val environment = resource.environment ?: throw IllegalStateException("Choose a backend.")
+        val owner = userCacheOwner(environment, uid)
+        val key = "portfolio.analytics.$accountId.${period.label}.${benchmark?.name}"
+        val memoryKey = "$owner:$key:${resource.value?.revision}:$tier"
+        val time = Clock.System.now().toEpochMilliseconds()
+        analyticsCache[memoryKey]?.takeIf { time - it.first < 60_000 }?.let { return@withLock it.second }
+        try {
+            ensureOwner(uid, environment)
+            val result = api.portfolioAnalytics(accountId, period, benchmark, expectedOwner = uid)
+            ensureOwner(uid, environment)
+            analyticsCache[memoryKey] = time to result
+            if (analyticsCache.size > 24) analyticsCache.remove(analyticsCache.keys.first())
+            cache.write(owner, key, json.encodeToString(serializer, result), time)
+            result
+        } catch (cause: Exception) {
+            if (cause is CancellationException) throw cause
+            val cached = cache.read(owner, key)?.first?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }
+            cached?.takeIf { it.revision == resource.value?.revision && it.tier.name == tier }
+                ?.let { it.copy(notes = listOf("Showing your last saved Insights; they couldn't be refreshed.") + it.notes) } ?: throw cause
+        }
+    }
+
+    /**
+     * The signed-in identity can change before this repository's state catches up; a request (or a
+     * cache write) for [uid] must never run under another user's token.
+     */
+    private fun ensureOwner(uid: String, environment: String) {
+        if (auth.session.value.user?.id != uid || state.value.uid != uid || state.value.environment != environment) throw CancellationException("Account changed")
+    }
+
+    /** The benchmark the user last chose, per account owner and environment (not synced; a display preference). */
+    suspend fun benchmarkChoice(): org.example.stocksteps.portfolio.analytics.BenchmarkId? {
+        val resource = state.value
+        val owner = userCacheOwner(resource.environment ?: return null, resource.uid ?: return null)
+        return org.example.stocksteps.portfolio.analytics.BenchmarkCatalog.parse(cache.read(owner, "portfolio.benchmark")?.first)
+    }
+    suspend fun saveBenchmarkChoice(id: org.example.stocksteps.portfolio.analytics.BenchmarkId) {
+        val resource = state.value
+        val owner = userCacheOwner(resource.environment ?: return, resource.uid ?: return)
+        cache.write(owner, "portfolio.benchmark", id.name, Clock.System.now().toEpochMilliseconds())
+    }
     override suspend fun fetch() = api.portfolio()
     fun selectAccount(id: String) { selected.value = id }
     suspend fun saveAccount(account: PortfolioAccount) = mutate { api.savePortfolioAccount(account) }

@@ -14,7 +14,9 @@ data class FmpCompanyProfile(
     val country: String? = null,
     val currency: String? = null,
     val exchange: String? = null,
-    val image: String? = null
+    val image: String? = null,
+    val isEtf: Boolean? = null,
+    val isFund: Boolean? = null
 )
 
 fun FmpCompanyProfile.toCompanyProfile() = CompanyProfile(
@@ -27,5 +29,6 @@ fun FmpCompanyProfile.toCompanyProfile() = CompanyProfile(
     country = country,
     currency = currency,
     exchange = exchange,
-    logoUrl = image
+    logoUrl = image,
+    isEtf = if (isEtf == null && isFund == null) null else isEtf == true || isFund == true
 )

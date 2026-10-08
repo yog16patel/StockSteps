@@ -16,6 +16,7 @@ struct PortfolioScene: View {
     @State private var editingTransaction: PortfolioTransaction?
     @State private var watchlistError: String?
     @State private var watchlistInstrument: InstrumentRef?
+    @State private var showInsights = false
 
     var body: some View {
         PortfolioScreen(state: model.state, holdingSymbol: initialSymbol,
@@ -24,7 +25,8 @@ struct PortfolioScene: View {
             onEditAccount: { editingAccount = $0; showAccount = true }, onDeleteAccount: model.deleteAccount,
             onAdd: { editingTransaction = nil; showTransaction = true }, onHolding: { if initialSymbol == nil { holdingSymbol = $0 } }, onCompany: onCompany, onSignIn: onSignIn, onAlerts: onAlerts,
             onWatchlist: { row in if model.state?.mockScenario == nil { watchlistInstrument = InstrumentRef(symbol: row.symbol, name: row.name, exchange: row.exchange, currency: row.currency) } },
-            onEditTransaction: { editingTransaction = $0; showTransaction = true }, onDeleteTransaction: model.deleteTransaction)
+            onEditTransaction: { editingTransaction = $0; showTransaction = true }, onDeleteTransaction: model.deleteTransaction,
+            onInsights: { showInsights = true })
         .onAppear { model.connect(accounts) }
         .sheet(isPresented: $showAccount) {
             PortfolioAccountForm(existing: editingAccount, onSave: { id, name, category, currency, archived in
@@ -50,6 +52,9 @@ struct PortfolioScene: View {
             }
         }
         .alert("Could not save to watchlist", isPresented: Binding(get: { watchlistError != nil }, set: { if !$0 { watchlistError = nil } })) { Button("OK") { watchlistError = nil } } message: { Text(watchlistError ?? "Try again.") }
+        .navigationDestination(isPresented: $showInsights) {
+            PortfolioInsightsScene(accounts: accounts, onCompany: onCompany, onSignIn: onSignIn)
+        }
         .navigationDestination(item: $holdingSymbol) { symbol in
             PortfolioScene(accounts: accounts, watchlists: watchlists, onCompany: onCompany, onSignIn: onSignIn, onAlerts: onAlerts, initialSymbol: symbol)
         }

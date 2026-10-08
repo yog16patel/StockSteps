@@ -43,6 +43,9 @@ internal class SampleMarketData(private val now: () -> Instant) {
     }
 
     fun profile(symbol: String, name: String?): CompanyProfile {
+        if (symbol in SAMPLE_ETFS) return CompanyProfile(symbol, name ?: sampleName(symbol),
+            "Sample profile for development. This fund holds many companies; its holdings aren't listed here.",
+            country = "US", currency = "USD", exchange = "NYSE ARCA", isEtf = true)
         val (sector, industry) = SECTORS[rng(symbol, "profile").nextInt(SECTORS.size)]
         return CompanyProfile(
             symbol = symbol,
@@ -300,3 +303,6 @@ internal class SampleMarketData(private val now: () -> Instant) {
         }
     }
 }
+
+/** Fixture tickers that are funds: profiled as ETFs with no invented sector. */
+internal val SAMPLE_ETFS = setOf("SPY", "QQQ", "XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY")

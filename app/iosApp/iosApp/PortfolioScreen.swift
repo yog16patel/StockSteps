@@ -19,6 +19,7 @@ struct PortfolioScreen: View {
     let onWatchlist: (PortfolioHoldingRow) -> Void
     let onEditTransaction: (PortfolioTransaction) -> Void
     let onDeleteTransaction: (String) -> Void
+    var onInsights: () -> Void = {}
     @State private var deleteAccount: PortfolioAccount?
     @State private var deleteTransaction: PortfolioTransaction?
     @Environment(\.colorScheme) private var scheme
@@ -56,6 +57,8 @@ struct PortfolioScreen: View {
                             PortfolioSummaryCard(state: state)
                             Text(state.dailyNotice).font(.caption)
                             Button("Add investment / transaction", action: onAdd).buttonStyle(.borderedProminent)
+                            Button("Insights: performance, allocation and concentration", systemImage: "chart.line.uptrend.xyaxis", action: onInsights)
+                                .buttonStyle(.bordered).frame(minHeight: 44)
                             Text("Portfolio history").font(.headline)
                             PortfolioHistoryChart(state: state, onHistory: onHistory)
                         }

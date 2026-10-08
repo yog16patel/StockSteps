@@ -27,6 +27,7 @@ internal fun PortfolioScreen(
     onCompany: (String) -> Unit,
     onSignIn: () -> Unit,
     onAlerts: (String) -> Unit,
+    onInsights: () -> Unit = {},
     onDeleteTransaction: (String) -> Unit,
     onSaveTransaction: (PortfolioTransaction) -> Unit,
     onWatchlist: (String) -> Unit
@@ -80,6 +81,9 @@ internal fun PortfolioScreen(
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         Button(onClick = onAdd, enabled = !state.busy) { Text("Add investment / transaction") }
+                    }
+                    OutlinedButton(onClick = onInsights, modifier = Modifier.fillMaxWidth().padding(top = spacing.xs)) {
+                        Text("Insights: performance, allocation and concentration")
                     }
                 }
                 item {

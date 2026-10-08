@@ -30,6 +30,7 @@ internal fun SettingsScene(
     val action by model.action.collectAsStateWithLifecycle()
     val themeMode by themePreferences.themeMode.collectAsStateWithLifecycle()
     val storedBackend by backend.selection.collectAsStateWithLifecycle()
+    val plan by accounts.entitlements.state.collectAsStateWithLifecycle()
     val user = session.user
     val lockState by (appLock?.state ?: kotlinx.coroutines.flow.MutableStateFlow(org.example.stocksteps.security.AppLockState.NOT_REQUIRED)).collectAsStateWithLifecycle()
     var settingsVersion by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -56,7 +57,12 @@ internal fun SettingsScene(
         backendEnvironment = backend.effective(storedBackend).takeIf { backend.mockAvailable },
         security = security,
         securityMessage = securityMessage,
-        securityBusy = securityBusy
+        securityBusy = securityBusy,
+        simulatedPlan = if (user != null && backend.mockAvailable && backend.effective(storedBackend) == org.example.stocksteps.settings.BackendEnvironment.MOCK) when {
+            plan?.plus == true -> SimulatedPlan.PLUS
+            plan?.status == org.example.stocksteps.portfolio.analytics.EntitlementStatus.EXPIRED -> SimulatedPlan.EXPIRED
+            else -> SimulatedPlan.FREE
+        } else null
     )
     SettingsScreen(state, hinge, showHeader = false) { event ->
         when (event) {
@@ -65,6 +71,9 @@ internal fun SettingsScene(
             is SettingsAction.Open -> links[event.link]?.invoke()
             SettingsAction.SignIn -> onSignIn()
             SettingsAction.SignOut -> model.logout()
+            is SettingsAction.SimulatePlan -> accounts.insightsPresenter.simulatePlan(
+                if (event.plan == SimulatedPlan.FREE) org.example.stocksteps.portfolio.analytics.SubscriptionTier.FREE else org.example.stocksteps.portfolio.analytics.SubscriptionTier.PLUS,
+                expired = event.plan == SimulatedPlan.EXPIRED)
             is SettingsAction.SetAppLock -> if (appLock != null && !securityBusy) {
                 securityBusy = true
                 scope.launch {

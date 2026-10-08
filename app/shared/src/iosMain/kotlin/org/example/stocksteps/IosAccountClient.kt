@@ -120,6 +120,26 @@ class IosAccountClient(auth: PlatformAuthGateway, baseUrl: () -> String, environ
         return object : AccountSubscription { override fun cancel() { job.cancel() } }
     }
     fun showPortfolioScenario(id: String?) { dependencies.portfolioPresenter.showScenario(id) }
+
+    // Portfolio Intelligence: the same shared presenter as Android.
+    fun observeInsights(onChange: (org.example.stocksteps.portfolio.analytics.InsightsUiState) -> Unit): AccountSubscription {
+        val job = scope.launch { dependencies.insightsPresenter.state.collect(onChange) }
+        return object : AccountSubscription { override fun cancel() { job.cancel() } }
+    }
+    fun selectInsightsAccount(id: String) { dependencies.insightsPresenter.selectAccount(id) }
+    fun selectInsightsPeriod(label: String) { org.example.stocksteps.portfolio.analytics.AnalyticsPeriod.parse(label)?.let(dependencies.insightsPresenter::selectPeriod) }
+    fun selectInsightsBenchmark(name: String) { org.example.stocksteps.portfolio.analytics.BenchmarkCatalog.parse(name)?.let(dependencies.insightsPresenter::selectBenchmark) }
+    fun showInsightsScenario(id: String?) { dependencies.insightsPresenter.showScenario(id) }
+    fun refreshInsights() { dependencies.insightsPresenter.refresh() }
+    fun observeEntitlements(onChange: (org.example.stocksteps.portfolio.analytics.Entitlements?) -> Unit): AccountSubscription {
+        val job = scope.launch { dependencies.entitlements.state.collect(onChange) }
+        return object : AccountSubscription { override fun cancel() { job.cancel() } }
+    }
+    /** MOCK only (ignored otherwise): "FREE", "PLUS" or "EXPIRED". */
+    fun simulatePlan(plan: String) {
+        val tier = if (plan == "FREE") org.example.stocksteps.portfolio.analytics.SubscriptionTier.FREE else org.example.stocksteps.portfolio.analytics.SubscriptionTier.PLUS
+        dependencies.insightsPresenter.simulatePlan(tier, expired = plan == "EXPIRED")
+    }
     fun loadPortfolioHistory(range: String) { dependencies.portfolioPresenter.loadHistory(range) }
     fun refreshPortfolio() { dependencies.portfolioPresenter.refresh() }
     fun selectPortfolioAccount(id: String) { dependencies.portfolioPresenter.selectAccount(id) }

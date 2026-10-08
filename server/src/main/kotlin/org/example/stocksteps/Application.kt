@@ -11,6 +11,10 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.launch
 import org.example.stocksteps.userdata.WatchDataService
+import org.example.stocksteps.userdata.ChartBenchmarkHistory
+import org.example.stocksteps.userdata.MockBenchmarkHistory
+import org.example.stocksteps.userdata.PortfolioAnalyticsService
+import org.example.stocksteps.userdata.portfolioAnalyticsRoutes
 import org.example.stocksteps.userdata.WatchlistsService
 import org.example.stocksteps.userdata.AlertsService
 import org.example.stocksteps.userdata.watchDataRoutes
@@ -103,10 +107,16 @@ fun Application.module() {
                 if (dataMode == DataMode.MOCK) "Sample data, not live prices." else "Quotes may be delayed. Times show when each price was last updated."))
             val portfolioClock = if (dataMode == DataMode.MOCK) java.time.Clock.systemUTC() else sources.marketClock
             val portfolios = org.example.stocksteps.userdata.PortfolioService(userData, portfolioClock::millis)
-            portfolioRoutes(sources.userAuth, portfolios, org.example.stocksteps.userdata.PortfolioMarketService(
+            val portfolioMarket = org.example.stocksteps.userdata.PortfolioMarketService(
                 portfolios, sources.priceHistory, watchMarket,
                 if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client),
-                portfolioClock, dailyCloses = charts::getDailyCloses))
+                portfolioClock, dailyCloses = charts::getDailyCloses)
+            portfolioRoutes(sources.userAuth, portfolios, portfolioMarket)
+            val entitlements = org.example.stocksteps.userdata.EntitlementService(userData, portfolioClock::millis, debugAllowed = dataMode == DataMode.MOCK)
+            portfolioAnalyticsRoutes(sources.userAuth, PortfolioAnalyticsService(
+                portfolioMarket, watchMarket,
+                sources.indexData?.takeIf { dataMode == DataMode.MOCK }?.let { MockBenchmarkHistory(it) } ?: ChartBenchmarkHistory(charts::getDailyCloses),
+                entitlements, portfolioClock, sampleData = dataMode == DataMode.MOCK), entitlements)
             userRoutes(sources.userAuth, WatchlistsService(userData, now = sources.marketClock::millis),
                 AlertsService(userData, watchMarket, alertRules, sources.alertsDeliveryNote, now = sources.marketClock::millis), userData, now = sources.marketClock::millis)
             alertEvaluationRoutes(evaluator, System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)

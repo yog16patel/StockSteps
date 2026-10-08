@@ -125,7 +125,7 @@ internal fun AppNavigation(
     val isCompanyNews = destination?.hasRoute<CompanyNewsRoute>() == true
     val isNewsInsight = destination?.hasRoute<NewsInsightRoute>() == true
     val isMovement = destination?.hasRoute<StockMovementRoute>() == true
-    val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true
+    val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true || destination?.hasRoute<PortfolioInsightsRoute>() == true
     // Every stock tap (Home movers, Watchlist, Search) opens the same Company Details page.
     val addPortfolio: (InstrumentRef) -> Unit = { instrument ->
         navController.navigate(PortfolioEntryRoute(instrument.symbol, instrument.name, instrument.exchange, instrument.currency))
@@ -141,6 +141,7 @@ internal fun AppNavigation(
                     title = when {
                         destination?.hasRoute<PortfolioEntryRoute>() == true -> "Add transaction"
                         destination?.hasRoute<HoldingDetailsRoute>() == true -> "Holding details"
+                        destination?.hasRoute<PortfolioInsightsRoute>() == true -> "Insights"
                         destination?.hasRoute<PortfolioRoute>() == true -> "Portfolio"
                         isSearch -> "Search stocks"
                         isCompanyFinancials -> "Financials"
@@ -218,7 +219,11 @@ internal fun AppNavigation(
                     onAdd = { navController.navigate(PortfolioEntryRoute()) },
                     onHolding = { account, symbol -> navController.navigate(HoldingDetailsRoute(account, symbol)) },
                     onOpenCompany = openStock, hinge = hinge,
-                    onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) })
+                    onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) },
+                    onInsights = { navController.navigate(PortfolioInsightsRoute) })
+            }
+            composable<PortfolioInsightsRoute> {
+                if (accounts != null) PortfolioInsightsScene(accounts, onOpenCompany = openStock, onSignIn = { navController.navigate(AuthRoute()) }, hinge = hinge)
             }
             composable<HoldingDetailsRoute> { entry ->
                 if (accounts != null) PortfolioScene(accounts,

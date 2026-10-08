@@ -537,3 +537,15 @@ See [Portfolio implementation](docs/PORTFOLIO.md) for account/transaction APIs,
 dated FX, precision policies, MOCK scenarios, persistence setup and known limits.
 Authenticated routes start at `/api/v1/me/portfolio`; REAL requires the existing
 Firebase Admin credentials, while MOCK uses isolated in-memory data.
+
+### Portfolio Intelligence (Insights)
+
+Portfolio → Insights shows health facts, TWR/XIRR performance, benchmark comparison,
+allocation, concentration, contributors, dividends and currency exposure, computed on the
+server from the same ledger and `PortfolioEngine`. See
+[Portfolio Intelligence](docs/PORTFOLIO_INTELLIGENCE.md) for methodology and tiers.
+
+- `GET /api/v1/me/portfolio/accounts/{id}/analytics?period=1Y&benchmark=TSX`
+- `GET /api/v1/me/entitlements`
+- `PUT /api/v1/me/entitlements/debug` (MOCK only) — simulate Free/Plus/Expired; also in
+  Settings → Development when signed in with the mock backend.

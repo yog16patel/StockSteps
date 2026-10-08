@@ -9,17 +9,21 @@ struct SettingsScene: View {
     var appLock: AppLockModel?
     @AppStorage(AppTheme.storageKey) private var themeMode = AppTheme.system
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
+    @State private var plan = SimulatedPlanModel()
     private var version: String? { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String }
     var body: some View {
         SettingsScreen(
             state: model.state,
             themeMode: $themeMode,
             backendEnvironment: BackendSettings.mockURL == nil ? nil : $backendEnvironment,
+            simulatedPlan: BackendSettings.mockURL != nil && backendEnvironment == BackendSettings.mock && model.state.user != nil
+                ? Binding(get: { plan.plan }, set: { plan.simulate($0) }) : nil,
             appVersion: version,
             onSignIn: onSignIn,
             onSignOut: { Task { await model.signOut() } },
             appLock: appLock
         )
+        .onAppear { plan.connect(model) }
     }
 }
 

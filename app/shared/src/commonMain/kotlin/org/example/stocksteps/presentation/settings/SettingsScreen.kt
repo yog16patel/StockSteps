@@ -84,6 +84,24 @@ internal fun SettingsScreen(state: SettingsUiState, hinge: WindowHinge?, showHea
                                     else onAction(SettingsAction.SelectBackend(selected))
                                 }
                             )
+                            state.simulatedPlan?.let { plan ->
+                                StockSettingsRow(
+                                    title = stringResource(Res.string.settings_plan_title),
+                                    subtitle = stringResource(Res.string.settings_plan_subtitle),
+                                    icon = StockIcons.Storage,
+                                    contentPadding = PaddingValues(top = spacing.xs, bottom = spacing.sm)
+                                )
+                                StockSegmentedControl(
+                                    options = listOf(
+                                        StockSegment(SimulatedPlan.FREE, stringResource(Res.string.settings_plan_free)),
+                                        StockSegment(SimulatedPlan.PLUS, stringResource(Res.string.settings_plan_plus)),
+                                        StockSegment(SimulatedPlan.EXPIRED, stringResource(Res.string.settings_plan_expired))
+                                    ),
+                                    selected = plan,
+                                    onSelect = { onAction(SettingsAction.SimulatePlan(it)) },
+                                    modifier = Modifier.padding(bottom = spacing.md)
+                                )
+                            }
                         }
                     }
                 }

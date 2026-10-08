@@ -58,6 +58,11 @@
     <string name="settings_backend_confirm_title">Use real market data?</string>
     <string name="settings_backend_confirm_body">Real data requests may use FMP/Finnhub API quota during development.</string>
     <string name="settings_backend_confirm_action">Use Real Data</string>
+    <string name="settings_plan_title">Simulated StockSteps+ plan</string>
+    <string name="settings_plan_subtitle">Mock backend only. Changes what the mock server returns for Insights.</string>
+    <string name="settings_plan_free">Free</string>
+    <string name="settings_plan_plus">Plus</string>
+    <string name="settings_plan_expired">Expired</string>
     <string name="settings_account_fallback_name">Account</string>
     <string name="settings_account_signed_in">Signed in</string>
     <string name="settings_guest_title">Sign in to sync</string>

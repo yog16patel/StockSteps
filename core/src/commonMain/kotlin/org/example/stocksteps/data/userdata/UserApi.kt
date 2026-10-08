@@ -20,15 +20,21 @@ class UserApi(
     private val token: suspend (forceRefresh: Boolean) -> String?,
     private val identity: () -> String? = { null }
 ) {
-    suspend fun portfolioReport(accountId: String, range: String? = null): org.example.stocksteps.portfolio.PortfolioReport {
+    suspend fun portfolioReport(accountId: String, range: String? = null, expectedOwner: String? = null): org.example.stocksteps.portfolio.PortfolioReport {
         require(range == null || range in setOf("1D", "1W", "1M", "3M", "1Y", "ALL"))
-        return send(HttpMethod.Get, "portfolio/accounts/${accountId.segment()}/${if (range == null) "summary" else "history?range=$range"}")
+        return send(HttpMethod.Get, "portfolio/accounts/${accountId.segment()}/${if (range == null) "summary" else "history?range=$range"}", expectedOwner = expectedOwner)
     }
     suspend fun portfolio(): org.example.stocksteps.portfolio.PortfolioLedger = send(HttpMethod.Get, "portfolio")
     suspend fun savePortfolioAccount(account: org.example.stocksteps.portfolio.PortfolioAccount): org.example.stocksteps.portfolio.PortfolioLedger = send(HttpMethod.Put, "portfolio/accounts", account)
     suspend fun deletePortfolioAccount(id: String): org.example.stocksteps.portfolio.PortfolioLedger = send(HttpMethod.Delete, "portfolio/accounts/${id.segment()}")
     suspend fun savePortfolioTransaction(transaction: org.example.stocksteps.portfolio.PortfolioTransaction, edit: Boolean): org.example.stocksteps.portfolio.PortfolioLedger = send(if (edit) HttpMethod.Put else HttpMethod.Post, "portfolio/transactions", transaction)
     suspend fun deletePortfolioTransaction(id: String): org.example.stocksteps.portfolio.PortfolioLedger = send(HttpMethod.Delete, "portfolio/transactions/${id.segment()}")
+    suspend fun portfolioAnalytics(accountId: String, period: org.example.stocksteps.portfolio.analytics.AnalyticsPeriod, benchmark: org.example.stocksteps.portfolio.analytics.BenchmarkId?, expectedOwner: String? = null): org.example.stocksteps.portfolio.analytics.PortfolioAnalytics =
+        send(HttpMethod.Get, "portfolio/accounts/${accountId.segment()}/analytics?period=${period.label}" + (benchmark?.let { "&benchmark=${it.name}" } ?: ""), expectedOwner = expectedOwner)
+    suspend fun entitlements(): org.example.stocksteps.portfolio.analytics.Entitlements = send(HttpMethod.Get, "entitlements")
+    /** MOCK backend only (the route doesn't exist in REAL). */
+    suspend fun simulateEntitlements(request: org.example.stocksteps.portfolio.analytics.DebugEntitlementRequest): org.example.stocksteps.portfolio.analytics.Entitlements =
+        send(HttpMethod.Put, "entitlements/debug", request)
 
     suspend fun watchlists(): WatchlistsResponse = send(HttpMethod.Get, "watchlists")
     suspend fun createWatchlist(name: String): WatchlistsResponse = send(HttpMethod.Post, "watchlists", CreateWatchlistRequest(name))
@@ -52,8 +58,10 @@ class UserApi(
     suspend fun registerDevice(request: RegisterDeviceRequest) { send<Unit>(HttpMethod.Post, "devices", request) }
     suspend fun unregisterDevice(deviceId: String) { send<Unit>(HttpMethod.Delete, "devices/${deviceId.segment()}") }
 
-    private suspend inline fun <reified T> send(method: HttpMethod, path: String, body: Any? = null): T {
+    /** [expectedOwner]: the user the caller is acting for; the request is never sent under another identity. */
+    private suspend inline fun <reified T> send(method: HttpMethod, path: String, body: Any? = null, expectedOwner: String? = null): T {
         val owner = identity()
+        if (expectedOwner != null && owner != expectedOwner) throw CancellationException("Account changed")
         val endpoint = baseUrl()
         var response = request(method, path, body, refresh = false, owner, endpoint)
         if (response.status == HttpStatusCode.Unauthorized) response = request(method, path, body, refresh = true, owner, endpoint)

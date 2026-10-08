@@ -198,6 +198,8 @@ live REAL Firestore/provider validation and device UI checks remain distinct fro
 these mock/build checks.
 
 Next work: live Firebase/FX/provider acceptance test with configured server,
-corporate-action-normalized history, intraday valuations/TWR/XIRR, linked transfer
-entry, scalable paged ledger, optional asset/sector metadata allocation, and a
-native device accessibility/tablet/fold-posture acceptance pass.
+corporate-action-normalized history, linked transfer entry, scalable paged ledger,
+and a native device accessibility/tablet/fold-posture acceptance pass.
+
+TWR/XIRR, benchmarks, sector/asset-class allocation and attribution are now in
+Portfolio Intelligence: see [PORTFOLIO_INTELLIGENCE.md](PORTFOLIO_INTELLIGENCE.md).

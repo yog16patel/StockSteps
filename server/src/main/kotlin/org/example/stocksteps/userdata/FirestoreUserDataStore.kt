@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
  *
  * - `users/{uid}/watchlists/{watchlistId}` — `data`: Watchlist JSON (entries and notes inside).
  * - `users/{uid}/meta/watchlists` — `initialized`: default list / legacy import done.
+ * - `users/{uid}/meta/entitlements` — `plan`, `expiresAt`, `data`: StoredEntitlement JSON (billing writes it).
  * - `alertRules/{ruleId}` — `ownerUid`, `status`, `data`: AlertRule JSON.
  * - `alertEvents/{eventId}` — `ownerUid`, `triggeredAt`, `data`: AlertEvent JSON (id = idempotency key).
  * - `notificationOutbox/{id}` — `status`, `leaseUntil`, `eventId`, `data`: OutboxItem JSON.
@@ -35,6 +36,16 @@ class FirestoreUserDataStore(private val db: Firestore) : UserDataStore {
             if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next), "revision" to next.revision))
             result
         }.await()
+    }
+
+    private fun entitlementDoc(uid: String) = db.collection("users").document(uid).collection("meta").document("entitlements")
+    override suspend fun entitlement(uid: String): StoredEntitlement? = io {
+        entitlementDoc(uid).get().await().getString("data")?.let { decode(StoredEntitlement.serializer(), it) }
+    }
+    override suspend fun setEntitlement(uid: String, value: StoredEntitlement?) = io {
+        if (value == null) entitlementDoc(uid).delete().await()
+        else entitlementDoc(uid).set(mapOf("plan" to value.plan.name, "expiresAt" to value.expiresAt, "data" to encode(StoredEntitlement.serializer(), value))).await()
+        Unit
     }
 
     private fun watchlistsOf(uid: String) = db.collection("users").document(uid).collection("watchlists")

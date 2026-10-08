@@ -8,6 +8,8 @@ struct SettingsScreen: View {
     @Binding var themeMode: String
     /// Nil hides the Development section (release builds / no mock backend).
     var backendEnvironment: Binding<String>?
+    /// Mock backend and signed in only: "FREE", "PLUS" or "EXPIRED". Nil hides it.
+    var simulatedPlan: Binding<String>? = nil
     let appVersion: String?
     let onSignIn: () -> Void
     let onSignOut: () -> Void
@@ -48,7 +50,10 @@ struct SettingsScreen: View {
                     StockSettingsRow(title: "Market News", subtitle: "Important market updates", systemImage: "newspaper.fill", comingSoon: true)
                 }
                 if let backendEnvironment {
-                    section("Development") { backendSource(backendEnvironment, colors) }
+                    section("Development") {
+                        backendSource(backendEnvironment, colors)
+                        if let simulatedPlan { planSimulation(simulatedPlan) }
+                    }
                 }
                 section("About") {
                     StockSettingsRow(title: "About StockSteps", subtitle: appVersion.map { "Version \($0)" }, systemImage: "info.circle.fill")
@@ -195,6 +200,17 @@ struct SettingsScreen: View {
         .padding(.top, CGFloat(space.sm))
         .padding(.bottom, CGFloat(space.md))
         .accessibilityElement(children: .combine)
+    }
+
+    /// MOCK only: what the mock server returns for Insights. Never shown with the real backend.
+    @ViewBuilder
+    private func planSimulation(_ plan: Binding<String>) -> some View {
+        let options = ["FREE", "PLUS", "EXPIRED"]
+        StockSettingsRow(title: "Simulated StockSteps+ plan", subtitle: "Mock backend only. Changes what the mock server returns for Insights.", systemImage: "server.rack")
+        StockSegmentedControl(segments: [("Free", "person"), ("Plus", "star"), ("Expired", "clock")],
+                              selected: options.firstIndex(of: plan.wrappedValue) ?? 0,
+                              onSelect: { plan.wrappedValue = options[$0] })
+            .padding(.bottom, CGFloat(space.md))
     }
 
     private var divider: some View { StockDivider(inset: CGFloat(StockStepsTheme.dimensions.iconLarge + space.md)) }

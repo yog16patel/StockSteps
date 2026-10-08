@@ -13,5 +13,7 @@ data class CompanyProfile(
     val country: String? = null,
     val currency: String? = null,
     val exchange: String? = null,
-    val logoUrl: String? = null
+    val logoUrl: String? = null,
+    /** True for ETFs and funds; null when the provider didn't say (never inferred from the name). */
+    val isEtf: Boolean? = null
 )

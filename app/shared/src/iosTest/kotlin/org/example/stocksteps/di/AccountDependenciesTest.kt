@@ -27,6 +27,8 @@ class AccountDependenciesTest {
             assertNotNull(dependencies.alerts)
             assertNotNull(dependencies.watchData)
             assertNotNull(dependencies.devices)
+            assertNotNull(dependencies.entitlements)
+            assertNotNull(dependencies.insightsPresenter)
             assertNotNull(dependencies.signOut())
             assertNotNull(dependencies.addToWatchlist())
             assertNotNull(dependencies.removeFromWatchlist())

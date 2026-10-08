@@ -25,8 +25,12 @@ internal data class SettingsUiState(
     /** Null hides Security & Sign-In (guests, or hosts without an app lock). */
     val security: org.example.stocksteps.security.AppLockSettings? = null,
     val securityMessage: String? = null,
-    val securityBusy: Boolean = false
+    val securityBusy: Boolean = false,
+    /** MOCK backend and signed in only: the plan the mock server simulates. Never shown with REAL. */
+    val simulatedPlan: SimulatedPlan? = null
 )
+
+internal enum class SimulatedPlan { FREE, PLUS, EXPIRED }
 
 internal sealed interface SettingsAction {
     data class SelectTheme(val mode: ThemeMode) : SettingsAction
@@ -36,4 +40,5 @@ internal sealed interface SettingsAction {
     data object SignOut : SettingsAction
     data class SetAppLock(val enabled: Boolean) : SettingsAction
     data class SetLockTimeout(val timeout: org.example.stocksteps.security.AppLockTimeout) : SettingsAction
+    data class SimulatePlan(val plan: SimulatedPlan) : SettingsAction
 }

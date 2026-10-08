@@ -56,6 +56,8 @@ class AccountDependencies(
                 )
             }
             single { org.example.stocksteps.portfolio.PortfolioPresenter(get(), get(), scope) }
+            single { org.example.stocksteps.portfolio.analytics.EntitlementsRepository(get(), get(), environment, scope).also { it.start() } }
+            single { org.example.stocksteps.portfolio.analytics.PortfolioAnalyticsPresenter(get(), get(), scope) }
             single { DeviceRegistrar(get(), get(), pushTokens, environment, { installId() }, scope).also { it.start() } }
             // The previous single list now only holds the signed-out guest list on this device.
             single<WatchlistRepository>(org.koin.core.qualifier.named("guest")) { OfflineWatchlistRepository(get(), get(), LocalOnlyWatchlistGateway, scope) }
@@ -74,6 +76,9 @@ class AccountDependencies(
     val watchlists: UserWatchlistsRepository = graph.koin.get()
     val portfolioPresenter: org.example.stocksteps.portfolio.PortfolioPresenter = graph.koin.get()
     val portfolio: org.example.stocksteps.portfolio.PortfolioRepository = graph.koin.get()
+    val entitlements: org.example.stocksteps.portfolio.analytics.EntitlementsRepository = graph.koin.get()
+    /** Created on first use (Insights), not at app start. */
+    val insightsPresenter: org.example.stocksteps.portfolio.analytics.PortfolioAnalyticsPresenter by lazy { graph.koin.get() }
     val alerts: AlertsRepository = graph.koin.get()
     val watchData: WatchDataRepository = graph.koin.get()
     val devices: DeviceRegistrar = graph.koin.get()

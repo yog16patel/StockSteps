@@ -71,7 +71,20 @@ interface UserDataStore {
     suspend fun unregisterDevice(uid: String, deviceId: String)
     suspend fun devices(uid: String): List<DeviceRecord>
     suspend fun removeToken(token: String)
+
+    /** Server-written StockSteps+ record (billing integration or MOCK debug); null when never subscribed. */
+    suspend fun entitlement(uid: String): StoredEntitlement?
+    suspend fun setEntitlement(uid: String, value: StoredEntitlement?)
 }
+
+/** What the backend stores per user; [EntitlementService] derives tier and status from it. */
+@Serializable
+data class StoredEntitlement(
+    val plan: org.example.stocksteps.portfolio.analytics.SubscriptionTier,
+    val expiresAt: Long? = null,
+    /** "subscription" (billing) or "debug" (MOCK simulation only). */
+    val source: String
+)
 
 /** MOCK and tests: process memory, one lock (fine for a local server). */
 class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>> = emptyMap()) : UserDataStore {
@@ -87,6 +100,13 @@ class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>>
     private val events = LinkedHashMap<String, Pair<String, AlertEvent>>()
     private val outbox = LinkedHashMap<String, OutboxItem>()
     private val devices = LinkedHashMap<String, DeviceRecord>()
+    private val entitlements = HashMap<String, StoredEntitlement>()
+
+    override suspend fun entitlement(uid: String) = lock.withLock { entitlements[uid] }
+    override suspend fun setEntitlement(uid: String, value: StoredEntitlement?) = lock.withLock {
+        if (value == null) entitlements.remove(uid) else entitlements[uid] = value
+        Unit
+    }
 
     override suspend fun <T> updateWatchlists(uid: String, block: (UserWatchlists) -> Pair<UserWatchlists, T>): T = lock.withLock {
         val (next, result) = block(watchlists[uid] ?: UserWatchlists(emptyList(), initialized = false))
@@ -172,6 +192,8 @@ object UnavailableUserDataStore : UserDataStore {
     private fun unavailable(): Nothing =
         throw UserDataException(503, "USER_DATA_UNAVAILABLE", "Watchlists and alerts are temporarily unavailable.")
     override suspend fun <T> updateWatchlists(uid: String, block: (UserWatchlists) -> Pair<UserWatchlists, T>): T = unavailable()
+    override suspend fun entitlement(uid: String): StoredEntitlement? = unavailable()
+    override suspend fun setEntitlement(uid: String, value: StoredEntitlement?) = unavailable()
     override suspend fun <T> updateAlerts(uid: String, block: (List<AlertRule>) -> Pair<List<AlertRule>, T>): T = unavailable()
     override suspend fun activeAlerts(limit: Int): List<OwnedAlert> = unavailable()
     override suspend fun updateRule(uid: String, ruleId: String, update: (AlertRule) -> AlertRule?) = unavailable()

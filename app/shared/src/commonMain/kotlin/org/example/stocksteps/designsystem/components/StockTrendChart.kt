@@ -23,8 +23,10 @@ import org.example.stocksteps.designsystem.theme.StockStepsTheme
 
 /**
  * Line chart for a series with gaps (one slot per period; null = no valid value). Segments are
- * never joined across a gap. An optional dashed [reference] line marks an average. Touching or
- * dragging shows the slot's [details]; [description] is read by screen readers.
+ * never joined across a gap. An optional dashed [reference] line marks an average, and an optional
+ * dashed [comparison] series (same slots, e.g. a benchmark) is drawn in a second color with a legend
+ * so the lines differ by pattern as well as color. Touching or dragging shows the slot's [details];
+ * [description] is read by screen readers.
  */
 @Composable
 internal fun StockTrendChart(
@@ -35,9 +37,12 @@ internal fun StockTrendChart(
     description: String,
     modifier: Modifier = Modifier,
     reference: Double? = null,
-    referenceLabel: String? = null
+    referenceLabel: String? = null,
+    comparison: List<Double?>? = null,
+    seriesLabel: String? = null,
+    comparisonLabel: String? = null
 ) {
-    val valid = values.filterNotNull()
+    val valid = values.filterNotNull() + comparison.orEmpty().filterNotNull()
     if (valid.isEmpty()) return
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -49,6 +54,12 @@ internal fun StockTrendChart(
     val span = (high - low).takeIf { it > 0 } ?: 1.0
     Column(modifier.semantics(mergeDescendants = true) { contentDescription = description }) {
         Text(details.getOrNull(focus).orEmpty(), Modifier.clearAndSetSemantics {}, style = typography.label, color = colors.textPrimary)
+        if (comparison != null && seriesLabel != null && comparisonLabel != null) {
+            Row(Modifier.padding(top = spacing.xxs).clearAndSetSemantics {}, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                Text("— $seriesLabel", style = typography.caption, color = colors.primary)
+                Text("- - $comparisonLabel", style = typography.caption, color = colors.textSecondary)
+            }
+        }
         if (reference != null && referenceLabel != null) {
             Text("- - $referenceLabel", Modifier.padding(top = spacing.xxs).clearAndSetSemantics {}, style = typography.caption, color = colors.textSecondary)
         }
@@ -72,18 +83,24 @@ internal fun StockTrendChart(
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())))
                 }
                 // Draw each run of consecutive values separately so gaps stay visible.
-                var path: Path? = null
-                values.forEachIndexed { i, v ->
-                    if (v == null) {
-                        path?.let { drawPath(it, colors.primary, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)) }
-                        path = null
-                    } else {
-                        val point = Offset(i * step, y(v))
-                        path = (path ?: Path().apply { moveTo(point.x, point.y) }).apply { lineTo(point.x, point.y) }
-                        if ((i == 0 || values[i - 1] == null) && (i == values.lastIndex || values[i + 1] == null)) drawCircle(colors.primary, 2.5.dp.toPx(), point)
+                fun series(points: List<Double?>, color: androidx.compose.ui.graphics.Color, dashed: Boolean) {
+                    val stroke = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round,
+                        pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())) else null)
+                    var path: Path? = null
+                    points.forEachIndexed { i, v ->
+                        if (v == null) {
+                            path?.let { drawPath(it, color, style = stroke) }
+                            path = null
+                        } else {
+                            val point = Offset(i * step, y(v))
+                            path = (path ?: Path().apply { moveTo(point.x, point.y) }).apply { lineTo(point.x, point.y) }
+                            if ((i == 0 || points[i - 1] == null) && (i == points.lastIndex || points[i + 1] == null)) drawCircle(color, 2.5.dp.toPx(), point)
+                        }
                     }
+                    path?.let { drawPath(it, color, style = stroke) }
                 }
-                path?.let { drawPath(it, colors.primary, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)) }
+                comparison?.let { series(it, colors.textSecondary, dashed = true) }
+                series(values, colors.primary, dashed = false)
                 values.getOrNull(focus)?.let { v ->
                     val point = Offset(focus * step, y(v))
                     if (selected != null) drawLine(colors.border, Offset(point.x, 0f), Offset(point.x, size.height), strokeWidth = 1.dp.toPx())

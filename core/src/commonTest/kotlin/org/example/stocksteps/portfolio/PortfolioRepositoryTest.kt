@@ -41,6 +41,8 @@ class PortfolioRepositoryTest {
         try {
             repository.start()
             await { it.selectedAccountId == "mock-alice" }
+            // The ledger is cached asynchronously after it's shown; the end of this test relies on that copy.
+            withTimeout(5_000) { while (cache.read(userCacheOwner("mock", "alice"), "portfolio.ledger.v1") == null) delay(10) }
             auth.mutable.value = AuthSession(User("bob", "bob@example.test"), initializing = false)
             await { it.selectedAccountId == "mock-bob" }
             environment.value = "real"
