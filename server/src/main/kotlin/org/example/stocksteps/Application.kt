@@ -69,6 +69,10 @@ fun Application.module() {
     // One chart service so the price chart and the valuation history share cached daily closes.
     val charts = org.example.stocksteps.service.PriceChartService(sources.priceHistory)
     val valuation = org.example.stocksteps.service.ValuationService(sources.stockProvider, charts, sources.earnings)
+    val movement = org.example.stocksteps.service.MovementService(
+        stocks = stockService, charts = charts, news = sources.news,
+        narrator = sources.narrator, version = sources.movementVersion
+    )
     routing {
         stockRoutes(stockService)
         valuationRoutes(valuation)
@@ -76,6 +80,11 @@ fun Application.module() {
         marketRoutes(stockService)
         marketSnapshotRoutes(org.example.stocksteps.service.MarketSnapshotService(sources.marketData))
         newsRoutes(sources.news)
+        newsInsightRoutes(org.example.stocksteps.news.ArticleInsightService(
+            sources.news, sources.insights, sources.insightVersion,
+            timeoutMillis = if (dataMode == DataMode.MOCK) 2_000 else 10_000
+        ))
+        movementRoutes(movement)
         sparklineRoutes(org.example.stocksteps.service.SparklineService(sources.priceHistory))
         companyDetailsRoutes(
             details = org.example.stocksteps.service.CompanyDetailsService(
@@ -85,7 +94,8 @@ fun Application.module() {
                 valuation = valuation
             ),
             charts = charts,
-            whyMoving = org.example.stocksteps.service.WhyMovingService(sources.whyMoving)
+            // The Company Details card previews today's computed movement (same pipeline in both modes).
+            whyMoving = org.example.stocksteps.service.WhyMovingService { movement.preview(it) }
         )
     }
 
@@ -153,7 +163,17 @@ fun Route.newsRoutes(newsService: NewsService) {
             call.respond(HttpStatusCode.BadRequest, ApiError("INVALID_SYMBOL", "Provide a valid stock symbol."))
             return@get
         }
-        call.respond(newsService.getCompanyNews(symbol))
+        val query = call.request.queryParameters
+        val categoryValue = query["category"]?.uppercase(Locale.ROOT)
+        val category = categoryValue?.let { value -> org.example.stocksteps.model.NewsCategory.entries.firstOrNull { it.name == value } }
+        val page = query["page"]?.let { it.toIntOrNull() ?: -1 } ?: 0
+        val limit = query["limit"]?.let { it.toIntOrNull() ?: -1 } ?: NewsService.MAX_LIMIT
+        if ((categoryValue != null && categoryValue != "ALL" && category == null) || page !in 0..20 || limit !in 1..NewsService.MAX_LIMIT) {
+            call.respond(HttpStatusCode.BadRequest, ApiError("INVALID_NEWS_QUERY",
+                "Category must be ALL, EARNINGS, PRODUCTS, BUSINESS, REGULATION, ANALYST or OTHER; page 0–20; limit 1–${NewsService.MAX_LIMIT}."))
+            return@get
+        }
+        call.respond(newsService.getCompanyNews(symbol, category, page, limit))
     }
     get("/api/v1/news") {
         val pageValue = call.request.queryParameters["page"]
@@ -198,8 +218,12 @@ internal class DataSources(
     val marketData: MarketDataProvider,
     val priceHistory: PriceHistoryProvider,
     val news: NewsService,
-    /** Null until the real explanation pipeline exists; the endpoint then reports "unavailable". */
-    val whyMoving: org.example.stocksteps.service.WhyMovingSource? = null,
+    /** Article explanations: Gemini in REAL (when configured), deterministic templates in MOCK. */
+    val insights: org.example.stocksteps.news.ArticleInsightGenerator? = null,
+    val insightVersion: String = "none",
+    /** Optional AI wording of computed movement facts; null keeps the deterministic template. */
+    val narrator: org.example.stocksteps.service.MovementNarrator? = null,
+    val movementVersion: String = "movement-template-v1",
     /** Reported quarterly EPS for the historical P/E series. */
     val earnings: org.example.stocksteps.service.QuarterlyEarningsSource = org.example.stocksteps.service.QuarterlyEarningsSource { emptyList() }
 )
@@ -227,14 +251,19 @@ private fun Application.realDataSources(): DataSources {
         ),
         priceHistory = org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(HttpClientProvider.client, AppConfig.fmpApiKey),
         news = createNewsService(HttpClientProvider.client),
-        earnings = fmpRepository
+        earnings = fmpRepository,
+        insights = AppConfig.geminiApiKey?.let { org.example.stocksteps.news.GeminiArticleInsightGenerator(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
+        insightVersion = "${AppConfig.geminiNewsModel}:${org.example.stocksteps.news.GeminiArticleInsightGenerator.PROMPT_VERSION}",
+        narrator = AppConfig.geminiApiKey?.let { org.example.stocksteps.news.GeminiMovementNarrator(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
+        movementVersion = AppConfig.geminiApiKey?.let { "${AppConfig.geminiNewsModel}:${org.example.stocksteps.news.GeminiMovementNarrator.PROMPT_VERSION}" } ?: "movement-template-v1"
     )
 }
 
 /** Captured fixtures plus sample values for gaps: no provider keys, network calls, Gemini or Firestore. */
 internal fun mockDataSources(): DataSources {
     val fixtures = FixtureMarketDataSource(sampleFallback = true)
-    return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null), whyMoving = fixtures, earnings = fixtures)
+    return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null), earnings = fixtures,
+        insights = org.example.stocksteps.news.TemplateArticleInsightGenerator(), insightVersion = "mock-template-v1")
 }
 
 /** `GET /api/v1/stocks/{symbol}/valuation`: the full P/E history; ranges are sliced by the apps. */
@@ -289,4 +318,42 @@ private suspend fun io.ktor.server.application.ApplicationCall.validSymbol(): St
         return null
     }
     return symbol
+}
+
+private val ARTICLE_ID = Regex("[A-Za-z0-9:_-]{1,128}")
+
+/** `GET /api/v1/stocks/{symbol}/news/{articleId}/insight`: on-demand, cached beginner explanation. */
+fun Route.newsInsightRoutes(insights: org.example.stocksteps.news.ArticleInsightService) {
+    get("/api/v1/stocks/{symbol}/news/{articleId}/insight") {
+        val symbol = call.validSymbol() ?: return@get
+        val articleId = call.parameters["articleId"]
+        if (articleId == null || !ARTICLE_ID.matches(articleId)) {
+            call.respond(HttpStatusCode.BadRequest, ApiError("INVALID_ARTICLE", "Provide a valid article id."))
+            return@get
+        }
+        val insight = insights.insight(symbol, articleId)
+        if (insight == null) {
+            call.respond(HttpStatusCode.NotFound, ApiError("ARTICLE_NOT_FOUND", "This article is no longer in the company's recent news."))
+            return@get
+        }
+        call.respond(insight)
+    }
+}
+
+/** `GET /api/v1/stocks/{symbol}/movement?period=1D|1W|1M`: computed move, benchmarks and time-aligned news. */
+fun Route.movementRoutes(movement: org.example.stocksteps.service.MovementService) {
+    get("/api/v1/stocks/{symbol}/movement") {
+        val symbol = call.validSymbol() ?: return@get
+        val period = org.example.stocksteps.model.MovementPeriod.parse(call.request.queryParameters["period"] ?: "1D")
+        if (period == null) {
+            call.respond(HttpStatusCode.BadRequest, ApiError("INVALID_PERIOD", "Period must be 1D, 1W or 1M."))
+            return@get
+        }
+        val explanation = movement.explain(symbol, period)
+        if (explanation == null) {
+            call.respond(HttpStatusCode.NotFound, ApiError("MOVEMENT_UNAVAILABLE", "Price data for this period isn't available yet."))
+            return@get
+        }
+        call.respond(explanation)
+    }
 }

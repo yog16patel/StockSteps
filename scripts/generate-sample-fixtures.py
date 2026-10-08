@@ -212,12 +212,7 @@ for symbol, d in details.items():
             start = datetime.datetime.combine(now.date(), datetime.time(9, 30))
             save(f"stocks/{symbol}/chart-intraday.json", [{"time": (start + datetime.timedelta(minutes=5 * i)).strftime("%Y-%m-%d %H:%M:%S"), "close": c}
                                                           for i, c in enumerate(spark["closes"])])
-    if d.get("why"):
-        summary, matters = d["why"]
-        save(f"stocks/{symbol}/why-moving.json", {"symbol": symbol, "summary": summary, "whyItMatters": matters,
-             "changePercent": round(quote["changePercent"], 2), "generatedAt": now.isoformat().replace("+00:00", "Z"),
-             "sources": [{"title": f"Sample source {i + 1} for {symbol}", "url": f"https://example.com/stocksteps/{symbol.lower()}-source-{i + 1}",
-                          "publisher": "StockSteps Sample"} for i in range(2)]})
+    # why-moving.json is no longer generated: the backend computes movement explanations.
     if symbol != "LONGN":
         items = [(f"Sample story: {d['name'].split(',')[0].split(' Corporation')[0]} company update for development testing", 90, True),
                  ("Sample story: how quarterly results are reported", 300, False),

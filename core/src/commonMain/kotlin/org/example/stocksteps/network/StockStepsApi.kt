@@ -88,6 +88,32 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
         return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/news") }
     }
 
+    /** One company's normalized feed; filters and pages are sliced from the backend's cached copy. */
+    suspend fun getCompanyNews(symbol: String, category: NewsCategory?, page: Int = 0, limit: Int = 50): List<NewsArticle> {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request {
+            url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/news")
+            category?.let { parameter("category", it.name) }
+            parameter("page", page)
+            parameter("limit", limit)
+        }
+    }
+
+    /** On-demand beginner explanation of one article (generated and cached by the backend). */
+    suspend fun getArticleInsight(symbol: String, articleId: String): ArticleInsight {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        require(Regex("[A-Za-z0-9:_-]{1,128}").matches(articleId))
+        return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/news/$articleId/insight") }
+    }
+
+    suspend fun getMovement(symbol: String, period: MovementPeriod): MovementExplanation {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request {
+            url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/movement")
+            parameter("period", period.label)
+        }
+    }
+
     suspend fun getBackendInfo(): BackendInfo = request { url("$baseUrl/api/v1/meta") }
 
     suspend fun getMarketSnapshot(): MarketSnapshot = request { url("$baseUrl/market/snapshot") }

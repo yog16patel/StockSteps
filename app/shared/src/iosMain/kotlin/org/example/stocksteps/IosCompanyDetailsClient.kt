@@ -15,6 +15,11 @@ import org.example.stocksteps.model.PriceChart
 import org.example.stocksteps.model.WhyMoving
 import org.example.stocksteps.news.NewsPresentation
 import org.example.stocksteps.news.NewsUiModel
+import org.example.stocksteps.model.MovementPeriod
+import org.example.stocksteps.model.NewsArticle
+import org.example.stocksteps.news.*
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * Company Details for SwiftUI. Uses the same backend contracts and shared presenter as Android;
@@ -29,6 +34,9 @@ class IosCompanyDetailsClient(baseUrl: () -> String) {
     private val fundamentals = dependencies.getCompanyFundamentals()
     private val profile = dependencies.getCompanyProfile()
     private val valuationHistory = dependencies.getValuationHistory()
+    private val newsFeed = dependencies.getCompanyNewsFeed()
+    private val articleInsight = dependencies.getArticleInsight()
+    private val movement = dependencies.getMovementExplanation()
 
     @Throws(Exception::class)
     suspend fun getOverview(symbol: String): CompanyOverview = CompanyOverviewPresenter.build(details(symbol))
@@ -64,6 +72,29 @@ class IosCompanyDetailsClient(baseUrl: () -> String) {
     /** Valuation metrics (P/E, P/S with history) for the Financials destination. */
     fun valuation(symbol: String, fundamentals: CompanyFundamentals): List<FinancialMetric> =
         CompanyDetailPresenter.build(StockSearchResult(symbol, symbol), null, null, fundamentals).valuation
+
+    /** The company's whole news feed (one request); [newsFeedModel] slices it per filter. */
+    @Throws(Exception::class)
+    suspend fun getNewsFeed(symbol: String): List<NewsArticle> = newsFeed(symbol)
+
+    @OptIn(ExperimentalTime::class)
+    fun newsFeedModel(articles: List<NewsArticle>, filter: NewsFilter): CompanyNewsFeedModel =
+        CompanyNewsPresenter.feed(articles, filter, Clock.System.now().toEpochMilliseconds())
+
+    /** Null when the article is no longer in the company's recent feed. */
+    @OptIn(ExperimentalTime::class)
+    @Throws(Exception::class)
+    suspend fun getArticleInsight(symbol: String, articleId: String): ArticleInsightModel? =
+        articleInsight(symbol, articleId)?.let { ArticleInsightPresenter.model(it, Clock.System.now().toEpochMilliseconds()) }
+
+    /** Null when there isn't enough price data for the period. */
+    @OptIn(ExperimentalTime::class)
+    @Throws(Exception::class)
+    suspend fun getMovement(symbol: String, period: MovementPeriod): MovementModel? =
+        movement(symbol, period)?.let { MovementPresenter.model(it, Clock.System.now().toEpochMilliseconds()) }
+
+    @Throws(Exception::class)
+    suspend fun getMovementPreview(symbol: String): MovementPreview? = movement(symbol, MovementPeriod.ONE_DAY)?.let(MovementPresenter::preview)
 
     fun close() = dependencies.close()
 

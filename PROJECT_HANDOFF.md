@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-07 (America/Toronto). Current commit: "Add optional biometric app unlock and full sign-out cleanup" on `main`.
-Previous commit: `4de8848` (Add Valuation screen with monthly historical P/E on Android and iOS).
+Last updated: 2026-10-08 (America/Toronto). Current commit: "Add Company News, article explanations and Why Did It Move on Android and iOS" on `main`.
+Previous commit: `0d17770` (Add optional biometric app unlock and full sign-out cleanup).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -17,7 +17,9 @@ pending items as instructions to implement them automatically.
 ### Repository state and immediate scope
 
 - Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
-- Current commit: **Add optional biometric app unlock and full sign-out cleanup**: biometric app lock, Security & Sign-In settings, sign-out cache clearing (see "Persistent sign-in and biometric app unlock" at the end).
+- Current commit: **Add Company News, article explanations and Why Did It Move on Android and iOS**: Company News, on-demand article explanations and Why Did It Move? on
+  backend, Android and iOS (see the last section).
+- Previous commit `0d17770`, **Add optional biometric app unlock and full sign-out cleanup**: biometric app lock, Security & Sign-In settings, sign-out cache clearing (see "Persistent sign-in and biometric app unlock" at the end).
 - Previous commit `4de8848`, **Add Valuation screen with monthly historical P/E on Android and iOS**: Valuation screen, `/valuation` endpoint and monthly P/E series (see "Valuation screen" at the end).
 - Previous commit `b1ed2cb`, **Complete Financials screen with mock statement history on Android and iOS**: Android + iOS Financials screens, mock statement-history fixtures and tests (see "Financials screen — complete" at the end).
 - Previous commit `c7c8ad6`, **Document mock backend connection setup** (owner).
@@ -1717,3 +1719,57 @@ xcodebuild BUILD SUCCEEDED. NOT verified on a device: Android BiometricPrompt, F
 app-switcher cover, lock timing, sign-out flow (no emulator/simulator run in this pass).
 Limitations: sign-out drops unsent watchlist changes for that account (privacy over sync);
 "Never" timeout still allows enabling the lock but never prompts.
+
+### Company News, article explanations and Why Did It Move? (2026-10-08, in commit "Add Company News, article explanations and Why Did It Move on Android and iOS")
+
+- Core: `NewsCategory`, `ArticleInsight` (+ `aiGenerated`), `MovementPeriod` (1D/1W/1M),
+  `MovementExplanation`, `EvidenceLabel`, `BenchmarkMove`, `GlossaryTerm` (`model/NewsInsights.kt`);
+  `NewsArticle.category`. Deterministic `NewsClassifier` (+ commentary detection / `eventCategory`)
+  and `FinancialGlossary` (`news/NewsKnowledge.kt`). API `getCompanyNews(symbol, category, page,
+  limit)`, `getArticleInsight`, `getMovement`; `CompanyNewsRepository` + use cases
+  `GetCompanyNewsFeed`, `GetArticleInsight`, `GetMovementExplanation`; shared presenters
+  `CompanyNewsPresenter`, `ArticleInsightPresenter`, `MovementPresenter`.
+- Backend: `NewsService` caches each company feed 10 min and normalizes it (https only, no future
+  items, dedupe by id/headline, classify, newest first); `/news` gained category/page/limit.
+  `ArticleInsightService` (`news/ArticleInsights.kt`): on-demand, validated (`InsightValidator`),
+  cached 7 days / failures 15 min, coalesced, 2 concurrent, 200/hour budget; Gemini generator
+  `GeminiArticleInsightGenerator` (`news/GeminiInsights.kt`, prompt `insight-v1`) in REAL when
+  `GEMINI_API_KEY` is set, `TemplateArticleInsightGenerator` (no AI) in MOCK. `MovementService`
+  computes 1D/1W/1M moves, SPY/QQQ/sector-ETF benchmarks on the same dates, time-aligned news
+  ([start − 12h, end]), evidence labels, what we know / can't confirm, `noConfirmedCatalyst`;
+  optional `GeminiMovementNarrator` (`movement-v1`) validated by `MovementNarrativeValidator`
+  (no new numbers, no causal words), otherwise a template. `/why-moving` now previews the 1D
+  movement in both modes (the fictional why-moving fixtures were deleted). New routes:
+  `/news/{articleId}/insight`, `/movement?period=`.
+- Mock: company-news times are no longer shifted (they align with the captured quote/daily dates);
+  benchmark fixtures SPY/QQQ (match the captured snapshot) and synthetic XLK/XLY/XLC quotes + daily
+  closes; `news/company/MSFT.json` gained "Sample:" articles (earnings, regulation, analyst,
+  headline-only, explanation timeout/malformed, duplicate, insecure link, future date, old item).
+  Scenarios: MSFT confirmed events, NVDA "No confirmed catalyst" (commentary only), AAPL beats the
+  market, any other ticker gets sample prices and no news.
+- Android: `CompanyNewsScene.kt` rewritten (today's move card, category chips, cards with category
+  badge and "Explain this", learn-as-you-read), `NewsInsightScene.kt` (`NewsInsightRoute`),
+  `StockMovementScene.kt` (`StockMovementRoute`, 1D/1W/1M). Company Details "Why Did It Move?"
+  card links to the full breakdown ("Keep in mind" replaces "Why this matters" there).
+- iOS: `CompanyNewsViews.swift` (Company News, explanation and Why Did It Move? scenes with
+  Observation models mirroring the ViewModels); `IosCompanyDetailsClient` gained feed/insight/
+  movement methods; old Swift `CompanyNewsScene` removed from `CompanyFinancialsScene.swift`;
+  Company Details links to the movement screen.
+- Tests: server `CompanyNewsInsightsTest` (normalization/caching, validator, coalescing, failure
+  states, mock routes, classifier), `MovementTest` (1D/1W/1M math, benchmarks, news alignment,
+  no-catalyst, narrator validation + caching, route validation), `NewsTest` updated for the feed
+  cache, `MockFinancialsTest` asserts MOCK has no AI generator/narrator; core
+  `RemoteCompanyNewsRepositoryTest`, `CompanyNewsPresenterTest`; shared `CompanyNewsViewModelsTest`.
+
+Validation: server 106 (3 skipped), core JVM 85, core iOS simulator tests, shared Android host
+tests — all pass; Android assembleDebug and iOS xcodebuild (scheme `app.iosApp`) BUILD SUCCEEDED;
+a temporary MOCK server on port 8093 served the new endpoints (stopped afterwards). NOT verified:
+on-device UI on Android or iOS (no emulator/simulator run), REAL mode with Gemini (no key used;
+validated only with fakes), REAL benchmark quotes for ETFs on the current FMP plan.
+Limitations: explanation and movement caches are in-memory (lost on restart; Firestore persistence
+not added); news coverage is the provider's recent feed (top 20 relevant, 30 days), so 1M windows
+may miss older events; the classifier is keyword-based and conservative; for tickers without
+fixtures in MOCK, benchmark quotes are from a different session and are left out.
+Next: on-device review of the three screens on both platforms; restart the user's mock server
+(`./gradlew :server:stopMock` then `runMock`) to serve the new endpoints; optional persistent
+insight cache.

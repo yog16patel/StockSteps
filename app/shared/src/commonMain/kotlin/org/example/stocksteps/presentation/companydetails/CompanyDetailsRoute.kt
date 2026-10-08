@@ -20,3 +20,11 @@ internal data class CompanyNewsRoute(val symbol: String)
 /** P/E history, ranges and other valuation ratios, opened from Company Details "See Valuation". */
 @Serializable
 internal data class CompanyValuationRoute(val symbol: String)
+
+/** On-demand beginner explanation of one company article (backend article id). */
+@Serializable
+internal data class NewsInsightRoute(val symbol: String, val articleId: String)
+
+/** "Why did it move?" for 1D / 1W / 1M, opened from Company Details or Company News. */
+@Serializable
+internal data class StockMovementRoute(val symbol: String)

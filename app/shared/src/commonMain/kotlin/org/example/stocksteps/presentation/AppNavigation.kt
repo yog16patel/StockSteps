@@ -110,6 +110,8 @@ internal fun AppNavigation(
     val isCompanyFinancials = destination?.hasRoute<CompanyFinancialsRoute>() == true
     val isCompanyValuation = destination?.hasRoute<CompanyValuationRoute>() == true
     val isCompanyNews = destination?.hasRoute<CompanyNewsRoute>() == true
+    val isNewsInsight = destination?.hasRoute<NewsInsightRoute>() == true
+    val isMovement = destination?.hasRoute<StockMovementRoute>() == true
     val hasBack = isSearch || isCompanyFinancials || isCompanyNews
     // Every stock tap (Home movers, Watchlist, Search) opens the same Company Details page.
     val openStock: (String) -> Unit = { symbol -> navController.navigate(CompanyDetailsRoute(symbol)) }
@@ -130,7 +132,7 @@ internal fun AppNavigation(
                         else -> "Home"
                     },
                     // Home, Settings, Company Details and Financials render their own headers.
-                    visible = !isAuth && !isHome && !isSettings && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation,
+                    visible = !isAuth && !isHome && !isSettings && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation && !isNewsInsight && !isMovement,
                     backButton = if (hasBack) AppBarBackButton.BACK else AppBarBackButton.NONE
                 ),
                 onBack = { navController.popBackStack() },
@@ -239,7 +241,8 @@ internal fun AppNavigation(
                     onBack = { navController.popBackStack() },
                     onOpenFinancials = { symbol -> navController.navigate(CompanyFinancialsRoute(symbol)) },
                     onOpenValuation = { symbol -> navController.navigate(CompanyValuationRoute(symbol)) },
-                    onOpenNews = { symbol -> navController.navigate(CompanyNewsRoute(symbol)) }
+                    onOpenNews = { symbol -> navController.navigate(CompanyNewsRoute(symbol)) },
+                    onOpenMovement = { symbol -> navController.navigate(StockMovementRoute(symbol)) }
                 )
             }
             composable<CompanyFinancialsRoute> { entry ->
@@ -249,7 +252,15 @@ internal fun AppNavigation(
                 CompanyValuationScene(entry.toRoute<CompanyValuationRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() })
             }
             composable<CompanyNewsRoute> { entry ->
-                CompanyNewsScene(entry.toRoute<CompanyNewsRoute>(), backend, environment, hinge)
+                CompanyNewsScene(entry.toRoute<CompanyNewsRoute>(), backend, environment, hinge,
+                    onOpenInsight = { symbol, articleId -> navController.navigate(NewsInsightRoute(symbol, articleId)) },
+                    onOpenMovement = { symbol -> navController.navigate(StockMovementRoute(symbol)) })
+            }
+            composable<NewsInsightRoute> { entry ->
+                NewsInsightScene(entry.toRoute<NewsInsightRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() })
+            }
+            composable<StockMovementRoute> { entry ->
+                StockMovementScene(entry.toRoute<StockMovementRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() })
             }
         }
     }

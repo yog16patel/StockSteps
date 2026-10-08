@@ -100,7 +100,8 @@ internal fun CompanyDetailsScreen(
                 // Hidden while loading and when the backend has no source-backed explanation.
                 when (val why = state.whyMoving) {
                     is Section.Content -> why.value?.let { value ->
-                        item(key = "why") { WhyMovingSection(value, onSources = { showSources = true }, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) }, modifier = section) }
+                        item(key = "why") { WhyMovingSection(value, onSources = { showSources = true }, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) },
+                            onMore = { onAction(CompanyDetailsAction.OpenMovement) }, modifier = section) }
                     }
                     Section.Unavailable -> item(key = "why") {
                         SectionTitled(stringResource(Res.string.details_why_title), section) {
@@ -271,7 +272,7 @@ private fun ChartSection(
 /** Source-backed explanation on an educational (not market-colored) surface. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (String) -> Unit, modifier: Modifier) {
+private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (String) -> Unit, onMore: () -> Unit, modifier: Modifier) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     Column(
@@ -302,7 +303,7 @@ private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (Str
             ) {
                 Icon(StockIcons.Info, contentDescription = null, tint = colors.learnAccent, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                    Text(stringResource(Res.string.details_why_matters), style = StockStepsTheme.typography.label, color = colors.learnAccent)
+                    Text(stringResource(Res.string.details_why_caution), style = StockStepsTheme.typography.label, color = colors.learnAccent)
                     Text(matters, style = StockStepsTheme.typography.small, color = colors.textBody)
                 }
             }
@@ -320,6 +321,13 @@ private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (Str
                 }
             }
         }
+        Text(
+            "${stringResource(Res.string.details_why_more)} →",
+            modifier = Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget).wrapContentHeight()
+                .clickable(role = Role.Button, onClick = onMore).padding(vertical = spacing.xs),
+            style = StockStepsTheme.typography.label,
+            color = colors.primaryText
+        )
     }
 }
 

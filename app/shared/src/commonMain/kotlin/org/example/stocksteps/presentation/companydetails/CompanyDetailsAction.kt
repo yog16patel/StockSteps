@@ -13,5 +13,6 @@ internal sealed interface CompanyDetailsAction {
     data object OpenFinancials : CompanyDetailsAction
     data object OpenValuation : CompanyDetailsAction
     data object OpenNews : CompanyDetailsAction
+    data object OpenMovement : CompanyDetailsAction
     data class OpenArticle(val url: String) : CompanyDetailsAction
 }

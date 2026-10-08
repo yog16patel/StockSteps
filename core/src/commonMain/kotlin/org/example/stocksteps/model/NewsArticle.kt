@@ -14,5 +14,7 @@ data class NewsArticle(
     val id: String? = null,
     val description: String? = null,
     @kotlinx.serialization.EncodeDefault
-    val explanation: SimplifiedNews? = null
+    val explanation: SimplifiedNews? = null,
+    /** Deterministic keyword classification; OTHER when the evidence isn't clear. */
+    val category: NewsCategory? = null
 )

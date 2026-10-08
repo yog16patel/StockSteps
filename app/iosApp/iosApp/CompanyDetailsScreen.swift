@@ -15,6 +15,7 @@ struct CompanyDetailsScreen: View {
     let onOpenFinancials: () -> Void
     let onOpenValuation: () -> Void
     let onOpenNews: () -> Void
+    let onOpenMovement: () -> Void
     @State private var education: GlanceMetric?
     @State private var showEvidence = false
     @State private var showSources = false
@@ -200,7 +201,7 @@ struct CompanyDetailsScreen: View {
                 HStack(alignment: .top, spacing: CGFloat(space.sm)) {
                     Image(systemName: "info.circle.fill").foregroundStyle(colors.learnAccent).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                        Text("Why this matters").font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.learnAccent)
+                        Text("Keep in mind").font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.learnAccent)
                         Text(matters).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
                     }
                 }
@@ -216,6 +217,9 @@ struct CompanyDetailsScreen: View {
                     }
                 }
             }
+            Button("See full breakdown →", action: onOpenMovement)
+                .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
+                .frame(minHeight: CGFloat(dims.touchTarget))
         }
         .padding(CGFloat(space.md))
         .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.cardLarge)))

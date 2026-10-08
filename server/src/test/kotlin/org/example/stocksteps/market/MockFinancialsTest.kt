@@ -93,8 +93,11 @@ class MockFinancialsTest {
     @Test fun mockModeIsWiredOnlyToFixtures() {
         // Every MOCK data source is the fixture source: no provider repository or HTTP client exists.
         val sources = mockDataSources()
-        listOf(sources.stockProvider, sources.quoteProvider, sources.marketData, sources.priceHistory, sources.whyMoving)
+        listOf(sources.stockProvider, sources.quoteProvider, sources.marketData, sources.priceHistory, sources.earnings)
             .forEach { assertIs<FixtureMarketDataSource>(it) }
         assertIs<NewsService>(sources.news)
+        // Explanations use deterministic templates in MOCK: no AI generator or narrator exists.
+        assertIs<org.example.stocksteps.news.TemplateArticleInsightGenerator>(sources.insights)
+        assertNull(sources.narrator)
     }
 }

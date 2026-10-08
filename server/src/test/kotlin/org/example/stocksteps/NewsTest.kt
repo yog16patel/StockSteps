@@ -46,6 +46,7 @@ class NewsTest {
 
     @Test fun companyNewsUsesExactSymbolAndHasIndependentFailure() = testApplication {
         var fail = false
+        var clock = 0L
         val upstream = HttpClient(MockEngine { request ->
             if (request.url.encodedPath == "/api/v1/stock/profile2") {
                 return@MockEngine respond("""{"name":"Shopify Inc.","ticker":"SHOP.TO"}""", headers = headersOf(HttpHeaders.ContentType, "application/json"))
@@ -63,12 +64,15 @@ class NewsTest {
             application {
                 install(ContentNegotiation) { json() }
                 configureApiErrors()
-                routing { newsRoutes(NewsService(FinnhubNewsProviderRepositoryImpl(upstream, "test-key"))) }
+                routing { newsRoutes(NewsService(FinnhubNewsProviderRepositoryImpl(upstream, "test-key"),
+                    cache = org.example.stocksteps.service.CompanyFinancialCache(now = { clock }))) }
             }
             val response = client.get("/api/v1/stocks/SHOP.TO/news")
             assertEquals(HttpStatusCode.OK, response.status)
             assertEquals("SHOP.TO", Json.decodeFromString<List<NewsArticle>>(response.bodyAsText()).single().symbol)
             fail = true
+            assertEquals(HttpStatusCode.OK, client.get("/api/v1/stocks/SHOP.TO/news").status, "served from the 10-minute cache")
+            clock += 11 * 60_000L
             val error = client.get("/api/v1/stocks/SHOP.TO/news")
             assertEquals(HttpStatusCode.BadGateway, error.status)
             assertFalse(error.bodyAsText().contains("private upstream text"))

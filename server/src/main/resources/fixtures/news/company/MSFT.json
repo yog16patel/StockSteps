@@ -33,6 +33,107 @@
         "explanation": null
     },
     {
+        "title": "Sample: Microsoft reports quarterly earnings with higher cloud revenue",
+        "url": "https://example.com/stocksteps/msft-earnings",
+        "symbol": "MSFT",
+        "source": "StockSteps Sample",
+        "publishedAt": "2026-10-07T13:05:00Z",
+        "imageUrl": null,
+        "id": "sample:msft-earnings",
+        "description": "Microsoft reported quarterly earnings in which revenue from its Azure cloud business grew 31% from a year earlier, and the company kept its guidance for the full fiscal year unchanged. (Sample article for development.)"
+    },
+    {
+        "title": "Sample: European regulators open antitrust review of Microsoft Teams bundling",
+        "url": "https://example.com/stocksteps/msft-regulation",
+        "symbol": "MSFT",
+        "source": "StockSteps Sample",
+        "publishedAt": "2026-10-06T09:30:00Z",
+        "imageUrl": null,
+        "id": "sample:msft-regulation",
+        "description": "The European Commission said it opened an antitrust review into whether bundling Teams with Office limited competition. Microsoft said it would cooperate. (Sample article for development.)"
+    },
+    {
+        "title": "Sample: Analyst upgrades Microsoft and raises price target",
+        "url": "https://example.com/stocksteps/msft-analyst",
+        "symbol": "MSFT",
+        "source": "StockSteps Sample",
+        "publishedAt": "2026-10-07T12:10:00Z",
+        "imageUrl": null,
+        "id": "sample:msft-analyst",
+        "description": "An analyst upgraded the shares to outperform and raised the price target, citing demand for AI services. Analyst ratings are opinions. (Sample article for development.)"
+    },
+    {
+        "title": "Sample: Microsoft names new head of gaming division",
+        "url": "https://example.com/stocksteps/msft-headline-only",
+        "symbol": "MSFT",
+        "source": null,
+        "publishedAt": "2026-10-07T15:20:00Z",
+        "imageUrl": null,
+        "id": "sample:msft-headline-only",
+        "description": null
+    },
+    {
+        "title": "Sample: Microsoft expands data center investment in Wisconsin",
+        "url": "https://example.com/stocksteps/msft-insight-timeout",
+        "symbol": "MSFT",
+        "source": "StockSteps Sample",
+        "publishedAt": "2026-10-07T14:40:00Z",
+        "imageUrl": null,
+        "id": "sample:msft-insight-timeout",
+        "description": "Microsoft said it will expand its data center investment in Wisconsin. This sample makes the mock explanation generator time out. (Sample article for development.)"
+    },
+    {
+        "title": "Sample: Microsoft announces new partnership with a logistics company",
+        "url": "https://example.com/stocksteps/msft-insight-malformed",
+        "symbol": "MSFT",
+        "source": "StockSteps Sample",
+        "publishedAt": "2026-10-07T10:15:00Z",
+        "imageUrl": null,
+        "id": "sample:msft-insight-malformed",
+        "description": "Microsoft announced a partnership with a logistics company to use its cloud tools. This sample makes the mock explanation generator return invalid output. (Sample article for development.)"
+    },
+    {
+        "title": "Microsoft unveils new AI laptop powered by Nvidia chips",
+        "url": "https://example.com/stocksteps/msft-duplicate",
+        "symbol": "MSFT",
+        "source": "Yahoo",
+        "publishedAt": "2026-10-07T19:42:27Z",
+        "imageUrl": "https://s.yimg.com/rz/stage/p/yahoo_finance_en-US_h_p_finance_2.png",
+        "id": "sample:msft-duplicate",
+        "description": "Microsoft (MSFT) and Nvidia (NVDA) revealed their new AI laptop — the Surface Laptop Ultra — capable of running AI agents directly on the device rather than relying on the cloud. Yahoo Finance Tech Editor Dan Howley comes on Market Domination to talk more about the new piece of hardware.",
+        "explanation": null
+    },
+    {
+        "title": "Sample: This item has an insecure link and is dropped",
+        "url": "http://example.com/stocksteps/insecure",
+        "symbol": "MSFT",
+        "source": "StockSteps Sample",
+        "publishedAt": "2026-10-07T11:00:00Z",
+        "imageUrl": null,
+        "id": "sample:msft-insecure-link",
+        "description": "Sample article for development with an http link."
+    },
+    {
+        "title": "Sample: This item is dated in the future and is dropped",
+        "url": "https://example.com/stocksteps/msft-future",
+        "symbol": "MSFT",
+        "source": "StockSteps Sample",
+        "publishedAt": "2030-01-01T00:00:00Z",
+        "imageUrl": null,
+        "id": "sample:msft-future",
+        "description": "Sample article for development with a future timestamp."
+    },
+    {
+        "title": "Sample: Microsoft completes an older share buyback program",
+        "url": "https://example.com/stocksteps/msft-old",
+        "symbol": "MSFT",
+        "source": "StockSteps Sample",
+        "publishedAt": "2026-09-20T14:00:00Z",
+        "imageUrl": null,
+        "id": "sample:msft-old",
+        "description": "Microsoft completed a share buyback program announced earlier in the year. (Sample article for development.)"
+    },
+    {
         "title": "Is Microsoft’s (MSFT) AI Spending Finally Paying Off?",
         "url": "https://finnhub.io/api/news?id=2579b1618ff16ea1a93d6201bede784d94978b003cd899d0981706d6105f9745",
         "symbol": "MSFT",

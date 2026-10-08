@@ -11,6 +11,7 @@ import org.example.stocksteps.data.RemoteSparklineRepository
 import org.example.stocksteps.data.RemoteBackendInfoRepository
 import org.example.stocksteps.data.RemoteCompanyDetailsRepository
 import org.example.stocksteps.data.RemoteMarketRepository
+import org.example.stocksteps.data.RemoteCompanyNewsRepository
 import org.example.stocksteps.presentation.discovery.DiscoveryViewModel
 import org.example.stocksteps.data.RemoteStockRepository
 import org.example.stocksteps.domain.*
@@ -45,6 +46,10 @@ internal class StockStepsDependencies(baseUrl: () -> String, clientFactory: () -
             factory { GetMarketLosers(get()) }
             factory { GetMarketNews(get()) }
             factory { GetCompanyNews(get()) }
+            single<CompanyNewsRepository> { RemoteCompanyNewsRepository(get()) }
+            factory { GetCompanyNewsFeed(get()) }
+            factory { GetArticleInsight(get()) }
+            factory { GetMovementExplanation(get()) }
             factory { DiscoveryViewModel(get(), get(), get(), ::close) }
             factory { SearchStocks(get()) }
             factory { GetStockQuote(get()) }
@@ -73,6 +78,9 @@ internal class StockStepsDependencies(baseUrl: () -> String, clientFactory: () -
     fun getWhyMoving(): GetWhyMoving = application.koin.get()
     fun getValuationHistory(): GetValuationHistory = application.koin.get()
     fun getStockQuote(): GetStockQuote = application.koin.get()
+    fun getCompanyNewsFeed(): GetCompanyNewsFeed = application.koin.get()
+    fun getArticleInsight(): GetArticleInsight = application.koin.get()
+    fun getMovementExplanation(): GetMovementExplanation = application.koin.get()
     fun searchViewModel(query: String, selection: StockSearchResult?): StockSearchViewModel =
         application.koin.get { parametersOf(SearchInitialState(query, selection)) }
 

@@ -45,7 +45,7 @@ class FixtureMarketDataSource(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** News times are shifted by the fixture's age so "2h ago" stays meaningful. */
+    /** Market-news times are shifted by the fixture's age so "2h ago" stays meaningful. */
     private val age: Duration by lazy {
         val captured = manifest?.capturedAt
             ?.let { runCatching { Instant.parse(it) }.getOrNull() }
@@ -137,11 +137,15 @@ class FixtureMarketDataSource(
     override suspend fun getNews(page: Int, limit: Int): List<NewsArticle> =
         news("news/market.json").drop(page * limit).take(limit)
     override suspend fun getCompanyNews(symbol: String): List<NewsArticle> =
-        safeSymbol(symbol)?.let { news("news/company/$it.json") }.orEmpty()
+        safeSymbol(symbol)?.let { news("news/company/$it.json", shift = false) }.orEmpty()
 
-    private fun news(path: String): List<NewsArticle> =
+    /**
+     * Market news is shifted by the fixture's age so "2h ago" stays meaningful. Company news keeps
+     * its captured times so it lines up with the captured quote and daily closes (Why did it move?).
+     */
+    private fun news(path: String, shift: Boolean = true): List<NewsArticle> =
         load(path, ListSerializer(NewsArticle.serializer())).orEmpty().map { article ->
-            article.copy(publishedAt = article.publishedAt?.let { shifted(it) })
+            if (shift) article.copy(publishedAt = article.publishedAt?.let { shifted(it) }) else article
         }
 
     private fun shifted(timestamp: String): String =
