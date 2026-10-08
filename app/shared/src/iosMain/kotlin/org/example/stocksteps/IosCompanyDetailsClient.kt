@@ -6,6 +6,7 @@ import org.example.stocksteps.companydetail.FinancialMetric
 import org.example.stocksteps.companydetail.FinancialPeriod
 import org.example.stocksteps.model.CompanyFundamentals
 import org.example.stocksteps.model.CompanyProfile
+import org.example.stocksteps.model.ValuationHistory
 import org.example.stocksteps.model.StockSearchResult
 import org.example.stocksteps.companydetail.CompanyOverviewPresenter
 import org.example.stocksteps.di.StockStepsDependencies
@@ -27,6 +28,7 @@ class IosCompanyDetailsClient(baseUrl: () -> String) {
     private val news = dependencies.companyNews()
     private val fundamentals = dependencies.getCompanyFundamentals()
     private val profile = dependencies.getCompanyProfile()
+    private val valuationHistory = dependencies.getValuationHistory()
 
     @Throws(Exception::class)
     suspend fun getOverview(symbol: String): CompanyOverview = CompanyOverviewPresenter.build(details(symbol))
@@ -50,6 +52,10 @@ class IosCompanyDetailsClient(baseUrl: () -> String) {
     @Throws(Exception::class)
     suspend fun getFundamentals(symbol: String, period: FinancialPeriod): CompanyFundamentals =
         fundamentals(symbol, if (period == FinancialPeriod.ANNUAL) "annual" else "quarter")
+
+    /** Full historical P/E series for the Valuation screen; ranges are sliced locally. */
+    @Throws(Exception::class)
+    suspend fun getValuationHistory(symbol: String): ValuationHistory = valuationHistory(symbol)
 
     /** Company profile, for the Financials header (name and exchange). */
     @Throws(Exception::class)

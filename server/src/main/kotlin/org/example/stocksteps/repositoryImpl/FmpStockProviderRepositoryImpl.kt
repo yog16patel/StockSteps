@@ -25,7 +25,7 @@ class FmpStockProviderRepositoryImpl(
     private val client: HttpClient,
     private val apiKey: String,
     private val today: () -> java.time.LocalDate = { java.time.LocalDate.now(java.time.ZoneOffset.UTC) }
-) : StockProviderRepository {
+) : StockProviderRepository, org.example.stocksteps.service.QuarterlyEarningsSource {
     private val financialCache = org.example.stocksteps.service.CompanyFinancialCache()
     private val fundamentalsLoader = FmpFundamentalsLoader(client, apiKey, financialCache, today)
 
@@ -37,6 +37,8 @@ class FmpStockProviderRepositoryImpl(
                 quote.await() to profile.await()
             }
         }
+
+    override suspend fun quarterlyEarnings(symbol: String) = fundamentalsLoader.quarterlyEarnings(symbol)
 
     override suspend fun searchStocks(query: String): List<StockSearchResult> = coroutineScope {
         val bySymbol = async { search("search-symbol", query) }

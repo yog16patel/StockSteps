@@ -33,7 +33,8 @@ class FixtureMarketDataSource(
     private val read: (String) -> String? = { path ->
         FixtureMarketDataSource::class.java.classLoader.getResource(path)?.readText()
     }
-) : StockProviderRepository, MarketDataProvider, NewsProviderRepository, PriceHistoryProvider, WhyMovingSource {
+) : StockProviderRepository, MarketDataProvider, NewsProviderRepository, PriceHistoryProvider, WhyMovingSource,
+    org.example.stocksteps.service.QuarterlyEarningsSource {
 
     @Serializable
     private data class Manifest(
@@ -118,6 +119,14 @@ class FixtureMarketDataSource(
             quote.price?.let { sample.dailyCloses(s, it, quote.previousClose, sample.sessionDate(quote)) }.orEmpty()
         }
     override suspend fun getWhyMoving(symbol: String): WhyMoving? = stock(symbol, "why-moving", WhyMoving.serializer())
+
+    /** `stocks/{SYMBOL}/earnings-quarterly.json`, or (mock gaps) EPS generated from this ticker's own prices. */
+    override suspend fun quarterlyEarnings(symbol: String): List<org.example.stocksteps.service.QuarterlyEarnings> {
+        stock(symbol, "earnings-quarterly", ListSerializer(org.example.stocksteps.service.QuarterlyEarnings.serializer()))?.let { return it }
+        if (!sampleFallback || !fillsGaps(symbol)) return emptyList()
+        val pe = getFundamentals(symbol, "annual").valuation.metrics["pe"]?.value ?: return emptyList()
+        return sample.quarterlyEarnings(safeSymbol(symbol) ?: return emptyList(), getDailyCloses(symbol), pe)
+    }
 
     override suspend fun getMarketIndices(): List<MarketIndex> = snapshot?.indices.orEmpty()
     override suspend fun getGainers(): List<MarketMover> = snapshot?.gainers.orEmpty()

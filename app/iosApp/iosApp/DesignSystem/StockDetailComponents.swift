@@ -82,7 +82,7 @@ struct StockRangeBar: View {
                 let start = max(0, x - width * 0.15)
                 ZStack(alignment: .leading) {
                     Capsule().fill(colors.borderSubtle).frame(height: CGFloat(dims.rangeBar))
-                    Capsule().fill(colors.positive).frame(width: x - start, height: CGFloat(dims.rangeBar)).offset(x: start)
+                    Capsule().fill(colors.primary).frame(width: x - start, height: CGFloat(dims.rangeBar)).offset(x: start)
                     Circle().fill(colors.textPrimary)
                         .frame(width: CGFloat(dims.rangeMarker), height: CGFloat(dims.rangeMarker))
                         .offset(x: min(max(0, x - CGFloat(dims.rangeMarker) / 2), width - CGFloat(dims.rangeMarker)))
@@ -400,5 +400,85 @@ struct StockComparisonBars: View {
             Text(comparison.caption).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Line chart with gaps (nil slots are never joined) and an optional dashed average line.
+/// Dragging shows each slot's detail text.
+struct StockTrendChart: View {
+    @Environment(\.colorScheme) private var scheme
+    let chart: ValuationChart
+    var referenceLabel: String?
+    @State private var selected: Int?
+
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        let values: [Double?] = chart.values.map { ($0 as? KotlinDouble)?.doubleValue }
+        let valid = values.compactMap { $0 }
+        let reference = chart.average?.doubleValue
+        let high = max(valid.max() ?? 0, reference ?? (valid.max() ?? 0))
+        let low = min(valid.min() ?? 0, reference ?? (valid.min() ?? 0))
+        let span = high - low > 0 ? high - low : 1
+        let focus = selected ?? (values.lastIndex { $0 != nil } ?? 0)
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Text(chart.details.indices.contains(focus) ? chart.details[focus] : "")
+                .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textPrimary)
+            if let referenceLabel {
+                Text("- - \(referenceLabel)").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
+            }
+            HStack(spacing: CGFloat(space.sm)) {
+                GeometryReader { proxy in
+                    let size = proxy.size
+                    let step = values.count > 1 ? size.width / CGFloat(values.count - 1) : 0
+                    let y: (Double) -> CGFloat = { 6 + (size.height - 12) * CGFloat(1 - ($0 - low) / span) }
+                    ZStack(alignment: .topLeading) {
+                        if let reference {
+                            Path { p in p.move(to: CGPoint(x: 0, y: y(reference))); p.addLine(to: CGPoint(x: size.width, y: y(reference))) }
+                                .stroke(colors.textTertiary, style: StrokeStyle(lineWidth: 1.5, dash: [8, 6]))
+                        }
+                        // Each run of consecutive values is its own segment, so gaps stay visible.
+                        Path { p in
+                            var drawing = false
+                            for (i, value) in values.enumerated() {
+                                guard let value else { drawing = false; continue }
+                                let point = CGPoint(x: CGFloat(i) * step, y: y(value))
+                                if drawing { p.addLine(to: point) } else { p.move(to: point); drawing = true }
+                            }
+                        }
+                        .stroke(colors.primary, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                        if values.indices.contains(focus), let value = values[focus] {
+                            if selected != nil {
+                                Path { p in p.move(to: CGPoint(x: CGFloat(focus) * step, y: 0)); p.addLine(to: CGPoint(x: CGFloat(focus) * step, y: size.height)) }
+                                    .stroke(colors.border, lineWidth: 1)
+                            }
+                            Circle().fill(colors.primary).frame(width: 8, height: 8)
+                                .overlay(Circle().stroke(colors.surface, lineWidth: 2))
+                                .position(x: CGFloat(focus) * step, y: y(value))
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                        selected = min(max(Int((value.location.x / max(step, 1)).rounded()), 0), values.count - 1)
+                    })
+                }
+                VStack(alignment: .trailing) {
+                    ForEach(Array(chart.yLabels.enumerated()), id: \.offset) { index, label in
+                        if index > 0 { Spacer(minLength: 0) }
+                        Text(label)
+                    }
+                }
+                .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)
+            }
+            .frame(height: 150)
+            HStack {
+                ForEach(Array(chart.xLabels.enumerated()), id: \.offset) { index, label in
+                    if index > 0 { Spacer(minLength: 0) }
+                    Text(label).lineLimit(1)
+                }
+            }
+            .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(chart.description_)
     }
 }

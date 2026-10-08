@@ -49,7 +49,7 @@
             "netIncome": {
                 "source": "PROVIDER_DIRECT",
                 "availability": "AVAILABLE",
-                "amount": 112374000000,
+                "amount": 133184000000,
                 "basis": {
                     "period": "annual",
                     "date": "2025-09-30",
@@ -60,7 +60,7 @@
             "netIncomeGrowth": {
                 "source": "BACKEND_CALCULATED",
                 "availability": "AVAILABLE",
-                "value": 19.7506,
+                "value": 41.9267,
                 "basis": {
                     "period": "annual",
                     "date": "2025-09-30",
@@ -71,7 +71,7 @@
             "eps": {
                 "source": "PROVIDER_DIRECT",
                 "availability": "AVAILABLE",
-                "value": 7.49,
+                "value": 12.11,
                 "basis": {
                     "period": "annual",
                     "date": "2025-09-30",
@@ -82,7 +82,7 @@
             "epsGrowth": {
                 "source": "BACKEND_CALCULATED",
                 "availability": "AVAILABLE",
-                "value": 22.9885,
+                "value": 75.5072,
                 "basis": {
                     "period": "annual",
                     "date": "2025-09-30",
@@ -93,7 +93,7 @@
             "epsCagr3": {
                 "source": "BACKEND_CALCULATED",
                 "availability": "AVAILABLE",
-                "value": 7.3764,
+                "value": 26.0268,
                 "basis": {
                     "period": "annual",
                     "date": "2025-09-30",
@@ -104,7 +104,7 @@
             "epsCagr5": {
                 "source": "BACKEND_CALCULATED",
                 "availability": "AVAILABLE",
-                "value": 17.8846,
+                "value": 29.7746,
                 "basis": {
                     "period": "annual",
                     "date": "2025-09-30",
@@ -139,7 +139,7 @@
             "netMargin": {
                 "source": "BACKEND_CALCULATED",
                 "availability": "AVAILABLE",
-                "value": 27.0,
+                "value": 32.0,
                 "basis": {
                     "period": "annual",
                     "date": "2025-09-30",
@@ -383,7 +383,7 @@
             "pe": {
                 "source": "PROVIDER_DIRECT",
                 "availability": "AVAILABLE",
-                "value": 44.9493,
+                "value": 27.801,
                 "basis": {
                     "period": "TTM",
                     "currency": "USD"
@@ -470,8 +470,8 @@
             "revenue": 416200000000,
             "grossProfit": 195614000000,
             "operatingIncome": 133184000000,
-            "netIncome": 112374000000,
-            "epsDiluted": 7.49,
+            "netIncome": 133184000000,
+            "epsDiluted": 12.11,
             "operatingCashFlow": 121000000000,
             "capitalExpenditure": 12700000000,
             "freeCashFlow": 108300000000,
@@ -493,7 +493,7 @@
             "grossProfit": 179860000000,
             "operatingIncome": 125120000000,
             "netIncome": 93840000000,
-            "epsDiluted": 6.09,
+            "epsDiluted": 6.9,
             "operatingCashFlow": 118300000000,
             "capitalExpenditure": 9400000000,
             "freeCashFlow": 108900000000,

@@ -11,6 +11,7 @@ internal sealed interface CompanyDetailsAction {
     data object RetryNews : CompanyDetailsAction
     data class SelectRange(val range: ChartRange) : CompanyDetailsAction
     data object OpenFinancials : CompanyDetailsAction
+    data object OpenValuation : CompanyDetailsAction
     data object OpenNews : CompanyDetailsAction
     data class OpenArticle(val url: String) : CompanyDetailsAction
 }

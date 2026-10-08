@@ -11,6 +11,8 @@ import org.example.stocksteps.service.*
 import java.time.Instant
 import java.time.LocalDate
 
+private const val QUARTERS_FOR_VALUATION = 24
+
 internal data class FinancialDataset<T>(val rows: List<T>, val availability: FinancialAvailability, val accessDenied: Boolean = false)
 
 /** Internal extension of the existing FMP repository, using its client/key/cache. */
@@ -59,6 +61,26 @@ internal class FmpFundamentalsLoader(
                 )
             }
         }
+    }
+
+    /**
+     * Reported quarterly diluted EPS for the historical P/E series: one statement request (24
+     * quarters ≈ 6 years) cached like other statements. A missing filing date is treated as
+     * period end + 45 days, the latest a quarterly report is normally public.
+     */
+    suspend fun quarterlyEarnings(symbol: String): List<QuarterlyEarnings> {
+        val data = dataset<FmpIncomeStatement>("income-statement", symbol, "quarter", QUARTERS_FOR_VALUATION)
+        return data.rows.filter { it.symbol.equals(symbol, true) && it.date != null && it.period in listOf("Q1", "Q2", "Q3", "Q4") && it.date <= today().toString() }
+            .distinctBy { it.date }
+            .map { row ->
+                QuarterlyEarnings(
+                    periodEnd = row.date!!,
+                    availableOn = row.acceptedDate?.take(10) ?: LocalDate.parse(row.date).plusDays(45).toString(),
+                    epsDiluted = row.epsDiluted?.takeIf { it.isFinite() },
+                    shares = row.weightedAverageShsOut?.takeIf { it.isFinite() && it > 0 },
+                    currency = row.reportedCurrency
+                )
+            }
     }
 
     suspend fun load(symbol: String, period: String, quote: suspend () -> Pair<StockQuote?, CompanyProfile?>): CompanyFundamentals = supervisorScope {

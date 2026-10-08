@@ -51,9 +51,9 @@ SPECS = {
                  div=[15.1, 16.5, 18.1, 19.8, 21.8, 24.1], cash=[13.6, 14.2, 13.9, 34.7, 18.3, 30.2],
                  debt=[70.9, 67.8, 61.3, 59.9, 67.1, 60.6], assets=[301, 333, 365, 411, 512, 619],
                  liab=[183, 191, 198, 205, 243, 275], ca=[181, 184, 169, 184, 159, 191], cl=[72, 88, 95, 104, 125, 141]),
-    "AAPL": dict(currency="USD", fye=(9, 30), years=list(range(2020, 2026)), shares=[17.5, 16.9, 16.3, 15.8, 15.4, 15.0],
+    "AAPL": dict(currency="USD", fye=(9, 30), years=list(range(2020, 2026)), shares=[17.5, 16.9, 16.3, 15.8, 13.6, 11.0],
                  revenue=[274.5, 365.8, 394.3, 383.3, 391.0, 416.2], gm=[.38, .42, .43, .44, .46, .47],
-                 om=[.24, .30, .30, .30, .32, .32], nm=[.21, .26, .25, .25, .24, .27],
+                 om=[.24, .30, .30, .30, .32, .32], nm=[.21, .26, .25, .25, .24, .32],
                  ocf=[80.7, 104.0, 122.2, 110.5, 118.3, 121.0], capex=[7.3, 11.1, 10.7, 11.0, 9.4, 12.7],
                  div=[14.1, 14.5, 14.8, 15.0, 15.2, 15.4], cash=[38, 35, 24, 30, 30, 36],
                  debt=[112, 125, 120, 111, 107, 99], assets=[324, 351, 353, 353, 365, 359],
@@ -73,7 +73,8 @@ SPECS = {
                  ocf=[5.9, 11.5, 14.7, 13.3, 13.0, 14.9], capex=[3.2, 6.5, 7.2, 8.9, 14.1, 11.3],
                  div=None, cash=[19.4, 17.6, 16.3, 16.4, 16.1, 16.0], debt=[13.3, 8.9, 5.7, 9.6, 13.6, 13.0],
                  assets=[52, 62, 82, 106, 122, 128], liab=[28, 30, 36, 43, 48, 50],
-                 ca=[26.7, 27.1, 40.9, 49.6, 58.4, 60.0], cl=[14.2, 19.7, 26.7, 28.7, 28.8, 30.0], quarter_missing=2),
+                 ca=[26.7, 27.1, 40.9, 49.6, 58.4, 60.0], cl=[14.2, 19.7, 26.7, 28.7, 28.8, 30.0], quarter_missing=2,
+                 earnings_missing=["2023-06-30"]),
     # Sparse on purpose: pre-revenue first year, FY2023 missing, FY2024 net income not reported.
     "LONGN": dict(currency="USD", fye=(12, 31), years=[2021, 2022, 2024, 2025], shares=0.68,
                   revenue=[0.0, 0.4, 1.6, 2.1], gm=[None, .31, .34, .36], om=[None, -1.2, .05, .09],
@@ -326,6 +327,39 @@ def consistent_pe(symbol):
         path.write_text(json.dumps(data, indent=4) + "\n")
 
 
+# Stock splits (effective date, ratio): earlier filings report pre-split EPS and share counts.
+SPLITS = {"NVDA": ("2024-06-10", 10), "TSLA": ("2022-08-25", 3)}
+
+
+def earnings_quarterly(symbol, spec, annual):
+    """24 fiscal quarters of as-reported diluted EPS (6 fiscal years), filed after each quarter.
+
+    Quarterly net income follows the same seasonal split as the quarterly statements; filings
+    are public 30 days after Q1-Q3 and 60 days after Q4 (annual report), so the P/E series can
+    only use earnings that were already published. Pre-split quarters report pre-split values.
+    """
+    rows = []
+    for fy in sorted(annual, key=lambda r: r["date"]):
+        net = fy.get("netIncome")
+        shares_b = spec["shares"][spec["years"].index(fy["fiscalYear"])] if isinstance(spec["shares"], list) else spec["shares"]
+        for q in range(4):
+            end = add_months(fy["date"], -3 * (3 - q))
+            quarter_net = None if net is None else net * SEASON[q] * (1 + 0.02 * ((q + fy["fiscalYear"]) % 3 - 1))
+            shares = shares_b * B
+            eps = None if quarter_net is None else quarter_net / shares
+            split = SPLITS.get(symbol)
+            if split and end < split[0]:
+                shares /= split[1]
+                eps = None if eps is None else eps * split[1]
+            if end in spec.get("earnings_missing", []):
+                continue  # filing not available: the P/E series must leave a gap, not bridge it
+            rows.append({"periodEnd": end, "availableOn": add_months(end, 2 if q == 3 else 1),
+                         "epsDiluted": None if eps is None else round(eps, 4), "shares": round(shares), "currency": fy["currency"]})
+    path = ROOT / f"stocks/{symbol}/earnings-quarterly.json"
+    path.write_text(json.dumps(rows, indent=4) + "\n")
+    print("saved", path.relative_to(ROOT))
+
+
 if __name__ == "__main__":
     ensure_td()
     for symbol, spec in SPECS.items():
@@ -339,3 +373,4 @@ if __name__ == "__main__":
         tsla_no_dividend(period_file)
     for symbol in SPECS:
         consistent_pe(symbol)
+        earnings_quarterly(symbol, SPECS[symbol], annual_rows(symbol, SPECS[symbol]))

@@ -94,6 +94,7 @@ internal fun AppNavigation(
     val isSettings = destination?.hasRoute<SettingsRoute>() == true
     val isCompanyDetails = destination?.hasRoute<CompanyDetailsRoute>() == true
     val isCompanyFinancials = destination?.hasRoute<CompanyFinancialsRoute>() == true
+    val isCompanyValuation = destination?.hasRoute<CompanyValuationRoute>() == true
     val isCompanyNews = destination?.hasRoute<CompanyNewsRoute>() == true
     val hasBack = isSearch || isCompanyFinancials || isCompanyNews
     // Every stock tap (Home movers, Watchlist, Search) opens the same Company Details page.
@@ -115,7 +116,7 @@ internal fun AppNavigation(
                         else -> "Home"
                     },
                     // Home, Settings, Company Details and Financials render their own headers.
-                    visible = !isAuth && !isHome && !isSettings && !isCompanyDetails && !isCompanyFinancials,
+                    visible = !isAuth && !isHome && !isSettings && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation,
                     backButton = if (hasBack) AppBarBackButton.BACK else AppBarBackButton.NONE
                 ),
                 onBack = { navController.popBackStack() },
@@ -222,11 +223,15 @@ internal fun AppNavigation(
                     backIcon = backIcon,
                     onBack = { navController.popBackStack() },
                     onOpenFinancials = { symbol -> navController.navigate(CompanyFinancialsRoute(symbol)) },
+                    onOpenValuation = { symbol -> navController.navigate(CompanyValuationRoute(symbol)) },
                     onOpenNews = { symbol -> navController.navigate(CompanyNewsRoute(symbol)) }
                 )
             }
             composable<CompanyFinancialsRoute> { entry ->
                 CompanyFinancialsScene(entry.toRoute<CompanyFinancialsRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() })
+            }
+            composable<CompanyValuationRoute> { entry ->
+                CompanyValuationScene(entry.toRoute<CompanyValuationRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() })
             }
             composable<CompanyNewsRoute> { entry ->
                 CompanyNewsScene(entry.toRoute<CompanyNewsRoute>(), backend, environment, hinge)

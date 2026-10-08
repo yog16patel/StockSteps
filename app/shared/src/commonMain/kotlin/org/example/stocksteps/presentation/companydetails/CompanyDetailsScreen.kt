@@ -130,7 +130,7 @@ internal fun CompanyDetailsScreen(
                     }
                     item(key = "highlights") { HighlightsSection(data, onSeeAll = { onAction(CompanyDetailsAction.OpenFinancials) }, modifier = section) }
                     item(key = "valuation") {
-                        ValuationSection(data, onUnderstand = { education = "pe" }, onSee = { onAction(CompanyDetailsAction.OpenFinancials) }, modifier = section)
+                        ValuationSection(data, onUnderstand = { education = "pe" }, onSee = { onAction(CompanyDetailsAction.OpenValuation) }, modifier = section)
                     }
                     if (data.dayRange != null || data.yearRange != null) {
                         item(key = "ranges") { RangesSection(data, modifier = section) }

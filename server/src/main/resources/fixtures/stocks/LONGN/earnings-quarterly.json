@@ -1,0 +1,114 @@
+[
+    {
+        "periodEnd": "2021-03-31",
+        "availableOn": "2021-04-30",
+        "epsDiluted": -0.3105,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2021-06-30",
+        "availableOn": "2021-07-30",
+        "epsDiluted": -0.3113,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2021-09-30",
+        "availableOn": "2021-10-30",
+        "epsDiluted": -0.3309,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2021-12-31",
+        "availableOn": "2022-02-28",
+        "epsDiluted": -0.378,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2022-03-31",
+        "availableOn": "2022-04-30",
+        "epsDiluted": -0.1989,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2022-06-30",
+        "availableOn": "2022-07-30",
+        "epsDiluted": -0.2118,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2022-09-30",
+        "availableOn": "2022-10-30",
+        "epsDiluted": -0.225,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2022-12-31",
+        "availableOn": "2023-02-28",
+        "epsDiluted": -0.2421,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2024-03-31",
+        "availableOn": "2024-04-30",
+        "epsDiluted": null,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2024-06-30",
+        "availableOn": "2024-07-30",
+        "epsDiluted": null,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2024-09-30",
+        "availableOn": "2024-10-30",
+        "epsDiluted": null,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2024-12-31",
+        "availableOn": "2025-02-28",
+        "epsDiluted": null,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2025-03-31",
+        "availableOn": "2025-04-30",
+        "epsDiluted": 0.0166,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2025-06-30",
+        "availableOn": "2025-07-30",
+        "epsDiluted": 0.0176,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2025-09-30",
+        "availableOn": "2025-10-30",
+        "epsDiluted": 0.0187,
+        "shares": 680000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2025-12-31",
+        "availableOn": "2026-02-28",
+        "epsDiluted": 0.0202,
+        "shares": 680000000,
+        "currency": "USD"
+    }
+]

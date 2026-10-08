@@ -13,6 +13,7 @@ struct CompanyDetailsScreen: View {
     let onToggleWatchlist: () -> Void
     let onOpenURL: (URL) -> Void
     let onOpenFinancials: () -> Void
+    let onOpenValuation: () -> Void
     let onOpenNews: () -> Void
     @State private var education: GlanceMetric?
     @State private var showEvidence = false
@@ -342,7 +343,7 @@ struct CompanyDetailsScreen: View {
 
     private func valuationSection(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-            StockSectionHeader(title: "Valuation", actionTitle: "See Details", action: onOpenFinancials)
+            StockSectionHeader(title: "Valuation", actionTitle: "See Details", action: onOpenValuation)
             if let valuation = overview.valuation {
                 let above = valuation.position == .above
                 HStack(spacing: CGFloat(space.sm)) {
@@ -360,7 +361,7 @@ struct CompanyDetailsScreen: View {
                 .background(above ? colors.warningContainer : colors.primaryContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
                 VStack(alignment: .leading, spacing: 0) {
                     link("Understand P/E Ratio") { education = overview.glance.first { $0.id == "pe" } }
-                    link("See detailed valuation", action: onOpenFinancials)
+                    link("See detailed valuation", action: onOpenValuation)
                 }
             } else {
                 StockSectionMessage(message: "Valuation history isn't available for this company.").stockCard(bordered: false)

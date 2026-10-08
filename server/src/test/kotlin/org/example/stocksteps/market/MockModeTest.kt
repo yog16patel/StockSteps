@@ -128,6 +128,7 @@ class MockModeTest {
                     path.endsWith("/chart-daily.json") || path.endsWith("/chart-intraday.json") ->
                         json.decodeFromString(ListSerializer(PricePoint.serializer()), text)
                     path.endsWith("/why-moving.json") -> json.decodeFromString(WhyMoving.serializer(), text)
+                    path.endsWith("/earnings-quarterly.json") -> json.decodeFromString(ListSerializer(org.example.stocksteps.service.QuarterlyEarnings.serializer()), text)
                     else -> fail("Unexpected fixture file: $path")
                 }
             }.onFailure { fail("Fixture $path does not match the public contract: ${it.message}") }

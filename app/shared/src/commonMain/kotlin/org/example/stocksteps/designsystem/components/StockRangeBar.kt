@@ -22,7 +22,11 @@ import org.example.stocksteps.designsystem.theme.StockStepsTheme
  * position is the only graphic; the low/high labels and description carry the values.
  */
 @Composable
-internal fun StockRangeBar(title: String, low: String, high: String, position: Float, description: String, modifier: Modifier = Modifier) {
+internal fun StockRangeBar(
+    title: String, low: String, high: String, position: Float, description: String, modifier: Modifier = Modifier,
+    /** Fill for the segment near the marker; neutral by default because a position isn't good or bad. */
+    fill: androidx.compose.ui.graphics.Color = StockStepsTheme.colors.primary
+) {
     val colors = StockStepsTheme.colors
     val dims = StockStepsTheme.dimensions
     Column(
@@ -37,7 +41,7 @@ internal fun StockRangeBar(title: String, low: String, high: String, position: F
             drawRoundRect(colors.borderSubtle, Offset(0f, top), Size(size.width, bar), radius)
             val x = (size.width * position.coerceIn(0f, 1f))
             val start = (x - size.width * FILL_FRACTION).coerceAtLeast(0f)
-            drawRoundRect(colors.positive, Offset(start, top), Size(x - start, bar), radius)
+            drawRoundRect(fill, Offset(start, top), Size(x - start, bar), radius)
             drawCircle(colors.textPrimary, dims.rangeMarker.toPx() / 2, Offset(x.coerceIn(size.height / 2, size.width - size.height / 2), size.height / 2))
         }
         Row {

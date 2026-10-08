@@ -66,8 +66,12 @@ fun Application.module() {
         quoteProvider = sources.quoteProvider
     )
 
+    // One chart service so the price chart and the valuation history share cached daily closes.
+    val charts = org.example.stocksteps.service.PriceChartService(sources.priceHistory)
+    val valuation = org.example.stocksteps.service.ValuationService(sources.stockProvider, charts, sources.earnings)
     routing {
         stockRoutes(stockService)
+        valuationRoutes(valuation)
         companyFinancialRoutes(org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider))
         marketRoutes(stockService)
         marketSnapshotRoutes(org.example.stocksteps.service.MarketSnapshotService(sources.marketData))
@@ -77,9 +81,10 @@ fun Application.module() {
             details = org.example.stocksteps.service.CompanyDetailsService(
                 stocks = stockService,
                 financials = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider),
-                marketData = sources.marketData
+                marketData = sources.marketData,
+                valuation = valuation
             ),
-            charts = org.example.stocksteps.service.PriceChartService(sources.priceHistory),
+            charts = charts,
             whyMoving = org.example.stocksteps.service.WhyMovingService(sources.whyMoving)
         )
     }
@@ -194,7 +199,9 @@ internal class DataSources(
     val priceHistory: PriceHistoryProvider,
     val news: NewsService,
     /** Null until the real explanation pipeline exists; the endpoint then reports "unavailable". */
-    val whyMoving: org.example.stocksteps.service.WhyMovingSource? = null
+    val whyMoving: org.example.stocksteps.service.WhyMovingSource? = null,
+    /** Reported quarterly EPS for the historical P/E series. */
+    val earnings: org.example.stocksteps.service.QuarterlyEarningsSource = org.example.stocksteps.service.QuarterlyEarningsSource { emptyList() }
 )
 
 private fun Application.realDataSources(): DataSources {
@@ -219,14 +226,23 @@ private fun Application.realDataSources(): DataSources {
             FinnhubStockProviderRepositoryImpl(HttpClientProvider.client, AppConfig.finnhubApiKey)
         ),
         priceHistory = org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(HttpClientProvider.client, AppConfig.fmpApiKey),
-        news = createNewsService(HttpClientProvider.client)
+        news = createNewsService(HttpClientProvider.client),
+        earnings = fmpRepository
     )
 }
 
 /** Captured fixtures plus sample values for gaps: no provider keys, network calls, Gemini or Firestore. */
 internal fun mockDataSources(): DataSources {
     val fixtures = FixtureMarketDataSource(sampleFallback = true)
-    return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null), whyMoving = fixtures)
+    return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null), whyMoving = fixtures, earnings = fixtures)
+}
+
+/** `GET /api/v1/stocks/{symbol}/valuation`: the full P/E history; ranges are sliced by the apps. */
+fun Route.valuationRoutes(valuation: org.example.stocksteps.service.ValuationService) {
+    get("/api/v1/stocks/{symbol}/valuation") {
+        val symbol = call.validSymbol() ?: return@get
+        call.respond(valuation.history(symbol))
+    }
 }
 
 fun Route.companyDetailsRoutes(

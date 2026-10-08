@@ -24,6 +24,7 @@ internal fun CompanyDetailsScene(
     backIcon: @Composable () -> Unit,
     onBack: () -> Unit,
     onOpenFinancials: (String) -> Unit,
+    onOpenValuation: (String) -> Unit,
     onOpenNews: (String) -> Unit
 ) {
     val model = viewModel(key = "company-details:${route.symbol}:$environment") {
@@ -51,6 +52,7 @@ internal fun CompanyDetailsScene(
                 CompanyDetailsAction.RetryNews -> model.loadNews()
                 is CompanyDetailsAction.SelectRange -> model.selectRange(action.range)
                 CompanyDetailsAction.OpenFinancials -> onOpenFinancials(route.symbol)
+                CompanyDetailsAction.OpenValuation -> onOpenValuation(route.symbol)
                 CompanyDetailsAction.OpenNews -> onOpenNews(route.symbol)
                 is CompanyDetailsAction.OpenArticle -> runCatching { uriHandler.openUri(action.url) }
             }

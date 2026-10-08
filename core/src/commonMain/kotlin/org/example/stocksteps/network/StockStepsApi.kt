@@ -53,6 +53,12 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
         }
     }
 
+    /** Full historical P/E series; the apps slice 1Y/3Y/5Y/10Y locally. */
+    suspend fun getValuationHistory(symbol: String): ValuationHistory {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/valuation") }
+    }
+
     suspend fun getWhyMoving(symbol: String): WhyMoving {
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/why-moving") }

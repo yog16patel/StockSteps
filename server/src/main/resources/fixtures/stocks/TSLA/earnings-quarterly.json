@@ -1,0 +1,163 @@
+[
+    {
+        "periodEnd": "2020-03-31",
+        "availableOn": "2020-04-30",
+        "epsDiluted": -0.1705,
+        "shares": 1160000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2020-06-30",
+        "availableOn": "2020-07-30",
+        "epsDiluted": -0.1815,
+        "shares": 1160000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2020-09-30",
+        "availableOn": "2020-10-30",
+        "epsDiluted": -0.1816,
+        "shares": 1160000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2020-12-31",
+        "availableOn": "2021-02-28",
+        "epsDiluted": -0.2076,
+        "shares": 1160000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2021-03-31",
+        "availableOn": "2021-04-30",
+        "epsDiluted": 1.1123,
+        "shares": 1160000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2021-06-30",
+        "availableOn": "2021-07-30",
+        "epsDiluted": 1.1152,
+        "shares": 1160000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2021-09-30",
+        "availableOn": "2021-10-30",
+        "epsDiluted": 1.1853,
+        "shares": 1160000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2021-12-31",
+        "availableOn": "2022-02-28",
+        "epsDiluted": 1.3541,
+        "shares": 1160000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2022-03-31",
+        "availableOn": "2022-04-30",
+        "epsDiluted": 2.4483,
+        "shares": 1160000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2022-06-30",
+        "availableOn": "2022-07-30",
+        "epsDiluted": 2.6069,
+        "shares": 1160000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2022-09-30",
+        "availableOn": "2022-10-30",
+        "epsDiluted": 0.9233,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2022-12-31",
+        "availableOn": "2023-02-28",
+        "epsDiluted": 0.9935,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2023-03-31",
+        "availableOn": "2023-04-30",
+        "epsDiluted": 0.9914,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2023-09-30",
+        "availableOn": "2023-10-30",
+        "epsDiluted": 1.056,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2023-12-31",
+        "availableOn": "2024-02-29",
+        "epsDiluted": 1.2069,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2024-03-31",
+        "availableOn": "2024-04-30",
+        "epsDiluted": 0.5326,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2024-06-30",
+        "availableOn": "2024-07-30",
+        "epsDiluted": 0.5339,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2024-09-30",
+        "availableOn": "2024-10-30",
+        "epsDiluted": 0.5675,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2024-12-31",
+        "availableOn": "2025-02-28",
+        "epsDiluted": 0.6483,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2025-03-31",
+        "availableOn": "2025-04-30",
+        "epsDiluted": 0.4599,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2025-06-30",
+        "availableOn": "2025-07-30",
+        "epsDiluted": 0.4897,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2025-09-30",
+        "availableOn": "2025-10-30",
+        "epsDiluted": 0.5203,
+        "shares": 3480000000,
+        "currency": "USD"
+    },
+    {
+        "periodEnd": "2025-12-31",
+        "availableOn": "2026-02-28",
+        "epsDiluted": 0.5598,
+        "shares": 3480000000,
+        "currency": "USD"
+    }
+]

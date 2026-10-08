@@ -250,6 +250,26 @@ internal class SampleMarketData(private val now: () -> Instant) {
         )
     }
 
+    /**
+     * 24 calendar quarters of diluted EPS whose implied P/E wanders around [pe], from this ticker's
+     * own closes, filed 35 days after each quarter (so the series never uses unfiled earnings).
+     */
+    fun quarterlyEarnings(symbol: String, closes: List<PricePoint>, pe: Double): List<org.example.stocksteps.service.QuarterlyEarnings> {
+        if (closes.isEmpty() || pe <= 0) return emptyList()
+        val rng = rng(symbol, "earnings")
+        val last = LocalDate.parse(closes.last().time.take(10))
+        val shares = 1_000_000_000.0
+        return (0 until 24).mapNotNull { back ->
+            val quarterEnd = last.withDayOfMonth(1).minusMonths((last.monthValue - 1) % 3 + 3L * back).minusDays(1)
+            val price = closes.lastOrNull { it.time.take(10) <= quarterEnd.toString() }?.close ?: return@mapNotNull null
+            val impliedPe = pe * (0.75 + rng.nextDouble() * 0.5)
+            org.example.stocksteps.service.QuarterlyEarnings(
+                periodEnd = quarterEnd.toString(), availableOn = quarterEnd.plusDays(35).toString(),
+                epsDiluted = round2(price / impliedPe / 4), shares = shares, currency = "USD"
+            )
+        }.reversed()
+    }
+
     /** Trading date of the quote (New York time), stepping back from weekends. */
     fun sessionDate(quote: StockQuote?): LocalDate {
         var date = Instant.ofEpochSecond(quote?.timestamp ?: now().epochSecond).atZone(NEW_YORK).toLocalDate()

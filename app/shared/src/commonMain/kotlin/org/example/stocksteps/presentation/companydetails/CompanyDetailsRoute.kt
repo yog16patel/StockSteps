@@ -16,3 +16,7 @@ internal data class CompanyFinancialsRoute(val symbol: String)
 /** All recent company news, opened from "View All News". */
 @Serializable
 internal data class CompanyNewsRoute(val symbol: String)
+
+/** P/E history, ranges and other valuation ratios, opened from Company Details "See Valuation". */
+@Serializable
+internal data class CompanyValuationRoute(val symbol: String)

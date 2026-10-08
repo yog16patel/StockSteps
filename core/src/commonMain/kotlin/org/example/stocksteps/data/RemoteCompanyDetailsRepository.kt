@@ -9,6 +9,7 @@ import org.example.stocksteps.network.StockStepsApiException
 class RemoteCompanyDetailsRepository(private val api: StockStepsApi) : CompanyDetailsRepository {
     override suspend fun getDetails(symbol: String) = stockDataRequest { api.getCompanyDetails(symbol) }
     override suspend fun getChart(symbol: String, range: ChartRange) = stockDataRequest { api.getPriceChart(symbol, range) }
+    override suspend fun getValuationHistory(symbol: String) = stockDataRequest { api.getValuationHistory(symbol) }
     override suspend fun getWhyMoving(symbol: String): WhyMoving? = stockDataRequest {
         try {
             api.getWhyMoving(symbol)

@@ -331,13 +331,23 @@ struct StockInsightCard: View {
     var tone: InsightTone = .info
     var actionTitle: String?
     var systemImage: String?
-    let action: () -> Void
+    /// Nil makes the card plain content (not announced as a button).
+    var action: (() -> Void)?
     var body: some View {
+        if let action {
+            Button(action: action) { card }
+                .buttonStyle(.plain)
+                .accessibilityHint(actionTitle ?? "")
+        } else {
+            card.accessibilityElement(children: .combine)
+        }
+    }
+
+    private var card: some View {
         let colors = StockStepsTheme.colors(scheme)
         let container = tone == .education ? colors.educationContainer : colors.primaryContainer
         let accent = tone == .education ? colors.educationAccent : colors.primaryText
-        Button(action: action) {
-            HStack(spacing: CGFloat(space.md)) {
+        return HStack(spacing: CGFloat(space.md)) {
                 if let systemImage {
                     Image(systemName: systemImage)
                         .font(.title3)
@@ -361,9 +371,6 @@ struct StockInsightCard: View {
             .padding(CGFloat(systemImage == nil ? space.educationalCardPadding : space.md))
             .background(container, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
             .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint(actionTitle ?? "")
     }
 }
 

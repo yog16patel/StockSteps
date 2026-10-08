@@ -39,6 +39,7 @@ internal class StockStepsDependencies(baseUrl: () -> String, clientFactory: () -
             factory { GetCompanyDetails(get()) }
             factory { GetPriceChart(get()) }
             factory { GetWhyMoving(get()) }
+            factory { GetValuationHistory(get()) }
             single<MarketRepository> { RemoteMarketRepository(get()) }
             factory { GetMarketGainers(get()) }
             factory { GetMarketLosers(get()) }
@@ -70,6 +71,7 @@ internal class StockStepsDependencies(baseUrl: () -> String, clientFactory: () -
     fun getCompanyDetails(): GetCompanyDetails = application.koin.get()
     fun getPriceChart(): GetPriceChart = application.koin.get()
     fun getWhyMoving(): GetWhyMoving = application.koin.get()
+    fun getValuationHistory(): GetValuationHistory = application.koin.get()
     fun getStockQuote(): GetStockQuote = application.koin.get()
     fun searchViewModel(query: String, selection: StockSearchResult?): StockSearchViewModel =
         application.koin.get { parametersOf(SearchInitialState(query, selection)) }

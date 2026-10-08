@@ -8,6 +8,7 @@ struct CompanyDetailsScene: View {
     @State private var model: CompanyDetailsModel
     @State private var showFinancials = false
     @State private var showNews = false
+    @State private var showValuation = false
     @Environment(\.openURL) private var openURL
 
     init(symbol: String, accounts: AccountViewModel, baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
@@ -28,11 +29,13 @@ struct CompanyDetailsScene: View {
             },
             onOpenURL: { openURL($0) },
             onOpenFinancials: { showFinancials = true },
+            onOpenValuation: { showValuation = true },
             onOpenNews: { showNews = true }
         )
         // Deeper destinations stay inside the same navigation stack, so Back returns here.
         .navigationDestination(isPresented: $showFinancials) { CompanyFinancialsScene(symbol: symbol, client: model.client) }
         .navigationDestination(isPresented: $showNews) { CompanyNewsScene(symbol: symbol, client: model.client) }
+        .navigationDestination(isPresented: $showValuation) { CompanyValuationScene(symbol: symbol, client: model.client) }
         .task { if model.overview.value == nil { model.load() } }
     }
 }
