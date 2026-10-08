@@ -165,7 +165,9 @@ data class BriefEarnings(
     val epsEstimate: Double? = null,
     val currency: String? = null,
     /** "watchlist", "portfolio" or "general". */
-    val reason: String
+    val reason: String,
+    /** The calendar event's stable id, for opening Earnings Event Details (null in briefs stored before it existed). */
+    val eventId: String? = null
 )
 
 @OptIn(ExperimentalSerializationApi::class)

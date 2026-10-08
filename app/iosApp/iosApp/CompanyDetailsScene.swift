@@ -17,6 +17,9 @@ struct CompanyDetailsScene: View {
     @State private var compareModel: ScreenerModel?
     @State private var earningsModel: EarningsModel?
     @State private var showEarnings = false
+    @State private var nextEarnings: CompanyEarningsModel?
+    /// Opens the app-level Earnings Calendar on a date (nil = today); nil hides the action.
+    var onEarningsCalendar: ((String?) -> Void)? = nil
     @State private var portfolioModel = PortfolioViewModel()
     var learning: LearningModel?
     var onSearch: () -> Void = {}
@@ -29,7 +32,9 @@ struct CompanyDetailsScene: View {
     init(symbol: String, accounts: AccountViewModel, watchlists: WatchlistsModel? = nil, learning: LearningModel? = nil,
          onSearch: @escaping () -> Void = {}, onLearn: @escaping () -> Void = {}, onUpgrade: @escaping () -> Void = {},
          onPracticeBuy: @escaping (String) -> Void = { _ in },
+         onEarningsCalendar: ((String?) -> Void)? = nil,
          baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
+        self.onEarningsCalendar = onEarningsCalendar
         self.symbol = symbol
         self.accounts = accounts
         self.watchlists = watchlists
@@ -73,7 +78,10 @@ struct CompanyDetailsScene: View {
             researchCompleted: learning?.completed(symbol),
             showResearch: learning != nil,
             onResearch: { research = ResearchTarget(symbol: symbol, name: model.overview.value?.name) },
-            onPracticeBuy: { onPracticeBuy(symbol) }
+            onPracticeBuy: { onPracticeBuy(symbol) },
+            nextEarnings: nextEarnings?.state,
+            onEarningsCalendar: onEarningsCalendar.map { open in { open(nextEarnings?.state?.date) } },
+            onRetryEarnings: { nextEarnings?.presenter.refresh() }
         )
         .navigationDestination(item: $research) { target in
             if let learning {
@@ -93,6 +101,9 @@ struct CompanyDetailsScene: View {
         .navigationDestination(isPresented: $showValuation) { CompanyValuationScene(symbol: symbol, client: model.client) }
         .navigationDestination(isPresented: $showMovement) { StockMovementScene(symbol: symbol, client: model.client) }
         .task {
+            // One cached request for the next earnings date (the client is shared with Earnings Details).
+            if earningsModel == nil { earningsModel = EarningsModel(accounts: accounts) }
+            if nextEarnings == nil, let client = earningsModel?.client { nextEarnings = CompanyEarningsModel(symbol: symbol, client: client) }
             accounts.client?.recordViewedCompany(symbol: symbol)
             if model.overview.value == nil { model.load() }
         }

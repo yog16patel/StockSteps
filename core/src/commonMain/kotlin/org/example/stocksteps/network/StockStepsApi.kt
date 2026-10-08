@@ -8,6 +8,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
+import io.ktor.http.encodeURLPathPart
 import io.ktor.client.request.parameter
 import io.ktor.client.request.url
 import io.ktor.http.*
@@ -153,6 +154,15 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return request { url("$baseUrl/api/v1/earnings/${symbol.uppercase()}") }
     }
+    /** One calendar event by its stable id ("AAPL:2026-Q4"). */
+    suspend fun earningsEvent(id: String): org.example.stocksteps.earnings.EarningsEventInfo {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}:\\d{4}-Q[1-4]").matches(id))
+        return request { url("$baseUrl/api/v1/earnings/events/${id.encodeURLPathPart()}") }
+    }
+    suspend fun nextEarnings(symbol: String): org.example.stocksteps.earnings.NextEarnings {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request { url("$baseUrl/api/v1/earnings/company/${symbol.uppercase()}/next") }
+    }
 
     // Screener and comparison (public; all provider access stays on the server).
     suspend fun getScreenerCatalog(): org.example.stocksteps.screener.ScreenerCatalog = request { url("$baseUrl/api/v1/screener/catalog") }
@@ -220,6 +230,10 @@ fun io.ktor.client.request.HttpRequestBuilder.earningsParameters(query: org.exam
     query.view?.let { parameter("view", it) }
     parameter("pageSize", query.pageSize)
     query.cursor?.let { parameter("cursor", it) }
+    query.query?.let { parameter("q", it) }
+    query.day?.let { parameter("day", it) }
+    query.scope?.let { parameter("scope", it) }
+    query.scenario?.let { parameter("scenario", it) }
 }
 
 fun io.ktor.client.HttpClientConfig<*>.configureStockStepsClient() {

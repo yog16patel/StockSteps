@@ -27,6 +27,8 @@ internal sealed interface BriefAction {
     data object Retry : BriefAction
     data class OpenUrl(val url: String) : BriefAction
     data class OpenStock(val symbol: String) : BriefAction
+    /** Opens Earnings Event Details for a calendar event id. */
+    data class OpenEarnings(val eventId: String) : BriefAction
     data class Explain(val storyId: String) : BriefAction
     data class Ask(val question: String) : BriefAction
     data object History : BriefAction
@@ -147,7 +149,9 @@ internal fun DailyBriefScreen(state: DailyBriefUiState, nowMillis: Long, modifie
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                     SectionTitle("Upcoming Earnings")
                     rows.forEach { e ->
-                        StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { }, onClick = { onAction(BriefAction.OpenStock(e.symbol)) }, onClickLabel = "Open ${e.symbol}") {
+                        StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { },
+                            onClick = { onAction(e.eventId?.let { BriefAction.OpenEarnings(it) } ?: BriefAction.OpenStock(e.symbol)) },
+                            onClickLabel = if (e.eventId != null) "Open ${e.symbol} earnings event" else "Open ${e.symbol}") {
                             Text("${e.name ?: e.symbol} (${e.symbol})", style = typography.bodySemiBold, color = colors.textPrimary)
                             Text(listOfNotNull("Expected ${BriefFormat.date(e.date)}", "${e.dateStatus} date", e.timing,
                                 e.epsEstimate?.let { "EPS estimate ${e.currency ?: ""} ${BriefFormat.groupDigits(it)}".replace("  ", " ") },

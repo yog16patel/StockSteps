@@ -1,7 +1,128 @@
 # Earnings Intelligence & Earnings Calendar
 
-Markets → **Earnings Center** (Upcoming · Results · Following) and **Earnings Details** for a
-company. These are pushed destinations; the bottom bar is unchanged. Entry points:
+> **Earnings Intelligence Lite — Phase 1 (Earnings Calendar)** was added on top of the earlier
+> Earnings Center (2026-10-08, commit "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"). See the Phase 1 section right
+> below; the rest of this document describes the earlier Earnings Details/results work, which is
+> unchanged.
+
+## Phase 1: Earnings Calendar
+
+Markets → **Earnings Center** card → **Earnings Calendar** → **Earnings Event Details**. Also from
+Company Details ("Earnings" section → View Earnings Calendar), Daily Brief (Upcoming Earnings rows →
+event), Watchlist ("Earnings dates for your watchlists" → calendar filtered to My Watchlist) and deep
+links (`earnings:<eventId>`, `earnings-calendar`). No new bottom tab. Free for everyone; no paywall.
+
+**What it shows:** dates, expected timing and status only. Calendar cards and event details show
+no EPS/revenue figures, surprises or reactions; a reported event links to the existing Earnings
+Details ("See reported results"), which is the Phase 2 extension point.
+
+### Domain (core `earnings/EarningsCalendar.kt`)
+- `EarningsEventStatus`: SCHEDULED, REPORTED, POSTPONED, CANCELED, UNKNOWN (`EarningsCalendarRules.status`).
+  REPORTED needs reported figures or an explicit source flag; POSTPONED/CANCELED need an explicit
+  source flag (`EarningsEvent.sourceStatus`). A passed date without results is UNKNOWN ("Status not
+  confirmed"), never REPORTED. Finnhub has no postponed/canceled flag, so REAL never shows them.
+- New optional `EarningsEvent` fields: `eventTime` (exchange-local "HH:mm", only when the source
+  states it), `timeZone`, `sourceStatus`, `sourceUpdatedAt` (null when the provider doesn't say).
+  `updatedAt` is when StockSteps recorded the event. Dates stay date-only `yyyy-MM-dd`
+  (exchange-local); "today" is computed in the event's exchange zone, so nothing shifts a day.
+- Identity: `SYMBOL:YYYY-Qn` (stable across date changes; a rescheduled event keeps one id and shows
+  `previousDate`). The instrument identity is the provider's exchange-qualified symbol (`TD` on
+  NYSE ≠ `TD.TO` on TSX).
+- Timing labels: Before market open · After market close · During market hours · Time not confirmed
+  (+ "· 4:05 PM ET" only when the source gives a time).
+- Search: ticker prefix or company-name word prefix, case-insensitive ("td" doesn't match "Ltd.").
+- `DataFreshness`: FRESH, CACHED, STALE, UNAVAILABLE.
+
+### Presenters (shared by Android and iOS)
+- `EarningsCalendarPresenter`: selected date, Day/Week view, Upcoming/Reported, All Companies/My
+  Watchlist, debounced (300 ms) server-side search, paging, per-day counts for the week strip,
+  freshness text, MOCK scenarios. In-memory first-page cache (5 min, 24 entries), keyed per user for
+  the watchlist scope and cleared on account switch or watchlist change. Restorable via
+  `CalendarSelection.encode/decode` (Android saves it with the back-stack entry → survives rotation
+  and process recreation).
+- `EarningsEventPresenter`, `CompanyEarningsPresenter` (next date on Company Details),
+  `EarningsSummaryPresenter` (Markets card: scheduled count for the next 7 days, next date, watchlist
+  count; nothing shown when unknown).
+- Watchlist identity comes from the existing `UserWatchlistsRepository` (`earningsSession()`,
+  `watchedSymbols()`); no new watchlist or company repository.
+
+### API (server `earnings/EarningsService.kt`)
+| Endpoint | Notes |
+| --- | --- |
+| `GET /api/v1/earnings/calendar?from&to&view=upcoming\|reported\|scheduled&q&day&pageSize&cursor` | Public. ≤62-day range, page ≤50, `q` ≤40 chars, `day` inside the range. Response adds `dayCounts` (whole range, before paging/day filter), `freshness`, `fetchedAt`, `partial`. `scope` is rejected (400) here. |
+| `GET /api/v1/earnings/calendar/search?q=…` | Same, `q` required. |
+| `GET /api/v1/earnings/events/{eventId}` | One event (404 when unknown). |
+| `GET /api/v1/earnings/company/{symbol}/next` | Next not-reported, not-canceled event; `event` omitted when none is known. |
+| `GET /api/v1/me/earnings/following?…&scope=watchlist` | Signed in. The user's own watchlists (from the verified token), deduplicated across lists by canonical symbol; `followedCount` (0 = empty watchlists). |
+
+`view=results` still works (alias of `reported`). The earlier `/following` without `scope`
+(portfolio + watchlists) is unchanged and still used by the Daily Brief.
+
+### Provider mapping, caching, freshness
+- REAL: Finnhub `/calendar/earnings` (date, bmo/amc/dmh, fiscal period) through the existing
+  `FinnhubEarningsDataSource`; no new paid endpoint and no availability probing. Finnhub gives no
+  exact time, no status flag and no source timestamp, so REAL shows timing only from bmo/amc/dmh,
+  never POSTPONED/CANCELED, and "The source didn't say when this was last updated".
+- Profiles (names/logos) are fetched only for the events on the returned page (no N+1 per week).
+  Company-name search in REAL uses the existing (cached, 1 h) stock search for US listings; if it
+  fails the page is marked `partial` and ticker search still works.
+- Server cache: windows 1 h (12 h for past windows), per-symbol history 6 h. FRESH = fetched in this
+  request, CACHED = from the cache. On a source failure the last real copy is served as STALE with
+  its fetch time; with no copy → 503. Never replaced with sample data.
+- Postponed/canceled events are excluded from the existing reminders' `next()`.
+
+### MOCK scenarios (fixture `earnings/events.json`, MOCK clock 2026-10-07 17:15 New York)
+| # | Scenario | Fixture |
+| --- | --- | --- |
+| 1 | Upcoming today | INTC Oct 7 (after close, source time 4:05 PM ET) |
+| 2–3 | Tomorrow, several on one day | CRBU (before open), TOPP (after close), SPEC (time not confirmed) Oct 8 |
+| 4 | No earnings on a date | Oct 10–11 (weekend), most dates |
+| 5–7 | Before open / after close / unknown time | CRBU / TOPP, INTC / SPEC |
+| 8 | Recently reported | LUCY Oct 7 (verified figures) |
+| 9 | Past event, status unknown | BCE.TO Oct 6 |
+| 10 | Rescheduled | CNR.TO Oct 20 → Oct 22 |
+| — | Postponed (explicit flag) | SSPX "StockSteps Demo Postponed Corp." Oct 9 (was Oct 8) |
+| 11 | Canceled (explicit flag) | SSCX "StockSteps Demo Canceled Corp." Oct 13 |
+| 12–13 | US / Canadian | most / RY.TO, CNR.TO, SHOP.TO, TD.TO… |
+| 14–17 | On / not on watchlist, empty, multiple watchlists | your MOCK account's watchlists (tests cover dedup across lists) |
+| 18 | Duplicate ticker across exchanges | TD (NYSE) and TD.TO (TSX) Nov 30 |
+| 19 | Missing logo | all calendar demo companies (avatar fallback) |
+| 20 | Missing source timestamp | SPEC |
+| 21 | Provider unavailable | Calendar "Sample scenarios" chip → `scenario=provider-unavailable` (503) |
+| 22 | Stale cached events | chip → `scenario=stale-cache` (STALE, fetched 3 h earlier) |
+| 23–24 | Search with / without results | "intel", "td" / "zzzz" |
+| 25 | Pagination | page size 20 (tests use 2–3) |
+| 26–27 | Account switching, app restart | presenter cache per user; Android saved state |
+| 28 | Market holiday | GCDT Oct 12 (Canadian Thanksgiving; US open) |
+| 29 | Weekend | ENB.TO Sat Aug 1; empty weekend days |
+| 30 | No next date for a company | GOOGL ("Next earnings date not available.") |
+
+Scenarios are MOCK-only (ignored in REAL). Demo events were added with
+`scripts/generate_earnings_fixtures.py` (`CALENDAR_DEMO`); existing events are unchanged apart from
+the new `sourceUpdatedAt` field.
+
+### Tests
+- Core `EarningsCalendarTest` (12): status rules, timing, week math, bounded search ranges, name
+  search, selection restore, accessibility labels; presenter week/day counts, navigation + cache,
+  debounced search, watchlist sign-in/account switch/list change, errors/stale/paging, event details,
+  Company Details next date, Markets summary.
+- Server `EarningsCalendarServiceTest` (10): verified status, day counts/day filter/validation,
+  date-only + timing, search, paging, watchlist scope dedup + isolation + public rejection,
+  fresh/cached/stale + no sample fallback, MOCK scenarios, event/next endpoints, routes and auth.
+- No Compose UI / XCUITest automation (there is no UI-test setup in the repo); UI state is covered
+  through the presenters.
+
+### Limitations
+- Date and number formatting is English (the app has no other locale); dates are shown in the
+  exchange's local date, not converted to the device time zone.
+- iOS restores the calendar selection within a session only (no process-death restoration).
+- In REAL, company-name search covers US listings (existing stock search); TSX by ticker.
+- REAL Finnhub coverage of TSX and plan limits weren't verified live (no paid calls were made).
+
+---
+
+Earlier work: **Earnings Details** for a company (results, history, reactions, AI). The former
+Earnings Center list (Upcoming · Results · Following) was replaced by the Phase 1 calendar above. These are pushed destinations; the bottom bar is unchanged. Entry points:
 
 - Markets tile
 - Company Details "Earnings" button

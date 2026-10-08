@@ -24,6 +24,10 @@ struct CompanyDetailsScreen: View {
     var showResearch = false
     var onResearch: () -> Void = {}
     var onPracticeBuy: () -> Void = {}
+    /// Next earnings date (nil hides the section).
+    var nextEarnings: CompanyEarningsState? = nil
+    var onEarningsCalendar: (() -> Void)? = nil
+    var onRetryEarnings: () -> Void = {}
     @State private var education: GlanceMetric?
     @State private var showEvidence = false
     @State private var showSources = false
@@ -32,6 +36,37 @@ struct CompanyDetailsScreen: View {
     private let space = StockStepsTheme.spacing
     private let type = StockStepsTheme.typography
     private let dims = StockStepsTheme.dimensions
+
+    /// Next earnings date, timing and status; never an invented date.
+    @ViewBuilder private func earningsSection(_ e: CompanyEarningsState, _ colors: StockColors) -> some View {
+        titled("Earnings") {
+            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                if e.loading {
+                    Text("Loading the next earnings date…").font(.subheadline).foregroundStyle(colors.textSecondary)
+                } else if let error = e.error {
+                    StockSectionMessage(message: error, actionTitle: "Try again", action: onRetryEarnings)
+                } else if let dateText = e.dateText {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Next earnings").font(.caption).foregroundStyle(colors.textSecondary)
+                        Text(dateText).font(.headline).foregroundStyle(colors.textPrimary)
+                        if let timing = e.timingText { Text(timing).font(.subheadline).foregroundStyle(colors.textBody) }
+                        if let status = e.statusText { Text(status).font(.caption).foregroundStyle(colors.textSecondary) }
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Next earnings: \(e.spokenDate ?? dateText). \(e.timingText ?? ""). \(e.statusText ?? "").")
+                } else {
+                    Text(e.message ?? "").font(.subheadline).foregroundStyle(colors.textSecondary)
+                }
+                if e.sampleData { Text("Sample earnings data.").font(.caption).foregroundStyle(colors.cautionText) }
+                HStack {
+                    if let onEarningsCalendar { Button("View Earnings Calendar", action: onEarningsCalendar).frame(minHeight: 48) }
+                    Button("Earnings history", action: onEarnings).frame(minHeight: 48)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .stockCard()
+        }
+    }
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
@@ -47,6 +82,7 @@ struct CompanyDetailsScreen: View {
                 } }
                 chartSection(colors).padding(.top, CGFloat(space.lg))
                 if showResearch { UnderstandStockCard(completed: researchCompleted, action: onResearch).padding(.top, CGFloat(space.xl)) }
+                if let nextEarnings { earningsSection(nextEarnings, colors).padding(.top, CGFloat(space.xl)) }
                 switch model.whyMoving {
                 case .content(let why): if let why { whySection(why, colors).padding(.top, CGFloat(space.xl)) }
                 case .unavailable:

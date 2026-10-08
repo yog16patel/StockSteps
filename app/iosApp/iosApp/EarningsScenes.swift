@@ -5,21 +5,88 @@ import SwiftUI
 private let space = StockStepsTheme.spacing
 private let type = StockStepsTheme.typography
 
-/// Mirrors the shared Kotlin Earnings Center presenter (same state and actions as Android).
+/// App-wide earnings client (one per backend URL provider) plus the Markets entry summary.
 @MainActor @Observable
 final class EarningsModel {
-    private(set) var center: EarningsCenterState?
+    private(set) var summary: EarningsSummaryState?
     @ObservationIgnored let client: IosEarningsClient
     @ObservationIgnored private var subscription: (any AccountSubscription)?
 
     init(accounts: AccountViewModel, baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
         client = IosEarningsClient(baseUrl: baseURL, account: accounts.client)
-        subscription = client.observeCenter { [weak self] in self?.center = $0 }
-        client.center.start()
+    }
+    /// Starts the Markets "Earnings Center" counts on first use.
+    func startSummary() {
+        guard subscription == nil else { return }
+        subscription = client.observeSummary { [weak self] in self?.summary = $0 }
     }
     deinit {
         subscription?.cancel()
         client.close()
+    }
+}
+
+/// Where the Earnings Calendar opens: a date (nil = today) and filter ("ALL" | "WATCHLIST").
+struct EarningsCalendarTarget: Hashable, Identifiable {
+    var date: String? = nil
+    var filter: String = "ALL"
+    var id: String { "\(date ?? "today")|\(filter)" }
+}
+
+/// One Earnings Calendar screen's shared presenter.
+@MainActor @Observable
+final class EarningsCalendarModel {
+    private(set) var state: EarningsCalendarState?
+    @ObservationIgnored let presenter: EarningsCalendarPresenter
+    @ObservationIgnored let client: IosEarningsClient
+    @ObservationIgnored private var subscription: (any AccountSubscription)?
+
+    init(target: EarningsCalendarTarget, client: IosEarningsClient) {
+        self.client = client
+        presenter = client.calendar(date: target.date, filter: target.filter)
+        subscription = client.observeCalendar(presenter: presenter) { [weak self] in self?.state = $0 }
+    }
+    deinit {
+        subscription?.cancel()
+        client.release(presenter: presenter)
+    }
+}
+
+/// One earnings event's shared presenter.
+@MainActor @Observable
+final class EarningsEventModel {
+    private(set) var state: EarningsEventState?
+    @ObservationIgnored let presenter: EarningsEventPresenter
+    @ObservationIgnored let client: IosEarningsClient
+    @ObservationIgnored private var subscription: (any AccountSubscription)?
+
+    init(eventId: String, client: IosEarningsClient) {
+        self.client = client
+        presenter = client.event(id: eventId)
+        subscription = client.observeEvent(presenter: presenter) { [weak self] in self?.state = $0 }
+    }
+    deinit {
+        subscription?.cancel()
+        client.release(presenter: presenter)
+    }
+}
+
+/// Company Details' next earnings date.
+@MainActor @Observable
+final class CompanyEarningsModel {
+    private(set) var state: CompanyEarningsState?
+    @ObservationIgnored let presenter: CompanyEarningsPresenter
+    @ObservationIgnored let client: IosEarningsClient
+    @ObservationIgnored private var subscription: (any AccountSubscription)?
+
+    init(symbol: String, client: IosEarningsClient) {
+        self.client = client
+        presenter = client.company(symbol: symbol)
+        subscription = client.observeCompany(presenter: presenter) { [weak self] in self?.state = $0 }
+    }
+    deinit {
+        subscription?.cancel()
+        client.release(presenter: presenter)
     }
 }
 
@@ -36,7 +103,10 @@ final class EarningsDetailsModel {
         presenter = client.details(symbol: symbol)
         subscription = client.observeDetails(presenter: presenter) { [weak self] in self?.state = $0 }
     }
-    deinit { subscription?.cancel() }
+    deinit {
+        subscription?.cancel()
+        client.release(presenter: presenter)
+    }
 }
 
 struct IdentifiedTopic: Identifiable {
@@ -44,25 +114,241 @@ struct IdentifiedTopic: Identifiable {
     var id: String { topic.key }
 }
 
-// MARK: - Earnings Center
+private func ymd(_ date: Date) -> String {
+    let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+    return String(format: "%04d-%02d-%02d", c.year ?? 1970, c.month ?? 1, c.day ?? 1)
+}
+private func dateFrom(_ ymd: String) -> Date {
+    let p = ymd.split(separator: "-").compactMap { Int($0) }
+    guard p.count == 3 else { return Date() }
+    return Calendar.current.date(from: DateComponents(year: p[0], month: p[1], day: p[2])) ?? Date()
+}
 
-struct EarningsCenterScene: View {
-    let model: EarningsModel
+// MARK: - Earnings Calendar
+
+struct EarningsCalendarScene: View {
+    @State private var model: EarningsCalendarModel
     let onOpen: (String) -> Void
     var onSignIn: () -> Void = {}
 
+    init(target: EarningsCalendarTarget, client: IosEarningsClient, onOpen: @escaping (String) -> Void, onSignIn: @escaping () -> Void = {}) {
+        _model = State(initialValue: EarningsCalendarModel(target: target, client: client))
+        self.onOpen = onOpen
+        self.onSignIn = onSignIn
+    }
+
     var body: some View {
-        EarningsCenterScreen(state: model.center, client: model.client, onOpen: onOpen, onSignIn: onSignIn)
+        EarningsCalendarScreen(state: model.state, presenter: model.presenter, client: model.client, onOpen: onOpen, onSignIn: onSignIn)
             .navigationTitle("Earnings")
             .navigationBarTitleDisplayMode(.inline)
-            .refreshable { model.client.center.refresh() }
+            .refreshable { model.presenter.refresh() }
     }
 }
 
-struct EarningsCenterScreen: View {
-    let state: EarningsCenterState?
+/// Week strip with day counts, Upcoming/Reported, All/My Watchlist, day or week view and search.
+/// Cards show dates, timing and status only (no figures). Same presenter as Android.
+struct EarningsCalendarScreen: View {
+    let state: EarningsCalendarState?
+    let presenter: EarningsCalendarPresenter
     let client: IosEarningsClient
     let onOpen: (String) -> Void
+    let onSignIn: () -> Void
+    @Environment(\.colorScheme) private var scheme
+    @State private var showHelp = false
+    @State private var picking = false
+    @State private var pickedDate = Date()
+
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+                Text("Earnings Calendar").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
+                Text("See when companies are expected to report earnings.").font(.subheadline).foregroundStyle(colors.textSecondary)
+                Button("What are earnings?", systemImage: "questionmark.circle") { showHelp = true }.font(.subheadline)
+                if let state {
+                    if state.sampleData {
+                        Text("Sample earnings data for development, not real announcements.").font(.caption).foregroundStyle(colors.cautionText)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack {
+                                ForEach(client.scenarios, id: \.self) { pair in
+                                    StockChip(title: pair[1], selected: (state.scenario ?? "") == pair[0]) { client.setScenario(presenter: presenter, id: pair[0]) }
+                                }
+                            }
+                        }
+                    }
+                    weekStrip(state, colors)
+                    Picker("Section", selection: Binding(get: { state.selection.tab.name }, set: { client.selectTab(presenter: presenter, name: $0) })) {
+                        Text("Upcoming").tag("UPCOMING"); Text("Reported").tag("REPORTED")
+                    }.pickerStyle(.segmented)
+                    HStack {
+                        StockChip(title: "All Companies", selected: state.selection.filter.name == "ALL") { client.selectFilter(presenter: presenter, name: "ALL") }
+                        StockChip(title: "My Watchlist", selected: state.selection.filter.name == "WATCHLIST") { client.selectFilter(presenter: presenter, name: "WATCHLIST") }
+                    }
+                    if !state.searching {
+                        Picker("Show", selection: Binding(get: { state.selection.mode.name }, set: { client.selectMode(presenter: presenter, name: $0) })) {
+                            Text("Selected day").tag("DAY"); Text("Whole week").tag("WEEK")
+                        }.pickerStyle(.segmented)
+                    }
+                    HStack {
+                        Image(systemName: "magnifyingglass").foregroundStyle(colors.iconSecondary).accessibilityHidden(true)
+                        TextField("Search by company or ticker", text: Binding(get: { state.selection.query }, set: { presenter.setQuery(text: $0) }))
+                            .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        if !state.selection.query.isEmpty {
+                            Button { presenter.clearQuery() } label: { Image(systemName: "xmark.circle.fill") }.accessibilityLabel("Clear search")
+                        }
+                    }
+                    .padding(.horizontal, CGFloat(space.md)).frame(minHeight: 48)
+                    .background(colors.surfaceSecondary, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.chip)))
+                    if let range = state.rangeText { Text(range).font(.caption).foregroundStyle(colors.textSecondary) }
+                    if let freshness = state.freshnessText { Text(freshness).font(.caption).foregroundStyle(colors.cautionText) }
+                    if state.sourceStale { Text("Some dates haven't been updated by the data provider recently and may have changed.").font(.caption).foregroundStyle(colors.cautionText) }
+                    if state.loading { ProgressView().accessibilityLabel("Loading earnings") }
+                    if let error = state.error {
+                        StockSectionMessage(message: error, actionTitle: "Try again") { presenter.refresh() }
+                    }
+                    if let empty = state.emptyMessage {
+                        StockSectionMessage(message: empty, actionTitle: state.needsSignIn ? "Sign in" : nil, action: state.needsSignIn ? onSignIn : nil)
+                    }
+                    ForEach(Array(state.days.enumerated()), id: \.offset) { _, day in
+                        let date = day.first as? String ?? ""
+                        Text(client.date(date: date)).font(.subheadline.weight(.semibold)).foregroundStyle(colors.textSecondary)
+                            .accessibilityAddTraits(.isHeader).accessibilityLabel(client.spokenDate(date: date)).padding(.top, 6)
+                        ForEach((day.second as? [EarningsEventRow]) ?? [], id: \.id) { row in
+                            Button { onOpen(row.id) } label: { card(row, colors) }
+                                .buttonStyle(.plain)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel(row.accessibility)
+                                .accessibilityHint("Opens the earnings event")
+                                .onAppear { if row.id == state.rows.last?.id && state.hasMore { presenter.loadMore() } }
+                        }
+                    }
+                    if state.loadingMore { ProgressView().accessibilityLabel("Loading more earnings") }
+                    ForEach(state.notes, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.textSecondary) }
+                    Text("Not investment advice. Report dates can change until a company confirms them.").font(.caption).foregroundStyle(colors.textTertiary)
+                }
+            }
+            .padding(.horizontal, CGFloat(space.screen))
+            .padding(.vertical, CGFloat(space.md))
+        }
+        .background(colors.appBackground)
+        .alert("What are earnings?", isPresented: $showHelp) { Button("Got it", role: .cancel) {} } message: { Text(client.whatAreEarnings) }
+        .sheet(isPresented: $picking) {
+            NavigationStack {
+                DatePicker("Date", selection: $pickedDate, displayedComponents: .date).datePickerStyle(.graphical).padding()
+                    .navigationTitle("Choose date").navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { picking = false } }
+                        ToolbarItem(placement: .confirmationAction) { Button("Show date") { presenter.selectDate(date: ymd(pickedDate)); picking = false } }
+                    }
+            }
+            .presentationDetents([.large])
+        }
+    }
+
+    @ViewBuilder private func weekStrip(_ state: EarningsCalendarState, _ colors: StockColors) -> some View {
+        VStack(spacing: CGFloat(space.xs)) {
+            HStack {
+                Button { presenter.previousWeek() } label: { Image(systemName: "chevron.left").frame(minWidth: 48, minHeight: 48) }.accessibilityLabel("Previous week")
+                Text(state.weekLabel).font(.headline).frame(maxWidth: .infinity)
+                    .accessibilityAddTraits(.isHeader).accessibilityLabel("Week of \(state.weekLabel)")
+                Button { presenter.nextWeek() } label: { Image(systemName: "chevron.right").frame(minWidth: 48, minHeight: 48) }.accessibilityLabel("Next week")
+            }
+            HStack(spacing: CGFloat(space.xxs)) {
+                ForEach(state.week, id: \.date) { day in
+                    Button { presenter.selectDate(date: day.date) } label: { dayCell(day, colors) }
+                        .buttonStyle(.plain)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(day.accessibility)
+                        .accessibilityAddTraits(day.selected ? [.isSelected, .isButton] : [.isButton])
+                }
+            }
+            HStack {
+                Button("Today") { presenter.goToToday() }.disabled(state.selection.date == state.today).frame(minHeight: 48)
+                Button("Choose date") { pickedDate = dateFrom(state.selection.date); picking = true }.frame(minHeight: 48)
+                Spacer()
+            }
+        }
+    }
+
+    /// Selected: filled and underlined (not color alone); today: outlined; counts as numbers.
+    private func dayCell(_ day: WeekDayView, _ colors: StockColors) -> some View {
+        let shape = RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.chip))
+        let fg = day.selected ? colors.onPrimary : colors.textPrimary
+        return VStack(spacing: 2) {
+            Text(day.weekday).font(.caption2).foregroundStyle(day.selected ? colors.onPrimary : colors.textSecondary)
+            Text(day.day).font(.body.weight(.semibold)).foregroundStyle(fg)
+            Text(day.count.map { $0.intValue > 0 ? "\($0.intValue)" : " " } ?? " ").font(.caption2).foregroundStyle(day.selected ? colors.onPrimary : colors.primaryText)
+            Rectangle().fill(day.selected ? colors.onPrimary : Color.clear).frame(width: 16, height: 2)
+        }
+        .lineLimit(1).minimumScaleFactor(0.7)
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .padding(.vertical, CGFloat(space.xs))
+        .background(day.selected ? colors.primaryDark : colors.surfaceSecondary, in: shape)
+        .overlay(shape.stroke(day.today && !day.selected ? colors.primary : Color.clear, lineWidth: 1))
+    }
+
+    private func card(_ row: EarningsEventRow, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: CGFloat(space.sm)) {
+                StockTickerAvatar(symbol: row.symbol, logoUrl: row.logoUrl, size: CGFloat(StockStepsTheme.dimensions.logoCompact))
+                VStack(alignment: .leading) {
+                    Text(row.name).font(.headline).foregroundStyle(colors.textPrimary).lineLimit(1)
+                    Text([row.symbol, row.exchange].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(colors.textSecondary)
+                }
+                Spacer()
+                Text(row.status.label).font(.caption2).padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(colors.surfaceSecondary, in: Capsule())
+            }
+            Text("\(row.dateText) · \(row.timingText)").font(.caption).foregroundStyle(colors.textSecondary)
+            if row.status.name == "SCHEDULED", let detail = row.statusText.components(separatedBy: " · ").last {
+                Text(detail).font(.caption).foregroundStyle(colors.textSecondary)
+            }
+            if let previous = row.previousDate { Text("Date moved from \(client.date(date: previous))").font(.caption).foregroundStyle(colors.cautionText) }
+            if row.watchlisted { Label("On your watchlist", systemImage: "star.fill").font(.caption).foregroundStyle(colors.textSecondary) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .stockCard()
+    }
+}
+
+// MARK: - Earnings Event Details
+
+struct EarningsEventScene: View {
+    @State private var model: EarningsEventModel
+    let accounts: AccountViewModel
+    let onCompany: (String) -> Void
+    let onCalendar: (String?) -> Void
+    let onResults: (String) -> Void
+    var onSignIn: () -> Void = {}
+
+    init(eventId: String, client: IosEarningsClient, accounts: AccountViewModel, onCompany: @escaping (String) -> Void,
+         onCalendar: @escaping (String?) -> Void, onResults: @escaping (String) -> Void, onSignIn: @escaping () -> Void = {}) {
+        _model = State(initialValue: EarningsEventModel(eventId: eventId, client: client))
+        self.accounts = accounts
+        self.onCompany = onCompany
+        self.onCalendar = onCalendar
+        self.onResults = onResults
+        self.onSignIn = onSignIn
+    }
+
+    var body: some View {
+        EarningsEventScreen(state: model.state, client: model.client, accounts: accounts, onRetry: { model.presenter.refresh() },
+                            onCompany: onCompany, onCalendar: onCalendar, onResults: onResults, onSignIn: onSignIn)
+            .navigationTitle("Earnings event")
+            .navigationBarTitleDisplayMode(.inline)
+            .refreshable { model.presenter.refresh() }
+    }
+}
+
+/// One event: date, timing, status and provenance, a beginner explanation and existing actions. No figures.
+struct EarningsEventScreen: View {
+    let state: EarningsEventState?
+    let client: IosEarningsClient
+    let accounts: AccountViewModel
+    let onRetry: () -> Void
+    let onCompany: (String) -> Void
+    let onCalendar: (String?) -> Void
+    let onResults: (String) -> Void
     let onSignIn: () -> Void
     @Environment(\.colorScheme) private var scheme
     @State private var topic: EarningsEducation.Topic?
@@ -70,55 +356,11 @@ struct EarningsCenterScreen: View {
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-                Text("Earnings Center").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
-                Text("When companies report, what analysts expect and what was reported.").font(.subheadline).foregroundStyle(colors.textSecondary)
+            LazyVStack(alignment: .leading, spacing: CGFloat(space.md)) {
                 if let state {
-                    if state.sampleData { Text("Sample earnings data for development, not real announcements.").font(.caption).foregroundStyle(colors.textSecondary) }
-                    Picker("Section", selection: Binding(get: { state.tab.name }, set: { client.selectTab(name: $0) })) {
-                        Text("Upcoming").tag("UPCOMING"); Text("Results").tag("RESULTS"); Text("Following").tag("FOLLOWING")
-                    }.pickerStyle(.segmented)
-                    Picker("Range", selection: Binding(get: { state.range.name }, set: { client.selectRange(name: $0) })) {
-                        ForEach(state.ranges, id: \.name) { Text($0.label).tag($0.name) }
-                    }.pickerStyle(.segmented)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
-                            chip("US", on: state.filters.markets.contains("US")) { client.toggleMarket(code: "US") }
-                            chip("Canada", on: state.filters.markets.contains("CA")) { client.toggleMarket(code: "CA") }
-                            ForEach(["BEFORE_OPEN", "AFTER_CLOSE", "UNKNOWN"], id: \.self) { s in
-                                chip(client.sessionShort(name: s), on: state.filters.sessions.contains { $0.name == s }) { client.toggleSession(name: s) }
-                            }
-                            ForEach(["NASDAQ", "NYSE", "TSX"], id: \.self) { e in
-                                chip(e, on: state.filters.exchanges.contains(e)) { client.toggleExchange(code: e) }
-                            }
-                        }
-                    }
-                    Text("\(client.date(date: state.from)) – \(client.date(date: state.to))").font(.caption).foregroundStyle(colors.textSecondary)
-                    if state.loading { ProgressView().accessibilityLabel("Loading earnings") }
-                    if let error = state.error { Text(error).foregroundStyle(colors.textSecondary); Button("Try again") { client.center.refresh() } }
-                    if state.tab.name == "FOLLOWING" && !state.signedIn {
-                        Text("Sign in to see earnings for companies in your watchlists and portfolios.")
-                        Button("Sign in", action: onSignIn).buttonStyle(.borderedProminent)
-                    } else if !state.loading && state.error == nil && state.rows.isEmpty {
-                        Text(state.tab.name == "FOLLOWING" ? "None of the companies you follow report in this period." : state.tab.name == "RESULTS" ? "No reported results in this period." : "No earnings announcements in this period.")
-                            .foregroundStyle(colors.textSecondary)
-                    }
-                    ForEach(Array(state.days.enumerated()), id: \.offset) { _, day in
-                        let date = day.first as? String ?? ""
-                        Text(client.date(date: date)).font(.subheadline.weight(.semibold)).foregroundStyle(colors.textSecondary)
-                            .accessibilityAddTraits(.isHeader).accessibilityLabel(client.spokenDate(date: date)).padding(.top, 6)
-                        ForEach((day.second as? [EarningsRowView]) ?? [], id: \.id) { row in
-                            Button { onOpen(row.symbol) } label: { rowView(row, colors) }
-                                .buttonStyle(.plain)
-                                .accessibilityElement(children: .ignore)
-                                .accessibilityLabel(row.accessibility)
-                                .accessibilityHint("Opens earnings details")
-                                .onAppear { if row.id == state.rows.last?.id && state.hasMore { client.center.loadMore() } }
-                        }
-                    }
-                    ForEach(state.notes, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.textSecondary) }
-                    Text("Learn the basics").font(.headline).padding(.top, 8)
-                    ForEach(Array(client.topics.prefix(6)), id: \.key) { t in Button(t.title) { topic = t } }
+                    if state.loading { ProgressView().accessibilityLabel("Loading earnings event") }
+                    if let error = state.error { StockSectionMessage(message: error, actionTitle: "Try again", action: onRetry) }
+                    if state.status != nil { content(state, colors) }
                 }
             }
             .padding(.horizontal, CGFloat(space.screen))
@@ -131,33 +373,66 @@ struct EarningsCenterScreen: View {
         }
     }
 
-    private func chip(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
-        Button(label, action: action).buttonStyle(.bordered).tint(on ? .accentColor : .secondary).accessibilityValue(on ? "Selected" : "")
-    }
-
-    private func rowView(_ row: EarningsRowView, _ colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("\(row.symbol)\(row.exchange.map { " · \($0)" } ?? "")").font(.headline).foregroundStyle(colors.textPrimary)
-                    Text(row.name).font(.caption).foregroundStyle(colors.textSecondary).lineLimit(1)
-                }
-                Spacer()
-                Text(row.reminder ? "Reminder on" : row.status.label).font(.caption2).padding(.horizontal, 8).padding(.vertical, 2)
-                    .background(colors.surfaceSecondary, in: Capsule())
+    @ViewBuilder private func content(_ state: EarningsEventState, _ colors: StockColors) -> some View {
+        HStack(spacing: CGFloat(space.sm)) {
+            StockTickerAvatar(symbol: state.symbol, logoUrl: state.logoUrl)
+            VStack(alignment: .leading) {
+                Text(state.name).font(StockStepsTheme.font(type.screenTitle, relativeTo: .title1)).lineLimit(3).accessibilityAddTraits(.isHeader)
+                Text([state.symbol, state.exchange, state.period].compactMap { $0 }.joined(separator: " · ")).font(.subheadline).foregroundStyle(colors.textSecondary)
             }
-            Text("\(row.sessionText) · \(row.dateStatusText)").font(.caption).foregroundStyle(colors.textSecondary)
-            if let previous = row.previousDate { Text("Date moved from \(client.date(date: previous))").font(.caption).foregroundStyle(colors.cautionText) }
-            if row.epsResult != nil || row.revenueResult != nil {
-                Text([row.epsResult.map { "EPS \($0)" }, row.revenueResult.map { "Revenue \($0)" }].compactMap { $0 }.joined(separator: " · ")).font(.subheadline)
-            } else {
-                Text(row.expectation).font(.subheadline)
-            }
-            if let countdown = row.countdown { Text(countdown).font(.caption).foregroundStyle(colors.primary) }
-            if let following = row.following { Text(following).font(.caption).foregroundStyle(colors.textSecondary) }
+        }
+        if state.sampleData { Text("Sample earnings data for development, not real announcements.").font(.caption).foregroundStyle(colors.cautionText) }
+        if let freshness = state.freshnessText { Text(freshness).font(.caption).foregroundStyle(colors.cautionText) }
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Text("Earnings report").font(.headline).accessibilityAddTraits(.isHeader)
+            line("Date", state.dateText ?? "", colors).accessibilityLabel("Date: \(state.spokenDate ?? "")")
+            line("Expected timing", state.timingText ?? "", colors)
+            line("Status", state.statusText ?? "", colors)
+            if let previous = state.previousDate { Text("Date moved from \(client.date(date: previous))").font(.caption).foregroundStyle(colors.cautionText) }
+            if let explanation = state.statusExplanation { Text(explanation).font(.subheadline).foregroundStyle(colors.textBody) }
+            // Phase 2 extension point: reported figures live on Earnings Details, never invented here.
+            if state.reported { Button("See reported results") { onResults(state.symbol) }.buttonStyle(.bordered).frame(minHeight: 48) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .stockCard()
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Text("What is an earnings report?").font(.headline).accessibilityAddTraits(.isHeader)
+            Text(client.eventExplanation).font(.body).foregroundStyle(colors.textBody)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(CGFloat(space.cardPadding))
+        .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Button { onCompany(state.symbol) } label: { Text("View Company Details").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.borderedProminent)
+            // The same watchlist as Company Details and the Watchlist tab.
+            if !accounts.state.initializing {
+                let saved = accounts.state.items.contains { $0.symbol == state.symbol }
+                Button {
+                    let stock = StockSearchResult(symbol: state.symbol, name: state.name, currency: nil, exchange: state.exchange, exchangeFullName: nil)
+                    Task { await accounts.toggle(stock: stock) }
+                } label: {
+                    Label(saved ? "Remove from Watchlist" : "Add to Watchlist", systemImage: saved ? "star.fill" : "star").frame(maxWidth: .infinity, minHeight: 48)
+                }.buttonStyle(.bordered)
+            } else {
+                Button { onSignIn() } label: { Text("Sign in to use watchlists").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.bordered)
+            }
+            Button("Learn About Earnings", systemImage: "lightbulb") { topic = client.topic(key: "quarterly") }.frame(minHeight: 48)
+            Button("View in Earnings Calendar") { onCalendar(state.date) }.frame(minHeight: 48)
+        }
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach([state.updatedText, state.sourceText].compactMap { $0 }, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.textSecondary) }
+            ForEach(state.notes, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.textSecondary) }
+            Text("Not investment advice. Earnings dates don't predict how a stock will move.").font(.caption).foregroundStyle(colors.textTertiary)
+        }
+    }
+
+    private func line(_ label: String, _ value: String, _ colors: StockColors) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label).font(.subheadline).foregroundStyle(colors.textSecondary)
+            Spacer()
+            Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(colors.textPrimary).multilineTextAlignment(.trailing)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -30,6 +30,7 @@ internal fun CompanyDetailsScene(
     onOpenMovement: (String) -> Unit,
     onCompare: (symbol: String, name: String) -> Unit = { _, _ -> },
     onEarnings: (String) -> Unit = {},
+    onEarningsCalendar: (String?) -> Unit = {},
     onResearch: (symbol: String, name: String) -> Unit = { _, _ -> },
     onPracticeBuy: (String) -> Unit = {}
 ) {
@@ -38,6 +39,11 @@ internal fun CompanyDetailsScene(
         CompanyDetailsViewModel(route.symbol, data.getCompanyDetails(), data.getPriceChart(), data.getWhyMoving(), data.companyNews(), data::close)
     }
     val state by model.state.collectAsStateWithLifecycle()
+    val earningsModel = viewModel(key = "company-earnings:${route.symbol}:$environment") {
+        val data = StockStepsDependencies(backend::currentUrl)
+        org.example.stocksteps.presentation.earnings.CompanyEarningsViewModel(route.symbol, data.earningsRemote(accounts), data::close)
+    }
+    val earnings by earningsModel.presenter.state.collectAsStateWithLifecycle()
     LaunchedEffect(route.symbol, environment, accounts) {
         accounts?.home?.recordViewed(org.example.stocksteps.model.InstrumentRef(route.symbol))
     }
@@ -53,6 +59,7 @@ internal fun CompanyDetailsScene(
         hinge = hinge,
         backIcon = backIcon,
         researchCompleted = learning.journey(route.symbol)?.completedCount,
+        earnings = earnings,
         onAction = { action ->
             when (action) {
                 CompanyDetailsAction.AddPortfolio -> {
@@ -61,6 +68,8 @@ internal fun CompanyDetailsScene(
                 }
                 CompanyDetailsAction.Compare -> state.overview.listing(route.symbol).let { onCompare(it.symbol, it.name) }
                 CompanyDetailsAction.Earnings -> onEarnings(route.symbol)
+                CompanyDetailsAction.EarningsCalendar -> onEarningsCalendar(earnings.date)
+                CompanyDetailsAction.RetryEarnings -> earningsModel.presenter.refresh()
                 CompanyDetailsAction.PracticeBuy -> onPracticeBuy(route.symbol)
                 CompanyDetailsAction.Research -> state.overview.listing(route.symbol).let { onResearch(it.symbol, it.name) }
                 CompanyDetailsAction.Back -> onBack()

@@ -71,18 +71,25 @@ internal fun MarketsScene(
     /** Shared Daily Market Brief presenter (null without an account graph, e.g. previews). */
     brief: org.example.stocksteps.brief.DailyBriefPresenter? = null,
     onDailyBrief: () -> Unit = {},
-    onBriefHistory: () -> Unit = {}
+    onBriefHistory: () -> Unit = {},
+    /** Account graph for the watchlist count on the Earnings Center entry (null when unavailable). */
+    accounts: org.example.stocksteps.di.AccountDependencies? = null
 ) {
     val model = viewModel(key = "markets:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
         MarketsViewModel(data.getMarketsOverview(), data::close)
     }
+    val earnings = viewModel(key = "earnings-summary:$environment") {
+        val data = StockStepsDependencies(backend::currentUrl)
+        org.example.stocksteps.presentation.earnings.EarningsSummaryViewModel(data.earningsRemote(accounts), accounts, data::close)
+    }
     val state by model.state.collectAsStateWithLifecycle()
+    val earningsState by earnings.presenter.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     val briefState = brief?.state?.collectAsStateWithLifecycle()?.value
-    MarketsScreen(state, hinge, briefState) { action ->
+    MarketsScreen(state, hinge, briefState, earningsState) { action ->
         when (action) {
-            MarketsAction.Refresh -> model.refresh()
+            MarketsAction.Refresh -> { model.refresh(); earnings.presenter.refresh() }
             MarketsAction.Retry -> model.retry()
             MarketsAction.Search -> onSearch()
             is MarketsAction.SelectTab -> model.selectTab(action.tab)
@@ -105,7 +112,13 @@ internal fun MarketsScene(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun MarketsScreen(state: MarketsState, hinge: WindowHinge?, brief: org.example.stocksteps.brief.DailyBriefUiState? = null, onAction: (MarketsAction) -> Unit) {
+internal fun MarketsScreen(
+    state: MarketsState,
+    hinge: WindowHinge?,
+    brief: org.example.stocksteps.brief.DailyBriefUiState? = null,
+    earnings: org.example.stocksteps.earnings.EarningsSummaryState? = null,
+    onAction: (MarketsAction) -> Unit
+) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val model = remember(state.overview, state.tab, state.expanded, state.loadedAt) { state.model }
@@ -127,7 +140,7 @@ internal fun MarketsScreen(state: MarketsState, hinge: WindowHinge?, brief: org.
                         org.example.stocksteps.presentation.brief.DailyBriefPreviewCard(brief, org.example.stocksteps.presentation.brief.briefNow(),
                             { onAction(MarketsAction.DailyBrief) }, content.padding(top = spacing.xl), onHistory = { onAction(MarketsAction.BriefHistory) })
                     }
-                    item(key = "tools") { ResearchTools(content.padding(top = spacing.xl), onAction) }
+                    item(key = "tools") { ResearchTools(content.padding(top = spacing.xl), earnings, onAction) }
                     if (model == null) {
                         item(key = "state") {
                             if (state.loading) LoadingSkeleton(content.padding(top = spacing.lg))
@@ -185,7 +198,7 @@ private fun Title(modifier: Modifier, onSearch: () -> Unit) {
 
 /** Market Overview (this screen) plus entry points to Discover Stocks and Compare Stocks. */
 @Composable
-private fun ResearchTools(modifier: Modifier, onAction: (MarketsAction) -> Unit) {
+private fun ResearchTools(modifier: Modifier, earnings: org.example.stocksteps.earnings.EarningsSummaryState?, onAction: (MarketsAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.md)) {
@@ -201,12 +214,18 @@ private fun ResearchTools(modifier: Modifier, onAction: (MarketsAction) -> Unit)
             }
         }
     }
-    StockCard(Modifier.fillMaxWidth(), onClick = { onAction(MarketsAction.Earnings) }, onClickLabel = "Open Earnings Center") {
+    // Earnings Center: counts only from the calendar (never estimated); a plain fallback otherwise.
+    StockCard(Modifier.fillMaxWidth(), onClick = { onAction(MarketsAction.Earnings) }, onClickLabel = "View Earnings Calendar") {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
             Icon(StockIcons.TrendingUp, contentDescription = null, tint = colors.primary)
-            Column {
-                Text("Earnings Center", style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
-                Text("Upcoming dates, recent results and the companies you follow", Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.caption, color = colors.textSecondary)
+            Column(Modifier.weight(1f)) {
+                Text("Earnings Center", Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
+                Text("See when companies are reporting results.", Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.caption, color = colors.textSecondary)
+                (earnings?.headline ?: if (earnings?.loading == false) "Open the calendar to browse upcoming and reported earnings." else null)?.let {
+                    Text(it, Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.small, color = colors.textPrimary)
+                }
+                earnings?.watchlistText?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.primaryText) }
+                Text("View Earnings Calendar", Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.label, color = colors.primaryText)
             }
         }
     }

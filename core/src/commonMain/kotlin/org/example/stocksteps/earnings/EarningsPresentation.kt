@@ -20,6 +20,10 @@ interface EarningsRemote {
     suspend fun following(query: EarningsCalendarQuery): EarningsCalendarPage
     suspend fun details(symbol: String, signedIn: Boolean): EarningsDetails
     suspend fun ask(symbol: String, question: String): EarningsAnswer
+    /** One calendar event by its stable id (public). */
+    suspend fun event(id: String): EarningsEventInfo
+    /** A company's next announcement (public). */
+    suspend fun next(symbol: String): NextEarnings
 }
 
 /** Public calls for everyone; signed-in calls (following, tier-aware details, AI) through [user]. */
@@ -28,6 +32,8 @@ class RemoteEarnings(private val api: StockStepsApi, private val user: UserApi?)
     override suspend fun following(query: EarningsCalendarQuery) = requireNotNull(user) { "Sign in to see companies you follow." }.earningsFollowing(query)
     override suspend fun details(symbol: String, signedIn: Boolean) = if (signedIn && user != null) user.earningsDetails(symbol) else api.earningsDetails(symbol)
     override suspend fun ask(symbol: String, question: String) = requireNotNull(user) { "Sign in first." }.askEarnings(symbol, question)
+    override suspend fun event(id: String) = api.earningsEvent(id)
+    override suspend fun next(symbol: String) = api.nextEarnings(symbol)
 }
 
 // ---------- Formatting (display only) ----------
@@ -50,7 +56,7 @@ object EarningsFormatter {
         EarningsTime.BEFORE_OPEN -> "Before market open"
         EarningsTime.AFTER_CLOSE -> "After market close"
         EarningsTime.DURING_MARKET -> "During market hours"
-        EarningsTime.UNKNOWN -> "Time not announced"
+        EarningsTime.UNKNOWN -> "Time not confirmed"
     }
     fun sessionShort(time: EarningsTime) = when (time) {
         EarningsTime.BEFORE_OPEN -> "BMO"; EarningsTime.AFTER_CLOSE -> "AMC"; EarningsTime.DURING_MARKET -> "Intraday"; EarningsTime.UNKNOWN -> "Time TBA"
@@ -86,192 +92,6 @@ object EarningsFormatter {
 
     /** "Beat (+5.9%)" — text, so meaning never depends on color. */
     fun result(r: SurpriseResult?): String? = r?.let { if (it.classification == Classification.UNAVAILABLE) null else it.classification.label + (percent(it.percent)?.let { p -> " ($p)" } ?: "") }
-}
-
-/** A calendar row, ready to render on both platforms. */
-data class EarningsRowView(
-    val id: String,
-    val symbol: String,
-    val name: String,
-    val exchange: String?,
-    val logoUrl: String?,
-    val date: String,
-    val dateText: String,
-    val sessionText: String,
-    val dateStatusText: String,
-    val confirmed: Boolean,
-    val status: EarningsStatus,
-    val countdown: String?,
-    val expectation: String,
-    val epsResult: String?,
-    val revenueResult: String?,
-    val following: String?,
-    val reminder: Boolean,
-    val previousDate: String?
-) {
-    val accessibility: String get() = buildString {
-        append("$name, $symbol. ${status.label}. ")
-        append(EarningsFormatter.spokenDate(date)).append(", ").append(sessionText).append(". ").append(dateStatusText).append(". ")
-        previousDate?.let { append("Moved from ${EarningsFormatter.spokenDate(it)}. ") }
-        epsResult?.let { append("EPS $it. ") }; revenueResult?.let { append("Revenue $it. ") }
-        if (epsResult == null && revenueResult == null) append("$expectation. ")
-        following?.let { append("$it. ") }
-        if (reminder) append("Reminder on.")
-    }
-}
-
-fun EarningsCalendarItem.row(today: String, reminders: Set<String>): EarningsRowView {
-    val e = event
-    val est = e.estimate
-    return EarningsRowView(
-        e.id, e.symbol, e.name, e.exchange, e.logoUrl, e.date, EarningsFormatter.date(e.date), EarningsFormatter.session(e.session),
-        EarningsFormatter.dateStatus(e.dateStatus), e.dateStatus == EarningsDateStatus.CONFIRMED, status,
-        if (status == EarningsStatus.UPCOMING) EarningsFormatter.countdown(e, today) else null,
-        listOfNotNull(est?.eps?.let { "EPS est. ${EarningsFormatter.eps(it, est.currency)}" }, est?.revenue?.let { "Rev. est. ${EarningsFormatter.revenue(it, est.currency)}" })
-            .joinToString(" · ").ifBlank { "No estimates available" },
-        EarningsFormatter.result(eps), EarningsFormatter.result(revenue),
-        following.takeIf { it.isNotEmpty() }?.let { reasons ->
-            listOfNotNull(if (FollowReason.PORTFOLIO in reasons) "In your portfolio" + (sharesHeld?.let { " · ${round(it * 1000) / 1000} shares" } ?: "") else null,
-                if (FollowReason.WATCHLIST in reasons) "On your watchlist" else null).joinToString(" · ")
-        },
-        e.symbol.uppercase() in reminders, e.previousDate
-    )
-}
-
-// ---------- Earnings Center ----------
-
-enum class EarningsTab(val label: String) { UPCOMING("Upcoming"), RESULTS("Results"), FOLLOWING("Following") }
-enum class EarningsRange(val label: String) { THIS_WEEK("This week"), NEXT_WEEK("Next week"), MONTH("Next 30 days"), LAST_WEEK("Last week"), LAST_MONTH("Last 30 days") }
-
-data class EarningsFilters(
-    /** "US", "CA". */
-    val markets: Set<String> = emptySet(),
-    val exchanges: Set<String> = emptySet(),
-    val sessions: Set<EarningsTime> = emptySet()
-) { val count: Int get() = markets.size + exchanges.size + sessions.size }
-
-data class EarningsCenterState(
-    val tab: EarningsTab = EarningsTab.UPCOMING,
-    val range: EarningsRange = EarningsRange.THIS_WEEK,
-    val from: String = "",
-    val to: String = "",
-    val filters: EarningsFilters = EarningsFilters(),
-    val rows: List<EarningsRowView> = emptyList(),
-    val total: Int = 0,
-    val hasMore: Boolean = false,
-    val loading: Boolean = false,
-    val loadingMore: Boolean = false,
-    val error: String? = null,
-    val notes: List<String> = emptyList(),
-    val stale: Boolean = false,
-    val sampleData: Boolean = false,
-    val signedIn: Boolean = false
-) {
-    val ranges: List<EarningsRange> get() = if (tab == EarningsTab.RESULTS) listOf(EarningsRange.LAST_WEEK, EarningsRange.THIS_WEEK, EarningsRange.LAST_MONTH)
-        else listOf(EarningsRange.THIS_WEEK, EarningsRange.NEXT_WEEK, EarningsRange.MONTH)
-    /** Rows grouped by date, in order. */
-    val days: List<Pair<String, List<EarningsRowView>>> get() = rows.groupBy { it.date }.toList()
-}
-
-/**
- * Earnings Center (Upcoming / Results / Following). Date-bounded server queries (never a whole
- * year), paged by cursor; obsolete loads are cancelled. Reminder state comes from the existing alerts.
- */
-class EarningsCenterPresenter(
-    private val remote: EarningsRemote,
-    private val scope: CoroutineScope,
-    private val alerts: AlertsRepository? = null,
-    private val today: () -> String = { Clock.System.now().toString().take(10) }
-) {
-    private val mutable = MutableStateFlow(EarningsCenterState())
-    val state: StateFlow<EarningsCenterState> = mutable.asStateFlow()
-    private val key = MutableStateFlow<Triple<EarningsTab, EarningsRange, EarningsFilters>?>(null)
-    private val refreshes = MutableStateFlow(0)
-    private var page: EarningsCalendarPage? = null
-    private var query: EarningsCalendarQuery? = null
-    private var moreJob: Job? = null
-    private var items: List<EarningsCalendarItem> = emptyList()
-
-    private fun reminders(): Set<String> = alerts?.state?.value?.value?.alerts.orEmpty()
-        .filter { it.type == AlertType.EARNINGS && it.status == AlertStatus.ACTIVE }.map { it.instrument.symbol.uppercase() }.toSet()
-
-    init {
-        alerts?.let { repository ->
-            scope.launch {
-                repository.state.collect { s ->
-                    val set = reminders()
-                    mutable.update { it.copy(signedIn = s.uid != null, rows = items.map { item -> item.row(today(), set) }) }
-                }
-            }
-        }
-        scope.launch {
-            combine(key.filterNotNull(), refreshes) { k, r -> k to r }.collectLatest { (k, _) -> load(k.first, k.second, k.third) }
-        }
-    }
-
-    /** Dates for a range relative to today (weeks start on Monday). */
-    fun range(range: EarningsRange, today: String = today()): Pair<String, String> {
-        val monday = AnalyticsDates.plusDays(today, -EarningsFormatter.weekday(today))
-        return when (range) {
-            EarningsRange.THIS_WEEK -> monday to AnalyticsDates.plusDays(monday, 6)
-            EarningsRange.NEXT_WEEK -> AnalyticsDates.plusDays(monday, 7) to AnalyticsDates.plusDays(monday, 13)
-            EarningsRange.MONTH -> today to AnalyticsDates.plusDays(today, 30)
-            EarningsRange.LAST_WEEK -> AnalyticsDates.plusDays(monday, -7) to AnalyticsDates.plusDays(monday, -1)
-            EarningsRange.LAST_MONTH -> AnalyticsDates.plusDays(today, -30) to today
-        }
-    }
-
-    private suspend fun load(tab: EarningsTab, range: EarningsRange, filters: EarningsFilters) {
-        moreJob?.cancel()
-        val (from, to) = range(range)
-        val q = EarningsCalendarQuery(from, to, exchanges = filters.exchanges.toList(), countries = filters.markets.toList(), sessions = filters.sessions.toList(),
-            view = when (tab) { EarningsTab.UPCOMING -> "upcoming"; EarningsTab.RESULTS -> "results"; EarningsTab.FOLLOWING -> null })
-        query = q
-        mutable.update { it.copy(tab = tab, range = range, filters = filters, from = from, to = to, loading = true, error = null) }
-        if (tab == EarningsTab.FOLLOWING && alerts?.state?.value?.uid == null) {
-            items = emptyList()
-            mutable.update { it.copy(loading = false, rows = emptyList(), total = 0, hasMore = false, error = null, notes = listOf("Sign in to see earnings for companies in your watchlists and portfolios.")) }
-            return
-        }
-        try {
-            val result = if (tab == EarningsTab.FOLLOWING) remote.following(q) else remote.calendar(q)
-            page = result
-            items = result.items
-            mutable.update { it.copy(loading = false, rows = items.map { item -> item.row(today(), reminders()) }, total = result.total, hasMore = result.nextCursor != null,
-                notes = result.notes, stale = result.stale, sampleData = result.sampleData) }
-        } catch (cause: Exception) {
-            if (cause is CancellationException) throw cause
-            mutable.update { it.copy(loading = false, error = (cause as? StockStepsApiException)?.error?.message ?: "Earnings couldn't be loaded. Try again.") }
-        }
-    }
-
-    fun start() { if (key.value == null) key.value = Triple(EarningsTab.UPCOMING, EarningsRange.THIS_WEEK, EarningsFilters()) }
-    fun selectTab(tab: EarningsTab) {
-        val current = key.value ?: Triple(tab, EarningsRange.THIS_WEEK, EarningsFilters())
-        val range = if (tab == EarningsTab.RESULTS) EarningsRange.LAST_MONTH else if (current.second in listOf(EarningsRange.LAST_WEEK, EarningsRange.LAST_MONTH)) EarningsRange.THIS_WEEK else current.second
-        key.value = Triple(tab, range, current.third)
-    }
-    fun selectRange(range: EarningsRange) { key.value = key.value?.copy(second = range) }
-    fun setFilters(filters: EarningsFilters) { key.value = key.value?.copy(third = filters) }
-    fun refresh() { refreshes.value++ }
-    fun loadMore() {
-        val q = query ?: return
-        val cursor = page?.nextCursor ?: return
-        if (moreJob?.isActive == true) return
-        val tab = mutable.value.tab
-        moreJob = scope.launch {
-            mutable.update { it.copy(loadingMore = true) }
-            try {
-                val next = if (tab == EarningsTab.FOLLOWING) remote.following(q.copy(cursor = cursor)) else remote.calendar(q.copy(cursor = cursor))
-                page = next
-                items = (items + next.items).distinctBy { it.event.id }
-                mutable.update { it.copy(loadingMore = false, rows = items.map { item -> item.row(today(), reminders()) }, hasMore = next.nextCursor != null) }
-            } catch (cause: Exception) {
-                if (cause is CancellationException) throw cause
-                mutable.update { it.copy(loadingMore = false) }
-            }
-        }
-    }
 }
 
 // ---------- Earnings Details ----------

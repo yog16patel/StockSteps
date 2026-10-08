@@ -354,7 +354,7 @@ class DailyBriefService(
     private fun timing(time: EarningsTime): String? = when (time) { EarningsTime.BEFORE_OPEN -> "before market open"; EarningsTime.AFTER_CLOSE -> "after market close"; else -> null }
 
     private fun earningsRow(e: org.example.stocksteps.earnings.EarningsEvent, reason: String) = BriefEarnings(e.symbol, e.name, e.date,
-        timing(e.session)?.replaceFirstChar { it.uppercase() }, e.dateStatus.name.lowercase().replaceFirstChar { it.uppercase() }, e.estimate?.eps, e.estimate?.currency, reason)
+        timing(e.session)?.replaceFirstChar { it.uppercase() }, e.dateStatus.name.lowercase().replaceFirstChar { it.uppercase() }, e.estimate?.eps, e.estimate?.currency, reason, e.id)
 
     // ---------- AI (StockSteps+ only) ----------
 

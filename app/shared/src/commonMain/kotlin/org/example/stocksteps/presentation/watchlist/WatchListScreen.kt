@@ -48,6 +48,8 @@ internal sealed interface WatchListAction {
     data class AddPortfolio(val instrument: InstrumentRef) : WatchListAction
     data class AddAlert(val instrument: InstrumentRef, val price: String?) : WatchListAction
     data object DismissMessage : WatchListAction
+    /** Earnings Calendar filtered to the user's watchlists. */
+    data object Earnings : WatchListAction
 }
 
 private sealed interface Sheet {
@@ -167,6 +169,7 @@ private fun Header(state: WatchListState, model: WatchlistModel?, modifier: Modi
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
             Text(stringResource(Res.string.watchlist_title), Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
             Text(stringResource(Res.string.watchlist_subtitle), style = StockStepsTheme.typography.small, color = colors.textSecondary)
+            if (state.signedIn) StockButton("Earnings dates for your watchlists", onClick = { onAction(WatchListAction.Earnings) }, variant = StockButtonVariant.TEXT)
         }
         IconButton(onClick = { onAction(WatchListAction.Search) }) { Icon(StockIcons.Search, stringResource(Res.string.markets_search), tint = colors.textPrimary) }
         if (state.signedIn) {

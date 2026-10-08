@@ -9,6 +9,8 @@ private let dims = StockStepsTheme.dimensions
 extension Notification.Name {
     /// Posted with a brief id (or "") when the user taps a Daily Market Brief notification.
     static let stockStepsOpenBrief = Notification.Name("StockStepsOpenBrief")
+    /// Opens Earnings Event Details (object: the event id, e.g. "AAPL:2026-Q4").
+    static let stockStepsOpenEarningsEvent = Notification.Name("StockStepsOpenEarningsEvent")
 }
 
 /// Mirrors the shared Kotlin Daily Brief presenter (one instance for Home, Markets and the reader).
@@ -86,9 +88,10 @@ struct DailyBriefScene: View {
     var onLearn: () -> Void = {}
     var onSignIn: () -> Void = {}
     var onUpgrade: () -> Void = {}
+    var onOpenEarnings: (String) -> Void = { _ in }
 
     var body: some View {
-        DailyBriefScreen(state: model.state, client: model.client, onOpenStock: onOpenStock, onHistory: onHistory, onWatchlist: onWatchlist,
+        DailyBriefScreen(state: model.state, client: model.client, onOpenStock: onOpenStock, onOpenEarnings: onOpenEarnings, onHistory: onHistory, onWatchlist: onWatchlist,
                          onLearn: onLearn, onSignIn: onSignIn, onUpgrade: { model.presenter.dismissUpgrade(); onUpgrade() })
             .navigationTitle("Daily Brief")
             .navigationBarTitleDisplayMode(.inline)
@@ -101,6 +104,7 @@ struct DailyBriefScreen: View {
     let state: DailyBriefUiState?
     let client: IosBriefClient
     let onOpenStock: (String) -> Void
+    var onOpenEarnings: (String) -> Void = { _ in }
     let onHistory: () -> Void
     let onWatchlist: () -> Void
     let onLearn: () -> Void
@@ -307,7 +311,7 @@ struct DailyBriefScreen: View {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 sectionTitle("Upcoming Earnings")
                 ForEach(rows, id: \.symbol) { e in
-                    Button { onOpenStock(e.symbol) } label: {
+                    Button { if let id = e.eventId { onOpenEarnings(id) } else { onOpenStock(e.symbol) } } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(e.name ?? e.symbol) (\(e.symbol))").font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
                             Text(["Expected \(client.date(iso: e.date))", "\(e.dateStatus) date", e.timing,

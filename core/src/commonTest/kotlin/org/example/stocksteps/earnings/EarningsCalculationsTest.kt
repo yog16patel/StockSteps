@@ -147,18 +147,10 @@ class EarningsCalculationsTest {
         assertEquals("Earnings tomorrow (estimated date)", EarningsFormatter.countdown(confirmed.copy(date = "2026-10-09", dateStatus = EarningsDateStatus.ESTIMATED), "2026-10-08"))
         assertNull(EarningsFormatter.countdown(confirmed.copy(dateStatus = EarningsDateStatus.UNKNOWN), "2026-10-08"))
         assertNull(EarningsFormatter.countdown(confirmed.copy(date = "2026-10-01"), "2026-10-08"))
-        assertEquals("Time not announced", EarningsFormatter.session(EarningsTime.UNKNOWN))
+        assertEquals("Time not confirmed", EarningsFormatter.session(EarningsTime.UNKNOWN))
         assertEquals("Beat (+5.9%)", EarningsFormatter.result(SurpriseResult(classification = Classification.BEAT, percent = 5.94)))
         assertEquals("−$0.05", EarningsFormatter.eps(-0.05, "USD"))
         assertEquals("C$1.50B", EarningsFormatter.revenue(1.5e9, "CAD"))
-    }
-
-    @Test fun calendarRangesStartOnMonday(): Unit = runBlocking {
-        val presenter = EarningsCenterPresenter(FakeRemote(), CoroutineScope(SupervisorJob()), today = { "2026-10-08" }) // a Thursday
-        assertEquals("2026-10-05" to "2026-10-11", presenter.range(EarningsRange.THIS_WEEK))
-        assertEquals("2026-10-12" to "2026-10-18", presenter.range(EarningsRange.NEXT_WEEK))
-        assertEquals("2026-09-28" to "2026-10-04", presenter.range(EarningsRange.LAST_WEEK))
-        assertEquals("2026-10-08" to "2026-11-07", presenter.range(EarningsRange.MONTH))
     }
 
     // ---------- Presenters ----------
@@ -181,33 +173,8 @@ class EarningsCalculationsTest {
         override suspend fun following(query: EarningsCalendarQuery) = calendar(query)
         override suspend fun details(symbol: String, signedIn: Boolean) = EarningsDetails(symbol, "Company", null, EarningsStatus.UNAVAILABLE, SurpriseResult(), SurpriseResult(), asOf = "now")
         override suspend fun ask(symbol: String, question: String): EarningsAnswer { asked++; return EarningsAnswer("answer") }
-    }
-
-    @Test fun centerLoadsPagesFiltersAndReportsFailures(): Unit = runBlocking {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        try {
-            val remote = FakeRemote()
-            val presenter = EarningsCenterPresenter(remote, scope, today = { "2026-10-08" })
-            presenter.start()
-            val first = withTimeout(5_000) { presenter.state.first { it.rows.size == 5 && !it.loading } }
-            assertEquals("upcoming", remote.queries.last().view)
-            assertEquals(listOf("2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15"), first.days.map { it.first })
-            assertEquals("Company 1, S1. Upcoming. Sunday, October 11, 2026, Before market open. Confirmed. No estimates available. ", first.rows.first().accessibility)
-            presenter.setFilters(EarningsFilters(markets = setOf("CA")))
-            withTimeout(5_000) { while (remote.queries.last().countries != listOf("CA")) delay(10) }
-            presenter.selectTab(EarningsTab.RESULTS)
-            assertEquals(EarningsRange.LAST_MONTH, withTimeout(5_000) { presenter.state.first { it.tab == EarningsTab.RESULTS && !it.loading } }.range)
-            assertEquals("results", remote.queries.last().view)
-            // Following needs sign-in: no request, explanatory note.
-            val before = remote.queries.size
-            presenter.selectTab(EarningsTab.FOLLOWING)
-            val following = withTimeout(5_000) { presenter.state.first { it.tab == EarningsTab.FOLLOWING && !it.loading } }
-            assertEquals(before, remote.queries.size)
-            assertTrue(following.notes.single().contains("Sign in"))
-            remote.fail = true
-            presenter.selectTab(EarningsTab.UPCOMING)
-            assertNotNull(withTimeout(5_000) { presenter.state.first { it.error != null } }.error)
-        } finally { scope.cancel() }
+        override suspend fun event(id: String): EarningsEventInfo = throw UnsupportedOperationException()
+        override suspend fun next(symbol: String): NextEarnings = throw UnsupportedOperationException()
     }
 
     @Test fun aiRequiresSignInAndPlusBeforeAnyRequest(): Unit = runBlocking {

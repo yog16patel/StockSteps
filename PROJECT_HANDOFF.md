@@ -1,7 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **Add Daily Market Brief on Android and iOS** on `main`.
-Includes the Daily Market Brief (next section, `docs/DAILY_MARKET_BRIEF.md`); see also `CLAUDE.md` and `docs/project-status.md`.
+Last updated: 2026-10-08 (America/Toronto). Current commit: **"Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"** on `main` (pushed).
+Includes Earnings Intelligence Lite Phase 1 — Earnings Calendar (next section, `docs/EARNINGS.md` "Phase 1").
+Previous commit: **c92ec89 "Add Daily Market Brief on Android and iOS"**. Includes the Daily Market Brief (next section, `docs/DAILY_MARKET_BRIEF.md`); see also `CLAUDE.md` and `docs/project-status.md`.
 Previous commit: **Add Practice Portfolio simulator with free tier, 14-day trial and StockSteps+ on Android and iOS** (`a4a4aeb`).
 Includes the Practice Portfolio (`docs/PRACTICE_PORTFOLIO.md`).
 Previous commit: **Add Guided Stock Research and beginner learning on Android and iOS**.
@@ -18,6 +19,115 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Earnings Intelligence Lite Phase 1: Earnings Calendar (2026-10-08) — commit "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"
+
+Committed and pushed on top of `c92ec89` (this commit also includes the session-handoff doc edits:
+`CLAUDE.md`, `docs/project-status.md`, new `docs/PROJECT_HANDOFF.md`). Spec and details: `docs/EARNINGS.md` → "Phase 1: Earnings Calendar".
+- Replaced the old Earnings Center list (Upcoming/Results/Following) with the **Earnings Calendar**
+  (week strip with counts, Day/Week view, Upcoming/Reported, All Companies/My Watchlist, debounced
+  server search, date picker, Today) and a new **Earnings Event Details** screen, on Android
+  (`presentation/earnings/*`, routes `EarningsCalendarRoute(selectedDate, filter)`, `EarningsEventRoute(eventId)`)
+  and iOS (`EarningsScenes.swift`, `IosEarningsClient.kt`). Earnings Details (results/history/AI) unchanged.
+- Entry points: Markets card (real counts only), Company Details "Earnings" section (next date or
+  "Next earnings date not available."), Daily Brief earnings rows (→ event, `BriefEarnings.eventId`),
+  Watchlist ("Earnings dates for your watchlists"), deep links `earnings:<id>` / `earnings-calendar`.
+- Core `earnings/EarningsCalendar.kt` (status/timing rules, presenters); server: `dayCounts`, `q`, `day`,
+  `scope=watchlist`, `view=reported|scheduled`, `/earnings/events/{id}`, `/earnings/company/{symbol}/next`,
+  `/earnings/calendar/search`, FRESH/CACHED/STALE freshness with last-good fallback, page-only enrichment,
+  MOCK scenarios. Fixtures: 9 demo events (`CALENDAR_DEMO` in `scripts/generate_earnings_fixtures.py`).
+- Validation (2026-10-08 evening): core JVM 309, core iOS 309, server 257, shared Android host 55,
+  shared iOS 49 — 0 failures (core iOS `DailyBriefPresenterTest.offlineShowsOnlyBriefsThisDeviceDownloaded`
+  failed once and passed on re-run: timing-flaky, untouched code). `:app:androidApp:assembleDebug` OK;
+  iOS xcodebuild BUILD SUCCEEDED; live MOCK endpoint checks OK (MOCK server restarted on :8081 with this code).
+- Not done: Compose/XCUITest UI automation (no UI-test setup exists), device walkthrough, iOS
+  process-death restoration, non-English locale formatting, REAL Finnhub TSX verification.
+- Disk was nearly full (~0.9 GB free) during this session; the iOS build reused the previous
+  session's derived data in `/private/tmp/claude-501/.../d9b12d26-.../scratchpad/dd`.
+
+## Session handoff — 2026-10-08 (end of session, after `c92ec89`)
+
+Read this section first in a new session, then `CLAUDE.md` and `docs/project-status.md`.
+
+**Current development objective.** StockSteps is a beginner investing-education app (Android Compose +
+native SwiftUI iOS + Ktor backend). Feature milestones through the Daily Market Brief are complete,
+committed and pushed. The objective now is (a) hardening/verification of what exists and (b) the
+production dependencies in `docs/project-status.md` §4, then the user's next feature request.
+
+**Exact task at the end of this session.** No feature implementation was in progress. The session
+ended with documentation-only housekeeping: recording the commit hash `c92ec89` in `CLAUDE.md` and
+`docs/project-status.md`, and writing this handoff. No application code was changed after `c92ec89`.
+
+**Work completed in this session (since `c92ec89`).**
+- `CLAUDE.md` "Current task": now names `c92ec89` explicitly (no rule/convention changes).
+- `docs/project-status.md`: header, §0 and §1 cite `c92ec89`; §0 updated with this handoff state;
+  §4 renumbered (item 1 was missing) and a "next feature" placeholder added.
+- `PROJECT_HANDOFF.md`: header cites `c92ec89`; this section added.
+
+**Files created or modified (uncommitted, docs only).** `CLAUDE.md`, `docs/project-status.md`,
+`PROJECT_HANDOFF.md`. No files created or deleted. (The handoff lives at the repo root, not `docs/`,
+because `CLAUDE.md`, `AGENTS.md` and `docs/project-status.md` all reference `PROJECT_HANDOFF.md` there.)
+
+**Incomplete work.** No half-finished code. Outstanding product work is listed under "Requirements
+not yet implemented" and in `docs/project-status.md` §4.
+
+**Important decisions (and why)** — unchanged from earlier milestones, summarised:
+- Shared StateFlow presenters in `:core` drive both UIs; iOS stays native SwiftUI via `Ios*Client`
+  bridges (one logic implementation, platform-native UI).
+- Route/Scene/Screen boundary on both platforms (testable screens, dependency resolution in one place).
+- MOCK-first with zero paid/live calls and no silent REAL fallback (cheap, deterministic development).
+- REAL never fabricates data; missing → `null` + labelled (trust for beginners).
+- Exact `Decimal` strings for money; server-side `EntitlementService` for the single StockSteps+ plan.
+- One global Daily Brief per market edition, built from the cached Markets overview and persisted, plus
+  a private per-user overlay (bounded provider cost; no cross-user data leakage).
+- AI only on the server, Plus-gated before any provider call, validated output; MOCK uses labelled templates.
+
+**Known bugs, blockers and risks.**
+- Blocker for REAL: backend with Practice/Learning/Brief routes is **not deployed** (those return 404
+  in REAL); Firestore credentials needed (else 503); `GEMINI_API_KEY` needed for REAL AI (else 503).
+- Brief scheduler not deployed: briefs only generate on first request; no push retry queue.
+- In-app purchase for StockSteps+ not implemented (paywalls show no prices).
+- MOCK state (practice/brief) is in-memory — restarting the mock server clears it.
+- MOCK ETF fixtures lack profiles (Guided Research treats SPY/QQQ as unsupported).
+- No UI-automation tests; no device walkthrough of the brief on small screens/large text yet.
+- TSX early closes not modelled; Practice uses the NYSE calendar for TSX quote freshness.
+- No known open functional bugs; no `TODO`/`FIXME` markers in source.
+
+**Build and test results.**
+- *Verified* (test-result XML in `*/build/test-results/`, re-checked this session, all from the
+  `c92ec89` code, 2026-10-08 18:11–18:23): core JVM 299, server 247, core iOS 298, shared Android host
+  55, shared iOS 49 — 0 failures/errors. (Core iOS ran just before the final relevance tweak; JVM ran after.)
+- *Verified this session*: MOCK server process listening on :8081 (started 18:25, i.e. with the
+  committed code) and `GET /health` → 200.
+- *Reported before the commit, not re-run this session*: Android `assembleDebug`/`installDebug` and
+  iOS `xcodebuild` BUILD SUCCEEDED; live MOCK brief checks (after-close brief, weekend scenario,
+  private overlay, dispatch endpoint).
+- *Not run this session*: any build or test (docs-only changes). *Never done*: device walkthrough of
+  the brief flow, UI-automation tests, REAL-mode end-to-end against a deployed backend.
+
+**Exact next implementation steps.**
+1. `git status` / `git log -1` — expect `c92ec89` plus these three uncommitted doc files. Commit them only
+   if the user asks (message e.g. "Update session handoff docs"; trailer per `CLAUDE.md`).
+2. If the MOCK server isn't running: `./gradlew :server:runMock`; Android also needs
+   `adb reverse tcp:8081 tcp:8081`.
+3. Ask the user for the next feature or which pending item to take; the default order is:
+   a. Device/simulator walkthrough of Home brief card → reader → Scenarios menu → notification
+      preferences (small screens, large text) — only when the user asks to drive the UI.
+   b. Backend deployment (Cloud Run) + Cloud Scheduler jobs for `/internal/daily-brief/dispatch` and
+      `/internal/alerts/evaluate` (header `X-StockSteps-Scheduler-Token`).
+   c. StockSteps+ billing (Play Billing/StoreKit + server receipt validation writing the entitlement record).
+4. For any new feature follow the established pattern: core package (models, policy, presenter, tests)
+   → server package (service, routes, `UserDataStore` methods for InMemory + Firestore, tests, MOCK
+   fixtures/scenarios) → Android `presentation/<feature>/` Route/Scene/Screen → iOS `Ios<Feature>Client.kt`
+   + `<Feature>Scenes.swift` → `docs/<FEATURE>.md` → full test command in `CLAUDE.md` → update this file.
+
+**Requirements discussed but not yet implemented.**
+- StockSteps+ purchase/restore flows (Play Billing, StoreKit, receipt validation).
+- Verified dividend/split source for Practice in REAL (MOCK has sample events only).
+- REAL AI provider for earnings and learning explanations (currently 503).
+- Scheduled brief generation/delivery and a push retry queue; TSX early-close modelling.
+- System Back inside Guided Research steps (optional).
+- UI-automation tests on both platforms.
 
 ## Current milestone — Daily Market Brief (2026-10-08, commit: “Add Daily Market Brief on Android and iOS”)
 

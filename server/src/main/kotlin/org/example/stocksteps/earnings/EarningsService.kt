@@ -88,14 +88,30 @@ class EarningsService(
 
     private fun today(): LocalDate = clock.instant().atZone(zone).toLocalDate()
 
-    private suspend fun window(from: LocalDate, to: LocalDate): List<EarningsEvent> {
+    /** Events for one date window plus when they were fetched from the source. */
+    private class Window(val events: List<EarningsEvent>, val fetchedAt: java.time.Instant)
+    private class Loaded(val events: List<EarningsEvent>, val freshness: DataFreshness, val fetchedAt: java.time.Instant)
+    /** The last successful copy of each window, served (labelled STALE) only when the source fails. */
+    private val lastGood = ConcurrentHashMap<String, Window>()
+
+    private suspend fun window(from: LocalDate, to: LocalDate, scenario: String? = null): Loaded {
+        if (sampleData) when (scenario) {
+            "provider-unavailable" -> throw EarningsRequestException(503, "EARNINGS_UNAVAILABLE", "Earnings data isn't available right now. Try again shortly. (Sample scenario)")
+            "stale-cache" -> return Loaded(source.calendar(from, to), DataFreshness.STALE, clock.instant().minusSeconds(3 * 3600))
+        }
         // Recent/upcoming windows refresh hourly; windows entirely in the past are stable for 12 h.
         val ttl = if (to < today().minusDays(7)) 43_200_000L else 3_600_000L
+        val key = "calendar:$from:$to"
         return try {
-            cache.getOrLoad("calendar:$from:$to", ttl) { source.calendar(from, to) }
+            val w = cache.getOrLoad(key, ttl) { Window(source.calendar(from, to), clock.instant()) }
+            lastGood[key] = w
+            if (lastGood.size > 256) lastGood.keys.take(64).forEach(lastGood::remove)
+            Loaded(w.events, if (w.fetchedAt.isAfter(clock.instant().minusSeconds(5))) DataFreshness.FRESH else DataFreshness.CACHED, w.fetchedAt)
         } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
             log.warn("Earnings calendar unavailable: {}", cause::class.simpleName)
+            // Never replaced with sample data: an old real copy (labelled) or an honest error.
+            lastGood[key]?.let { return Loaded(it.events, DataFreshness.STALE, it.fetchedAt) }
             throw EarningsRequestException(503, "EARNINGS_UNAVAILABLE", "Earnings data isn't available right now. Try again shortly.")
         }
     }
@@ -118,12 +134,19 @@ class EarningsService(
         } }.awaitAll()
     }
 
+    /** Today in the event's own exchange zone, so a date-only event is never shifted by a conversion. */
+    private fun todayFor(event: EarningsEvent): String =
+        clock.instant().atZone(runCatching { ZoneId.of(event.timeZone ?: exchangeZone(event.exchange)) }.getOrDefault(zone)).toLocalDate().toString()
+
+    private fun exchangeZone(exchange: String?) = if (exchange.equals("TSX", ignoreCase = true) || exchange.equals("TSXV", ignoreCase = true)) "America/Toronto" else "America/New_York"
+
     private fun item(event: EarningsEvent, following: List<FollowReason> = emptyList(), shares: Double? = null): EarningsCalendarItem {
         val status = EarningsCalculator.status(event, today().toString())
         val reported = status == EarningsStatus.REPORTED || status == EarningsStatus.PARTIALLY_REPORTED
         return EarningsCalendarItem(event, status,
             if (reported) EarningsCalculator.eps(event.estimate, event.actual) else null,
-            if (reported) EarningsCalculator.revenue(event.estimate, event.actual) else null, following, shares)
+            if (reported) EarningsCalculator.revenue(event.estimate, event.actual) else null, following, shares,
+            EarningsCalendarRules.status(event, todayFor(event)))
     }
 
     private fun sorted(items: List<EarningsCalendarItem>) = items.sortedWith(
@@ -134,7 +157,39 @@ class EarningsService(
         val to = runCatching { LocalDate.parse(query.to) }.getOrNull() ?: throw EarningsRequestException(400, "INVALID_RANGE", "Use dates like 2026-10-08.")
         if (to < from || to.toEpochDay() - from.toEpochDay() > MAX_RANGE_DAYS) throw EarningsRequestException(400, "INVALID_RANGE", "Choose a range of up to $MAX_RANGE_DAYS days.")
         if (query.pageSize !in 1..MAX_PAGE) throw EarningsRequestException(400, "INVALID_PAGE", "Page size must be 1–$MAX_PAGE.")
+        if ((query.query?.length ?: 0) > EarningsCalendarRules.MAX_QUERY) throw EarningsRequestException(400, "INVALID_QUERY", "Search for up to ${EarningsCalendarRules.MAX_QUERY} characters.")
+        query.day?.let { d ->
+            val day = runCatching { LocalDate.parse(d) }.getOrNull() ?: throw EarningsRequestException(400, "INVALID_RANGE", "Use dates like 2026-10-08.")
+            if (day < from || day > to) throw EarningsRequestException(400, "INVALID_RANGE", "The day must be inside the date range.")
+        }
+        if (query.scope != null && query.scope != "watchlist") throw EarningsRequestException(400, "INVALID_SCOPE", "Unknown scope.")
+        if (query.view != null && query.view !in setOf("upcoming", "reported", "results", "scheduled")) throw EarningsRequestException(400, "INVALID_VIEW", "Use view=upcoming, scheduled or reported.")
         return from to to
+    }
+
+    /**
+     * Filters → per-day counts over the whole range → the day filter → sorting → one page. Only the
+     * page's events are enriched with profiles (names/logos), so a busy week isn't N profile calls.
+     */
+    private suspend fun respond(all: List<EarningsCalendarItem>, query: EarningsCalendarQuery, notes: List<String>, loaded: Loaded, partial: Boolean = false, followed: Int? = null): EarningsCalendarPage {
+        val counts = all.groupingBy { it.event.date }.eachCount().toSortedMap()
+        val shown = sorted(query.day?.let { d -> all.filter { it.event.date == d } } ?: all)
+        val result = page(shown, query, notes)
+        val enriched = enrich(result.items.map { it.event }).associateBy { it.id }
+        return result.copy(items = result.items.map { it.copy(event = enriched[it.event.id] ?: it.event) }, dayCounts = counts, freshness = loaded.freshness,
+            fetchedAt = loaded.fetchedAt.toString(), partial = partial, followedCount = followed,
+            notes = result.notes + listOfNotNull(if (partial) "Company-name search was limited; ticker search still works." else null))
+    }
+
+    /** Symbols whose company name matches (REAL providers don't name calendar events); cached, never fatal. */
+    private suspend fun nameMatches(query: String?): Pair<Set<String>, Boolean> {
+        val q = query?.trim()?.takeIf { it.length >= 2 } ?: return emptySet<String>() to false
+        return try {
+            cache.getOrLoad("names:${q.lowercase()}", 3_600_000L) { stocks.searchStocks(q).take(20).map { it.symbol.uppercase() }.toSet() } to false
+        } catch (cause: Exception) {
+            if (cause is CancellationException) throw cause
+            emptySet<String>() to true
+        }
     }
 
     private fun page(items: List<EarningsCalendarItem>, query: EarningsCalendarQuery, notes: List<String>): EarningsCalendarPage {
@@ -154,30 +209,33 @@ class EarningsService(
             clock.instant().toString(), stale, sampleData)
     }
 
-    private fun matches(item: EarningsCalendarItem, query: EarningsCalendarQuery): Boolean {
+    private fun matches(item: EarningsCalendarItem, query: EarningsCalendarQuery, named: Set<String> = emptySet()): Boolean {
         val e = item.event
         if (query.exchanges.isNotEmpty() && query.exchanges.none { it.equals(e.exchange, ignoreCase = true) }) return false
         if (query.countries.isNotEmpty() && query.countries.none { it.equals(e.country, ignoreCase = true) }) return false
         if (query.sessions.isNotEmpty() && e.session !in query.sessions) return false
         if (query.symbol != null && !query.symbol.equals(e.symbol, ignoreCase = true)) return false
-        return when (query.view) {
-            "upcoming" -> item.status == EarningsStatus.UPCOMING
-            "results" -> item.status != EarningsStatus.UPCOMING
-            else -> true
-        }
+        if (!query.query.isNullOrBlank() && !EarningsCalendarRules.matches(e, query.query) && e.symbol.uppercase() !in named) return false
+        // Reported means verified (figures or an explicit source flag), never "the date has passed".
+        return EarningsCalendarRules.inView(item.eventStatus, query.view)
     }
 
     private val baseNotes = listOf("Dates are exchange-local. Only company-confirmed dates are labelled Confirmed; others can change.")
 
     suspend fun calendar(query: EarningsCalendarQuery): EarningsCalendarPage {
         val (from, to) = validate(query)
-        val items = enrich(window(from, to)).map { item(it) }.filter { matches(it, query) }
-        return page(sorted(items), query, baseNotes)
+        // Watchlist filtering needs the signed-in identity (/api/v1/me/earnings/following); it is never public.
+        if (query.scope != null) throw EarningsRequestException(400, "INVALID_SCOPE", "Sign in to filter by your watchlist.")
+        val loaded = window(from, to, query.scenario)
+        val (named, partial) = nameMatches(query.query)
+        val items = loaded.events.map { item(it) }.filter { matches(it, query, named) }
+        return respond(items, query, baseNotes, loaded, partial)
     }
 
     /** Companies the user follows: positive portfolio holdings and watchlist entries (deduplicated by symbol). */
     suspend fun following(uid: String, query: EarningsCalendarQuery): EarningsCalendarPage {
         val (from, to) = validate(query)
+        if (query.scope == "watchlist") return watchlist(uid, query, from, to)
         val ledger = store.updatePortfolio(uid) { it to it }
         val shares = HashMap<String, Decimal>()
         for (account in ledger.accounts) {
@@ -188,18 +246,73 @@ class EarningsService(
         }
         val watched = store.updateWatchlists(uid) { it to it }.watchlists.flatMap { list -> list.entries.map { it.instrument.symbol.uppercase() } }.toSet()
         val symbols = shares.keys + watched
-        val items = enrich(window(from, to).filter { it.symbol.uppercase() in symbols }).map { e ->
+        val loaded = window(from, to, query.scenario)
+        val (named, partial) = nameMatches(query.query)
+        val items = loaded.events.filter { it.symbol.uppercase() in symbols }.map { e ->
             val s = e.symbol.uppercase()
             item(e, listOfNotNull(FollowReason.PORTFOLIO.takeIf { s in shares }, FollowReason.WATCHLIST.takeIf { s in watched }),
                 shares[s]?.toString()?.toDouble())
-        }.filter { matches(it, query) }
-        return page(sorted(items), query, baseNotes + "Includes companies you hold in a portfolio and companies on your watchlists. Watching a company doesn't mean you own it.")
+        }.filter { matches(it, query, named) }
+        return respond(items, query, baseNotes + "Includes companies you hold in a portfolio and companies on your watchlists. Watching a company doesn't mean you own it.", loaded, partial)
+    }
+
+    /**
+     * Earnings for the signed-in user's own watchlists (identity from the verified token, never a
+     * client-supplied id or list). Instruments are deduplicated across lists by their canonical,
+     * exchange-qualified symbol ("SHOP" and "SHOP.TO" are different listings).
+     */
+    private suspend fun watchlist(uid: String, query: EarningsCalendarQuery, from: LocalDate, to: LocalDate): EarningsCalendarPage {
+        val watched = store.updateWatchlists(uid) { it to it }.watchlists.flatMap { list -> list.entries.map { it.instrument.symbol.trim().uppercase() } }.toSet()
+        val notes = baseNotes + "Companies from all of your watchlists, each shown once."
+        if (watched.isEmpty()) return EarningsCalendarPage(emptyList(), query.from, query.to, 0, null, notes, clock.instant().toString(), sampleData = sampleData, followedCount = 0)
+        val loaded = window(from, to, query.scenario)
+        val (named, partial) = nameMatches(query.query)
+        val items = loaded.events.filter { it.symbol.uppercase() in watched }.map { item(it, listOf(FollowReason.WATCHLIST)) }.filter { matches(it, query, named) }
+        return respond(items, query, notes, loaded, partial, watched.size)
+    }
+
+    /** One event by its stable id ("SYMBOL:YYYY-Qn"); 404 when the source doesn't have it. */
+    suspend fun event(id: String): EarningsEventInfo {
+        val symbol = id.substringBefore(':', "")
+        if (!Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}:\\d{4}-Q[1-4]").matches(id)) throw EarningsRequestException(400, "INVALID_EVENT", "Invalid earnings event id.")
+        val loaded = history(symbol)
+        val event = loaded.events.firstOrNull { it.id.equals(id, ignoreCase = true) } ?: throw EarningsRequestException(404, "NOT_FOUND", "This earnings event isn't available.")
+        return EarningsEventInfo(item(enrich(listOf(event)).single()), clock.instant().toString(), loaded.freshness, loaded.fetchedAt.toString(),
+            listOfNotNull("Dates are in the exchange's local time. Only company-confirmed dates are labelled Confirmed.",
+                if (sampleData) "Sample earnings data for development, not real announcements." else null), sampleData)
+    }
+
+    /** The next not-yet-reported, not-canceled announcement for Company Details (null when none is known). */
+    suspend fun nextEvent(symbol: String): NextEarnings {
+        if (!Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol)) throw EarningsRequestException(400, "INVALID_SYMBOL", "Invalid symbol.")
+        val loaded = history(symbol)
+        val next = loaded.events.filter { e ->
+            val status = EarningsCalendarRules.status(e, todayFor(e))
+            e.date >= todayFor(e) && status != EarningsEventStatus.REPORTED && status != EarningsEventStatus.CANCELED && e.dateStatus != EarningsDateStatus.UNKNOWN
+        }.minByOrNull { it.date }?.let { enrich(listOf(it)).single() }
+        return NextEarnings(symbol.uppercase(), next, next?.let { EarningsCalendarRules.status(it, todayFor(it)) }, clock.instant().toString(), loaded.freshness, sampleData)
+    }
+
+    /** A symbol's events with freshness; an old copy (STALE) if the source fails. */
+    private suspend fun history(symbol: String): Loaded {
+        val key = "history:${symbol.uppercase()}"
+        return try {
+            val w = cache.getOrLoad("$key:w", 21_600_000L) { Window(source.history(symbol), clock.instant()) }
+            lastGood[key] = w
+            Loaded(w.events, if (w.fetchedAt.isAfter(clock.instant().minusSeconds(5))) DataFreshness.FRESH else DataFreshness.CACHED, w.fetchedAt)
+        } catch (cause: Exception) {
+            if (cause is CancellationException) throw cause
+            lastGood[key]?.let { return Loaded(it.events, DataFreshness.STALE, it.fetchedAt) }
+            throw EarningsRequestException(503, "EARNINGS_UNAVAILABLE", "Earnings data isn't available right now. Try again shortly.")
+        }
     }
 
     /** Next upcoming announcement for alerts, Home and Watchlist (one source with the calendar). */
     suspend fun next(symbol: String): UpcomingEarnings? {
         val today = today().toString()
-        val event = events(symbol).filter { it.actual == null && it.date >= today && it.dateStatus != EarningsDateStatus.UNKNOWN }.minByOrNull { it.date } ?: return null
+        // A postponed or canceled report has no date to remind about.
+        val event = events(symbol).filter { it.actual == null && it.date >= today && it.dateStatus != EarningsDateStatus.UNKNOWN &&
+            it.sourceStatus != EarningsEventStatus.POSTPONED && it.sourceStatus != EarningsEventStatus.CANCELED }.minByOrNull { it.date } ?: return null
         return UpcomingEarnings(event.symbol, event.date, event.session, event.dateStatus, event.source, event.id)
     }
 
@@ -296,11 +409,17 @@ fun Route.earningsRoutes(service: EarningsService, auth: UserAuthenticator, limi
             from = p["from"] ?: today.toString(), to = p["to"] ?: today.plusDays(13).toString(),
             exchanges = list("exchange"), countries = list("country"),
             sessions = list("session").mapNotNull { s -> EarningsTime.entries.firstOrNull { it.name.equals(s, ignoreCase = true) } },
-            symbol = p["symbol"], view = p["view"]?.takeIf { it in setOf("upcoming", "results") },
-            pageSize = p["pageSize"]?.toIntOrNull() ?: 30, cursor = p["cursor"]
+            symbol = p["symbol"], view = p["view"],
+            pageSize = p["pageSize"]?.toIntOrNull() ?: 30, cursor = p["cursor"],
+            query = p["q"]?.trim()?.takeIf { it.isNotEmpty() }, day = p["day"], scope = p["scope"], scenario = p["scenario"]
         )
     }
     get("/api/v1/earnings/calendar") { guarded { service.calendar(query()) } }
+    get("/api/v1/earnings/calendar/search") {
+        guarded { query().also { if (it.query == null) throw EarningsRequestException(400, "INVALID_QUERY", "Add a company name or ticker to search.") }.let { service.calendar(it) } }
+    }
+    get("/api/v1/earnings/events/{eventId}") { guarded { service.event(call.parameters["eventId"].orEmpty()) } }
+    get("/api/v1/earnings/company/{symbol}/next") { guarded { service.nextEvent(call.parameters["symbol"].orEmpty()) } }
     get("/api/v1/earnings/{symbol}") { guarded { service.details(call.parameters["symbol"].orEmpty(), null) } }
     route("/api/v1/me/earnings") {
         get("/following") { user(auth) { uid -> guarded { service.following(uid, query()) } } }

@@ -66,7 +66,16 @@ data class EarningsEvent(
     val actual: EarningsActual? = null,
     /** Where the date and session came from. */
     val source: String,
-    val updatedAt: String
+    /** When StockSteps last recorded the event from [source]. */
+    val updatedAt: String,
+    /** Exchange-local report time ("16:05"), only when the source states it; never inferred. */
+    val eventTime: String? = null,
+    /** IANA zone of the listing exchange that [date] and [eventTime] are expressed in, when known. */
+    val timeZone: String? = null,
+    /** A status the source states explicitly (postponed, canceled, reported); null when it doesn't say. */
+    val sourceStatus: EarningsEventStatus? = null,
+    /** When the source last changed this event; null when the provider doesn't say. */
+    val sourceUpdatedAt: String? = null
 ) {
     val period: String get() = "Q$fiscalQuarter FY$fiscalYear"
 }
@@ -185,7 +194,9 @@ data class EarningsCalendarItem(
     /** Why the user follows it (signed-in Following only). Watchlist membership isn't ownership. */
     @EncodeDefault val following: List<FollowReason> = emptyList(),
     /** Shares currently held across the user's portfolio accounts (Following only). */
-    val sharesHeld: Double? = null
+    val sharesHeld: Double? = null,
+    /** Calendar status from source data (never "reported" just because the date passed). */
+    val eventStatus: EarningsEventStatus = EarningsEventStatus.UNKNOWN
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -198,8 +209,19 @@ data class EarningsCalendarPage(
     val nextCursor: String? = null,
     @EncodeDefault val notes: List<String> = emptyList(),
     val asOf: String,
+    /** True when some upcoming dates haven't been refreshed by the source recently. */
     val stale: Boolean = false,
-    val sampleData: Boolean = false
+    val sampleData: Boolean = false,
+    /** Matching events per exchange-local date over the whole [from]..[to] range (before paging and the day filter). */
+    @EncodeDefault val dayCounts: Map<String, Int> = emptyMap(),
+    /** Whether the events came straight from the source, from the server cache, or from an old copy after a failure. */
+    val freshness: DataFreshness = DataFreshness.FRESH,
+    /** When the server last fetched these events from the source. */
+    val fetchedAt: String? = null,
+    /** True when part of the answer couldn't be loaded (e.g. company-name search); what's shown is still correct. */
+    val partial: Boolean = false,
+    /** Signed-in watchlist scope: distinct companies across all of the user's watchlists. */
+    val followedCount: Int? = null
 )
 
 /** Calendar filters (all optional). Dates are exchange-local yyyy-MM-dd. */
@@ -212,10 +234,18 @@ data class EarningsCalendarQuery(
     @EncodeDefault val countries: List<String> = emptyList(),
     @EncodeDefault val sessions: List<EarningsTime> = emptyList(),
     val symbol: String? = null,
-    /** "upcoming" (not yet reported) or "results" (reported); null for both. */
+    /** "upcoming" (not verified as reported) or "reported" (verified; "results" is accepted too); null for both. */
     val view: String? = null,
     val pageSize: Int = 30,
-    val cursor: String? = null
+    val cursor: String? = null,
+    /** Case-insensitive company name or ticker search within the range. */
+    val query: String? = null,
+    /** Only events on this date are returned; [EarningsCalendarPage.dayCounts] still covers the whole range. */
+    val day: String? = null,
+    /** Signed-in Following only: "watchlist" limits it to watchlist companies (no portfolio holdings). */
+    val scope: String? = null,
+    /** MOCK-only demo scenario ("provider-unavailable", "stale-cache"); ignored in REAL. */
+    val scenario: String? = null
 )
 
 @Serializable data class EarningsQuestion(val question: String)

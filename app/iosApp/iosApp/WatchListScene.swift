@@ -124,6 +124,7 @@ struct WatchListScene: View {
     let onSearch: () -> Void
     let onExplore: (String) -> Void
     let onOpenAlerts: (String?) -> Void
+    var onEarnings: () -> Void = {}
     @State private var portfolioInstrument: InstrumentRef?
     @State private var portfolioModel = PortfolioViewModel()
     @State private var sheet: WatchSheet?
@@ -251,6 +252,7 @@ struct WatchListScene: View {
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                 Text("My Watchlists").font(StockStepsTheme.font(type.screenTitle, relativeTo: .title2)).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
                 Text("Track companies that interest you.").font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSecondary)
+                if signedIn { Button("Earnings dates for your watchlists", action: onEarnings).font(.subheadline).frame(minHeight: 44) }
             }
             Spacer(minLength: CGFloat(space.sm))
             iconButton("magnifyingglass", label: "Search stocks", colors, action: onSearch)

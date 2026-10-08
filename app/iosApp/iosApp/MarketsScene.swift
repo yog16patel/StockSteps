@@ -85,6 +85,8 @@ struct MarketsScene: View {
     var onDiscover: () -> Void = {}
     var onCompare: () -> Void = {}
     var onEarnings: () -> Void = {}
+    /// Earnings Center counts (calendar data only; nil hides them).
+    var earnings: EarningsModel? = nil
     var brief: BriefModel? = nil
     var onDailyBrief: () -> Void = {}
     var onBriefHistory: () -> Void = {}
@@ -144,8 +146,30 @@ struct MarketsScene: View {
                 tool("Discover Stocks", "Find companies by growth, dividends, strength or valuation", "magnifyingglass", colors, onDiscover)
                 tool("Compare Stocks", "See 2–4 companies side by side", "square.split.2x1", colors, onCompare)
             }
-            tool("Earnings Center", "Upcoming dates, recent results and the companies you follow", "calendar", colors, onEarnings)
+            earningsCenter(colors)
         }
+    }
+
+    /// Earnings Center: counts only from the calendar (never estimated); a plain fallback otherwise.
+    private func earningsCenter(_ colors: StockColors) -> some View {
+        let summary = earnings?.summary
+        return Button(action: onEarnings) {
+            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                Image(systemName: "calendar").foregroundStyle(colors.primary)
+                Text("Earnings Center").font(.headline).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
+                Text("See when companies are reporting results.").font(.caption).foregroundStyle(colors.textSecondary)
+                if let line = summary?.headline ?? (summary?.loading == false ? "Open the calendar to browse upcoming and reported earnings." : nil) {
+                    Text(line).font(.subheadline).foregroundStyle(colors.textPrimary).multilineTextAlignment(.leading)
+                }
+                if let watch = summary?.watchlistText { Text(watch).font(.caption).foregroundStyle(colors.primaryText) }
+                Text("View Earnings Calendar").font(.subheadline.weight(.semibold)).foregroundStyle(colors.primaryText)
+            }
+            .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
+            .stockCard()
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens the Earnings Calendar")
+        .task { earnings?.startSummary() }
     }
 
     private func tool(_ title: String, _ subtitle: String, _ icon: String, _ colors: StockColors, _ action: @escaping () -> Void) -> some View {

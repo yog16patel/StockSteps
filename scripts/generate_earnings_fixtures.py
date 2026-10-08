@@ -53,6 +53,32 @@ UPCOMING_ONLY = {
     "NFLX": ("Netflix Inc.", "NASDAQ", "2026-10-16", "AFTER_CLOSE", "CONFIRMED", 2026, 3, 6.95, 11.5e9),
 }
 
+# Earnings Calendar (Phase 1) demo events around the MOCK market date (2026-10-07, New York). Real tickers
+# with a stocks/ fixture keep "View Company Details" working; "StockSteps Demo" companies are fictional.
+# No logo URLs (avatar fallback). Keys: date, session, fy, q, and optionally status (date status),
+# actual=(eps, revenue), source_status, previous, time/zone (only when a "source" states it),
+# source_updated=None (source gave no timestamp), exchange/country/name.
+CALENDAR_DEMO = [
+    dict(symbol="LUCY", name="Innovative Eyewear, Inc.", exchange="NASDAQ", date="2026-10-07", session="BEFORE_OPEN", fy=2026, q=3,
+         status="CONFIRMED", eps_est=-0.21, rev_est=0.62e6, actual=(-0.18, 0.66e6)),               # reported today (verified)
+    dict(symbol="INTC", name="Intel Corporation", exchange="NASDAQ", date="2026-10-07", session="AFTER_CLOSE", fy=2026, q=3,
+         status="CONFIRMED", eps_est=0.18, rev_est=13.6e9, time="16:05", zone="America/New_York"),  # today, after close, exact time
+    dict(symbol="CRBU", name="Caribou Biosciences, Inc.", exchange="NASDAQ", date="2026-10-08", session="BEFORE_OPEN", fy=2026, q=3,
+         eps_est=-0.42, rev_est=2.4e6),                                                           # tomorrow (several on one day)
+    dict(symbol="TOPP", name="Toppoint Holdings Inc.", exchange="AMEX", date="2026-10-08", session="AFTER_CLOSE", fy=2026, q=3,
+         eps_est=0.02, rev_est=4.1e6),
+    dict(symbol="SPEC", name="Spectaire Holdings Inc.", exchange="OTC", date="2026-10-08", session="UNKNOWN", fy=2026, q=3,
+         source_updated=None),                                                                    # unknown time; no source timestamp
+    dict(symbol="SSPX", name="StockSteps Demo Postponed Corp.", exchange="NYSE", date="2026-10-09", session="UNKNOWN", fy=2026, q=3,
+         source_status="POSTPONED", previous="2026-10-08"),                                       # postponed (explicit source flag)
+    dict(symbol="GCDT", name="Green Circle Decarbonize Technology Ltd.", exchange="AMEX", date="2026-10-12", session="BEFORE_OPEN", fy=2026, q=3,
+         country="HK"),                                                                           # Canadian Thanksgiving (TSX closed, US open)
+    dict(symbol="SSCX", name="StockSteps Demo Canceled Corp.", exchange="NASDAQ", date="2026-10-13", session="AFTER_CLOSE", fy=2026, q=3,
+         source_status="CANCELED"),                                                               # canceled (explicit source flag)
+    dict(symbol="TD.TO", name="Toronto-Dominion Bank", exchange="TSX", country="CA", date="2026-11-30", session="BEFORE_OPEN", fy=2026, q=4,
+         eps_est=2.05, rev_est=14.9e9, currency="CAD", zone="America/Toronto"),                    # same company and ticker as NYSE "TD", other listing
+]
+
 # Scenario overrides keyed by (symbol, fiscal_year, quarter).
 OVERRIDES = {
     # Upcoming
@@ -215,13 +241,39 @@ def main():
                        "date": date, "session": session, "dateStatus": status,
                        "estimate": {"eps": eps_est, "epsBasis": "GAAP_DILUTED", "revenue": rev_est, "currency": "USD", "analysts": 30, "source": SOURCE, "asOf": UPDATED},
                        "source": SOURCE, "updatedAt": UPDATED})
+    for d in CALENDAR_DEMO:
+        currency = d.get("currency", "USD")
+        event = {"id": f"{d['symbol']}:{d['fy']}-Q{d['q']}", "symbol": d["symbol"], "name": d["name"], "exchange": d["exchange"],
+                 "country": d.get("country", "US"), "fiscalYear": d["fy"], "fiscalQuarter": d["q"], "date": d["date"], "session": d["session"],
+                 "dateStatus": d.get("status", "ESTIMATED"), "source": SOURCE, "updatedAt": UPDATED}
+        if d.get("eps_est") is not None or d.get("rev_est") is not None:
+            event["estimate"] = {k: v for k, v in {"eps": d.get("eps_est"), "epsBasis": "GAAP_DILUTED", "revenue": d.get("rev_est"), "currency": currency,
+                                 "analysts": 4, "source": SOURCE, "asOf": UPDATED}.items() if v is not None}
+        if d.get("actual"):
+            eps, rev = d["actual"]
+            event["actual"] = {"eps": eps, "epsBasis": "GAAP_DILUTED", "revenue": rev, "currency": currency, "source": SOURCE,
+                               "reportedAt": f"{d['date']}T{'12:00:00Z' if d['session'] == 'BEFORE_OPEN' else '21:00:00Z'}"}
+        if d.get("previous"):
+            event["previousDate"] = d["previous"]
+        if d.get("time"):
+            event["eventTime"] = d["time"]
+        if d.get("zone"):
+            event["timeZone"] = d["zone"]
+        if d.get("source_status"):
+            event["sourceStatus"] = d["source_status"]
+        if d.get("source_updated", UPDATED) is not None:
+            event["sourceUpdatedAt"] = d.get("source_updated", UPDATED)
+        events.append(event)
+    for e in events:
+        if "sourceUpdatedAt" not in e and not any(e["symbol"] == d["symbol"] for d in CALENDAR_DEMO):
+            e["sourceUpdatedAt"] = e["updatedAt"]
     events.sort(key=lambda e: (e["date"], e["symbol"]))
     os.makedirs(os.path.join(ROOT, "earnings"), exist_ok=True)
     with open(os.path.join(ROOT, "earnings", "events.json"), "w") as f:
         json.dump(events, f, indent=2)
         f.write("\n")
     upcoming = [e for e in events if "actual" not in e and e["date"] >= TODAY.isoformat()]
-    print(f"Wrote {len(events)} events ({len(upcoming)} upcoming) for {len(COMPANIES) + len(UPCOMING_ONLY)} companies.")
+    print(f"Wrote {len(events)} events ({len(upcoming)} upcoming) for {len(COMPANIES) + len(UPCOMING_ONLY) + len(CALENDAR_DEMO)} companies.")
 
 
 if __name__ == "__main__":

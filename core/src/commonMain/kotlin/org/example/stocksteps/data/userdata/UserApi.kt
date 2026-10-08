@@ -41,6 +41,10 @@ class UserApi(
             if (query.sessions.isNotEmpty()) append("session", query.sessions.joinToString(",") { it.name })
             query.view?.let { append("view", it) }
             query.cursor?.let { append("cursor", it) }
+            query.query?.let { append("q", it) }
+            query.day?.let { append("day", it) }
+            query.scope?.let { append("scope", it) }
+            query.scenario?.let { append("scenario", it) }
         }.build().formUrlEncode()
         return send(HttpMethod.Get, "earnings/following?$params")
     }

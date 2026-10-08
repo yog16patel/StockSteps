@@ -21,7 +21,11 @@ struct AppScene: View {
     @State private var showingCompare = false
     @State private var screenerModel: ScreenerModel
     @State private var earningsModel: EarningsModel
-    @State private var showingEarnings = false
+    /// Earnings Calendar target (Markets, Company Details, Watchlist, an event).
+    @State private var earningsCalendar: EarningsCalendarTarget?
+    /// Earnings Event Details (calendar rows, Daily Brief).
+    @State private var earningsEventId: String?
+    /// Earnings Details (results and history) for a company.
     @State private var earningsSymbol: String?
     @State private var learningModel: LearningModel
     @State private var researchTarget: ResearchTarget?
@@ -80,7 +84,7 @@ struct AppScene: View {
                 .tag(AppRoute.home)
 
                 MarketsScene(model: marketsModel, onOpenStock: explore, onSearch: { initialStock = nil; showingSearch = true },
-                             onDiscover: { showingDiscover = true }, onCompare: { showingCompare = true }, onEarnings: { showingEarnings = true },
+                             onDiscover: { showingDiscover = true }, onCompare: { showingCompare = true }, onEarnings: { earningsCalendar = EarningsCalendarTarget() }, earnings: earningsModel,
                              brief: briefModel, onDailyBrief: { briefTarget = BriefTarget(briefId: nil) }, onBriefHistory: { showingBriefHistory = true })
                     .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
                     .tag(AppRoute.markets)
@@ -95,7 +99,8 @@ struct AppScene: View {
                 .tag(AppRoute.portfolio)
 
                 WatchListScene(accounts: accounts, model: watchlistsModel, onSignIn: { showingAuth = true }, onSearch: { initialStock = nil; showingSearch = true },
-                               onExplore: explore, onOpenAlerts: { alertsTarget = $0 ?? "" })
+                               onExplore: explore, onOpenAlerts: { alertsTarget = $0 ?? "" },
+                               onEarnings: { earningsCalendar = EarningsCalendarTarget(filter: "WATCHLIST") })
                     .tabItem { Label("Watchlist", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 
@@ -111,13 +116,15 @@ struct AppScene: View {
             .navigationDestination(item: $detailsSymbol) { symbol in
                 CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel, learning: learningModel,
                                     onSearch: { initialStock = nil; showingSearch = true }, onLearn: { detailsSymbol = nil; selectedTab = .learn },
-                                    onUpgrade: { showingSettings = true }, onPracticeBuy: { practiceTrade(PracticeOrderTarget(symbol: $0, sell: false)) })
+                                    onUpgrade: { showingSettings = true }, onPracticeBuy: { practiceTrade(PracticeOrderTarget(symbol: $0, sell: false)) },
+                                    onEarningsCalendar: { earningsCalendar = EarningsCalendarTarget(date: $0) })
             }
             .navigationDestination(item: $briefTarget) { target in
                 if let briefModel {
                     DailyBriefScene(target: target, model: briefModel, onOpenStock: explore, onHistory: { showingBriefHistory = true },
                                     onWatchlist: { briefTarget = nil; selectedTab = .watchlist }, onLearn: { briefTarget = nil; selectedTab = .learn },
-                                    onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true })
+                                    onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true },
+                                    onOpenEarnings: { earningsEventId = $0 })
                 }
             }
             .navigationDestination(isPresented: $showingBriefHistory) {
@@ -151,8 +158,22 @@ struct AppScene: View {
                                     onContinueLearning: { researchTarget = nil; selectedTab = .learn },
                                     onUpgrade: { showingSettings = true })
             }
-            .navigationDestination(isPresented: $showingEarnings) {
-                EarningsCenterScene(model: earningsModel, onOpen: { earningsSymbol = $0 }, onSignIn: { showingAuth = true })
+            .navigationDestination(item: $earningsCalendar) { target in
+                EarningsCalendarScene(target: target, client: earningsModel.client, onOpen: { earningsEventId = $0 }, onSignIn: { showingAuth = true })
+                    .id(target.id)
+            }
+            .navigationDestination(item: $earningsEventId) { id in
+                EarningsEventScene(eventId: id, client: earningsModel.client, accounts: accounts, onCompany: explore,
+                                   // Back to the calendar it came from, or a new one on the event's date.
+                                   onCalendar: { date in
+                                       let open = earningsCalendar != nil
+                                       earningsEventId = nil
+                                       if !open { earningsCalendar = EarningsCalendarTarget(date: date) }
+                                   },
+                                   onResults: { earningsSymbol = $0 }, onSignIn: { showingAuth = true })
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsEvent)) { note in
+                if let id = note.object as? String, !id.isEmpty { earningsEventId = id }
             }
             .navigationDestination(item: $earningsSymbol) { symbol in
                 EarningsDetailsScene(symbol: symbol, client: earningsModel.client, onCompany: { explore(symbol) },

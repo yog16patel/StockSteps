@@ -16,114 +16,262 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.draw.rotate
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
+import org.example.stocksteps.designsystem.icons.StockIcons
 import org.example.stocksteps.designsystem.components.*
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.earnings.*
-import org.example.stocksteps.model.EarningsTime
 import org.example.stocksteps.model.EarningsTiming
 
-// ---------- Earnings Center ----------
+// ---------- Earnings Calendar ----------
 
-/** Upcoming / Results / Following; rows grouped by date. Beat/miss are words, never just colors. */
+internal sealed interface CalendarAction {
+    data object PreviousWeek : CalendarAction
+    data object NextWeek : CalendarAction
+    data object Today : CalendarAction
+    data class SelectDate(val date: String) : CalendarAction
+    data class Mode(val mode: CalendarMode) : CalendarAction
+    data class Tab(val tab: CalendarTab) : CalendarAction
+    data class Filter(val filter: CalendarFilter) : CalendarAction
+    data class Query(val text: String) : CalendarAction
+    data object ClearQuery : CalendarAction
+    data class Open(val eventId: String) : CalendarAction
+    data object LoadMore : CalendarAction
+    data object Retry : CalendarAction
+    data object SignIn : CalendarAction
+    data class Scenario(val name: String?) : CalendarAction
+}
+
+/** MOCK-only demo scenarios; the server ignores them in REAL. */
+internal val SAMPLE_SCENARIOS: List<Pair<String?, String>> = listOf(null to "Normal", "stale-cache" to "Stale cached data", "provider-unavailable" to "Provider unavailable")
+
+/** Epoch-day conversions for the Material date picker (UTC midnight; the date itself is never shifted). */
+private fun epochMillis(date: String): Long? = org.example.stocksteps.markets.MarketsPresenter.dayNumber(date)?.let { it.toLong() * 86_400_000L }
+private fun dateOf(millis: Long): String = org.example.stocksteps.portfolio.analytics.AnalyticsDates.plusDays("1970-01-01", (millis / 86_400_000L).toInt())
+
+/**
+ * Earnings Calendar: week strip with day counts, Upcoming/Reported, All/My Watchlist, day or week
+ * view and search. Compact cards show dates, timing and status only (no figures).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun EarningsCenterScreen(
-    state: EarningsCenterState,
-    modifier: Modifier,
-    onTab: (EarningsTab) -> Unit,
-    onRange: (EarningsRange) -> Unit,
-    onFilters: (EarningsFilters) -> Unit,
-    onOpen: (String) -> Unit,
-    onLoadMore: () -> Unit,
-    onRetry: () -> Unit,
-    onSignIn: () -> Unit
-) {
+internal fun EarningsCalendarScreen(state: EarningsCalendarState, modifier: Modifier, onAction: (CalendarAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    var education by remember { mutableStateOf<EarningsEducation.Topic?>(null) }
+    var help by rememberSaveable { mutableStateOf(false) }
+    var picking by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val nearEnd by remember { derivedStateOf { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { it >= listState.layoutInfo.totalItemsCount - 3 } == true } }
-    LaunchedEffect(nearEnd, state.hasMore) { if (nearEnd && state.hasMore && !state.loading) onLoadMore() }
+    LaunchedEffect(nearEnd, state.hasMore) { if (nearEnd && state.hasMore && !state.loading) onAction(CalendarAction.LoadMore) }
     LazyColumn(modifier.background(colors.appBackground), state = listState,
         contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         item(key = "header") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Text("Earnings Center", Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
-                Text("When companies report, what analysts expect and what was reported.", style = typography.small, color = colors.textSecondary)
-                if (state.sampleData) StockSampleDataBanner("Sample earnings data for development, not real announcements.")
-                StockSegmentedControl(EarningsTab.entries.map { StockSegment(it, it.label) }, state.tab, onTab)
-                StockPillSelector(state.ranges, state.range, { it.label }, onRange)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                    listOf("US" to "US", "CA" to "Canada").forEach { (code, label) ->
-                        val on = code in state.filters.markets
-                        FilterChip(on, { onFilters(state.filters.copy(markets = if (on) state.filters.markets - code else state.filters.markets + code)) }, label = { Text(label) })
-                    }
-                    listOf(EarningsTime.BEFORE_OPEN, EarningsTime.AFTER_CLOSE, EarningsTime.UNKNOWN).forEach { session ->
-                        val on = session in state.filters.sessions
-                        FilterChip(on, { onFilters(state.filters.copy(sessions = if (on) state.filters.sessions - session else state.filters.sessions + session)) },
-                            label = { Text(EarningsFormatter.sessionShort(session)) })
-                    }
-                    listOf("NASDAQ", "NYSE", "TSX").forEach { exchange ->
-                        val on = exchange in state.filters.exchanges
-                        FilterChip(on, { onFilters(state.filters.copy(exchanges = if (on) state.filters.exchanges - exchange else state.filters.exchanges + exchange)) }, label = { Text(exchange) })
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text("Earnings Calendar", Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
+                Text("See when companies are expected to report earnings.", style = typography.small, color = colors.textSecondary)
+                StockButton("What are earnings?", onClick = { help = true }, variant = StockButtonVariant.TEXT, icon = StockIcons.Help)
+                if (state.sampleData) {
+                    StockSampleDataBanner("Sample earnings data for development, not real announcements.")
+                    Row(Modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        SAMPLE_SCENARIOS.forEach { (name, label) -> StockChip(label, state.scenario == name, onClick = { onAction(CalendarAction.Scenario(name)) }) }
                     }
                 }
-                Text("${EarningsFormatter.date(state.from)} – ${EarningsFormatter.date(state.to)}", style = typography.caption, color = colors.textSecondary)
+            }
+        }
+        item(key = "week") { WeekStrip(state, onAction) { picking = true } }
+        item(key = "controls") {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                StockSegmentedControl(CalendarTab.entries.map { StockSegment(it, it.label) }, state.selection.tab, { onAction(CalendarAction.Tab(it)) })
+                Row(Modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    CalendarFilter.entries.forEach { filter -> StockChip(filter.label, state.selection.filter == filter, onClick = { onAction(CalendarAction.Filter(filter)) }) }
+                }
+                if (!state.searching) StockPillSelector(CalendarMode.entries, state.selection.mode, { if (it == CalendarMode.DAY) "Selected day" else "Whole week" }, { onAction(CalendarAction.Mode(it)) })
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    StockTextField(state.selection.query, { onAction(CalendarAction.Query(it)) }, "Search by company or ticker", Modifier.weight(1f), placeholder = "e.g. Apple or AAPL")
+                    if (state.selection.query.isNotEmpty()) StockButton("Clear", onClick = { onAction(CalendarAction.ClearQuery) }, variant = StockButtonVariant.TEXT)
+                }
+                state.rangeText?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+                state.freshnessText?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = typography.caption, color = colors.cautionText) }
+                if (state.sourceStale) Text("Some dates haven't been updated by the data provider recently and may have changed.", style = typography.caption, color = colors.cautionText)
             }
         }
         if (state.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading earnings" }) }
-        state.error?.let { item(key = "error") { StockErrorState(it, onRetry) } }
-        if (state.tab == EarningsTab.FOLLOWING && !state.signedIn) item(key = "signin") {
-            StockEmptyState("Sign in to see earnings for companies in your watchlists and portfolios.", actionText = "Sign in", onAction = onSignIn)
-        } else if (!state.loading && state.error == null && state.rows.isEmpty()) item(key = "empty") {
-            StockEmptyState(when (state.tab) {
-                EarningsTab.FOLLOWING -> "None of the companies you follow report in this period. Add companies to a watchlist or portfolio to follow their earnings."
-                EarningsTab.RESULTS -> "No reported results in this period."
-                EarningsTab.UPCOMING -> "No earnings announcements in this period."
-            })
+        state.error?.let { item(key = "error") { StockErrorState(it, { onAction(CalendarAction.Retry) }) } }
+        state.emptyMessage?.let { message ->
+            item(key = "empty") {
+                StockEmptyState(message, actionText = if (state.needsSignIn) "Sign in" else null, onAction = if (state.needsSignIn) ({ onAction(CalendarAction.SignIn) }) else null)
+            }
         }
         state.days.forEach { (date, rows) ->
             item(key = "day-$date") {
                 Text(EarningsFormatter.date(date), Modifier.padding(top = spacing.sm).semantics { heading(); contentDescription = EarningsFormatter.spokenDate(date) },
                     style = typography.label, color = colors.textSecondary)
             }
-            items(rows, key = { it.id }) { row -> EarningsRow(row) { onOpen(row.symbol) } }
+            items(rows, key = { it.id }) { row -> EventCard(row) { onAction(CalendarAction.Open(row.id)) } }
         }
-        if (state.loadingMore) item(key = "more") { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        if (state.loadingMore) item(key = "more") { LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading more earnings" }) }
         item(key = "notes") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Column(Modifier.padding(top = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                 state.notes.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
-                Text("Learn the basics", style = typography.label, modifier = Modifier.padding(top = spacing.sm))
-                EarningsEducation.topics.take(6).forEach { topic ->
-                    TextButton(onClick = { education = topic }) { Text(topic.title) }
+                Text("Not investment advice. Report dates can change until a company confirms them.", style = typography.caption, color = colors.textTertiary)
+            }
+        }
+    }
+    if (help) AlertDialog(onDismissRequest = { help = false }, title = { Text("What are earnings?") }, text = { Text(EarningsCalendarRules.WHAT_ARE_EARNINGS) },
+        confirmButton = { TextButton(onClick = { help = false }) { Text("Got it") } })
+    if (picking) {
+        val picker = rememberDatePickerState(initialSelectedDateMillis = epochMillis(state.selection.date))
+        DatePickerDialog(onDismissRequest = { picking = false },
+            confirmButton = { TextButton(onClick = { picker.selectedDateMillis?.let { onAction(CalendarAction.SelectDate(dateOf(it))) }; picking = false }) { Text("Show date") } },
+            dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancel") } }) { DatePicker(picker) }
+    }
+}
+
+@Composable
+private fun WeekStrip(state: EarningsCalendarState, onAction: (CalendarAction) -> Unit, onPick: () -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onAction(CalendarAction.PreviousWeek) }) { Icon(StockIcons.ChevronRight, "Previous week", Modifier.rotate(180f), tint = colors.iconPrimary) }
+            Text(state.weekLabel, Modifier.weight(1f).semantics { heading(); liveRegion = LiveRegionMode.Polite; contentDescription = "Week of ${state.weekLabel}" },
+                style = StockStepsTheme.typography.bodySemiBold, color = colors.textPrimary, textAlign = TextAlign.Center)
+            IconButton(onClick = { onAction(CalendarAction.NextWeek) }) { Icon(StockIcons.ChevronRight, "Next week", tint = colors.iconPrimary) }
+        }
+        Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            state.week.forEach { day -> DayCell(day, Modifier.weight(1f)) { onAction(CalendarAction.SelectDate(day.date)) } }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            StockButton("Today", onClick = { onAction(CalendarAction.Today) }, variant = StockButtonVariant.TEXT, enabled = state.selection.date != state.today)
+            StockButton("Choose date", onClick = onPick, variant = StockButtonVariant.TEXT)
+        }
+    }
+}
+
+/** Selected: filled and underlined (not color alone); today: outlined; counts are numbers. */
+@Composable
+private fun DayCell(day: WeekDayView, modifier: Modifier, onClick: () -> Unit) {
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    val shape = StockStepsTheme.shapes.chip
+    val text = if (day.selected) colors.onPrimary else colors.textPrimary
+    Column(modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget).clip(shape)
+        .background(if (day.selected) colors.primaryDark else colors.surfaceSecondary)
+        .then(if (day.today && !day.selected) Modifier.border(StockStepsTheme.dimensions.border, colors.primary, shape) else Modifier)
+        .selectable(selected = day.selected, role = Role.Tab, onClick = onClick)
+        .semantics(mergeDescendants = true) { contentDescription = day.accessibility }
+        .padding(vertical = StockStepsTheme.spacing.xs), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(day.weekday, style = typography.tiny, color = if (day.selected) colors.onPrimary else colors.textSecondary, maxLines = 1)
+        Text(day.day, style = typography.bodySemiBold, color = text, maxLines = 1)
+        Text(day.count?.takeIf { it > 0 }?.toString() ?: " ", style = typography.tiny, color = if (day.selected) colors.onPrimary else colors.primaryText, maxLines = 1)
+        Box(Modifier.width(StockStepsTheme.spacing.lg).height(StockStepsTheme.dimensions.border * 2).background(if (day.selected) colors.onPrimary else androidx.compose.ui.graphics.Color.Transparent))
+    }
+}
+
+@Composable
+private fun EventCard(row: EarningsEventRow, onClick: () -> Unit) {
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = row.accessibility }, onClick = onClick, onClickLabel = "Open ${row.symbol} earnings event") {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+            StockTickerAvatar(row.symbol, logoUrl = row.logoUrl, size = StockStepsTheme.dimensions.logoCompact)
+            Column(Modifier.weight(1f)) {
+                Text(row.name, style = typography.bodySemiBold, color = colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(listOfNotNull(row.symbol, row.exchange).joinToString(" · "), style = typography.caption, color = colors.textSecondary)
+            }
+            Badge(row.status.label)
+        }
+        Text("${row.dateText} · ${row.timingText}", style = typography.caption, color = colors.textSecondary)
+        if (row.status == EarningsEventStatus.SCHEDULED) Text(row.statusText.substringAfter(" · "), style = typography.caption, color = colors.textSecondary)
+        row.previousDate?.let { Text("Date moved from ${EarningsFormatter.date(it)}", style = typography.caption, color = colors.cautionText) }
+        if (row.watchlisted) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+            Icon(StockIcons.Star, null, Modifier.size(StockStepsTheme.dimensions.iconSmall), tint = colors.primary)
+            Text("On your watchlist", style = typography.caption, color = colors.textSecondary)
+        }
+    }
+}
+
+// ---------- Earnings Event Details ----------
+
+internal sealed interface EventAction {
+    data object Company : EventAction
+    data object Calendar : EventAction
+    data object Results : EventAction
+    data object Retry : EventAction
+    data object SignIn : EventAction
+    data object ToggleWatchlist : EventAction
+}
+
+/** One event: date, timing, status and provenance, a beginner explanation, and existing actions. No figures. */
+@Composable
+internal fun EarningsEventScreen(state: EarningsEventState, watched: Boolean, watchlistEnabled: Boolean, modifier: Modifier, onAction: (EventAction) -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    var education by remember { mutableStateOf<EarningsEducation.Topic?>(null) }
+    LazyColumn(modifier.background(colors.appBackground), contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
+        verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        if (state.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading earnings event" }) }
+        state.error?.let { item(key = "error") { StockErrorState(it, { onAction(EventAction.Retry) }) } }
+        val status = state.status
+        if (status != null) {
+            item(key = "header") {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        StockTickerAvatar(state.symbol, logoUrl = state.logoUrl, size = StockStepsTheme.dimensions.logo)
+                        Column(Modifier.weight(1f)) {
+                            Text(state.name, Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            Text(listOfNotNull(state.symbol, state.exchange, state.period).joinToString(" · "), style = typography.small, color = colors.textSecondary)
+                        }
+                    }
+                    if (state.sampleData) StockSampleDataBanner("Sample earnings data for development, not real announcements.")
+                    state.freshnessText?.let { Text(it, style = typography.caption, color = colors.cautionText) }
+                }
+            }
+            item(key = "event") {
+                StockCard(Modifier.fillMaxWidth()) {
+                    Text("Earnings report", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+                    Line(MetricLine("Date", state.dateText.orEmpty()))
+                    Line(MetricLine("Expected timing", state.timingText.orEmpty()))
+                    Line(MetricLine("Status", state.statusText.orEmpty()))
+                    state.previousDate?.let { Text("Date moved from ${EarningsFormatter.date(it)}", style = typography.caption, color = colors.cautionText) }
+                    state.statusExplanation?.let { Text(it, style = typography.small, color = colors.textBody) }
+                    // Phase 2 extension point: reported figures live on Earnings Details, never invented here.
+                    if (state.reported) StockButton("See reported results", onClick = { onAction(EventAction.Results) }, variant = StockButtonVariant.OUTLINED)
+                }
+            }
+            item(key = "explain") {
+                StockCard(Modifier.fillMaxWidth(), containerColor = colors.educationContainer, bordered = false) {
+                    Text("What is an earnings report?", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+                    Text(EarningsCalendarRules.EVENT_EXPLANATION, style = typography.body, color = colors.textBody)
+                }
+            }
+            item(key = "actions") {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    StockButton("View Company Details", onClick = { onAction(EventAction.Company) }, modifier = Modifier.fillMaxWidth())
+                    if (watchlistEnabled) StockButton(if (watched) "Remove from Watchlist" else "Add to Watchlist", onClick = { onAction(EventAction.ToggleWatchlist) },
+                        modifier = Modifier.fillMaxWidth(), variant = StockButtonVariant.OUTLINED, icon = if (watched) StockIcons.Star else StockIcons.StarOutline)
+                    else StockButton("Sign in to use watchlists", onClick = { onAction(EventAction.SignIn) }, modifier = Modifier.fillMaxWidth(), variant = StockButtonVariant.OUTLINED)
+                    StockButton("Learn About Earnings", onClick = { education = EarningsEducation.topic("quarterly") }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb)
+                    StockButton("View in Earnings Calendar", onClick = { onAction(EventAction.Calendar) }, variant = StockButtonVariant.TEXT)
+                }
+            }
+            item(key = "source") {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    listOfNotNull(state.updatedText, state.sourceText).forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
+                    state.notes.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
+                    Text("Not investment advice. Earnings dates don't predict how a stock will move.", style = typography.caption, color = colors.textTertiary)
                 }
             }
         }
     }
     education?.let { topic -> EducationDialog(topic) { education = null } }
-}
-
-@Composable
-private fun EarningsRow(row: EarningsRowView, onClick: () -> Unit) {
-    val colors = StockStepsTheme.colors
-    val typography = StockStepsTheme.typography
-    StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = row.accessibility }, onClick = onClick, onClickLabel = "Open ${row.symbol} earnings") {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
-            StockTickerAvatar(row.symbol, logoUrl = row.logoUrl, size = StockStepsTheme.dimensions.logoCompact)
-            Column(Modifier.weight(1f)) {
-                Text("${row.symbol}${row.exchange?.let { " · $it" } ?: ""}", style = typography.bodySemiBold, color = colors.textPrimary)
-                Text(row.name, style = typography.caption, color = colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Badge(if (row.reminder) "Reminder on" else row.status.label)
-        }
-        Text(listOfNotNull(row.sessionText, row.dateStatusText).joinToString(" · "), style = typography.caption, color = colors.textSecondary)
-        row.previousDate?.let { Text("Date moved from ${EarningsFormatter.date(it)}", style = typography.caption, color = colors.cautionText) }
-        if (row.epsResult != null || row.revenueResult != null) {
-            Text(listOfNotNull(row.epsResult?.let { "EPS $it" }, row.revenueResult?.let { "Revenue $it" }).joinToString(" · "), style = typography.small, color = colors.textPrimary)
-        } else Text(row.expectation, style = typography.small, color = colors.textPrimary)
-        row.countdown?.let { Text(it, style = typography.caption, color = colors.primary) }
-        row.following?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
-    }
 }
 
 @Composable

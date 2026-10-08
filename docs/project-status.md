@@ -1,22 +1,31 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-08 against the repository (`main`, latest commit **"Add Daily Market Brief on Android and iOS"**, pushed). Verify with
+Last reviewed: 2026-10-08 against the repository (`main`, latest commit **"Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"**, pushed). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-The **Daily Market Brief** is committed and pushed as **"Add Daily Market Brief on Android and iOS"** (the commit after `a4a4aeb`); this
-file and `CLAUDE.md` were added in the same commit. No uncommitted work is pending. Verification before
-the commit: core JVM 299, server 247, core iOS 298, shared Android host 55, shared iOS 49 — 0 failures;
-Android assembleDebug/installDebug and iOS xcodebuild BUILD SUCCEEDED; live MOCK checks passed.
+The **Daily Market Brief** is committed and pushed as **c92ec89 "Add Daily Market Brief on Android and iOS"** (the commit after `a4a4aeb`);
+this file and `CLAUDE.md` were added in the same commit. No application code is uncommitted; the only
+working-tree changes are documentation (`CLAUDE.md`, this file, `PROJECT_HANDOFF.md` session handoff,
+2026-10-08) plus the new `docs/PROJECT_HANDOFF.md` (full end-of-session handoff: objective, decisions,
+verified vs unverified results, next steps). See also the "Session handoff" section at the top of the root
+`PROJECT_HANDOFF.md`, which is the canonical milestone log.
+
+Verification of `c92ec89` (test-result XML re-checked 2026-10-08): core JVM 299, server 247, core iOS 298,
+shared Android host 55, shared iOS 49 — 0 failures. Android assembleDebug/installDebug and iOS xcodebuild
+BUILD SUCCEEDED and live MOCK checks passed before the commit (not re-run since). MOCK server on :8081
+was running the committed code at session end.
 
 Next steps:
-1. Device walkthrough of Home card → brief reader → Scenarios menu → notification preferences
-   (small screens, large text).
-2. Production dependencies (§4): deploy the backend, Cloud Scheduler for `/internal/daily-brief/dispatch`,
+0. Earnings Calendar (Phase 1) is committed and pushed ("Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"); Phase 2
+   (EPS/revenue vs estimates on the event screen) is the next earnings phase.
+1. Ask the user for the next feature request or which §4 item to take.
+2. Device walkthrough of Home card → brief reader → Scenarios menu → notification preferences
+   (small screens, large text) — only when the user asks to drive the UI.
+3. Production dependencies (§4): deploy the backend, Cloud Scheduler for `/internal/daily-brief/dispatch`,
    `GEMINI_API_KEY` for REAL brief AI.
-3. Then the user's next feature request (none pending at the time of writing).
 
 ## 1. Feature status
 
@@ -24,7 +33,8 @@ Next steps:
 
 | Feature | Commit (title) | Doc | Notes |
 |---|---|---|---|
-| Daily Market Brief (Home/Markets previews, reader, personal overlay, Plus AI, notifications) | "Add Daily Market Brief on Android and iOS" | `docs/DAILY_MARKET_BRIEF.md` | Scheduler not deployed. |
+| Earnings Calendar — Earnings Intelligence Lite Phase 1 (calendar, event details, Markets/Company Details/Brief/Watchlist entries) | "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS" | `docs/EARNINGS.md` (Phase 1) | Free; no UI automation; REAL TSX coverage unverified. |
+| Daily Market Brief (Home/Markets previews, reader, personal overlay, Plus AI, notifications) | c92ec89 "Add Daily Market Brief on Android and iOS" | `docs/DAILY_MARKET_BRIEF.md` | Scheduler not deployed. |
 | Practice Portfolio (virtual $10,000 simulator; Free 3 holdings / 14-day trial / StockSteps+) | a4a4aeb "Add Practice Portfolio simulator…" | `docs/PRACTICE_PORTFOLIO.md` | Includes the Practice "Buy Stock" → practice search → order fix. Backend not deployed. |
 | Guided Stock Research & Beginner Learning (5-step guide, quizzes, Learn hub) | defaade "Add Guided Stock Research…" | `docs/GUIDED_RESEARCH.md` | Includes quiz-card spacing fix (`StockCard.verticalArrangement`). |
 | Markets research tools spacing | 54b5559 | — | UI-only. |
@@ -89,14 +99,15 @@ None.
 
 ## 4. Pending tasks
 
-2. **Deploy the backend** (Cloud Run) with Practice, Learning and Brief routes; Practice/Learning/Brief
+1. **Deploy the backend** (Cloud Run) with Practice, Learning and Brief routes; Practice/Learning/Brief
    don't work in REAL until then (404). Firestore credentials required (else 503).
-3. **Cloud Scheduler** jobs: `POST /internal/daily-brief/dispatch` (and existing
+2. **Cloud Scheduler** jobs: `POST /internal/daily-brief/dispatch` (and existing
    `/internal/alerts/evaluate`) with header `X-StockSteps-Scheduler-Token` = `ALERTS_EVALUATOR_TOKEN`.
-4. **StockSteps+ billing**: Play Billing / StoreKit + server receipt validation writing the entitlement
+3. **StockSteps+ billing**: Play Billing / StoreKit + server receipt validation writing the entitlement
    record; restore/pending/cancelled states.
-5. A verified **dividend/split source** for Practice in REAL (MOCK has sample events only).
-6. Device/simulator walkthroughs and UI-automation tests (none exist; presenters are unit-tested).
+4. A verified **dividend/split source** for Practice in REAL (MOCK has sample events only).
+5. Device/simulator walkthroughs and UI-automation tests (none exist; presenters are unit-tested).
+6. REAL AI provider for earnings and learning explanations (currently 503).
 7. Optional: system Back inside Guided Research steps; retry queue for brief pushes; TSX early closes.
 
 ## 5. Known limitations / bugs to watch

@@ -55,6 +55,8 @@ internal fun CompanyDetailsScreen(
     backIcon: @Composable () -> Unit,
     /** Saved Guided Research progress for this company; null when never started. */
     researchCompleted: Int? = null,
+    /** Next earnings date (null hides the section, e.g. previews). */
+    earnings: org.example.stocksteps.earnings.CompanyEarningsState? = null,
     onAction: (CompanyDetailsAction) -> Unit
 ) {
     val spacing = StockStepsTheme.spacing
@@ -112,6 +114,7 @@ internal fun CompanyDetailsScreen(
                 item(key = "research") {
                     org.example.stocksteps.presentation.research.UnderstandStockCard(researchCompleted, { onAction(CompanyDetailsAction.Research) }, section)
                 }
+                earnings?.let { e -> item(key = "earnings") { EarningsSection(e, onAction, section) } }
                 // Hidden while loading and when the backend has no source-backed explanation.
                 when (val why = state.whyMoving) {
                     is Section.Content -> why.value?.let { value ->
@@ -574,6 +577,37 @@ private fun NewsSection(news: Section<List<NewsUiModel>>, onOpen: (String) -> Un
                     if (index > 0) StockDivider()
                     StockNewsCard(article, onClick = article.url?.let { url -> { onOpen(url) } })
                 }
+            }
+        }
+    }
+}
+
+/** Next earnings date, timing and status; never an invented date. */
+@Composable
+private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarningsState, onAction: (CompanyDetailsAction) -> Unit, modifier: Modifier) {
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    val error = state.error
+    val dateText = state.dateText
+    SectionTitled("Earnings", modifier) {
+        StockCard(Modifier.fillMaxWidth()) {
+            when {
+                state.loading -> Text("Loading the next earnings date…", style = typography.small, color = colors.textSecondary)
+                error != null -> StockErrorState(error, { onAction(CompanyDetailsAction.RetryEarnings) })
+                dateText != null -> Column(Modifier.semantics(mergeDescendants = true) {
+                    contentDescription = "Next earnings: ${state.spokenDate}. ${state.timingText}. ${state.statusText}."
+                }) {
+                    Text("Next earnings", style = typography.label, color = colors.textSecondary)
+                    Text(dateText, style = typography.bodySemiBold, color = colors.textPrimary)
+                    state.timingText?.let { Text(it, style = typography.small, color = colors.textBody) }
+                    state.statusText?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+                }
+                else -> Text(state.message.orEmpty(), style = typography.small, color = colors.textSecondary)
+            }
+            if (state.sampleData) Text("Sample earnings data.", style = typography.caption, color = colors.cautionText)
+            Row(horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+                StockButton("View Earnings Calendar", onClick = { onAction(CompanyDetailsAction.EarningsCalendar) }, variant = StockButtonVariant.TEXT)
+                StockButton("Earnings history", onClick = { onAction(CompanyDetailsAction.Earnings) }, variant = StockButtonVariant.TEXT)
             }
         }
     }
