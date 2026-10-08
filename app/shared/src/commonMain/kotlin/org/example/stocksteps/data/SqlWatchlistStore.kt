@@ -41,6 +41,11 @@ class SqlWatchlistStore(driver: SqlDriver) : WatchlistLocalStore {
         if (queue) queries.queue(owner, symbol, null, null, null, null, null, null)
     }
 
+    override suspend fun clearOwner(owner: String) = transaction {
+        queries.clearOwnerItems(owner)
+        queries.clearOwnerPending(owner)
+    }
+
     override suspend fun mergeGuest(owner: String) = transaction {
         val blocked = queries.pending(owner).executeAsList().associateBy { it.symbol }
         queries.items(GUEST_OWNER).executeAsList().forEach { guest ->

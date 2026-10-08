@@ -46,3 +46,9 @@ DELETE FROM pending_operation WHERE owner = ? AND revision = ?;
 
 clearGuest:
 DELETE FROM watchlist WHERE owner = 'guest';
+
+clearOwnerItems:
+DELETE FROM watchlist WHERE owner = ?;
+
+clearOwnerPending:
+DELETE FROM pending_operation WHERE owner = ?;

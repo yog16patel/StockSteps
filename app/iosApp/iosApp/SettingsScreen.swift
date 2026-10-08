@@ -11,7 +11,11 @@ struct SettingsScreen: View {
     let appVersion: String?
     let onSignIn: () -> Void
     let onSignOut: () -> Void
+    /// Nil hides Security & Sign-In (guests).
+    var appLock: AppLockModel?
     @State private var confirmSignOut = false
+    @State private var securityMessage: String?
+    @State private var securityBusy = false
     @State private var confirmRealData = false
     private let space = StockStepsTheme.spacing
     private let type = StockStepsTheme.typography
@@ -26,6 +30,9 @@ struct SettingsScreen: View {
                     Text("Manage your account and preferences").font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textSecondary)
                 }
                 section("Account") { accountRow }
+                if state.user != nil, let appLock, let lock = appLock.settings {
+                    section("Security & Sign-In") { security(appLock, lock, colors) }
+                }
                 section("Appearance") {
                     StockSettingsRow(title: "Theme", subtitle: "Choose how StockSteps looks", systemImage: "circle.lefthalf.filled")
                     StockSegmentedControl(
@@ -106,6 +113,56 @@ struct SettingsScreen: View {
         } else {
             StockSettingsRow(title: "Sign in to sync", subtitle: "Keep your watchlist on every device", leading: AnyView(StockAccountAvatar()), action: onSignIn)
         }
+    }
+
+    /// Face ID toggle (system prompt before any change), unlock timeout and session information.
+    @ViewBuilder
+    private func security(_ appLock: AppLockModel, _ lock: AppLockSettings, _ colors: StockColors) -> some View {
+        let available = lock.available == .available
+        let name = lock.kind == .faceId ? "Face ID" : lock.kind == .touchId ? "Touch ID" : "Passcode"
+        HStack(spacing: CGFloat(space.md)) {
+            StockSettingsRow(
+                title: "\(name) Unlock",
+                subtitle: available ? "Use \(name) to open StockSteps" : lock.available == .notEnrolled
+                    ? "Set up Face ID, Touch ID or a passcode in Settings first." : "Biometric unlock isn't available on this device.",
+                systemImage: "lock.shield.fill"
+            )
+            if available || lock.enabled {
+                Toggle("", isOn: Binding(get: { lock.enabled }, set: { enabled in
+                    securityBusy = true
+                    Task {
+                        let result = await appLock.setEnabled(enabled)
+                        securityMessage = switch result {
+                        case is BiometricResultSuccess: nil
+                        case is BiometricResultCancelled: enabled ? "\(name) unlock wasn't turned on." : nil
+                        case is BiometricResultLockout: "Too many unsuccessful attempts. Try your device passcode or sign in again."
+                        default: "Biometric unlock isn't available on this device."
+                        }
+                        securityBusy = false
+                    }
+                }))
+                .labelsHidden()
+                .disabled(securityBusy)
+                .accessibilityLabel("\(name) Unlock")
+            }
+        }
+        if lock.enabled {
+            divider
+            StockSettingsRow(title: "Require Unlock After", systemImage: "timer")
+            Picker("Require Unlock After", selection: Binding(get: { lock.timeout }, set: { appLock.setTimeout($0) })) {
+                Text("Every time").tag(AppLockTimeout.immediately)
+                Text("5 min").tag(AppLockTimeout.fiveMinutes)
+                Text("15 min").tag(AppLockTimeout.fifteenMinutes)
+                Text("Never").tag(AppLockTimeout.never)
+            }
+            .pickerStyle(.segmented)
+            .padding(.bottom, CGFloat(space.sm))
+        }
+        if let securityMessage {
+            Text(securityMessage).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary).padding(.bottom, CGFloat(space.sm))
+        }
+        divider
+        StockSettingsRow(title: "Stay Signed In", subtitle: "Your session is restored automatically when you reopen the app.", systemImage: "person.crop.circle.badge.checkmark")
     }
 
     /// Mock vs Real is a development choice: neutral/blue states, never green/red.

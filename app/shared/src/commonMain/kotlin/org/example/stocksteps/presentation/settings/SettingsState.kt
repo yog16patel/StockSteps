@@ -21,7 +21,11 @@ internal data class SettingsUiState(
     val signingOut: Boolean = false,
     val message: String? = null,
     /** Null hides the Development section (no mock backend configured, e.g. release builds). */
-    val backendEnvironment: BackendEnvironment? = null
+    val backendEnvironment: BackendEnvironment? = null,
+    /** Null hides Security & Sign-In (guests, or hosts without an app lock). */
+    val security: org.example.stocksteps.security.AppLockSettings? = null,
+    val securityMessage: String? = null,
+    val securityBusy: Boolean = false
 )
 
 internal sealed interface SettingsAction {
@@ -30,4 +34,6 @@ internal sealed interface SettingsAction {
     data class Open(val link: SettingsLink) : SettingsAction
     data object SignIn : SettingsAction
     data object SignOut : SettingsAction
+    data class SetAppLock(val enabled: Boolean) : SettingsAction
+    data class SetLockTimeout(val timeout: org.example.stocksteps.security.AppLockTimeout) : SettingsAction
 }

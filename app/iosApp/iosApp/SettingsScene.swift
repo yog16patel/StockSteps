@@ -6,6 +6,7 @@ import SwiftUI
 struct SettingsScene: View {
     let model: AccountViewModel
     let onSignIn: () -> Void
+    var appLock: AppLockModel?
     @AppStorage(AppTheme.storageKey) private var themeMode = AppTheme.system
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
     private var version: String? { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String }
@@ -16,7 +17,8 @@ struct SettingsScene: View {
             backendEnvironment: BackendSettings.mockURL == nil ? nil : $backendEnvironment,
             appVersion: version,
             onSignIn: onSignIn,
-            onSignOut: { Task { await model.signOut() } }
+            onSignOut: { Task { await model.signOut() } },
+            appLock: appLock
         )
     }
 }

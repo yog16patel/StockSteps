@@ -22,4 +22,6 @@ interface WatchlistLocalStore {
     suspend fun mergeGuest(owner: String)
     suspend fun applySnapshot(owner: String, items: List<WatchlistItem>)
     suspend fun acknowledge(owner: String, operation: PendingWatchlistOperation)
+    /** Removes an account's local copy and unsent changes (sign-out on a shared device). */
+    suspend fun clearOwner(owner: String) {}
 }

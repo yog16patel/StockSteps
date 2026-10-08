@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var accounts = AccountViewModel()
+    @State private var appLock = AppLockModel()
     @Environment(\.scenePhase) private var scenePhase
     @State private var hasEnteredApp = false
     @AppStorage(AppTheme.storageKey) private var themeMode = AppTheme.system
@@ -16,9 +17,19 @@ struct ContentView: View {
                 ProgressView("Restoring account…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if hasEnteredApp || accounts.state.user != nil {
-                AppScene(baseURL: baseURL, accounts: accounts)
+                AppScene(baseURL: baseURL, accounts: accounts, appLock: appLock)
+                    // While locked, the app stays underneath but is hidden from VoiceOver.
+                    .accessibilityHidden(appLock.locked)
             } else {
                 AuthScene(model: accounts, onDone: { hasEnteredApp = true })
+            }
+        }
+        // Opaque unlock surface; the app-switcher snapshot is covered whenever the app can be locked.
+        .overlay {
+            if appLock.locked {
+                AppUnlockView(lock: appLock, onUseAccountLogin: { Task { await accounts.signOut() } })
+            } else if appLock.protects && scenePhase != .active {
+                PrivacyCover()
             }
         }
         // Shown whenever the backend reports mock data, so samples are never mistaken for prices.
@@ -28,11 +39,22 @@ struct ContentView: View {
         .task(id: backendEnvironment) { sampleData = await BackendInfoService(baseURL: baseURL).isMock() }
         // The root owns the theme; nil (System) keeps following iOS appearance changes.
         .preferredColorScheme(AppTheme.colorScheme(themeMode))
-        .onChange(of: accounts.state.user?.id, initial: true) { _, userID in
+        .onChange(of: accounts.state.user?.id, initial: true) { previous, userID in
             if userID != nil { hasEnteredApp = true }
+            // Signing out (or Firebase ending the session) returns to Login; nothing to go "back" to.
+            if previous != nil && userID == nil { hasEnteredApp = false }
+        }
+        // The lock follows the account once Firebase finished restoring it.
+        .onChange(of: accounts.state.initializing ? "…" : (accounts.state.user?.id ?? ""), initial: true) { _, key in
+            guard key != "…" else { return }
+            appLock.accountChanged(key.isEmpty ? nil : key)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { accounts.retrySync() }
+            switch phase {
+            case .active: accounts.retrySync(); appLock.foreground()
+            case .background: appLock.background()
+            default: break // .inactive (app switcher, Control Center) is not leaving the app
+            }
         }
     }
 }

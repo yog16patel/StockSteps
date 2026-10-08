@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-07 (America/Toronto). Current commit: "Add Valuation screen with monthly historical P/E on Android and iOS" on `main`.
-Previous commit: `b1ed2cb` (Complete Financials screen with mock statement history on Android and iOS).
+Last updated: 2026-10-07 (America/Toronto). Current commit: "Add optional biometric app unlock and full sign-out cleanup" on `main`.
+Previous commit: `4de8848` (Add Valuation screen with monthly historical P/E on Android and iOS).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -17,7 +17,8 @@ pending items as instructions to implement them automatically.
 ### Repository state and immediate scope
 
 - Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
-- Current commit: **Add Valuation screen with monthly historical P/E on Android and iOS**: Valuation screen, `/valuation` endpoint and monthly P/E series (see "Valuation screen" at the end).
+- Current commit: **Add optional biometric app unlock and full sign-out cleanup**: biometric app lock, Security & Sign-In settings, sign-out cache clearing (see "Persistent sign-in and biometric app unlock" at the end).
+- Previous commit `4de8848`, **Add Valuation screen with monthly historical P/E on Android and iOS**: Valuation screen, `/valuation` endpoint and monthly P/E series (see "Valuation screen" at the end).
 - Previous commit `b1ed2cb`, **Complete Financials screen with mock statement history on Android and iOS**: Android + iOS Financials screens, mock statement-history fixtures and tests (see "Financials screen — complete" at the end).
 - Previous commit `c7c8ad6`, **Document mock backend connection setup** (owner).
 - Commit `5be8532`, **Add normalized financial history and shared Financials presenter**: the Financials data layer.
@@ -1675,3 +1676,44 @@ type-check of all iOS sources passes (full xcodebuild not rerun after the Valuat
 changes). Android emulator, Mock mode: MSFT Valuation checked top to bottom (light). Not
 verified: other symbols on device (session stopped mid-check), dark mode on device, iOS
 runtime, REAL mode (statements unavailable on the current FMP plan → annual fallback expected).
+
+### Persistent sign-in and biometric app unlock (2026-10-07, in commit "Add optional biometric app unlock and full sign-out cleanup")
+
+Discovery: native Firebase SDKs behind `PlatformAuthGateway` (Android `AndroidAuthGateway`, iOS Swift
+adapters → `IosAccountClient`), shared `DefaultAuthRepository` with `AuthSession(initializing, user)`.
+Firebase already persists the session (Android encrypted storage / iOS Keychain) and refreshes ID
+tokens itself; startup already waits on `initializing` (no Login flash). The Ktor backend has no
+authenticated routes (public market data only); user data is the Firestore watchlist, protected by
+`firestore.rules` (`request.auth.uid == uid`). No token code was added — none is needed.
+
+- Shared `security/AppLock.kt`: `BiometricAuthenticator` (+ availability/kind/result), per-uid
+  `AppLockPreferences`, `AppLockTimeout` (Every time / 5 min default / 15 min / Never),
+  `AppLockClock` (monotonic + wall; larger elapsed wins, wall clock going back locks),
+  `AppLockManager` (off by default; enabling/disabling require a successful prompt; restored session
+  on process start locks, a fresh sign-in doesn't; background/foreground only from the platform
+  lifecycle; signing out or Firebase ending the session clears that account's lock preferences;
+  removing biometrics keeps the lock with "Use account login" as the fallback).
+- Android: `security/AndroidAppLock.kt` (AndroidX BiometricPrompt 1.1.0 — the only new dependency —
+  strong biometrics or device credential; weak + credential on API 28–29; error mapping incl.
+  lockout), SharedPreferences store, `SystemClock.elapsedRealtime`; `MainActivity` is now a
+  `FragmentActivity`, forwards onStart/onStop (ignoring configuration changes), attaches the prompt
+  host, and hides the recents thumbnail while a lock is active (API 33+).
+- iOS: Kotlin `security/IosAppLock.kt` (LocalAuthentication `deviceOwnerAuthentication` = Face ID /
+  Touch ID + passcode, UserDefaults, systemUptime + wall clock) and Swift `AppLockModel.swift`
+  (model, `AppUnlockView`, `PrivacyCover`); `ContentView` forwards scenePhase (.background/.active
+  only), overlays the unlock view / app-switcher cover, and returns to Login on sign-out;
+  `NSFaceIDUsageDescription` added.
+- Compose: `presentation/security/AppUnlockScreen.kt`; `App` covers the navigation host with it while
+  LOCKED and removes the host from accessibility; `AppNavigation` resets to Login with an empty back
+  stack when the account signs out. Settings gains "Security & Sign-In" (biometric switch only when
+  usable, timeout options, "Stay Signed In" info) on both platforms.
+- Sign-out: `SignOut` now clears the signed-out account's local watchlist copy and pending changes
+  after Firebase sign-out succeeds (new `clearOwner` SQL queries); guest and other accounts and
+  public market caches are untouched.
+- Tests: `AppLockManagerTest` (9), `SignOutTest` (2), `SqlWatchlistStoreTest.clearing…`.
+
+Validation: server 95 (3 skipped), core 78, shared host 44 — all pass; Android assembleDebug and iOS
+xcodebuild BUILD SUCCEEDED. NOT verified on a device: Android BiometricPrompt, Face ID/Touch ID,
+app-switcher cover, lock timing, sign-out flow (no emulator/simulator run in this pass).
+Limitations: sign-out drops unsent watchlist changes for that account (privacy over sync);
+"Never" timeout still allows enabling the lock but never prompts.

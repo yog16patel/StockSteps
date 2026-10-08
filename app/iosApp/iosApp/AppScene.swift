@@ -5,6 +5,7 @@ struct AppScene: View {
     @State private var searchModel: StockSearchViewModel
     @State private var homeModel: HomeViewModel
     let accounts: AccountViewModel
+    var appLock: AppLockModel?
     @State private var showingAuth = false
     @State private var showingSearch = false
     @State private var initialStock: StockSearchResult?
@@ -15,8 +16,9 @@ struct AppScene: View {
 
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
 
-    init(baseURL: @escaping () -> String = { BackendSettings.currentURL }, accounts: AccountViewModel) {
+    init(baseURL: @escaping () -> String = { BackendSettings.currentURL }, accounts: AccountViewModel, appLock: AppLockModel? = nil) {
         self.accounts = accounts
+        self.appLock = appLock
         _searchModel = State(initialValue: StockSearchViewModel(service: StockSearchService(baseURL: baseURL)))
         _homeModel = State(initialValue: HomeViewModel(service: HomeQuoteService(baseURL: baseURL)))
     }
@@ -38,7 +40,7 @@ struct AppScene: View {
                     .tabItem { Label("Learn", systemImage: "book") }
                     .tag(AppRoute.learn)
 
-                SettingsScene(model: accounts, onSignIn: { showingAuth = true })
+                SettingsScene(model: accounts, onSignIn: { showingAuth = true }, appLock: appLock)
                     .tabItem { Label("Settings", systemImage: "gearshape") }
                     .tag(AppRoute.settings)
             }

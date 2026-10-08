@@ -26,7 +26,7 @@ class AccountDependencies(
             single<WatchlistRepository> { OfflineWatchlistRepository(get(), get(), cloudGateway, scope) }
             factory { SignIn(get()) }
             factory { SignUp(get()) }
-            factory { SignOut(get()) }
+            factory { SignOut(get(), get()) }
             factory { AddToWatchlist(get()) }
             factory { RemoveFromWatchlist(get()) }
             factory { AccountViewModel(get(), get(), get(), get()) }

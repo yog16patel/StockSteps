@@ -44,7 +44,8 @@ internal fun AppNavigation(
     accounts: AccountDependencies?,
     backIcon: @Composable () -> Unit,
     themePreferences: org.example.stocksteps.settings.ThemePreferenceStore,
-    appVersion: String?
+    appVersion: String?,
+    appLock: org.example.stocksteps.security.AppLockManager? = null
 ) {
     val session = accounts?.auth?.session?.collectAsStateWithLifecycle()?.value
     if (session?.initializing == true) {
@@ -61,6 +62,19 @@ internal fun AppNavigation(
         if (accounts == null || session?.user != null) DiscoveryRoute else AuthRoute()
     }
     val navController = rememberNavController()
+    // Signing out (or Firebase ending the session) always lands on Login with an empty back stack,
+    // so Back can't reopen screens from the previous account.
+    var previousUser by remember { mutableStateOf(session?.user?.id) }
+    LaunchedEffect(session?.user?.id) {
+        val current = session?.user?.id
+        if (previousUser != null && current == null) {
+            navController.navigate(AuthRoute()) {
+                popUpTo(navController.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+        previousUser = current
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
 
@@ -188,7 +202,8 @@ internal fun AppNavigation(
                     backend = backend,
                     appVersion = appVersion,
                     hinge = hinge,
-                    onSignIn = { navController.navigate(AuthRoute()) }
+                    onSignIn = { navController.navigate(AuthRoute()) },
+                    appLock = appLock
                 )
             }
             composable<AuthRoute> { entry ->

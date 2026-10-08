@@ -48,6 +48,13 @@ internal fun SettingsScreen(state: SettingsUiState, hinge: WindowHinge?, onActio
                         AccountRow(state.account, state.availableLinks, onAction)
                     }
                 }
+                state.security?.let { security ->
+                    item(key = "security") {
+                        SettingsSection(Res.string.settings_section_security, content.padding(top = spacing.xl)) {
+                            SecuritySection(security, state.securityMessage, state.securityBusy, onAction)
+                        }
+                    }
+                }
                 item(key = "appearance") {
                     SettingsSection(Res.string.settings_section_appearance, content.padding(top = spacing.xl)) {
                         StockSettingsRow(
@@ -293,3 +300,56 @@ private fun BackendSourceSetting(environment: BackendEnvironment, onSelect: (Bac
 
 private const val SKELETON_TITLE = 0.4f
 private const val SKELETON_SUBTITLE = 0.6f
+
+
+/** Biometric toggle (system prompt before any change), timeout options, and session information. */
+@Composable
+private fun SecuritySection(
+    security: org.example.stocksteps.security.AppLockSettings,
+    message: String?,
+    busy: Boolean,
+    onAction: (SettingsAction) -> Unit
+) {
+    val spacing = StockStepsTheme.spacing
+    val available = security.available == org.example.stocksteps.security.BiometricAvailability.AVAILABLE
+    val subtitle = when (security.available) {
+        org.example.stocksteps.security.BiometricAvailability.AVAILABLE -> stringResource(Res.string.security_biometric_subtitle)
+        org.example.stocksteps.security.BiometricAvailability.NOT_ENROLLED -> stringResource(Res.string.security_biometric_not_enrolled)
+        org.example.stocksteps.security.BiometricAvailability.UNAVAILABLE -> stringResource(Res.string.security_biometric_unavailable)
+    }
+    StockSettingsRow(
+        title = stringResource(Res.string.security_biometric_title),
+        subtitle = subtitle,
+        icon = StockIcons.Shield,
+        // The switch shows only when it can actually be used (or to turn an existing lock off).
+        trailing = if (available || security.enabled) { {
+            androidx.compose.material3.Switch(
+                checked = security.enabled,
+                onCheckedChange = { onAction(SettingsAction.SetAppLock(it)) },
+                enabled = !busy
+            )
+        } } else null
+    )
+    if (security.enabled) {
+        RowDivider()
+        StockSettingsRow(title = stringResource(Res.string.security_timeout_title), contentPadding = PaddingValues(top = spacing.md, bottom = spacing.xs))
+        StockSegmentedControl(
+            options = listOf(
+                StockSegment(org.example.stocksteps.security.AppLockTimeout.IMMEDIATELY, stringResource(Res.string.security_timeout_immediately)),
+                StockSegment(org.example.stocksteps.security.AppLockTimeout.FIVE_MINUTES, stringResource(Res.string.security_timeout_five)),
+                StockSegment(org.example.stocksteps.security.AppLockTimeout.FIFTEEN_MINUTES, stringResource(Res.string.security_timeout_fifteen)),
+                StockSegment(org.example.stocksteps.security.AppLockTimeout.NEVER, stringResource(Res.string.security_timeout_never))
+            ),
+            selected = security.timeout,
+            onSelect = { onAction(SettingsAction.SetLockTimeout(it)) },
+            modifier = Modifier.padding(bottom = spacing.sm)
+        )
+    }
+    message?.let { Text(it, Modifier.padding(bottom = spacing.sm), style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textSecondary) }
+    RowDivider()
+    StockSettingsRow(
+        title = stringResource(Res.string.security_stay_signed_in),
+        subtitle = stringResource(Res.string.security_stay_signed_in_subtitle),
+        icon = StockIcons.Person
+    )
+}

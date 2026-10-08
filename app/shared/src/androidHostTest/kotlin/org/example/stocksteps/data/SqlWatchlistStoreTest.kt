@@ -31,6 +31,23 @@ class SqlWatchlistStoreTest {
         } finally { driver.close() }
     }
 
+    @Test fun clearingOneAccountLeavesOtherAccountsAndGuestUntouched() = runTest {
+        val driver = database()
+        try {
+            val store = SqlWatchlistStore(driver)
+            val alice = watchlistOwner("alice")
+            val bob = watchlistOwner("bob")
+            store.add(alice, "MSFT", 100, true)
+            store.add(bob, "AAPL", 100, true)
+            store.add(GUEST_OWNER, "TSLA", 100, false)
+            store.clearOwner(alice)
+            assertTrue(store.observe(alice).first().isEmpty())
+            assertTrue(store.observePending(alice).first().isEmpty(), "unsent changes are cleared too")
+            assertEquals(listOf("AAPL"), store.observe(bob).first().map { it.symbol })
+            assertEquals(listOf("TSLA"), store.observe(GUEST_OWNER).first().map { it.symbol })
+        } finally { driver.close() }
+    }
+
     @Test fun versionOneMigrationPreservesExistingRows() = runTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         try {

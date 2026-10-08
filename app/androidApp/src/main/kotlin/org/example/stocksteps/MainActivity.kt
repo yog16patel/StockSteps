@@ -1,5 +1,6 @@
 package org.example.stocksteps
 
+import android.os.Build
 import android.os.Bundle
 import org.example.stocksteps.account.AndroidAccountOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -22,13 +23,16 @@ import androidx.window.layout.WindowInfoTracker
 import androidx.window.layout.FoldingFeature
 import androidx.compose.ui.tooling.preview.Preview
 
-class MainActivity : ComponentActivity() {
+/** FragmentActivity (a ComponentActivity) so AndroidX BiometricPrompt can host the system prompt. */
+class MainActivity : androidx.fragment.app.FragmentActivity() {
     private val themePreferences by lazy { AndroidThemePreferenceStore(applicationContext) }
     private val backendEnvironment by lazy { AndroidBackendEnvironmentStore(applicationContext) }
+    private val appLock by lazy { androidx.lifecycle.ViewModelProvider(this)[org.example.stocksteps.security.AndroidAppLockOwner::class.java] }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        appLock.authenticator.attach(this)
 
         setContent {
             // System bar icons follow the app's chosen theme, not only the OS setting.
@@ -46,6 +50,19 @@ class MainActivity : ComponentActivity() {
             androidx.compose.runtime.DisposableEffect(accountOwner) {
                 accountOwner.google.attach(this@MainActivity)
                 onDispose { accountOwner.google.detach(this@MainActivity) }
+            }
+            // The lock follows the restored/signed-in account (only after Firebase finished restoring).
+            androidx.compose.runtime.LaunchedEffect(accountOwner) {
+                accountOwner.dependencies.auth.session.collect { session ->
+                    if (!session.initializing) appLock.manager.onAccountChanged(session.user?.id)
+                }
+            }
+            // Hide the recents thumbnail while the app can be locked (screenshots stay allowed).
+            val lockState by appLock.manager.state.collectAsState()
+            LaunchedEffect(lockState) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    setRecentsScreenshotEnabled(lockState == org.example.stocksteps.security.AppLockState.NOT_REQUIRED)
+                }
             }
             androidx.compose.runtime.LaunchedEffect(accountOwner) {
                 lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -77,9 +94,27 @@ class MainActivity : ComponentActivity() {
                 backendEndpoints = BuildConfig.BACKEND_URL.takeIf { it.isNotBlank() }?.let { real ->
                     BackendEndpoints(real = real, mock = BuildConfig.MOCK_BACKEND_URL.ifBlank { null })
                 },
-                backendEnvironment = backendEnvironment
+                backendEnvironment = backendEnvironment,
+                appLock = appLock.manager
             )
         }
+    }
+
+    // Single-activity app: the activity's start/stop is the app entering foreground/background.
+    // Rotation (isChangingConfigurations) is not leaving the app.
+    override fun onStart() {
+        super.onStart()
+        appLock.manager.onForeground()
+    }
+
+    override fun onStop() {
+        if (!isChangingConfigurations) appLock.manager.onBackground()
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        appLock.authenticator.detach(this)
+        super.onDestroy()
     }
 }
 

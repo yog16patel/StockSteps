@@ -18,6 +18,8 @@ if (file("google-services.json").exists()) {
 dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    // System biometric / device-credential prompt for the optional app unlock.
+    implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.credentials:credentials:1.5.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
