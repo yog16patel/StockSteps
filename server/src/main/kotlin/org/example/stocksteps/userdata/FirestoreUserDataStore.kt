@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit
  * - `users/{uid}/watchlists/{watchlistId}` — `data`: Watchlist JSON (entries and notes inside).
  * - `users/{uid}/meta/watchlists` — `initialized`: default list / legacy import done.
  * - `users/{uid}/meta/screens` — `data`: JSON list of SavedScreen (filter definitions only).
+ * - `users/{uid}/meta/learning` — `data`: LearningProgressDocument JSON (Guided Research progress).
  * - `users/{uid}/meta/entitlements` — `plan`, `expiresAt`, `data`: StoredEntitlement JSON (billing writes it).
  * - `alertRules/{ruleId}` — `ownerUid`, `status`, `data`: AlertRule JSON.
  * - `alertEvents/{eventId}` — `ownerUid`, `triggeredAt`, `data`: AlertEvent JSON (id = idempotency key).
@@ -44,6 +45,17 @@ class FirestoreUserDataStore(private val db: Firestore) : UserDataStore {
         val serializer = kotlinx.serialization.builtins.ListSerializer(org.example.stocksteps.screener.SavedScreen.serializer())
         db.runTransaction { tx ->
             val current = tx.get(reference).get().getString("data")?.let { decode(serializer, it) }.orEmpty()
+            val (next, result) = block(current)
+            if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next)))
+            result
+        }.await()
+    }
+
+    override suspend fun <T> updateLearning(uid: String, block: (org.example.stocksteps.learning.LearningProgressDocument) -> Pair<org.example.stocksteps.learning.LearningProgressDocument, T>): T = io {
+        val reference = db.collection("users").document(uid).collection("meta").document("learning")
+        val serializer = org.example.stocksteps.learning.LearningProgressDocument.serializer()
+        db.runTransaction { tx ->
+            val current = tx.get(reference).get().getString("data")?.let { decode(serializer, it) } ?: org.example.stocksteps.learning.LearningProgressDocument()
             val (next, result) = block(current)
             if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next)))
             result

@@ -1,12 +1,13 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **Add spacing around Markets research tools** on `main`.
-Small UI follow-up to **Add Earnings Intelligence and earnings calendar on Android and iOS** (`af39fb4`): more spacing above/between the Markets Discover, Compare and Earnings tiles and before the session header, and an icon on the Earnings tile (Android and iOS). Validated with Android compile + installDebug and iOS xcodebuild BUILD SUCCEEDED; no logic changes.
-Includes Earnings Intelligence & Earnings Calendar (next section, `docs/EARNINGS.md`).
+Last updated: 2026-10-08 (America/Toronto). Current commit: **Add Guided Stock Research and beginner learning on Android and iOS** on `main`.
+Includes Guided Stock Research & Interactive Beginner Learning (next section, `docs/GUIDED_RESEARCH.md`).
+Previous commit: **Add spacing around Markets research tools** (`54b5559`), a small UI follow-up to **Add Earnings Intelligence and earnings calendar on Android and iOS** (`af39fb4`): more spacing above/between the Markets Discover, Compare and Earnings tiles and before the session header, and an icon on the Earnings tile (Android and iOS). Validated with Android compile + installDebug and iOS xcodebuild BUILD SUCCEEDED; no logic changes.
+Includes Earnings Intelligence & Earnings Calendar (`docs/EARNINGS.md`).
 Earlier commit: `4c65521` (Add Smart Stock Screener and Stock Comparison on Android and iOS).
-Includes the Smart Stock Screener & Stock Comparison (next section, `docs/SCREENER_AND_COMPARISON.md`).
+Includes the Smart Stock Screener & Stock Comparison (`docs/SCREENER_AND_COMPARISON.md`).
 Previous commit: `bf44bd7` (Add Portfolio Intelligence and advanced performance analytics on Android and iOS).
-Includes Portfolio Intelligence (next section, `docs/PORTFOLIO_INTELLIGENCE.md`) on top of the Portfolio
+Includes Portfolio Intelligence (`docs/PORTFOLIO_INTELLIGENCE.md`) on top of the Portfolio
 tracker (`docs/PORTFOLIO.md`). Previous commit: `187d130` (Add shared portfolio tracker on Android and iOS).
 Previous commit: `e559ffe` (Market and watchlist data updated), including Watchlist & Smart Alerts.
 This file describes the current state, not a request to implement every pending
@@ -14,7 +15,44 @@ item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
 
-## Current milestone — Earnings Intelligence & Earnings Calendar (2026-10-08, commit: “Add Earnings Intelligence and earnings calendar on Android and iOS”)
+## Current milestone — Guided Stock Research & Interactive Beginner Learning (2026-10-08, commit: “Add Guided Stock Research and beginner learning on Android and iOS”)
+
+Read `docs/GUIDED_RESEARCH.md` (steps, data rules, architecture, entry points, persistence, AI
+boundary, MOCK scenarios, tests, limits).
+
+Completed:
+- Core `learning` package: `BeginnerEducation` catalogue (reuses `MetricEducation`), versioned step
+  content and quizzes, deterministic `GuidedResearchEngine` over `CompanyDetails` (operating,
+  financial, fund, unsupported; growth ±1% band; zero-prior and EPS ≤ 0 handling; reliable P/E
+  history only; stale notes), `QuizEngine`, `GuidedResearchRepository` (data loaded once per
+  company), `LearningProgressRepository` (local-first, per env/account cache owner, account sync
+  merged by latest visit, guest never merged, sync-failure flag), `GuidedResearchPresenter`.
+- Server: `UserDataStore.updateLearning` (InMemory, Firestore `users/{uid}/meta/learning`,
+  Unavailable 503), `GET/PUT /api/v1/me/learning`, `POST /api/v1/me/research/{symbol}/ask`
+  (Plus checked before any provider; MOCK `TemplateResearchAi`; REAL 503; daily fair-use limit).
+- Android: `GuidedResearchRoute/Scene/Screen` (overview with "N of 5", unlocked steps, figures,
+  bar visuals with values, meaning, limitation, takeaway, education sheets, quiz, AI card,
+  summary with Review / Add to Watchlist / Company details / Research another / Continue learning),
+  Company Details "Understand This Stock" card, Home Continue learning, Learn hub replacing the
+  placeholder (top bar hidden on Learn; the hub has its own title).
+- iOS: `IosLearningClient` + `GuidedResearchScenes.swift` with the same flows and entry points;
+  the placeholder `LearnScreen.swift` was removed (Learn hub replaces it).
+- Home discovery copy now reads "Research a company in five simple steps."
+- `StockCard` gained an optional `verticalArrangement` (default unchanged); research and Learn cards
+  use `spacing.xs` between lines (quiz question, options, feedback, explanation, figures).
+
+Validation: core JVM 269, core iOS 269, backend 199, shared Android host 55, shared iOS 49 — 0 failures;
+Android assembleDebug and iOS xcodebuild BUILD SUCCEEDED. Local MOCK server restarted from
+`installDist`; `PUT /api/v1/me/learning` round-trips and a free user's ask returns 403 PLUS_REQUIRED.
+
+Limitations / next:
+- Commit and push were requested by the user. No full device UI walkthrough was performed (debug build installed on the emulator);
+  accessibility verified structurally (headings, merged rows, value text beside bars, 48dp targets).
+- System Back exits the guide (in-screen Back moves between steps). One single-choice quiz per step.
+- MOCK ETFs have only price fixtures, so they show as "unsupported" (FUND path covered by tests).
+- REAL AI provider not wired; content English only; no segment revenue.
+
+## Previous milestone — Earnings Intelligence & Earnings Calendar (2026-10-08, commit: “Add Earnings Intelligence and earnings calendar on Android and iOS”)
 
 Read `docs/EARNINGS.md` (architecture, API, calculations, reaction methodology, reminders, tiers,
 AI boundary, capability matrix, MOCK scenarios, tests, limits).

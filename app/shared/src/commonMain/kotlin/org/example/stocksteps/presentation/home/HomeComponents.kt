@@ -26,12 +26,19 @@ import org.jetbrains.compose.resources.stringResource
  * arrow cue. The whole banner is one button; Learn owns the content.
  */
 @Composable
-internal fun HomeLearnCard(onLearn: () -> Unit, modifier: Modifier = Modifier) {
+internal fun HomeLearnCard(
+    onLearn: () -> Unit,
+    modifier: Modifier = Modifier,
+    /** Overrides for "Continue learning" (real saved progress only). */
+    title: String? = null,
+    body: String? = null,
+    actionLabel: String? = null
+) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     val dimensions = StockStepsTheme.dimensions
     val shape = StockStepsTheme.shapes.cardLarge
-    val action = stringResource(Res.string.home_learn_action)
+    val action = actionLabel ?: stringResource(Res.string.home_learn_action)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -49,12 +56,12 @@ internal fun HomeLearnCard(onLearn: () -> Unit, modifier: Modifier = Modifier) {
         )
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
             Text(
-                text = stringResource(Res.string.home_learn_title),
+                text = title ?: stringResource(Res.string.home_learn_title),
                 style = StockStepsTheme.typography.cardTitle.copy(fontWeight = FontWeight.Bold),
                 color = colors.learnAccent
             )
             Text(
-                text = stringResource(Res.string.home_learn_body),
+                text = body ?: stringResource(Res.string.home_learn_body),
                 style = StockStepsTheme.typography.caption,
                 color = colors.textBody
             )

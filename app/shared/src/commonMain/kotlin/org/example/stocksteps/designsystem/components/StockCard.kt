@@ -3,6 +3,7 @@ package org.example.stocksteps.designsystem.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,6 +29,8 @@ internal fun StockCard(
     borderColor: Color = StockStepsTheme.colors.border,
     contentPadding: PaddingValues = PaddingValues(StockStepsTheme.spacing.cardPadding),
     bordered: Boolean = true,
+    /** Gap between children; Top (no gap) keeps existing cards unchanged. */
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val shape = StockStepsTheme.shapes.card
@@ -45,6 +48,7 @@ internal fun StockCard(
                 }
             )
             .padding(contentPadding),
+        verticalArrangement = verticalArrangement,
         content = content
     )
 }

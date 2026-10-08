@@ -538,6 +538,19 @@ dated FX, precision policies, MOCK scenarios, persistence setup and known limits
 Authenticated routes start at `/api/v1/me/portfolio`; REAL requires the existing
 Firebase Admin credentials, while MOCK uses isolated in-memory data.
 
+### Guided Stock Research and Beginner Learning
+
+Company Details → **Understand This Stock**, Home → **Continue learning** and the **Learn** tab open a
+free five-step guide (What does it do? Is it growing? Is it making money? Does it have a lot of
+debt? Is the stock expensive?) built from the same `CompanyDetails` data, with education sheets and
+optional quizzes. No recommendations, scores or predictions. See
+[Guided Research](docs/GUIDED_RESEARCH.md).
+
+- `GET /api/v1/me/learning`, `PUT /api/v1/me/learning` (progress; merged per company, latest visit wins)
+- `POST /api/v1/me/research/{symbol}/ask` (StockSteps+ only; MOCK template answers, REAL 503 until a
+  provider is configured; `RESEARCH_AI_DAILY_LIMIT`, default 20)
+- Signed-out progress stays on the device and is never merged into an account.
+
 ### Earnings Intelligence and Earnings Calendar
 
 Markets → **Earnings Center** (Upcoming, Results, Following) and per-company **Earnings Details**

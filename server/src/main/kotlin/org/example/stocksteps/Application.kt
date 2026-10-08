@@ -16,6 +16,7 @@ import org.example.stocksteps.screener.SavedScreensService
 import org.example.stocksteps.screener.savedScreenRoutes
 import org.example.stocksteps.screener.screenerRoutes
 import org.example.stocksteps.earnings.earningsRoutes
+import org.example.stocksteps.learning.learningRoutes
 import org.example.stocksteps.userdata.ChartBenchmarkHistory
 import org.example.stocksteps.userdata.MockBenchmarkHistory
 import org.example.stocksteps.userdata.PortfolioAnalyticsService
@@ -173,13 +174,21 @@ fun Application.module() {
             clock = sources.marketClock
         ))
         sparklineRoutes(org.example.stocksteps.service.SparklineService(sources.priceHistory))
+        val companyDetails = org.example.stocksteps.service.CompanyDetailsService(
+            stocks = stockService,
+            financials = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider),
+            marketData = sources.marketData,
+            valuation = valuation
+        )
+        // Guided Research: progress sync for signed-in users and the StockSteps+ research assistant.
+        learningRoutes(sources.userAuth, org.example.stocksteps.learning.LearningService(
+            store = userData, entitlements = entitlements, details = companyDetails::getDetails,
+            research = if (dataMode == DataMode.MOCK) org.example.stocksteps.learning.TemplateResearchAi else null,
+            aiDailyLimit = System.getenv("RESEARCH_AI_DAILY_LIMIT")?.toIntOrNull() ?: 20,
+            clock = sources.marketClock
+        ))
         companyDetailsRoutes(
-            details = org.example.stocksteps.service.CompanyDetailsService(
-                stocks = stockService,
-                financials = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider),
-                marketData = sources.marketData,
-                valuation = valuation
-            ),
+            details = companyDetails,
             charts = charts,
             // The Company Details card previews today's computed movement (same pipeline in both modes).
             whyMoving = org.example.stocksteps.service.WhyMovingService { movement.preview(it) }

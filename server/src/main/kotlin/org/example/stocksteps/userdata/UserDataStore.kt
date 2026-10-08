@@ -78,6 +78,9 @@ interface UserDataStore {
 
     /** Saved screener definitions (filters and sort, never results), atomically per user. */
     suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T
+
+    /** Guided Research progress (per company), atomically per user. */
+    suspend fun <T> updateLearning(uid: String, block: (org.example.stocksteps.learning.LearningProgressDocument) -> Pair<org.example.stocksteps.learning.LearningProgressDocument, T>): T
 }
 
 /** What the backend stores per user; [EntitlementService] derives tier and status from it. */
@@ -108,6 +111,13 @@ class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>>
     override suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T = lock.withLock {
         val (next, result) = block(savedScreens[uid].orEmpty())
         savedScreens[uid] = next
+        result
+    }
+
+    private val learning = HashMap<String, org.example.stocksteps.learning.LearningProgressDocument>()
+    override suspend fun <T> updateLearning(uid: String, block: (org.example.stocksteps.learning.LearningProgressDocument) -> Pair<org.example.stocksteps.learning.LearningProgressDocument, T>): T = lock.withLock {
+        val (next, result) = block(learning[uid] ?: org.example.stocksteps.learning.LearningProgressDocument())
+        learning[uid] = next
         result
     }
 
@@ -202,6 +212,7 @@ object UnavailableUserDataStore : UserDataStore {
         throw UserDataException(503, "USER_DATA_UNAVAILABLE", "Watchlists and alerts are temporarily unavailable.")
     override suspend fun <T> updateWatchlists(uid: String, block: (UserWatchlists) -> Pair<UserWatchlists, T>): T = unavailable()
     override suspend fun entitlement(uid: String): StoredEntitlement? = unavailable()
+    override suspend fun <T> updateLearning(uid: String, block: (org.example.stocksteps.learning.LearningProgressDocument) -> Pair<org.example.stocksteps.learning.LearningProgressDocument, T>): T = unavailable()
     override suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T = unavailable()
     override suspend fun setEntitlement(uid: String, value: StoredEntitlement?) = unavailable()
     override suspend fun <T> updateAlerts(uid: String, block: (List<AlertRule>) -> Pair<List<AlertRule>, T>): T = unavailable()

@@ -10,6 +10,10 @@ private let dims = StockStepsTheme.dimensions
 struct HomeLearnBanner: View {
     @Environment(\.colorScheme) private var scheme
     let action: () -> Void
+    /// Overrides for "Continue learning" (real saved progress only).
+    var title = "Learn the Basics"
+    var message = "Research a company in five simple steps."
+    var hint = "Start learning"
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         Button(action: action) {
@@ -19,10 +23,10 @@ struct HomeLearnBanner: View {
                     .frame(width: CGFloat(dims.learnIllustration), height: CGFloat(dims.learnIllustration))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                    Text("Learn the Basics")
+                    Text(title)
                         .font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline).bold())
                         .foregroundStyle(colors.learnAccent)
-                    Text("How the stock market works, step by step.")
+                    Text(message)
                         .font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
                         .foregroundStyle(colors.textBody)
                 }
@@ -44,6 +48,6 @@ struct HomeLearnBanner: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityHint("Start learning")
+        .accessibilityHint(hint)
     }
 }

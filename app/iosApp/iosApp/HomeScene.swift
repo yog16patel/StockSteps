@@ -12,6 +12,8 @@ struct HomeScene: View {
     let onAlerts: (String?) -> Void
     let onExplore: (String) -> Void
     var onEarnings: (String) -> Void = { _ in }
+    var learning: LearningModel? = nil
+    var onResearch: (ResearchTarget) -> Void = { _ in }
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @State private var localHour = Calendar.current.component(.hour, from: Date())
@@ -38,7 +40,9 @@ struct HomeScene: View {
             onRetryAlerts: model.retryAlerts,
             onClearRecent: model.clearRecent,
             showMockPersonas: BackendSettings.mockURL != nil && backendEnvironment == BackendSettings.mock,
-            onPersona: model.persona
+            onPersona: model.persona,
+            research: learning?.latestInProgress,
+            onResearch: onResearch
         )
         .onAppear { model.connect(accounts); model.visible(); updateHour() }
         .onChange(of: scenePhase) { _, phase in

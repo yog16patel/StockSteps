@@ -7,6 +7,8 @@ internal sealed interface CompanyDetailsAction {
     data object AddPortfolio : CompanyDetailsAction
     data object Compare : CompanyDetailsAction
     data object Earnings : CompanyDetailsAction
+    /** "Understand This Stock": the five-step Guided Research for this company. */
+    data object Research : CompanyDetailsAction
     data object ToggleWatchlist : CompanyDetailsAction
     data object RetryCore : CompanyDetailsAction
     data object RetryChart : CompanyDetailsAction

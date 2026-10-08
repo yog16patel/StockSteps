@@ -23,7 +23,8 @@ internal fun HomeScene(
     onPortfolio: () -> Unit,
     onAlerts: (String?) -> Unit,
     onExplore: (String) -> Unit,
-    onEarnings: (String) -> Unit = onExplore
+    onEarnings: (String) -> Unit = onExplore,
+    onResearch: (symbol: String, name: String) -> Unit = { symbol, _ -> onExplore(symbol) }
 ) {
     val model = viewModel(key = "home:$environment") { HomeViewModel(accounts.home) }
     val state by model.state.collectAsStateWithLifecycle()
@@ -35,7 +36,9 @@ internal fun HomeScene(
         onPauseOrDispose { }
     }
     val portfolio by accounts.portfolioPresenter.state.collectAsStateWithLifecycle()
-    HomeScreen(state, hour, hinge, portfolio = portfolio, onPortfolio = onPortfolio, showMockPersonas = environment == BackendEnvironment.MOCK) { action ->
+    val learning by accounts.learning.state.collectAsStateWithLifecycle()
+    HomeScreen(state, hour, hinge, portfolio = portfolio, onPortfolio = onPortfolio, showMockPersonas = environment == BackendEnvironment.MOCK,
+        research = learning.inProgress.firstOrNull()) { action ->
         when (action) {
             HomeAction.Refresh -> model.refresh()
             HomeAction.RetryQuotes -> model.retryQuotes()
@@ -52,6 +55,7 @@ internal fun HomeScene(
             is HomeAction.OpenStockAlerts -> onAlerts(action.symbol)
             is HomeAction.OpenStock -> onExplore(action.symbol)
             is HomeAction.OpenEarnings -> onEarnings(action.symbol)
+            is HomeAction.ContinueResearch -> onResearch(action.symbol, action.name)
             is HomeAction.OpenArticle -> runCatching { uriHandler.openUri(action.url) }
         }
     }

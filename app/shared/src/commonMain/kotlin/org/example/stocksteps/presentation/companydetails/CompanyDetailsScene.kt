@@ -29,7 +29,8 @@ internal fun CompanyDetailsScene(
     onAddPortfolio: (org.example.stocksteps.model.InstrumentRef) -> Unit,
     onOpenMovement: (String) -> Unit,
     onCompare: (symbol: String, name: String) -> Unit = { _, _ -> },
-    onEarnings: (String) -> Unit = {}
+    onEarnings: (String) -> Unit = {},
+    onResearch: (symbol: String, name: String) -> Unit = { _, _ -> }
 ) {
     val model = viewModel(key = "company-details:${route.symbol}:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
@@ -43,12 +44,14 @@ internal fun CompanyDetailsScene(
     val watchlistModel = accounts?.let { owner -> viewModel(key = "stock-watchlist") { owner.stockWatchlistViewModel() } }
     val watchlist by (watchlistModel?.state ?: MutableStateFlow(StockWatchlistState())).collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
+    val learning by (accounts?.learning?.state ?: MutableStateFlow(org.example.stocksteps.learning.LearningProgressRepository.State())).collectAsStateWithLifecycle()
     CompanyDetailsScreen(
         state = state,
         watched = route.symbol in watchlist.symbols,
         watchlistEnabled = watchlist.enabled,
         hinge = hinge,
         backIcon = backIcon,
+        researchCompleted = learning.journey(route.symbol)?.completedCount,
         onAction = { action ->
             when (action) {
                 CompanyDetailsAction.AddPortfolio -> {
@@ -57,6 +60,7 @@ internal fun CompanyDetailsScene(
                 }
                 CompanyDetailsAction.Compare -> state.overview.listing(route.symbol).let { onCompare(it.symbol, it.name) }
                 CompanyDetailsAction.Earnings -> onEarnings(route.symbol)
+                CompanyDetailsAction.Research -> state.overview.listing(route.symbol).let { onResearch(it.symbol, it.name) }
                 CompanyDetailsAction.Back -> onBack()
                 CompanyDetailsAction.ToggleWatchlist -> watchlistModel?.toggle(state.overview.listing(route.symbol))
                 CompanyDetailsAction.RetryCore -> model.loadCore()

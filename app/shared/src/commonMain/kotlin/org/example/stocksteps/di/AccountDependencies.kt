@@ -67,6 +67,7 @@ class AccountDependencies(
             single { org.example.stocksteps.portfolio.analytics.EntitlementsRepository(get(), get(), environment, scope).also { it.start() } }
             single { org.example.stocksteps.portfolio.analytics.PortfolioAnalyticsPresenter(get(), get(), scope) }
             single { org.example.stocksteps.screener.SavedScreensRepository(get(), get(), get(), environment, scope).also { it.start() } }
+            single { org.example.stocksteps.learning.LearningProgressRepository(get(), org.example.stocksteps.learning.RemoteLearningSync(get()), get(), environment, scope).also { it.start() } }
             single { DeviceRegistrar(get(), get(), pushTokens, environment, { installId() }, scope).also { it.start() } }
             // The previous single list now only holds the signed-out guest list on this device.
             single<WatchlistRepository>(org.koin.core.qualifier.named("guest")) { OfflineWatchlistRepository(get(), get(), LocalOnlyWatchlistGateway, scope) }
@@ -92,6 +93,10 @@ class AccountDependencies(
     /** Created on first use (Insights), not at app start. */
     val insightsPresenter: org.example.stocksteps.portfolio.analytics.PortfolioAnalyticsPresenter by lazy { graph.koin.get() }
     val alerts: AlertsRepository = graph.koin.get()
+    /** Guided Research progress: on this device for guests, synced with the account when signed in. */
+    val learning: org.example.stocksteps.learning.LearningProgressRepository = graph.koin.get()
+    /** StockSteps+ research questions (the backend enforces the plan). */
+    val researchAsk: org.example.stocksteps.learning.ResearchAsk = org.example.stocksteps.learning.ResearchAsk { symbol, question -> userApi.askResearch(symbol, question) }
     val watchData: WatchDataRepository = graph.koin.get()
     val devices: DeviceRegistrar = graph.koin.get()
     val environment: StateFlow<String> = environment

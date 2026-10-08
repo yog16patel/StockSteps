@@ -23,6 +23,9 @@ struct HomeScreen: View {
     let onClearRecent: () -> Void
     let showMockPersonas: Bool
     let onPersona: (String?) -> Void
+    /// The most recently visited unfinished Guided Research (saved progress), if any.
+    var research: ResearchProgress? = nil
+    var onResearch: (ResearchTarget) -> Void = { _ in }
     @Environment(\.colorScheme) private var scheme
     private let space = StockStepsTheme.spacing
     private let type = StockStepsTheme.typography
@@ -55,7 +58,15 @@ struct HomeScreen: View {
                     if state.alertsError != nil {
                         StockSectionMessage(message: "Alerts unavailable.", actionTitle: "Try again", action: onRetryAlerts)
                     }
-                    HomeLearnBanner(action: onLearn)
+                    // Continue Learning shows only real saved progress; otherwise a small discovery card.
+                    if let research {
+                        HomeLearnBanner(action: { onResearch(ResearchTarget(symbol: research.symbol, name: research.name)) },
+                                        title: "Continue learning",
+                                        message: "Researching \(research.name) · \(research.completedCount) of 5 steps completed",
+                                        hint: "Continue researching \(research.name)")
+                    } else {
+                        HomeLearnBanner(action: onLearn)
+                    }
                     if let notice = state.newsNotice { caption(notice) }
                     if state.watchlistCount > 0 { news(state) }
                     if !state.recent.isEmpty { recentlyViewed(state) }

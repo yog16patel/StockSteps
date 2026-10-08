@@ -18,12 +18,23 @@ struct CompanyDetailsScene: View {
     @State private var earningsModel: EarningsModel?
     @State private var showEarnings = false
     @State private var portfolioModel = PortfolioViewModel()
+    var learning: LearningModel?
+    var onSearch: () -> Void = {}
+    var onLearn: () -> Void = {}
+    var onUpgrade: () -> Void = {}
+    @State private var research: ResearchTarget?
     @Environment(\.openURL) private var openURL
 
-    init(symbol: String, accounts: AccountViewModel, watchlists: WatchlistsModel? = nil, baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
+    init(symbol: String, accounts: AccountViewModel, watchlists: WatchlistsModel? = nil, learning: LearningModel? = nil,
+         onSearch: @escaping () -> Void = {}, onLearn: @escaping () -> Void = {}, onUpgrade: @escaping () -> Void = {},
+         baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
         self.symbol = symbol
         self.accounts = accounts
         self.watchlists = watchlists
+        self.learning = learning
+        self.onSearch = onSearch
+        self.onLearn = onLearn
+        self.onUpgrade = onUpgrade
         _model = State(initialValue: CompanyDetailsModel(symbol: symbol, baseURL: baseURL))
     }
 
@@ -55,8 +66,17 @@ struct CompanyDetailsScene: View {
             onEarnings: {
                 if earningsModel == nil { earningsModel = EarningsModel(accounts: accounts) }
                 showEarnings = true
-            }
+            },
+            researchCompleted: learning?.completed(symbol),
+            showResearch: learning != nil,
+            onResearch: { research = ResearchTarget(symbol: symbol, name: model.overview.value?.name) }
         )
+        .navigationDestination(item: $research) { target in
+            if let learning {
+                GuidedResearchScene(target: target, learning: learning, accounts: accounts, onCompany: { _ in research = nil },
+                                    onResearchAnother: onSearch, onContinueLearning: onLearn, onUpgrade: onUpgrade)
+            }
+        }
         .navigationDestination(isPresented: $showEarnings) {
             if let earningsModel { EarningsDetailsScene(symbol: symbol, client: earningsModel.client, onCompany: { showEarnings = false }) }
         }

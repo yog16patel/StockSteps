@@ -52,6 +52,8 @@ internal fun CompanyDetailsScreen(
     watchlistEnabled: Boolean,
     hinge: WindowHinge?,
     backIcon: @Composable () -> Unit,
+    /** Saved Guided Research progress for this company; null when never started. */
+    researchCompleted: Int? = null,
     onAction: (CompanyDetailsAction) -> Unit
 ) {
     val spacing = StockStepsTheme.spacing
@@ -104,6 +106,9 @@ internal fun CompanyDetailsScreen(
                         onRetry = { onAction(CompanyDetailsAction.RetryChart) },
                         modifier = content.padding(top = spacing.lg)
                     )
+                }
+                item(key = "research") {
+                    org.example.stocksteps.presentation.research.UnderstandStockCard(researchCompleted, { onAction(CompanyDetailsAction.Research) }, section)
                 }
                 // Hidden while loading and when the backend has no source-backed explanation.
                 when (val why = state.whyMoving) {

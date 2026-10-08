@@ -24,6 +24,8 @@ internal fun HomeScreen(
     showMockPersonas: Boolean = false,
     portfolio: org.example.stocksteps.portfolio.PortfolioUiState? = null,
     onPortfolio: () -> Unit = {},
+    /** The most recently visited unfinished Guided Research (saved progress), if any. */
+    research: org.example.stocksteps.learning.ResearchProgress? = null,
     onAction: (HomeAction) -> Unit
 ) {
     val spacing = StockStepsTheme.spacing
@@ -74,8 +76,14 @@ internal fun HomeScreen(
                             }
                         }
                     }
-                    // Learn is currently a destination, not a progress engine. No fictitious completion.
-                    item("learn") { HomeLearnCard({ onAction(HomeAction.Learn) }, content) }
+                    // Continue Learning shows only real saved progress; otherwise a small discovery card.
+                    item("learn") {
+                        if (research != null) HomeLearnCard({ onAction(HomeAction.ContinueResearch(research.symbol, research.name)) }, content,
+                            title = "Continue learning",
+                            body = "Researching ${research.name} · ${research.completedCount} of ${org.example.stocksteps.learning.ResearchStep.COUNT} steps completed",
+                            actionLabel = "Continue researching ${research.name}")
+                        else HomeLearnCard({ onAction(HomeAction.Learn) }, content)
+                    }
                     if (state.watchlistCount > 0) {
                         item("news") { PersonalHomeNews(state, onAction, content) }
                     }

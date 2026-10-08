@@ -127,7 +127,9 @@ internal fun AppNavigation(
     val isMovement = destination?.hasRoute<StockMovementRoute>() == true
     val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true || destination?.hasRoute<PortfolioInsightsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true ||
-        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCenterRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true
+        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCenterRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true ||
+        destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true
+    val openResearch: (String, String?) -> Unit = { symbol, name -> navController.navigate(org.example.stocksteps.presentation.research.GuidedResearchRoute(symbol, name)) }
     // Every stock tap (Home movers, Watchlist, Search) opens the same Company Details page.
     val addPortfolio: (InstrumentRef) -> Unit = { instrument ->
         navController.navigate(PortfolioEntryRoute(instrument.symbol, instrument.name, instrument.exchange, instrument.currency))
@@ -148,6 +150,7 @@ internal fun AppNavigation(
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true -> "Compare"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCenterRoute>() == true -> "Earnings"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true -> "Earnings details"
+                        destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true -> "Research"
                         destination?.hasRoute<PortfolioRoute>() == true -> "Portfolio"
                         isSearch -> "Search stocks"
                         isCompanyFinancials -> "Financials"
@@ -158,7 +161,7 @@ internal fun AppNavigation(
                         else -> "Home"
                     },
                     // Home, Settings, Company Details and Financials render their own headers.
-                    visible = !isAuth && !isHome && destination?.hasRoute<PortfolioRoute>() != true && !isMarkets && !isWatchlist && !isAlerts && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation && !isNewsInsight && !isMovement,
+                    visible = !isAuth && !isHome && destination?.hasRoute<LearnRoute>() != true && destination?.hasRoute<PortfolioRoute>() != true && !isMarkets && !isWatchlist && !isAlerts && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation && !isNewsInsight && !isMovement,
                     backButton = if (hasBack) AppBarBackButton.BACK else AppBarBackButton.NONE
                 ),
                 onBack = { navController.popBackStack() },
@@ -218,7 +221,8 @@ internal fun AppNavigation(
                     onSettings = { navController.navigate(SettingsRoute) },
                     onAlerts = { symbol -> navController.navigate(AlertsRoute(symbol)) },
                     onExplore = openStock,
-                    onEarnings = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) }
+                    onEarnings = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
+                    onResearch = openResearch
                 )
             }
             composable<PortfolioRoute> {
@@ -327,7 +331,16 @@ internal fun AppNavigation(
                     onSignIn = { navController.navigate(AuthRoute()) }
                 )
             }
-            composable<LearnRoute> { LearnScene(hinge) }
+            composable<LearnRoute> {
+                LearnScene(hinge, accounts, onResearch = openResearch, onSearch = { navController.navigate(StockSearchRoute()) })
+            }
+            composable<org.example.stocksteps.presentation.research.GuidedResearchRoute> { entry ->
+                org.example.stocksteps.presentation.research.GuidedResearchScene(entry.toRoute(), backend, environment, accounts, hinge,
+                    onCompany = openStock,
+                    onSearch = { navController.navigate(StockSearchRoute()) },
+                    onLearn = { openTab(MainDestination.LEARN) },
+                    onUpgrade = { navController.navigate(SettingsRoute) })
+            }
             composable<SettingsRoute> {
                 if (accounts != null) SettingsScene(
                     accounts = accounts,
@@ -379,7 +392,8 @@ internal fun AppNavigation(
                         org.example.stocksteps.screener.SharedComparisonSelection.instance.add(symbol, name)
                         navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute)
                     },
-                    onEarnings = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) }
+                    onEarnings = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
+                    onResearch = openResearch
                 )
             }
             composable<CompanyFinancialsRoute> { entry ->

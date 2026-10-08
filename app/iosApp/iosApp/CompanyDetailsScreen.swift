@@ -19,6 +19,10 @@ struct CompanyDetailsScreen: View {
     var onAddPortfolio: () -> Void = {}
     var onCompare: () -> Void = {}
     var onEarnings: () -> Void = {}
+    /// Saved Guided Research progress for this company; nil when never started.
+    var researchCompleted: Int? = nil
+    var showResearch = false
+    var onResearch: () -> Void = {}
     @State private var education: GlanceMetric?
     @State private var showEvidence = false
     @State private var showSources = false
@@ -39,6 +43,7 @@ struct CompanyDetailsScreen: View {
                     Button("Earnings", systemImage: "calendar", action: onEarnings).buttonStyle(.bordered)
                 }
                 chartSection(colors).padding(.top, CGFloat(space.lg))
+                if showResearch { UnderstandStockCard(completed: researchCompleted, action: onResearch).padding(.top, CGFloat(space.xl)) }
                 switch model.whyMoving {
                 case .content(let why): if let why { whySection(why, colors).padding(.top, CGFloat(space.xl)) }
                 case .unavailable:

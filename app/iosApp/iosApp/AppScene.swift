@@ -23,6 +23,8 @@ struct AppScene: View {
     @State private var earningsModel: EarningsModel
     @State private var showingEarnings = false
     @State private var earningsSymbol: String?
+    @State private var learningModel: LearningModel
+    @State private var researchTarget: ResearchTarget?
 
 
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
@@ -36,6 +38,7 @@ struct AppScene: View {
         _watchlistsModel = State(initialValue: WatchlistsModel(client: accounts.client))
         _screenerModel = State(initialValue: ScreenerModel(accounts: accounts, baseURL: baseURL))
         _earningsModel = State(initialValue: EarningsModel(accounts: accounts, baseURL: baseURL))
+        _learningModel = State(initialValue: LearningModel(accounts: accounts, baseURL: baseURL))
     }
 
     var body: some View {
@@ -53,7 +56,9 @@ struct AppScene: View {
                             onPortfolio: { selectedTab = .portfolio },
                             onAlerts: { alertsTarget = $0 ?? "" },
                             onExplore: explore,
-                            onEarnings: { earningsSymbol = $0 }
+                            onEarnings: { earningsSymbol = $0 },
+                            learning: learningModel,
+                            onResearch: { researchTarget = $0 }
                         )
                     } else {
                         Color.clear
@@ -81,7 +86,7 @@ struct AppScene: View {
                     .tabItem { Label("Watchlist", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 
-                LearnScene()
+                LearnScene(learning: learningModel, onResearch: { researchTarget = $0 }, onSearch: { initialStock = nil; showingSearch = true })
                     .tabItem { Label("Learn", systemImage: "book") }
                     .tag(AppRoute.learn)
 
@@ -91,7 +96,15 @@ struct AppScene: View {
             .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .markets && selectedTab != .watchlist && selectedTab != .portfolio))
             // Every client reads the URL per request; reload Home so its data matches the new backend.
             .navigationDestination(item: $detailsSymbol) { symbol in
-                CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel)
+                CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel, learning: learningModel,
+                                    onSearch: { initialStock = nil; showingSearch = true }, onLearn: { detailsSymbol = nil; selectedTab = .learn },
+                                    onUpgrade: { showingSettings = true })
+            }
+            .navigationDestination(item: $researchTarget) { target in
+                GuidedResearchScene(target: target, learning: learningModel, accounts: accounts, onCompany: explore,
+                                    onResearchAnother: { initialStock = nil; showingSearch = true },
+                                    onContinueLearning: { researchTarget = nil; selectedTab = .learn },
+                                    onUpgrade: { showingSettings = true })
             }
             .navigationDestination(isPresented: $showingEarnings) {
                 EarningsCenterScene(model: earningsModel, onOpen: { earningsSymbol = $0 }, onSignIn: { showingAuth = true })

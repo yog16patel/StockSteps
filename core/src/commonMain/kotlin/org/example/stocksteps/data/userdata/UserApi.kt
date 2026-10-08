@@ -54,6 +54,15 @@ class UserApi(
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return send(HttpMethod.Post, "earnings/${symbol.uppercase()}/ask", org.example.stocksteps.earnings.EarningsQuestion(question))
     }
+    suspend fun learning(expectedOwner: String? = null): org.example.stocksteps.learning.LearningProgressDocument = send(HttpMethod.Get, "learning", expectedOwner = expectedOwner)
+    /** The server merges per company (most recent visit wins) and returns the merged document. */
+    suspend fun saveLearning(document: org.example.stocksteps.learning.LearningProgressDocument, expectedOwner: String? = null): org.example.stocksteps.learning.LearningProgressDocument =
+        send(HttpMethod.Put, "learning", document, expectedOwner = expectedOwner)
+    /** StockSteps+ only; the server refuses (403) before any AI provider is called. */
+    suspend fun askResearch(symbol: String, question: org.example.stocksteps.learning.ResearchQuestion): org.example.stocksteps.learning.ResearchAnswer {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return send(HttpMethod.Post, "research/${symbol.uppercase()}/ask", question)
+    }
     suspend fun saveScreen(request: org.example.stocksteps.screener.SaveScreenRequest): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Post, "screens", request)
     suspend fun updateScreen(id: String, request: org.example.stocksteps.screener.UpdateScreenRequest): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Put, "screens/${id.segment()}", request)
     suspend fun deleteScreen(id: String): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Delete, "screens/${id.segment()}")
