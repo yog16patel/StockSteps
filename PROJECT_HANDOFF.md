@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-07 (America/Toronto). Current commit: "Complete Company Details reference design on Android and iOS" on `main`.
-Previous commit: `af299e9` (Add Company Details page, mock sample data and Home visual refresh).
+Last updated: 2026-10-07 (America/Toronto). Current commit: "Add normalized financial history and shared Financials presenter" on `main`.
+Previous commit: `fc6d43f` (Complete Company Details reference design on Android and iOS).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -17,7 +17,8 @@ pending items as instructions to implement them automatically.
 ### Repository state and immediate scope
 
 - Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
-- Current commit: **Complete Company Details reference design on Android and iOS**: the full reference layout for Company Details on both platforms, iOS Financials/News destinations, mock gap filling and previews (see "Company Details reference-design pass" at the end).
+- Current commit: **Add normalized financial history and shared Financials presenter**: Financials data layer only (statement history in `/fundamentals`, `FinancialMath`, `FinancialStatementsPresenter`, tests); the Financials UI rewrite is still pending (see "Financials screen" at the end).
+- Previous commit `fc6d43f`, **Complete Company Details reference design on Android and iOS**: the full reference layout for Company Details on both platforms, iOS Financials/News destinations, mock gap filling and previews (see "Company Details reference-design pass" at the end).
 - Previous commit `af299e9`, **Add Company Details page, mock sample data and Home visual refresh**. Included the canonical Company Details page
   (backend `/details`, `/chart`, `/why-moving`; Android + SwiftUI), mock tooling (`stopMock`,
   `runMock` from `installDist`, importer path fix, chart capture), fixtures recaptured from the
@@ -1541,3 +1542,35 @@ bottom in light and dark; 1D range and touch scrub verified; backend log confirm
 on open. Not verified: iOS runtime (Xcode 16.2 cannot resolve firebase-ios-sdk 12.19.2), the
 watchlist star tap (it would change the signed-in account's real watchlist), REAL mode for
 this pass. Pending: real why-moving pipeline; analyst/earnings/comparables need a data source.
+
+### Financials screen — data layer done, UI pending (2026-10-07, in commit "Add normalized financial history and shared Financials presenter")
+
+Done: `CompanyFundamentals.history` (`FinancialPeriodStatement`, newest first; FY or Q rows merged
+from income/cash-flow/balance statements by fiscal year+period, capex normalized to positive
+spending, FCF subtracted once, currency-mismatched rows not merged, nulls never zero) built by
+`FmpFundamentalsMapper.history` from rows the loader already fetches (quarterly balance limit
+raised to 8 to match). Shared `FinancialMath` + `FinancialStatementsPresenter` (core/companydetail):
+revenue, profitability, cash flow, financial health, EPS (diluted only), dividends (NO_DIVIDEND vs
+missing), factual summary, detailed table, advanced metrics, range slicing (3Y/5Y/10Y, 4 quarters
+per year), same-quarter-last-year comparisons, no currency mixing. Tests: server
+`FinancialHistoryTest`, core `FinancialStatementsPresenterTest` (pass).
+
+Remaining: Compose screen rewrite of `CompanyFinancialsScene` (frequency + range pills, bar chart
+component with tap-to-inspect, comparison bars, expandable table/advanced, per-section "what/means/
+why"), ViewModel with per-frequency cache + profile header, SwiftUI mirror of
+`CompanyFinancialsScene.swift`, mock history fixtures (MSFT/AAPL/NVDA/TSLA/LONGN/TD CAD Oct FY,
+negative/missing scenarios) + `SampleMarketData` generated history for gap filling, previews,
+emulator check, docs/commit.
+
+### Mock connection diagnosis (2026-10-07, local runtime only)
+
+User reported mock data unreachable after reversing ports 8080 and 8081. Both
+reverse mappings were present on emulator-5554; the real backend listened on 8080,
+but no process listened on 8081. `adb reverse` forwards traffic and does not start
+the backend. Started `./gradlew :server:runMock` (log:
+`/tmp/stocksteps-mock-server.log`). Mock metadata, AAPL quote and AAPL details all
+returned HTTP 200; metadata confirmed `dataMode=mock`. Android must select
+Settings → Development → Backend Data Source → Mock Data. If the local process
+stops or the Mac restarts, start runMock again; repeat reverse mappings after
+emulator/device reconnect. No application code changed; existing in-progress
+Financials changes were preserved. No commit/push or cloud deployment performed.

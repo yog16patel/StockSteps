@@ -80,5 +80,40 @@ data class CompanyFundamentals(
     val valuation: CompanyValuation = CompanyValuation(),
     val datasets: Map<String, FinancialAvailability> = emptyMap(),
     val warnings: List<String> = emptyList(),
-    val retrievedAt: String? = null
+    val retrievedAt: String? = null,
+    /** Reported periods of the requested frequency, newest first; empty when statements are unavailable. */
+    val history: List<FinancialPeriodStatement> = emptyList()
+)
+
+/**
+ * One reported period merged from the income, cash-flow and balance-sheet statements. Amounts are
+ * in [currency] (never converted); null means the provider did not report the value — never zero.
+ * [capitalExpenditure] and [dividendsPaid] are positive spending amounts (provider outflows are
+ * negative); [freeCashFlow] = operating cash flow − capital expenditure unless reported directly.
+ */
+@Serializable
+data class FinancialPeriodStatement(
+    /** "FY" for a fiscal year, "Q1"…"Q4" for a fiscal quarter. */
+    val period: String,
+    val fiscalYear: Int? = null,
+    /** Period end date (fiscal calendars differ; not always December 31). */
+    val date: String? = null,
+    val currency: String? = null,
+    val revenue: Double? = null,
+    val grossProfit: Double? = null,
+    val operatingIncome: Double? = null,
+    val netIncome: Double? = null,
+    /** Diluted EPS only, so the series never mixes basic and diluted values. */
+    val epsDiluted: Double? = null,
+    val operatingCashFlow: Double? = null,
+    val capitalExpenditure: Double? = null,
+    val freeCashFlow: Double? = null,
+    val dividendsPaid: Double? = null,
+    val cash: Double? = null,
+    val totalDebt: Double? = null,
+    val totalAssets: Double? = null,
+    val totalLiabilities: Double? = null,
+    val equity: Double? = null,
+    val currentAssets: Double? = null,
+    val currentLiabilities: Double? = null
 )

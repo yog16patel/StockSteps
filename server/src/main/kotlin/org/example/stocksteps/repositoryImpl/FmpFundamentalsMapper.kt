@@ -231,7 +231,60 @@ internal object FmpFundamentalsMapper {
             CompanyFinancials(growth, profitability, health, cashFlow, shareholder),
             CompanyValuation(valuation, historic),
             warnings = listOf("Amounts use their reported currency and dates. Statement values and TTM ratios may cover different periods.",
-                "Debt and free cash flow need different interpretation for banks. P/E is less informative for REITs; FFO/AFFO is not supplied.")
+                "Debt and free cash flow need different interpretation for banks. P/E is less informative for REITs; FFO/AFFO is not supplied."),
+            history = history(period, income, balance, cash, today)
         )
+    }
+
+    /**
+     * Merges the three statements into one row per reported period of the requested frequency,
+     * newest first. Rows join on fiscal year + period, falling back to the period end date, so
+     * companies with non-December fiscal years line up correctly. Nothing is annualized or summed.
+     */
+    fun history(
+        period: String,
+        income: List<FmpIncomeStatement>,
+        balance: List<FmpBalanceSheetStatement>,
+        cash: List<FmpCashFlowStatement>,
+        today: LocalDate
+    ): List<FinancialPeriodStatement> {
+        val wanted = if (period == "annual") setOf("FY") else setOf("Q1", "Q2", "Q3", "Q4")
+        fun usable(date: String?, kind: String?) = date != null && date <= today.toString() && kind in wanted
+        fun key(year: String?, kind: String?, date: String?) = year?.toIntOrNull()?.let { "$it-$kind" } ?: "date-$date"
+        val sheets = balance.filter { usable(it.date, it.period) }.associateBy { key(it.fiscalYear, it.period, it.date) }
+        val sheetsByDate = balance.filter { usable(it.date, it.period) }.associateBy { it.date }
+        val flows = cash.filter { usable(it.date, it.period) }.associateBy { key(it.fiscalYear, it.period, it.date) }
+        val flowsByDate = cash.filter { usable(it.date, it.period) }.associateBy { it.date }
+        return income.filter { usable(it.date, it.period) }
+            .sortedWith(compareByDescending<FmpIncomeStatement> { it.date }.thenByDescending { it.acceptedDate })
+            .distinctBy { key(it.fiscalYear, it.period, it.date) }
+            .map { row ->
+                val id = key(row.fiscalYear, row.period, row.date)
+                val sheet = (sheets[id] ?: sheetsByDate[row.date])?.takeIf { it.reportedCurrency == null || it.reportedCurrency == row.reportedCurrency }
+                val flow = (flows[id] ?: flowsByDate[row.date])?.takeIf { it.reportedCurrency == null || it.reportedCurrency == row.reportedCurrency }
+                val operating = Calc.finite(flow?.operatingCashFlow ?: flow?.netCashProvidedByOperatingActivities)
+                FinancialPeriodStatement(
+                    period = row.period.orEmpty(),
+                    fiscalYear = row.fiscalYear?.toIntOrNull(),
+                    date = row.date,
+                    currency = row.reportedCurrency,
+                    revenue = Calc.finite(row.revenue),
+                    grossProfit = Calc.finite(row.grossProfit),
+                    operatingIncome = Calc.finite(row.operatingIncome),
+                    netIncome = Calc.finite(row.netIncome),
+                    epsDiluted = Calc.finite(row.epsDiluted),
+                    operatingCashFlow = operating,
+                    capitalExpenditure = Calc.capexSpending(flow?.capitalExpenditure),
+                    freeCashFlow = flow?.let { Calc.freeCashFlow(it.freeCashFlow, operating, it.capitalExpenditure) },
+                    dividendsPaid = Calc.finite(flow?.commonDividendsPaid)?.takeIf { it <= 0 }?.let { -it },
+                    cash = Calc.finite(sheet?.cashAndCashEquivalents),
+                    totalDebt = Calc.finite(sheet?.totalDebt),
+                    totalAssets = Calc.finite(sheet?.totalAssets),
+                    totalLiabilities = Calc.finite(sheet?.totalLiabilities),
+                    equity = Calc.finite(sheet?.totalStockholdersEquity),
+                    currentAssets = Calc.finite(sheet?.totalCurrentAssets),
+                    currentLiabilities = Calc.finite(sheet?.totalCurrentLiabilities)
+                )
+            }
     }
 }

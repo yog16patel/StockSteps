@@ -64,7 +64,8 @@ internal class FmpFundamentalsLoader(
     suspend fun load(symbol: String, period: String, quote: suspend () -> Pair<StockQuote?, CompanyProfile?>): CompanyFundamentals = supervisorScope {
         val annual = async { dataset<FmpIncomeStatement>("income-statement", symbol, "annual") }
         val income = if (period == "annual") annual else async { dataset<FmpIncomeStatement>("income-statement", symbol, "quarter", 8) }
-        val balance = async { dataset<FmpBalanceSheetStatement>("balance-sheet-statement", symbol, period) }
+        // Same depth as income/cash flow so every history row can carry its balance sheet.
+        val balance = async { dataset<FmpBalanceSheetStatement>("balance-sheet-statement", symbol, period, if (period == "quarter") 8 else 6) }
         val cash = async { dataset<FmpCashFlowStatement>("cash-flow-statement", symbol, period, if (period == "quarter") 8 else 6) }
         val ratios = async { dataset<FmpRatiosTtm>("ratios-ttm", symbol, ttl = FinancialCachePolicy.RATIOS) }
         val keys = async { dataset<FmpKeyMetricsTtm>("key-metrics-ttm", symbol, ttl = FinancialCachePolicy.RATIOS) }
