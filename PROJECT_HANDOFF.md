@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-07 (America/Toronto). Current commit: "Add normalized financial history and shared Financials presenter" on `main`.
-Previous commit: `fc6d43f` (Complete Company Details reference design on Android and iOS).
+Last updated: 2026-10-07 (America/Toronto). Current commit: "Document mock backend connection setup" on `main`.
+Previous commit: `5be8532` (Add normalized financial history and shared Financials presenter).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -1573,4 +1573,23 @@ returned HTTP 200; metadata confirmed `dataMode=mock`. Android must select
 Settings → Development → Backend Data Source → Mock Data. If the local process
 stops or the Mac restarts, start runMock again; repeat reverse mappings after
 emulator/device reconnect. No application code changed; existing in-progress
-Financials changes were preserved. No commit/push or cloud deployment performed.
+Financials changes were preserved. This diagnosis is recorded in the current
+user-requested documentation commit; no cloud deployment performed.
+
+### Commit: Document mock backend connection setup (2026-10-07)
+
+The financial history foundation and shared presenter were committed separately
+as `5be8532` while this commit was being prepared. That commit is preserved.
+This follow-up records the local mock connection diagnosis and includes the
+Xcode workspace file's trailing-newline formatting change. The user authorized
+commit and push; this does not authorize future commits or deployments.
+
+Validation: `./gradlew :core:jvmTest :server:test` completed successfully using
+up-to-date results for unchanged test tasks. Mock metadata, AAPL quote and details
+returned HTTP 200 locally; an Android emulator request through reverse forwarding
+also returned HTTP 200 with `dataMode=mock`. Staged whitespace checks passed.
+No application code changed in this follow-up. Current local tooling also reports
+an unaccepted Xcode license; iOS builds were not rerun or claimed verified.
+The pending Financials UI, mock-history fixtures and acceptance work listed above
+remain pending. Run the local mock server again if its process stops; reverse
+forwarding alone does not start a server.
