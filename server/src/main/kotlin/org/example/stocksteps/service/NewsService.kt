@@ -22,11 +22,11 @@ class NewsService(
 ) {
     suspend fun getCompanyNews(symbol: String): List<NewsArticle> = getCompanyNews(symbol, category = null, page = 0, limit = MAX_LIMIT)
 
-    suspend fun getCompanyNews(symbol: String, category: NewsCategory?, page: Int, limit: Int): List<NewsArticle> {
+    suspend fun getCompanyNews(symbol: String, category: NewsCategory?, page: Int, limit: Int, enrich: Boolean = true): List<NewsArticle> {
         val page = companyFeed(symbol)
             .filter { category == null || it.category == category }
             .drop(page * limit).take(limit)
-        return simplification?.enrich(page) ?: page
+        return if (enrich) simplification?.enrich(page) ?: page else page
     }
 
     /** The normalized, cached feed (no AI enrichment), used to look up articles by id. */

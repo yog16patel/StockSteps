@@ -1,0 +1,81 @@
+{
+  "id": "upcoming-earnings",
+  "date": "2026-10-08",
+  "now": 1791471600000,
+  "instruments": [
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "symbol": "MSFT",
+      "name": "Microsoft Corporation",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "symbol": "NVDA",
+      "name": "NVIDIA Corporation",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    }
+  ],
+  "quotes": [
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "price": 250.15,
+      "changePercent": 1.2,
+      "currency": "USD",
+      "asOf": "2026-10-08T15:00:00Z",
+      "sessionDate": "2026-10-08"
+    },
+    {
+      "symbol": "MSFT",
+      "name": "Microsoft Corporation",
+      "price": 514.3,
+      "changePercent": -3.4,
+      "currency": "USD",
+      "asOf": "2026-10-08T15:00:00Z",
+      "sessionDate": "2026-10-08"
+    },
+    {
+      "symbol": "NVDA",
+      "name": "NVIDIA Corporation",
+      "price": 187.6,
+      "changePercent": 4.8,
+      "currency": "USD",
+      "asOf": "2026-10-08T15:00:00Z",
+      "sessionDate": "2026-10-08"
+    }
+  ],
+  "news": {
+    "AAPL": [
+      {
+        "title": "Apple announces a sample product update",
+        "url": "https://example.com/apple-sample",
+        "symbol": "AAPL",
+        "source": "Sample Wire",
+        "publishedAt": "2026-10-08T14:30:00Z",
+        "description": "This development fixture describes a fictional update for dashboard testing."
+      }
+    ]
+  },
+  "earnings": [
+    {
+      "symbol": "AAPL",
+      "date": "2026-10-09",
+      "time": "AFTER_CLOSE",
+      "status": "ESTIMATED",
+      "source": "Sample calendar"
+    },
+    {
+      "symbol": "MSFT",
+      "date": "2026-10-12",
+      "status": "CONFIRMED",
+      "source": "Sample confirmed calendar"
+    }
+  ]
+}

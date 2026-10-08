@@ -45,7 +45,10 @@ struct CompanyDetailsScene: View {
         .navigationDestination(isPresented: $showNews) { CompanyNewsScene(symbol: symbol, client: model.client) }
         .navigationDestination(isPresented: $showValuation) { CompanyValuationScene(symbol: symbol, client: model.client) }
         .navigationDestination(isPresented: $showMovement) { StockMovementScene(symbol: symbol, client: model.client) }
-        .task { if model.overview.value == nil { model.load() } }
+        .task {
+            accounts.client?.recordViewedCompany(symbol: symbol)
+            if model.overview.value == nil { model.load() }
+        }
         .sheet(isPresented: $choosingList) {
             WatchlistChooser(symbol: symbol, lists: watchlists?.watchlists ?? []) { list in
                 choosingList = false

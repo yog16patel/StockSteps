@@ -117,6 +117,7 @@ class MockModeTest {
             val text = file.readText()
             runCatching {
                 when {
+                    path.startsWith("home/") -> json.decodeFromString(org.example.stocksteps.home.HomePersonaFixture.serializer(), text)
                     path == "manifest.json" -> Unit
                     path == "market/snapshot.json" -> json.decodeFromString(MarketSnapshot.serializer(), text)
                     path == "market/indices.json" -> json.decodeFromString(ListSerializer(IndexFixture.serializer()), text)

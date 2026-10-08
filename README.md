@@ -511,3 +511,20 @@ Shared top app bar configuration: [docs/TOP_APP_BAR.md](docs/TOP_APP_BAR.md).
 Company detail UI, data mapping and pending financial integrations: [COMPANY_DETAIL.md](docs/COMPANY_DETAIL.md).
 
 Company fundamentals: `GET /api/v1/stocks/{symbol}/fundamentals?period=annual` (or `quarter`) supplies Financials and Valuation with reporting dates and partial availability. See [Company Detail](docs/COMPANY_DETAIL.md) for provider mappings and calculation limits.
+
+
+### Personalized Home dashboard
+
+Home now shows saved-company highlights, a deterministic Daily Brief, earnings and
+alerts, relevant company news, and recently viewed companies. General market indices
+and movers remain in Markets. Portfolio and lesson progress are omitted until those
+features have functional data sources.
+
+For development, start the mock backend (`./gradlew :server:runMock`), choose Mock in
+Settings, and select a **Sample scenario** on Home. Ten read-only personas cover
+empty, populated, earnings, alerts, stale and partial-failure states. They never
+modify saved lists or call production providers/AI. The persona route exists only
+in MOCK. Home requests company news with `enrich=false`, avoiding automatic AI work.
+
+See [Personalized Home implementation report](docs/PERSONALIZED_HOME.md) for rules,
+architecture, privacy, endpoints, complete verification and remaining work.

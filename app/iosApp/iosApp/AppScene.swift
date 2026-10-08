@@ -24,7 +24,7 @@ struct AppScene: View {
         self.accounts = accounts
         self.appLock = appLock
         _searchModel = State(initialValue: StockSearchViewModel(service: StockSearchService(baseURL: baseURL)))
-        _homeModel = State(initialValue: HomeViewModel(service: HomeQuoteService(baseURL: baseURL)))
+        _homeModel = State(initialValue: HomeViewModel())
         _marketsModel = State(initialValue: MarketsModel(baseURL: baseURL))
         _watchlistsModel = State(initialValue: WatchlistsModel(client: accounts.client))
     }
@@ -32,8 +32,21 @@ struct AppScene: View {
     var body: some View {
         NavigationStack {
             TabView(selection: $selectedTab) {
-                HomeScene(model: homeModel, accounts: accounts, onLearn: { selectedTab = .learn }) { symbol in
-                    detailsSymbol = symbol
+                Group {
+                    if appLock?.locked != true {
+                        HomeScene(
+                            model: homeModel,
+                            accounts: accounts,
+                            onLearn: { selectedTab = .learn },
+                            onSearch: { initialStock = nil; showingSearch = true },
+                            onWatchlist: { selectedTab = .watchlist },
+                            onSettings: { selectedTab = .settings },
+                            onAlerts: { alertsTarget = $0 ?? "" },
+                            onExplore: explore
+                        )
+                    } else {
+                        Color.clear
+                    }
                 }
                 .tabItem { Label("Home", systemImage: "house") }
                 .tag(AppRoute.home)
@@ -70,8 +83,6 @@ struct AppScene: View {
                 if let symbol = note.object as? String { alertsTarget = symbol }
             }
             .onChange(of: backendEnvironment) { _, _ in
-                homeModel.refreshIndices()
-                homeModel.refreshNews()
                 marketsModel.reset()
                 // Watchlists, notes, alerts and the push registration follow the selected backend.
                 accounts.client?.setEnvironment(environment: BackendSettings.environment)

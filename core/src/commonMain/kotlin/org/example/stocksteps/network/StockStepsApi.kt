@@ -88,14 +88,20 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
         return request { url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/news") }
     }
 
+    suspend fun getHomePersona(id: String): org.example.stocksteps.home.HomePersonaFixture {
+        require(Regex("[a-z-]{1,40}").matches(id))
+        return request { url("$baseUrl/api/v1/home/personas/$id") }
+    }
+
     /** One company's normalized feed; filters and pages are sliced from the backend's cached copy. */
-    suspend fun getCompanyNews(symbol: String, category: NewsCategory?, page: Int = 0, limit: Int = 50): List<NewsArticle> {
+    suspend fun getCompanyNews(symbol: String, category: NewsCategory?, page: Int = 0, limit: Int = 50, enrich: Boolean = true): List<NewsArticle> {
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return request {
             url("$baseUrl/api/v1/stocks/${symbol.uppercase()}/news")
             category?.let { parameter("category", it.name) }
             parameter("page", page)
             parameter("limit", limit)
+            if (!enrich) parameter("enrich", "false")
         }
     }
 

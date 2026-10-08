@@ -1,15 +1,20 @@
 package org.example.stocksteps.presentation.home
 
-import org.example.stocksteps.home.MoverCategory
-
-/** User intents from the stateless Home screen; HomeScene routes them to the model or navigation. */
+/** Navigation and section intents; the Screen never resolves dependencies. */
 internal sealed interface HomeAction {
-    data object RetryMarket : HomeAction
+    data object Refresh : HomeAction
+    data object RetryQuotes : HomeAction
     data object RetryNews : HomeAction
+    data object RetryWatchlists : HomeAction
+    data object RetryAlerts : HomeAction
     data object Learn : HomeAction
-    data object ViewAllMovers : HomeAction
-    data object ViewAllNews : HomeAction
-    data class SelectMovers(val category: MoverCategory) : HomeAction
+    data object Search : HomeAction
+    data object Watchlist : HomeAction
+    data object Alerts : HomeAction
+    data object Settings : HomeAction
+    data object ClearRecent : HomeAction
+    data class Persona(val id: String?) : HomeAction
     data class OpenStock(val symbol: String) : HomeAction
     data class OpenArticle(val url: String) : HomeAction
+    data class OpenStockAlerts(val symbol: String) : HomeAction
 }

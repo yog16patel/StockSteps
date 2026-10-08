@@ -65,6 +65,7 @@ fun Application.module() {
             call.respondText("StockSteps API is running")
         }
         get("/api/v1/meta") { call.respond(BackendInfo(dataMode.name.lowercase(Locale.ROOT))) }
+        if (dataMode == DataMode.MOCK) homePersonaRoutes()
     }
 
     // Search stays with the stock provider; quotes can be selected independently.
@@ -203,7 +204,8 @@ fun Route.newsRoutes(newsService: NewsService) {
                 "Category must be ALL, EARNINGS, PRODUCTS, BUSINESS, REGULATION, ANALYST or OTHER; page 0–20; limit 1–${NewsService.MAX_LIMIT}."))
             return@get
         }
-        call.respond(newsService.getCompanyNews(symbol, category, page, limit))
+        // Home reads cached provider facts without invoking AI simplification.
+        call.respond(newsService.getCompanyNews(symbol, category, page, limit, enrich = query["enrich"] != "false"))
     }
     get("/api/v1/news") {
         val pageValue = call.request.queryParameters["page"]

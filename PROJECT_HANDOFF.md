@@ -1,8 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Uncommitted local work on top of the current commit:
-Watchlist & Smart Alerts (see the last section). Current commit: "Add Markets dashboard with indices, movers, sectors and market session on Android and iOS" on `main`.
-Previous commit: `4ddcd10` (Add Company News, article explanations and Why Did It Move on Android and iOS).
+Last updated: 2026-10-08 (America/Toronto). Current commit: **Add personalized Home dashboard on Android and iOS** on `main`.
+Includes shared personalization, native screens, isolated recent history, mock personas and validation (see the final section and `docs/PERSONALIZED_HOME.md`).
+Previous commit: `e559ffe` (Market and watchlist data updated), including Watchlist & Smart Alerts.
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -18,7 +18,7 @@ pending items as instructions to implement them automatically.
 ### Repository state and immediate scope
 
 - Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
-- Current commit: **Add Markets dashboard with indices, movers, sectors and market session on Android and iOS**: Markets tab on backend, Android and iOS (see the last section).
+- Current commit: **Add personalized Home dashboard on Android and iOS**: personalized Home, shared rules/state, mock scenarios and documentation. Previous `e559ffe`, **Market and watchlist data updated**, includes Watchlist & Smart Alerts.
 - Previous commit `4ddcd10`, **Add Company News, article explanations and Why Did It Move on Android and iOS**: Company News, on-demand article explanations and Why Did It Move? on
   backend, Android and iOS (see the last section).
 - Previous commit `0d17770`, **Add optional biometric app unlock and full sign-out cleanup**: biometric app lock, Security & Sign-In settings, sign-out cache clearing (see "Persistent sign-in and biometric app unlock" at the end).
@@ -1814,7 +1814,7 @@ xcodebuild BUILD SUCCEEDED; a temporary MOCK server (port 8094) served the overv
 symbols ^GSPC/^IXIC/^DJI/^GSPTSE and ETF quotes on the current plan are unverified — proxies and
 unavailable states cover failures), unscheduled market closures.
 
-### Watchlist & Smart Alerts (2026-10-08, uncommitted local work)
+### Watchlist & Smart Alerts (2026-10-08, included in “Market and watchlist data updated”)
 
 Owner decisions: the backend owns signed-in watchlists, notes, alerts and push devices (Firestore in
 REAL, memory in MOCK); guests keep the on-device single list, imported once into "My Stocks" at
@@ -1867,3 +1867,81 @@ covered by iOS `AccountDependenciesTest`, which builds the whole account graph);
 Google Application Default Credentials no longer crashes at startup — it logs a warning and
 `UnavailableUserDataStore` answers user-data and evaluator requests with 503 USER_DATA_UNAVAILABLE
 (local REAL watchlists need `gcloud auth application-default login` with Firestore access).
+
+
+### Personalized Home dashboard (2026-10-08, commit: “Add personalized Home dashboard on Android and iOS”)
+
+Read `docs/PERSONALIZED_HOME.md` for the complete 22-part implementation report,
+file inventory, API behavior, mock personas, verification and remaining limitations.
+Included in **Add personalized Home dashboard on Android and iOS**, with this handoff
+and implementation report. Previous base: **Market and watchlist data updated** (`e559ffe`).
+
+Completed:
+- Home now serves personal watchlists, verified Daily Brief facts, upcoming earnings /
+  recent triggered alerts, company-only news, Learn Basics, and recently viewed.
+  Removed indices, top movers, general market news and their extra fetches from Home;
+  Markets retains market discovery. Retired unused legacy Home market UI on both platforms.
+- Added shared `PersonalDashboardStore` in the Koin account graph and deterministic
+  `PersonalDashboardRules` / replaceable `DailyBriefPolicy` in core. Compose and native
+  SwiftUI read the same immutable state. Scene/ViewModel/navigation and Screen/callback
+  separation is preserved; app entry files remain light.
+- Watchlist highlights use all lists, exact listing symbols, stable saved order with
+  fresh significant moves (default 3%) first, maximum three, explicit currency,
+  missing-as-unavailable and saved/stale labels. Never calculate portfolio returns
+  from a watchlist. Quotes/earnings reuse `/api/v1/stocks/watch-data` batching/cache.
+- Company news uses existing cached feeds with `enrich=false`. This parameter bypasses
+  AI enrichment and AI cache/queue access on Home; existing API consumers default to
+  their previous enrichment behavior. Maximum three relevant, deduplicated stories;
+  original article navigation works, no unrelated market-feed fallback.
+- Header Search → Search, bell → Alerts, profile → Settings; View all → Watchlist;
+  facts/stock/recent rows → Company Details; triggered alerts → filtered Alerts;
+  Learn Basics → existing Learn; news → original source.
+- Recently viewed records actual Company Details opens on both platforms and persists
+  four unique listings in existing UserDataCache per account/environment. Existing
+  sign-out clears history/news caches for every environment. Account/backend changes
+  reset and cancel work; Home is not rendered while the biometric lock is active.
+  Root Firebase restoration and watchlist-loading states prevent onboarding flashes.
+- Section-level loading/error/retry, quote/user-data freshness on re-entry, 10-minute
+  local news cache, bounded company-news concurrency (three), no polling or automatic AI.
+- Added ten read-only mock persona JSON fixtures and MOCK-only
+  `/api/v1/home/personas/{id}` with a development Home selector. REAL does not register
+  the route; preview selection never seeds saved lists, sends push or records history.
+  Portfolio/learning scenarios explicitly state their unsupported capabilities.
+- Existing native alert test now waits for loaded account data before submitting.
+  A later native regression run crashed in a watchlist test using concurrent mutable
+  collections: InMemoryUserDataCache now serializes read/write/clear with a Mutex,
+  test request recording uses atomic StateFlow updates, and tests wait for completed
+  UI state rather than treating request submission as completion.
+
+Validation:
+- Core JVM 125 tests; core iOS simulator 125; shared Android 55; shared iOS 49;
+  backend 140 (three existing skipped): all executed tests pass.
+- Android assembleDebug and full native Xcode 27.0 simulator build pass. Latest logs:
+  `/tmp/stocksteps-home-final-tests.log`, `/tmp/stocksteps-home-xcode-final.log`.
+- Backend tests cover all ten scenarios and prove Home news never invokes AI enrichment.
+  Dashboard tests cover order, null/stale values, deterministic facts, news relevance /
+  deduplication, earnings/alerts, account/environment isolation/cancellation, sign-out,
+  history, batching, metadata-only updates, TTL/retry and independent section failure.
+- Installed Android debug APK and inspected populated mock Home, dark theme, including
+  a narrow 960px screen and font scale 1.3. Original 1280×2856 / font scale 1.0 restored.
+- Local verification server runs MOCK on 8094; emulator mock reverse mapping currently
+  points 8081 → 8094, leaving the user's existing 8081 server intact. Restore with
+  `adb reverse tcp:8081 tcp:8081` when returning to that process. That older process
+  must be rebuilt/restarted to expose new persona routes. No REAL provider/Firestore
+  access was used. App process restart was needed after changing reverse mapping
+  because its old HTTP connection still reached the earlier mock server.
+
+Limitations / next pending items:
+- No working portfolio engine exists: Home intentionally omits portfolio/setup/performance
+  rather than inventing holdings or building a parallel engine.
+- Learn is still its existing placeholder; no progress source exists. Implement the real
+  learning feature before adding Continue Learning, progress or streaks.
+- Live REAL account/Firestore/FCM/APNs/provider checks were not run. Existing server ADC
+  and API configuration requirements remain. Firebase Auth was not replaced by offline
+  mock login; mock user-data reads remain isolated from production Firestore.
+- Native iOS visual/device/VoiceOver/Dynamic Type and Android TalkBack/light/fold posture
+  coverage remain manual follow-ups. No unread alert contract exists, so no fake badge.
+- Company feeds still require one HTTP request per watched symbol (bounded concurrency);
+  measure large-list demand before adding a server-side batch aggregator.
+- This milestone is committed as **Add personalized Home dashboard on Android and iOS**.
+  Keep updating this handoff in every subsequent commit, including validation and limitations.

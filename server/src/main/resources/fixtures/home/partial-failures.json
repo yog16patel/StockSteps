@@ -1,0 +1,29 @@
+{
+  "id": "partial-failures",
+  "date": "2026-10-08",
+  "now": 1791471600000,
+  "instruments": [
+    {
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "symbol": "MSFT",
+      "name": "Microsoft Corporation",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    },
+    {
+      "symbol": "NVDA",
+      "name": "NVIDIA Corporation",
+      "exchange": "NASDAQ",
+      "currency": "USD"
+    }
+  ],
+  "quotes": [],
+  "news": {},
+  "quotesFailed": true,
+  "newsFailed": true
+}

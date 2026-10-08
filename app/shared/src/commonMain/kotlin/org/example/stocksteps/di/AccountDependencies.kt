@@ -46,6 +46,14 @@ class AccountDependencies(
             single { UserWatchlistsRepository(get(), get(), get(), environment, scope).also { it.start() } }
             single { AlertsRepository(get(), get(), get(), environment, scope).also { it.start() } }
             single { WatchDataRepository(get(), get()) }
+            single {
+                org.example.stocksteps.home.PersonalDashboardStore(
+                    get(), get(), get(), get<WatchlistRepository>(), environment, get(), get(),
+                    companyNews = { symbol -> get<StockStepsApi>().getCompanyNews(symbol, category = null, page = 0, limit = 10, enrich = false) },
+                    scope = scope,
+                    mockPersona = { id -> get<StockStepsApi>().getHomePersona(id) }
+                )
+            }
             single { DeviceRegistrar(get(), get(), pushTokens, environment, { installId() }, scope).also { it.start() } }
             // The previous single list now only holds the signed-out guest list on this device.
             single<WatchlistRepository>(org.koin.core.qualifier.named("guest")) { OfflineWatchlistRepository(get(), get(), LocalOnlyWatchlistGateway, scope) }
@@ -66,6 +74,7 @@ class AccountDependencies(
     val watchData: WatchDataRepository = graph.koin.get()
     val devices: DeviceRegistrar = graph.koin.get()
     val environment: StateFlow<String> = environment
+    val home: org.example.stocksteps.home.PersonalDashboardStore = graph.koin.get()
     internal fun accountViewModel(): AccountViewModel = graph.koin.get()
     internal fun stockWatchlistViewModel(): StockWatchlistViewModel = graph.koin.get()
     fun signIn(): SignIn = graph.koin.get()

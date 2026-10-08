@@ -36,11 +36,11 @@ class WatchListViewModelTest {
         {"id":"default","name":"My Stocks","order":0,"createdAt":0,"updatedAt":0,"isDefault":true,"entries":[{"id":"e1","instrument":{"symbol":"AAPL","currency":"USD"},"order":0,"addedAt":0}]},
         {"id":"growth","name":"Growth","order":1,"createdAt":0,"updatedAt":0,"isDefault":false,"entries":[{"id":"e2","instrument":{"symbol":"NVDA"},"order":0,"addedAt":0}]}],$limits}"""
     private val session = """{"market":"US","status":"OPEN","timezone":"America/New_York","asOf":"2026-10-07T14:00:00Z","sessionDate":"2026-10-07","utcOffsetMinutes":-240,"source":"c"}"""
-    val requests = mutableListOf<String>()
+    val requests = MutableStateFlow(emptyList<String>())
 
     private fun engine() = MockEngine { request ->
         val path = request.url.encodedPath
-        requests += "${request.method.value} $path ${request.url.parameters["symbols"].orEmpty()}"
+        requests.update { it + "${request.method.value} $path ${request.url.parameters["symbols"].orEmpty()}" }
         when {
             path.endsWith("/watch-data") -> respond("""{"quotes":[{"symbol":"${request.url.parameters["symbols"]}","price":10.0,"changePercent":1.5,"currency":"USD","sessionDate":"2026-10-07"}],"session":$session,"generatedAt":"2026-10-07T14:00:00Z","notice":"n"}""", HttpStatusCode.OK, json)
             path.endsWith("/alerts") && request.method == HttpMethod.Post -> {
@@ -101,7 +101,7 @@ class WatchListViewModelTest {
         assertEquals("$10.00", ui.rows.single().price); assertEquals("USD", ui.rows.single().currency)
         model.select("growth")
         eventually { model.state.value.model?.rows?.singleOrNull()?.symbol == "NVDA" && model.state.value.data?.data?.quotes?.single()?.symbol == "NVDA" }
-        assertTrue(requests.none { it.contains("AAPL,NVDA") }, "only the visible list's symbols are requested")
+        assertTrue(requests.value.none { it.contains("AAPL,NVDA") }, "only the visible list's symbols are requested")
     }
 
     @Test fun failedMutationsShowAMessageAndKeepTheList() = scenario("alice") { s ->
@@ -125,6 +125,8 @@ class WatchListViewModelTest {
     }
 
     @Test fun alertCreationAsksWhenTheConditionIsAlreadyMet() = scenario("alice") { s ->
+        // Native dispatch can enter the test before the account-scoped repository has restored.
+        eventually { s.alerts.state.value.value != null }
         val model = AlertsViewModel(s.auth, s.alerts, null).also { s.store.put("a", it) }
         val request = CreateAlertRequest(InstrumentRef("AAPL", currency = "USD"), AlertType.PRICE_ABOVE, 250.0, "USD")
         val first = model.submit(request)
@@ -151,8 +153,8 @@ class WatchListViewModelTest {
             model.toggle(StockSearchResult("MSFT", "Microsoft"))
             eventually { model.state.value.choosing?.symbol == "MSFT" }
             model.choose("growth")
-            eventually { requests.any { it.startsWith("POST /api/v1/me/watchlists/growth/entries") } }
-            assertNull(model.state.value.choosing)
+            eventually { requests.value.any { it.startsWith("POST /api/v1/me/watchlists/growth/entries") } }
+            eventually { model.state.value.choosing == null }
         } finally { job.cancel() }
     }
 }

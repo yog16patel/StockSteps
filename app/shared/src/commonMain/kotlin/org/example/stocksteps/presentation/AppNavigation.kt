@@ -191,14 +191,18 @@ internal fun AppNavigation(
                 .consumeWindowInsets(innerPadding)
         ) {
             composable<DiscoveryRoute> {
-                if (accounts != null) HomeScene(
+                val homeLocked = appLock?.state?.collectAsStateWithLifecycle()?.value == org.example.stocksteps.security.AppLockState.LOCKED
+                if (accounts != null && !homeLocked) HomeScene(
                     backend = backend,
                     environment = environment,
                     accounts = accounts,
                     hinge = hinge,
                     onLearn = { openTab(MainDestination.LEARN) },
-                    onViewAllMovers = { openTab(MainDestination.MARKETS) },
-                    onExplore = { stock -> openStock(stock.symbol) }
+                    onSearch = { navController.navigate(StockSearchRoute()) },
+                    onWatchlist = { openTab(MainDestination.WATCHLIST) },
+                    onSettings = { openTab(MainDestination.SETTINGS) },
+                    onAlerts = { symbol -> navController.navigate(AlertsRoute(symbol)) },
+                    onExplore = openStock
                 )
             }
             composable<MarketsRoute> {

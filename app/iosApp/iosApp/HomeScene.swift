@@ -1,28 +1,44 @@
 import SwiftUI
 
+/// Acquires observable state and wires navigation; HomeScreen only renders values and callbacks.
 struct HomeScene: View {
     let model: HomeViewModel
     let accounts: AccountViewModel
     let onLearn: () -> Void
+    let onSearch: () -> Void
+    let onWatchlist: () -> Void
+    let onSettings: () -> Void
+    let onAlerts: (String?) -> Void
     let onExplore: (String) -> Void
     @Environment(\.openURL) private var openURL
-    private var symbols: [String] { accounts.state.items.map(\.symbol) }
-    private var ownerKey: String { (accounts.state.user?.id ?? "guest") + "|" + symbols.joined(separator: "|") }
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var localHour = Calendar.current.component(.hour, from: Date())
+    @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
+
     var body: some View {
         HomeScreen(
-            signedIn: accounts.state.user != nil,
-            market: model.market,
-            movers: model.movers,
-            newsStatus: model.newsStatus,
-            news: model.newsCards,
-            onSelectMovers: model.selectMovers,
-            onOpenStock: onExplore,
+            state: model.dashboard,
+            localHour: localHour,
             onLearn: onLearn,
-            onOpenArticle: { openURL($0) },
-            onRetryMarket: { model.refreshIndices(); model.loadWatchlist(accounts.state.items) },
-            onRetryNews: model.refreshNews
+            onSearch: onSearch,
+            onWatchlist: onWatchlist,
+            onSettings: onSettings,
+            onAlerts: onAlerts,
+            onExplore: onExplore,
+            onArticle: { if let url = URL(string: $0) { openURL(url) } },
+            onRefresh: model.refresh,
+            onRetryQuotes: model.retryQuotes,
+            onRetryNews: model.retryNews,
+            onRetryWatchlists: model.retryWatchlists,
+            onRetryAlerts: model.retryAlerts,
+            onClearRecent: model.clearRecent,
+            showMockPersonas: BackendSettings.mockURL != nil && backendEnvironment == BackendSettings.mock,
+            onPersona: model.persona
         )
-        .task { model.loadIfNeeded() }
-        .task(id: ownerKey) { model.loadWatchlist(accounts.state.items) }
+        .onAppear { model.connect(accounts); model.visible(); updateHour() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { model.visible(); updateHour() }
+        }
     }
+    private func updateHour() { localHour = Calendar.current.component(.hour, from: Date()) }
 }

@@ -115,6 +115,21 @@ class IosAccountClient(auth: PlatformAuthGateway, baseUrl: () -> String, environ
     suspend fun remove(symbol: String) = dependencies.removeFromWatchlist()(symbol)
     fun retrySync() = dependencies.watchlist.retrySync()
 
+    fun observeHome(onChange: (org.example.stocksteps.home.PersonalDashboard) -> Unit): AccountSubscription {
+        val job = scope.launch { dependencies.home.state.collect(onChange) }
+        return object : AccountSubscription { override fun cancel() { job.cancel() } }
+    }
+    fun homeVisible() = dependencies.home.onVisible()
+    fun refreshHome() = dependencies.home.refresh()
+    fun retryHomeQuotes() = dependencies.home.retryQuotes()
+    fun retryHomeNews() = dependencies.home.retryNews()
+    fun retryHomeWatchlists() = dependencies.home.retryWatchlists()
+    fun retryHomeAlerts() = dependencies.home.retryAlerts()
+    fun clearRecentCompanies() = dependencies.home.clearRecent()
+    fun showHomePersona(id: String) = dependencies.home.showMockPersona(id)
+    fun useSavedHomeCompanies() = dependencies.home.useSavedCompanies()
+    fun recordViewedCompany(symbol: String) = dependencies.home.recordViewed(InstrumentRef(symbol))
+
     // --- Watchlists (errors carry a user-facing message) ---
     suspend fun refreshUserData() { dependencies.watchlists.refresh(); dependencies.alerts.refresh() }
     @Throws(Exception::class) suspend fun createWatchlist(name: String) { dependencies.watchlists.create(name) }

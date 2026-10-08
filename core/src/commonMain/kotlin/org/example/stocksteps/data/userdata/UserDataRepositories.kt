@@ -25,10 +25,11 @@ interface UserDataCache {
 }
 
 class InMemoryUserDataCache : UserDataCache {
+    private val lock = Mutex()
     private val values = HashMap<Pair<String, String>, Pair<String, Long>>()
-    override suspend fun read(owner: String, key: String) = values[owner to key]
-    override suspend fun write(owner: String, key: String, json: String, savedAt: Long) { values[owner to key] = json to savedAt }
-    override suspend fun clearAccount(uid: String) { values.keys.removeAll { it.first.endsWith("|user:$uid") } }
+    override suspend fun read(owner: String, key: String) = lock.withLock { values[owner to key] }
+    override suspend fun write(owner: String, key: String, json: String, savedAt: Long) { lock.withLock { values[owner to key] = json to savedAt } }
+    override suspend fun clearAccount(uid: String) { lock.withLock { values.keys.removeAll { it.first.endsWith("|user:$uid") } } }
 }
 
 /** Cache namespace: environment and account, so Mock/Real and different users never share data. */

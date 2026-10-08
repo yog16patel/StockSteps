@@ -33,6 +33,9 @@ internal fun CompanyDetailsScene(
         CompanyDetailsViewModel(route.symbol, data.getCompanyDetails(), data.getPriceChart(), data.getWhyMoving(), data.companyNews(), data::close)
     }
     val state by model.state.collectAsStateWithLifecycle()
+    LaunchedEffect(route.symbol, environment, accounts) {
+        accounts?.home?.recordViewed(org.example.stocksteps.model.InstrumentRef(route.symbol))
+    }
     // The same watchlist used by the Watchlist tab; no Company Details copy of it.
     val watchlistModel = accounts?.let { owner -> viewModel(key = "stock-watchlist") { owner.stockWatchlistViewModel() } }
     val watchlist by (watchlistModel?.state ?: MutableStateFlow(StockWatchlistState())).collectAsStateWithLifecycle()
