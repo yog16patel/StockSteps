@@ -75,6 +75,9 @@ interface UserDataStore {
     /** Server-written StockSteps+ record (billing integration or MOCK debug); null when never subscribed. */
     suspend fun entitlement(uid: String): StoredEntitlement?
     suspend fun setEntitlement(uid: String, value: StoredEntitlement?)
+
+    /** Saved screener definitions (filters and sort, never results), atomically per user. */
+    suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T
 }
 
 /** What the backend stores per user; [EntitlementService] derives tier and status from it. */
@@ -101,6 +104,12 @@ class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>>
     private val outbox = LinkedHashMap<String, OutboxItem>()
     private val devices = LinkedHashMap<String, DeviceRecord>()
     private val entitlements = HashMap<String, StoredEntitlement>()
+    private val savedScreens = HashMap<String, List<org.example.stocksteps.screener.SavedScreen>>()
+    override suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T = lock.withLock {
+        val (next, result) = block(savedScreens[uid].orEmpty())
+        savedScreens[uid] = next
+        result
+    }
 
     override suspend fun entitlement(uid: String) = lock.withLock { entitlements[uid] }
     override suspend fun setEntitlement(uid: String, value: StoredEntitlement?) = lock.withLock {
@@ -193,6 +202,7 @@ object UnavailableUserDataStore : UserDataStore {
         throw UserDataException(503, "USER_DATA_UNAVAILABLE", "Watchlists and alerts are temporarily unavailable.")
     override suspend fun <T> updateWatchlists(uid: String, block: (UserWatchlists) -> Pair<UserWatchlists, T>): T = unavailable()
     override suspend fun entitlement(uid: String): StoredEntitlement? = unavailable()
+    override suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T = unavailable()
     override suspend fun setEntitlement(uid: String, value: StoredEntitlement?) = unavailable()
     override suspend fun <T> updateAlerts(uid: String, block: (List<AlertRule>) -> Pair<List<AlertRule>, T>): T = unavailable()
     override suspend fun activeAlerts(limit: Int): List<OwnedAlert> = unavailable()

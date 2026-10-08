@@ -1,0 +1,12 @@
+{
+  "symbol": "BCE.TO",
+  "companyName": "BCE Inc",
+  "description": "Sample profile for development. This is not real information about BCE Inc.",
+  "sector": "Communication Services",
+  "industry": "Telecom Services",
+  "country": "CA",
+  "currency": "CAD",
+  "exchange": "TSX",
+  "logoUrl": "https://images.financialmodelingprep.com/symbol/BCE.TO.png",
+  "isEtf": false
+}

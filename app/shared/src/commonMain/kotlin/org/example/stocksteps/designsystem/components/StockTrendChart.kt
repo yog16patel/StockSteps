@@ -40,9 +40,11 @@ internal fun StockTrendChart(
     referenceLabel: String? = null,
     comparison: List<Double?>? = null,
     seriesLabel: String? = null,
-    comparisonLabel: String? = null
+    comparisonLabel: String? = null,
+    /** More comparison series (label, values): each has its own color and dash pattern. */
+    additional: List<Pair<String, List<Double?>>> = emptyList()
 ) {
-    val valid = values.filterNotNull() + comparison.orEmpty().filterNotNull()
+    val valid = values.filterNotNull() + comparison.orEmpty().filterNotNull() + additional.flatMap { it.second.filterNotNull() }
     if (valid.isEmpty()) return
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -54,10 +56,13 @@ internal fun StockTrendChart(
     val span = (high - low).takeIf { it > 0 } ?: 1.0
     Column(modifier.semantics(mergeDescendants = true) { contentDescription = description }) {
         Text(details.getOrNull(focus).orEmpty(), Modifier.clearAndSetSemantics {}, style = typography.label, color = colors.textPrimary)
-        if (comparison != null && seriesLabel != null && comparisonLabel != null) {
-            Row(Modifier.padding(top = spacing.xxs).clearAndSetSemantics {}, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+        val extraColors = listOf(colors.textSecondary, colors.caution, colors.educationAccent)
+        val extraDashes = listOf("- -", "· ·", "-·-")
+        if (seriesLabel != null && (comparison != null && comparisonLabel != null || additional.isNotEmpty())) {
+            androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = spacing.xxs).clearAndSetSemantics {}, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
                 Text("— $seriesLabel", style = typography.caption, color = colors.primary)
-                Text("- - $comparisonLabel", style = typography.caption, color = colors.textSecondary)
+                if (comparison != null && comparisonLabel != null) Text("- - $comparisonLabel", style = typography.caption, color = colors.textSecondary)
+                additional.forEachIndexed { i, (label, _) -> Text("${extraDashes[i % 3]} $label", style = typography.caption, color = extraColors[i % 3]) }
             }
         }
         if (reference != null && referenceLabel != null) {
@@ -83,9 +88,9 @@ internal fun StockTrendChart(
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())))
                 }
                 // Draw each run of consecutive values separately so gaps stay visible.
-                fun series(points: List<Double?>, color: androidx.compose.ui.graphics.Color, dashed: Boolean) {
+                fun series(points: List<Double?>, color: androidx.compose.ui.graphics.Color, dashed: Boolean, pattern: FloatArray? = null) {
                     val stroke = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round,
-                        pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())) else null)
+                        pathEffect = pattern?.let { PathEffect.dashPathEffect(it) } ?: if (dashed) PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())) else null)
                     var path: Path? = null
                     points.forEachIndexed { i, v ->
                         if (v == null) {
@@ -100,6 +105,10 @@ internal fun StockTrendChart(
                     path?.let { drawPath(it, color, style = stroke) }
                 }
                 comparison?.let { series(it, colors.textSecondary, dashed = true) }
+                additional.forEachIndexed { i, (_, points) ->
+                    val pattern = when (i % 3) { 0 -> floatArrayOf(6.dp.toPx(), 4.dp.toPx()); 1 -> floatArrayOf(1.dp.toPx(), 4.dp.toPx()); else -> floatArrayOf(8.dp.toPx(), 3.dp.toPx(), 2.dp.toPx(), 3.dp.toPx()) }
+                    series(points, extraColors[i % 3], dashed = true, pattern = pattern)
+                }
                 series(values, colors.primary, dashed = false)
                 values.getOrNull(focus)?.let { v ->
                     val point = Offset(focus * step, y(v))

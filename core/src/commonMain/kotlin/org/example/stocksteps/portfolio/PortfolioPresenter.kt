@@ -63,7 +63,7 @@ class PortfolioPresenter(
                 val account = key[2] ?: return@collectLatest
                 if (key[0] == null) return@collectLatest
                 historyLoading.value = key[4] != null
-                try { report.value = repository.report(account, key[4]) }
+                try { report.value = repository.report(account, key[4], expectedUid = key[0]) }
                 catch (cause: Exception) {
                     if (cause is CancellationException) throw cause
                     failure.value = "Market valuation unavailable. Your ledger remains available."

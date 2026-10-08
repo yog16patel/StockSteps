@@ -125,7 +125,8 @@ internal fun AppNavigation(
     val isCompanyNews = destination?.hasRoute<CompanyNewsRoute>() == true
     val isNewsInsight = destination?.hasRoute<NewsInsightRoute>() == true
     val isMovement = destination?.hasRoute<StockMovementRoute>() == true
-    val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true || destination?.hasRoute<PortfolioInsightsRoute>() == true
+    val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true || destination?.hasRoute<PortfolioInsightsRoute>() == true ||
+        destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true
     // Every stock tap (Home movers, Watchlist, Search) opens the same Company Details page.
     val addPortfolio: (InstrumentRef) -> Unit = { instrument ->
         navController.navigate(PortfolioEntryRoute(instrument.symbol, instrument.name, instrument.exchange, instrument.currency))
@@ -142,6 +143,8 @@ internal fun AppNavigation(
                         destination?.hasRoute<PortfolioEntryRoute>() == true -> "Add transaction"
                         destination?.hasRoute<HoldingDetailsRoute>() == true -> "Holding details"
                         destination?.hasRoute<PortfolioInsightsRoute>() == true -> "Insights"
+                        destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true -> "Discover"
+                        destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true -> "Compare"
                         destination?.hasRoute<PortfolioRoute>() == true -> "Portfolio"
                         isSearch -> "Search stocks"
                         isCompanyFinancials -> "Financials"
@@ -222,6 +225,19 @@ internal fun AppNavigation(
                     onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) },
                     onInsights = { navController.navigate(PortfolioInsightsRoute) })
             }
+            composable<org.example.stocksteps.presentation.screener.ScreenerRoute> { entry ->
+                org.example.stocksteps.presentation.screener.ScreenerScene(
+                    route = entry.toRoute(), backend = backend, environment = environment, accounts = accounts, hinge = hinge,
+                    onOpenStock = openStock,
+                    onCompare = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute) },
+                    onAddPortfolio = addPortfolio,
+                    onSignIn = { navController.navigate(AuthRoute()) }
+                )
+            }
+            composable<org.example.stocksteps.presentation.screener.ComparisonRoute> {
+                org.example.stocksteps.presentation.screener.ComparisonScene(backend, environment, hinge, onOpenStock = openStock,
+                    onDiscover = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) })
+            }
             composable<PortfolioInsightsRoute> {
                 if (accounts != null) PortfolioInsightsScene(accounts, onOpenCompany = openStock, onSignIn = { navController.navigate(AuthRoute()) }, hinge = hinge)
             }
@@ -266,7 +282,9 @@ internal fun AppNavigation(
                     hinge = hinge,
                     onOpenStock = openStock,
                     onWhyMoved = { symbol -> navController.navigate(StockMovementRoute(symbol)) },
-                    onSearch = { navController.navigate(StockSearchRoute()) }
+                    onSearch = { navController.navigate(StockSearchRoute()) },
+                    onDiscover = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
+                    onCompare = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute) }
                 )
             }
             composable<WatchListRoute> {
@@ -340,7 +358,11 @@ internal fun AppNavigation(
                     onOpenValuation = { symbol -> navController.navigate(CompanyValuationRoute(symbol)) },
                     onOpenNews = { symbol -> navController.navigate(CompanyNewsRoute(symbol)) },
                     onAddPortfolio = addPortfolio,
-                    onOpenMovement = { symbol -> navController.navigate(StockMovementRoute(symbol)) }
+                    onOpenMovement = { symbol -> navController.navigate(StockMovementRoute(symbol)) },
+                    onCompare = { symbol, name ->
+                        org.example.stocksteps.screener.SharedComparisonSelection.instance.add(symbol, name)
+                        navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute)
+                    }
                 )
             }
             composable<CompanyFinancialsRoute> { entry ->

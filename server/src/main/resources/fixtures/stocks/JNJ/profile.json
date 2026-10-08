@@ -1,0 +1,12 @@
+{
+  "symbol": "JNJ",
+  "companyName": "Johnson & Johnson",
+  "description": "Sample profile for development. This is not real information about Johnson & Johnson.",
+  "sector": "Healthcare",
+  "industry": "Drug Manufacturers - General",
+  "country": "US",
+  "currency": "USD",
+  "exchange": "NYSE",
+  "logoUrl": "https://images.financialmodelingprep.com/symbol/JNJ.png",
+  "isEtf": false
+}

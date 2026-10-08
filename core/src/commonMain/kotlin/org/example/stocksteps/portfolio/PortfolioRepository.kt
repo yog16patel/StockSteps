@@ -58,10 +58,11 @@ class PortfolioRepository(
             }.collect { mutableSnapshot.value = it }
         }
     }
-    suspend fun report(accountId: String, range: String? = null): PortfolioReport = marketLock.withLock {
+    suspend fun report(accountId: String, range: String? = null, expectedUid: String? = null): PortfolioReport = marketLock.withLock {
         val resource = state.value
         val uid = resource.uid ?: throw IllegalStateException("Sign in to view your portfolio.")
         val environment = resource.environment ?: throw IllegalStateException("Choose a backend.")
+        if (expectedUid != null && expectedUid != uid) throw CancellationException("Account changed")
         val owner = userCacheOwner(environment, uid)
         val key = "portfolio.market.$accountId.${range ?: "summary"}"
         val memoryKey = "$owner:$key:${resource.value?.revision}"
@@ -94,11 +95,13 @@ class PortfolioRepository(
      * minute per owner, ledger revision, period and benchmark; the last result for the same revision
      * is shown offline. Never mixes accounts, users or Mock/Real.
      */
-    suspend fun analytics(accountId: String, period: org.example.stocksteps.portfolio.analytics.AnalyticsPeriod, benchmark: org.example.stocksteps.portfolio.analytics.BenchmarkId?, tier: String?): org.example.stocksteps.portfolio.analytics.PortfolioAnalytics = analyticsLock.withLock {
+    suspend fun analytics(accountId: String, period: org.example.stocksteps.portfolio.analytics.AnalyticsPeriod, benchmark: org.example.stocksteps.portfolio.analytics.BenchmarkId?, tier: String?, expectedUid: String? = null, expectedEnvironment: String? = null): org.example.stocksteps.portfolio.analytics.PortfolioAnalytics = analyticsLock.withLock {
         val serializer = org.example.stocksteps.portfolio.analytics.PortfolioAnalytics.serializer()
         val resource = state.value
         val uid = resource.uid ?: throw IllegalStateException("Sign in to view your portfolio.")
         val environment = resource.environment ?: throw IllegalStateException("Choose a backend.")
+        // The caller's choices (account, benchmark, period) belong to one user: never apply them to another.
+        if (expectedUid != null && expectedUid != uid || expectedEnvironment != null && expectedEnvironment != environment) throw CancellationException("Account changed")
         val owner = userCacheOwner(environment, uid)
         val key = "portfolio.analytics.$accountId.${period.label}.${benchmark?.name}"
         val memoryKey = "$owner:$key:${resource.value?.revision}:$tier"

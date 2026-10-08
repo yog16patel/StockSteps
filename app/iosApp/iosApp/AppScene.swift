@@ -17,6 +17,9 @@ struct AppScene: View {
     @State private var selectedTab = AppRoute.home
     /// Symbol of the Company Details page pushed on the main stack (Home, Watchlist and Search share it).
     @State private var detailsSymbol: String?
+    @State private var showingDiscover = false
+    @State private var showingCompare = false
+    @State private var screenerModel: ScreenerModel
 
 
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
@@ -28,6 +31,7 @@ struct AppScene: View {
         _homeModel = State(initialValue: HomeViewModel())
         _marketsModel = State(initialValue: MarketsModel(baseURL: baseURL))
         _watchlistsModel = State(initialValue: WatchlistsModel(client: accounts.client))
+        _screenerModel = State(initialValue: ScreenerModel(accounts: accounts, baseURL: baseURL))
     }
 
     var body: some View {
@@ -53,7 +57,8 @@ struct AppScene: View {
                 .tabItem { Label("Home", systemImage: "house") }
                 .tag(AppRoute.home)
 
-                MarketsScene(model: marketsModel, onOpenStock: explore, onSearch: { initialStock = nil; showingSearch = true })
+                MarketsScene(model: marketsModel, onOpenStock: explore, onSearch: { initialStock = nil; showingSearch = true },
+                             onDiscover: { showingDiscover = true }, onCompare: { showingCompare = true })
                     .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
                     .tag(AppRoute.markets)
 
@@ -82,6 +87,13 @@ struct AppScene: View {
             // Every client reads the URL per request; reload Home so its data matches the new backend.
             .navigationDestination(item: $detailsSymbol) { symbol in
                 CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel)
+            }
+            .navigationDestination(isPresented: $showingDiscover) {
+                DiscoverStocksScene(model: screenerModel, accounts: accounts, watchlists: watchlistsModel, onOpenStock: explore,
+                                    onCompare: { showingCompare = true }, onSignIn: { showingAuth = true })
+            }
+            .navigationDestination(isPresented: $showingCompare) {
+                CompareStocksScene(model: screenerModel, onOpenStock: explore, onDiscover: { showingCompare = false; showingDiscover = true })
             }
             .navigationDestination(item: $alertsTarget) { target in
                 AlertsScene(model: watchlistsModel, symbol: target.isEmpty ? nil : target, onOpenStock: explore)

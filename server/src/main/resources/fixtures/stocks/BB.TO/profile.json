@@ -1,0 +1,12 @@
+{
+  "symbol": "BB.TO",
+  "companyName": "BlackBerry Ltd",
+  "description": "Sample profile for development. This is not real information about BlackBerry Ltd.",
+  "sector": "Technology",
+  "industry": "Software - Infrastructure",
+  "country": "CA",
+  "currency": "CAD",
+  "exchange": "TSX",
+  "logoUrl": "https://images.financialmodelingprep.com/symbol/BB.TO.png",
+  "isEtf": false
+}

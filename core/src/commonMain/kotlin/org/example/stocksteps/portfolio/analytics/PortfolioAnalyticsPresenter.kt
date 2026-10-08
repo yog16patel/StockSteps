@@ -120,7 +120,7 @@ class PortfolioAnalyticsPresenter(
         }
         mutable.update { current -> current.copy(loading = true, error = null, view = current.view?.takeIf { it.accountId == key.account && viewOwner == owner }) }
         try {
-            val analytics = repository.analytics(key.account, key.period, key.benchmark, key.tier?.name)
+            val analytics = repository.analytics(key.account, key.period, key.benchmark, key.tier?.name, expectedUid = key.uid, expectedEnvironment = key.environment)
             val view = withContext(computation) { InsightsFormatter.view(analytics) }
             viewOwner = owner
             mutable.update { it.copy(loading = false, view = view) }

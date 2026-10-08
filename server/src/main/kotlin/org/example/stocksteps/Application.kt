@@ -11,6 +11,10 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.launch
 import org.example.stocksteps.userdata.WatchDataService
+import org.example.stocksteps.screener.RequestRateLimiter
+import org.example.stocksteps.screener.SavedScreensService
+import org.example.stocksteps.screener.savedScreenRoutes
+import org.example.stocksteps.screener.screenerRoutes
 import org.example.stocksteps.userdata.ChartBenchmarkHistory
 import org.example.stocksteps.userdata.MockBenchmarkHistory
 import org.example.stocksteps.userdata.PortfolioAnalyticsService
@@ -117,6 +121,27 @@ fun Application.module() {
                 portfolioMarket, watchMarket,
                 sources.indexData?.takeIf { dataMode == DataMode.MOCK }?.let { MockBenchmarkHistory(it) } ?: ChartBenchmarkHistory(charts::getDailyCloses),
                 entitlements, portfolioClock, sampleData = dataMode == DataMode.MOCK), entitlements)
+            val screener = org.example.stocksteps.screener.ScreenerService(
+                universe = sources.screenerUniverse ?: org.example.stocksteps.screener.FmpScreenerUniverse(HttpClientProvider.client, AppConfig.fmpApiKey,
+                    exchanges = (System.getenv("SCREENER_EXCHANGES") ?: "NASDAQ,NYSE,TSX").split(',').map { it.trim() }.filter { it.isNotEmpty() },
+                    limit = System.getenv("SCREENER_UNIVERSE_LIMIT")?.toIntOrNull() ?: 100,
+                    minMarketCap = System.getenv("SCREENER_MIN_MARKET_CAP")?.toLongOrNull() ?: 2_000_000_000L),
+                stocks = stockService,
+                fundamentalsOf = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider).let { service -> { symbol: String -> service.getFundamentals(symbol, "annual") } },
+                charts = charts,
+                usdPerCad = {
+                    val fx = if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client)
+                    val today = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
+                    runCatching { fx.rates(today.minusDays(10).toString(), today.toString()) }.getOrNull()
+                        ?.maxByOrNull { it.key }?.value?.toDoubleOrNull()?.takeIf { it > 0 }?.let { 1 / it }
+                },
+                clock = sources.marketClock,
+                sampleData = dataMode == DataMode.MOCK,
+                fundamentalsPerHour = System.getenv("SCREENER_FUNDAMENTALS_PER_HOUR")?.toIntOrNull() ?: 25,
+                fullRecords = dataMode == DataMode.MOCK
+            )
+            screenerRoutes(screener, RequestRateLimiter(System.getenv("SCREENER_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 60))
+            savedScreenRoutes(sources.userAuth, SavedScreensService(userData, entitlements, sources.marketClock::millis))
             userRoutes(sources.userAuth, WatchlistsService(userData, now = sources.marketClock::millis),
                 AlertsService(userData, watchMarket, alertRules, sources.alertsDeliveryNote, now = sources.marketClock::millis), userData, now = sources.marketClock::millis)
             alertEvaluationRoutes(evaluator, System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
@@ -273,6 +298,8 @@ internal class DataSources(
     /** Optional AI wording of computed movement facts; null keeps the deterministic template. */
     val narrator: org.example.stocksteps.service.MovementNarrator? = null,
     val movementVersion: String = "movement-template-v1",
+    /** The screener universe: fixture symbols in MOCK; null in REAL, where FMP's company screener defines it. */
+    val screenerUniverse: org.example.stocksteps.screener.ScreenerUniverseSource? = null,
     /** Index levels; null in REAL, where the module builds one from the stock provider and charts. */
     val indexData: org.example.stocksteps.service.IndexDataSource? = null,
     val marketsLabels: org.example.stocksteps.service.MarketsSourceLabels = org.example.stocksteps.service.MarketsSourceLabels(
@@ -357,6 +384,7 @@ internal fun mockDataSources(): DataSources {
     return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null), earnings = fixtures,
         insights = org.example.stocksteps.news.TemplateArticleInsightGenerator(), insightVersion = "mock-template-v1",
         indexData = fixtures,
+        screenerUniverse = org.example.stocksteps.screener.FixtureScreenerUniverse(),
         marketsLabels = org.example.stocksteps.service.MarketsSourceLabels(
             movers = "Sample: movers captured from FMP's daily lists",
             quotes = "StockSteps sample fixtures",

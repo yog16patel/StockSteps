@@ -1,0 +1,12 @@
+{
+  "symbol": "JPM",
+  "companyName": "JPMorgan Chase & Co",
+  "description": "Sample profile for development. This is not real information about JPMorgan Chase & Co.",
+  "sector": "Financial Services",
+  "industry": "Banks - Diversified",
+  "country": "US",
+  "currency": "USD",
+  "exchange": "NYSE",
+  "logoUrl": "https://images.financialmodelingprep.com/symbol/JPM.png",
+  "isEtf": false
+}

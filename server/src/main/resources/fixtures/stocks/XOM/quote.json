@@ -1,0 +1,16 @@
+{
+  "symbol": "XOM",
+  "companyName": "Exxon Mobil Corp",
+  "price": 112.31,
+  "change": -1.69,
+  "changePercent": -1.4813,
+  "dayHigh": 114.68,
+  "dayLow": 111.64,
+  "previousClose": 114.0,
+  "volume": 3693000,
+  "timestamp": 1791403200,
+  "marketCap": 484056100000,
+  "open": 114.0,
+  "yearHigh": 114.0,
+  "yearLow": 96.43
+}

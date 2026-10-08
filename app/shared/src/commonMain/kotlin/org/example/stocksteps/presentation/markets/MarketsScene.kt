@@ -49,6 +49,8 @@ internal sealed interface MarketsAction {
     data class OpenStock(val symbol: String) : MarketsAction
     data class WhyMoved(val symbol: String) : MarketsAction
     data class OpenUrl(val url: String) : MarketsAction
+    data object Discover : MarketsAction
+    data object Compare : MarketsAction
 }
 
 /** Owns the Markets ViewModel (keyed by environment so Mock and Real never share data) and wires navigation. */
@@ -59,7 +61,9 @@ internal fun MarketsScene(
     hinge: WindowHinge?,
     onOpenStock: (String) -> Unit,
     onWhyMoved: (String) -> Unit,
-    onSearch: () -> Unit
+    onSearch: () -> Unit,
+    onDiscover: () -> Unit = {},
+    onCompare: () -> Unit = {}
 ) {
     val model = viewModel(key = "markets:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
@@ -77,6 +81,8 @@ internal fun MarketsScene(
             is MarketsAction.OpenStock -> onOpenStock(action.symbol)
             is MarketsAction.WhyMoved -> onWhyMoved(action.symbol)
             is MarketsAction.OpenUrl -> runCatching { uriHandler.openUri(action.url) }
+            MarketsAction.Discover -> onDiscover()
+            MarketsAction.Compare -> onCompare()
         }
     }
 }
@@ -105,6 +111,7 @@ internal fun MarketsScreen(state: MarketsState, hinge: WindowHinge?, onAction: (
                     modifier = Modifier.fillMaxSize()
                 ) {
                     item(key = "title") { Title(content.padding(top = spacing.lg), onSearch = { onAction(MarketsAction.Search) }) }
+                    item(key = "tools") { ResearchTools(content.padding(top = spacing.md), onAction) }
                     if (model == null) {
                         item(key = "state") {
                             if (state.loading) LoadingSkeleton(content.padding(top = spacing.lg))
@@ -156,6 +163,25 @@ private fun Title(modifier: Modifier, onSearch: () -> Unit) {
         }
         IconButton(onClick = onSearch) {
             Icon(StockIcons.Search, contentDescription = stringResource(Res.string.markets_search), tint = colors.iconPrimary)
+        }
+    }
+}
+
+/** Market Overview (this screen) plus entry points to Discover Stocks and Compare Stocks. */
+@Composable
+private fun ResearchTools(modifier: Modifier, onAction: (MarketsAction) -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    Row(modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        listOf(
+            Triple("Discover Stocks", "Find companies by growth, dividends, strength or valuation", MarketsAction.Discover),
+            Triple("Compare Stocks", "See 2–4 companies side by side", MarketsAction.Compare)
+        ).forEach { (title, subtitle, action) ->
+            StockCard(Modifier.weight(1f).fillMaxHeight(), onClick = { onAction(action) }, onClickLabel = "Open $title") {
+                Icon(if (action == MarketsAction.Discover) StockIcons.Search else StockIcons.PieChart, contentDescription = null, tint = colors.primary)
+                Text(title, Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
+                Text(subtitle, style = StockStepsTheme.typography.caption, color = colors.textSecondary)
+            }
         }
     }
 }

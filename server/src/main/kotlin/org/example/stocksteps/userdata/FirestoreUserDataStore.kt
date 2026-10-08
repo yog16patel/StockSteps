@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
  *
  * - `users/{uid}/watchlists/{watchlistId}` — `data`: Watchlist JSON (entries and notes inside).
  * - `users/{uid}/meta/watchlists` — `initialized`: default list / legacy import done.
+ * - `users/{uid}/meta/screens` — `data`: JSON list of SavedScreen (filter definitions only).
  * - `users/{uid}/meta/entitlements` — `plan`, `expiresAt`, `data`: StoredEntitlement JSON (billing writes it).
  * - `alertRules/{ruleId}` — `ownerUid`, `status`, `data`: AlertRule JSON.
  * - `alertEvents/{eventId}` — `ownerUid`, `triggeredAt`, `data`: AlertEvent JSON (id = idempotency key).
@@ -34,6 +35,17 @@ class FirestoreUserDataStore(private val db: Firestore) : UserDataStore {
             val current = doc.getString("data")?.let { decode(serializer, it) } ?: org.example.stocksteps.portfolio.PortfolioLedger()
             val (next, result) = block(current)
             if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next), "revision" to next.revision))
+            result
+        }.await()
+    }
+
+    override suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T = io {
+        val reference = db.collection("users").document(uid).collection("meta").document("screens")
+        val serializer = kotlinx.serialization.builtins.ListSerializer(org.example.stocksteps.screener.SavedScreen.serializer())
+        db.runTransaction { tx ->
+            val current = tx.get(reference).get().getString("data")?.let { decode(serializer, it) }.orEmpty()
+            val (next, result) = block(current)
+            if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next)))
             result
         }.await()
     }

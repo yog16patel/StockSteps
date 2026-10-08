@@ -1,0 +1,16 @@
+{
+  "symbol": "KO",
+  "companyName": "Coca-Cola Co",
+  "price": 70.5,
+  "change": 1.1,
+  "changePercent": 1.5867,
+  "dayHigh": 70.92,
+  "dayLow": 68.98,
+  "previousClose": 69.4,
+  "volume": 2231000,
+  "timestamp": 1791403200,
+  "marketCap": 303855000000,
+  "open": 69.4,
+  "yearHigh": 70.5,
+  "yearLow": 60.24
+}

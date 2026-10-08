@@ -82,6 +82,8 @@ struct MarketsScene: View {
     let model: MarketsModel
     let onOpenStock: (String) -> Void
     let onSearch: () -> Void
+    var onDiscover: () -> Void = {}
+    var onCompare: () -> Void = {}
     @State private var lesson: MarketLesson?
     @State private var movementSymbol: String?
 
@@ -90,6 +92,7 @@ struct MarketsScene: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 title(colors).padding(.top, CGFloat(space.lg))
+                researchTools(colors).padding(.top, CGFloat(space.md))
                 if let content = model.model {
                     header(content.header, colors).padding(.top, CGFloat(space.sm))
                     indices(content, colors).padding(.top, CGFloat(space.lg))
@@ -127,6 +130,28 @@ struct MarketsScene: View {
             LessonSheet(lesson: item.lesson).presentationDetents([.medium, .large])
         }
         .task { model.start() }
+    }
+
+    /// Market Overview (this screen) plus entry points to Discover Stocks and Compare Stocks.
+    private func researchTools(_ colors: StockColors) -> some View {
+        HStack(spacing: CGFloat(space.sm)) {
+            tool("Discover Stocks", "Find companies by growth, dividends, strength or valuation", "magnifyingglass", colors, onDiscover)
+            tool("Compare Stocks", "See 2–4 companies side by side", "square.split.2x1", colors, onCompare)
+        }
+    }
+
+    private func tool(_ title: String, _ subtitle: String, _ icon: String, _ colors: StockColors, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                Image(systemName: icon).foregroundStyle(colors.primary)
+                Text(title).font(.headline).foregroundStyle(colors.textPrimary)
+                Text(subtitle).font(.caption).foregroundStyle(colors.textSecondary).multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
+            .stockCard()
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens \(title)")
     }
 
     private func title(_ colors: StockColors) -> some View {

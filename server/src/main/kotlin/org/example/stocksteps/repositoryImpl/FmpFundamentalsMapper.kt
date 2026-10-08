@@ -56,6 +56,9 @@ internal object FmpFundamentalsMapper {
         fun comparable(a: FmpIncomeStatement?, b: FmpIncomeStatement?) = a != null && b != null &&
             a.reportedCurrency != null && a.reportedCurrency == b.reportedCurrency
         fun growth(get: (FmpIncomeStatement) -> Double?) = if (comparable(latest, prior)) Calc.yoy(get(latest!!), get(prior!!)) else null
+        // Growth from a loss (or zero) to anything isn't a meaningful percentage.
+        fun profitGrowth(get: (FmpIncomeStatement) -> Double?) = prior?.let(get)?.takeIf { it > 0 }?.let { growth(get) }
+        fun turnaround(get: (FmpIncomeStatement) -> Double?) = prior?.let(get)?.let { it <= 0 } == true
         fun cagr(n: Int, get: (FmpIncomeStatement) -> Double?): Double? {
             val first = annual ?: return null
             val previous = years.firstOrNull { it.fiscalYear?.toIntOrNull() == first.fiscalYear?.toIntOrNull()?.minus(n) } ?: return null
@@ -68,9 +71,11 @@ internal object FmpFundamentalsMapper {
             "revenueCagr3" to fact(cagr(3) { it.revenue }, true, report = annualBasis, reason = FinancialAvailability.INSUFFICIENT_HISTORY),
             "revenueCagr5" to fact(cagr(5) { it.revenue }, true, report = annualBasis, reason = FinancialAvailability.INSUFFICIENT_HISTORY),
             "netIncome" to fact(latest?.netIncome, money = true),
-            "netIncomeGrowth" to fact(growth { it.netIncome }, true, note = "Growth across losses needs care; a percentage alone does not describe a turnaround."),
+            "netIncomeGrowth" to fact(profitGrowth { it.netIncome }, true, note = if (turnaround { it.netIncome }) "Prior period was a loss or zero, so growth isn't shown as a percentage." else null,
+                reason = if (turnaround { it.netIncome }) FinancialAvailability.UNRELIABLE_COMPARISON else FinancialAvailability.MISSING),
             "eps" to fact(latest?.epsDiluted, note = "Diluted EPS."),
-            "epsGrowth" to fact(growth { it.epsDiluted }, true),
+            "epsGrowth" to fact(profitGrowth { it.epsDiluted }, true, note = if (turnaround { it.epsDiluted }) "Prior EPS was zero or negative, so growth isn't shown as a percentage." else null,
+                reason = if (turnaround { it.epsDiluted }) FinancialAvailability.UNRELIABLE_COMPARISON else FinancialAvailability.MISSING),
             "epsCagr3" to fact(cagr(3) { it.epsDiluted }, true, report = annualBasis, reason = FinancialAvailability.INSUFFICIENT_HISTORY),
             "epsCagr5" to fact(cagr(5) { it.epsDiluted }, true, report = annualBasis, reason = FinancialAvailability.INSUFFICIENT_HISTORY)
         )

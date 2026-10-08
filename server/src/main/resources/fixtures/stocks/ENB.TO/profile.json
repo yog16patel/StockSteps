@@ -1,0 +1,12 @@
+{
+  "symbol": "ENB.TO",
+  "companyName": "Enbridge Inc",
+  "description": "Sample profile for development. This is not real information about Enbridge Inc.",
+  "sector": "Energy",
+  "industry": "Oil & Gas Midstream",
+  "country": "CA",
+  "currency": "CAD",
+  "exchange": "TSX",
+  "logoUrl": "https://images.financialmodelingprep.com/symbol/ENB.TO.png",
+  "isEtf": false
+}

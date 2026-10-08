@@ -27,7 +27,8 @@ internal fun CompanyDetailsScene(
     onOpenValuation: (String) -> Unit,
     onOpenNews: (String) -> Unit,
     onAddPortfolio: (org.example.stocksteps.model.InstrumentRef) -> Unit,
-    onOpenMovement: (String) -> Unit
+    onOpenMovement: (String) -> Unit,
+    onCompare: (symbol: String, name: String) -> Unit = { _, _ -> }
 ) {
     val model = viewModel(key = "company-details:${route.symbol}:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
@@ -53,6 +54,7 @@ internal fun CompanyDetailsScene(
                     val listing = state.overview.listing(route.symbol)
                     onAddPortfolio(org.example.stocksteps.model.InstrumentRef(listing.symbol, listing.name, listing.exchange, listing.currency))
                 }
+                CompanyDetailsAction.Compare -> state.overview.listing(route.symbol).let { onCompare(it.symbol, it.name) }
                 CompanyDetailsAction.Back -> onBack()
                 CompanyDetailsAction.ToggleWatchlist -> watchlistModel?.toggle(state.overview.listing(route.symbol))
                 CompanyDetailsAction.RetryCore -> model.loadCore()

@@ -110,7 +110,10 @@ class CompanyFundamentalsTest {
         }.use { http ->
             val result = FmpStockProviderRepositoryImpl(http, "fixture-key", today = { java.time.LocalDate.of(2026, 10, 5) }).getFundamentals("AAPL", "quarter")
             assertEquals(20.0, result.financials.growth["revenueGrowth"]?.value)
-            assertEquals(50.0, result.financials.growth["netIncomeGrowth"]?.value)
+            // A smaller loss (−20 → −10) isn't "+50% growth": no percentage across losses.
+            assertNull(result.financials.growth["netIncomeGrowth"]?.value)
+            assertEquals(org.example.stocksteps.model.FinancialAvailability.UNRELIABLE_COMPARISON, result.financials.growth["netIncomeGrowth"]?.availability)
+            assertNull(result.financials.growth["epsGrowth"]?.value)
             assertNull(result.valuation.metrics["pe"]?.value)
             assertContains(result.valuation.metrics["pe"]?.note!!, "non-positive")
             assertNull(result.valuation.metrics["peg"]?.value)

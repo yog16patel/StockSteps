@@ -1,0 +1,12 @@
+{
+  "symbol": "RIVN",
+  "companyName": "Rivian Automotive Inc",
+  "description": "Sample profile for development. This is not real information about Rivian Automotive Inc.",
+  "sector": "Consumer Cyclical",
+  "industry": "Auto - Manufacturers",
+  "country": "US",
+  "currency": "USD",
+  "exchange": "NASDAQ",
+  "logoUrl": "https://images.financialmodelingprep.com/symbol/RIVN.png",
+  "isEtf": false
+}

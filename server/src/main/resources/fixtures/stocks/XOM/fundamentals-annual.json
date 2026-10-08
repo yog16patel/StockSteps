@@ -1,0 +1,658 @@
+{
+  "symbol": "XOM",
+  "financials": {
+    "growth": {
+      "revenue": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 334000000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "revenueGrowth": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": -3.0,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "revenueCagr3": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": -7.2261,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "revenueCagr5": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 11.6728,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "netIncome": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 34068000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "netIncomeGrowth": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 3.0625,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "eps": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 7.9,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        },
+        "note": "Diluted EPS."
+      },
+      "epsGrowth": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 4.2216,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "epsCagr3": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 0.1269,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "epsCagr5": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 21.1259,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      }
+    },
+    "profitability": {
+      "grossMargin": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 31.0,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "operatingMargin": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 14.5,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "netMargin": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 10.2,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "roe": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 12.6178,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "roa": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 10.1514,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "roic": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 12.3022,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      }
+    },
+    "financialHealth": {
+      "cash": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 23000000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "debt": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 41000000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "assets": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 335600000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "liabilities": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 65600000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "equity": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 270000000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "netDebt": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 18000000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "debtEquity": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 0.1519,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "currentRatio": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 1.4494,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "quickRatio": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 1.1595,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "interestCoverage": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 26.2493,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "netDebtEbitda": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 0.3232,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      }
+    },
+    "cashFlow": {
+      "operatingCashFlow": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 55945000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "capex": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 20040000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        },
+        "note": "Shown as cash spent."
+      },
+      "freeCashFlow": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 35905000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "fcfMargin": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 10.75,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      }
+    },
+    "shareholderReturns": {
+      "dividendYield": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 3.4737,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "dividendPerShare": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 3.96,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "dividendGrowth": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 4.2,
+        "basis": {
+          "period": "calendar year",
+          "fiscalYear": 2025
+        },
+        "note": "Adjusted dividend totals; includes special payments."
+      },
+      "payoutRatio": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 50.0986,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "buybacks": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 6680000000,
+        "basis": {
+          "period": "annual",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        },
+        "note": "Gross common share repurchase spending."
+      },
+      "shares": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "amount": 4310000000,
+        "basis": {
+          "period": "point in time",
+          "date": "2026-10-07"
+        },
+        "note": "Actual shares outstanding; not free float."
+      },
+      "sharesChange5": {
+        "source": "NOT_AVAILABLE",
+        "availability": "MISSING",
+        "note": "Exact historical shares aren't verified."
+      }
+    }
+  },
+  "valuation": {
+    "metrics": {
+      "pe": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 14.4304,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "peg": {
+        "source": "NOT_AVAILABLE",
+        "availability": "MISSING",
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "priceSales": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 1.4711,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "priceBook": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 1.8198,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "priceFcf": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 13.6844,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "enterpriseValue": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "amount": 509340000000,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "evEbitda": {
+        "source": "PROVIDER_DIRECT",
+        "availability": "AVAILABLE",
+        "value": 9.1452,
+        "basis": {
+          "period": "TTM",
+          "date": "2025-12-31",
+          "fiscalYear": 2025,
+          "currency": "USD"
+        }
+      },
+      "forwardPe": {
+        "source": "BACKEND_CALCULATED",
+        "availability": "AVAILABLE",
+        "value": 13.3615,
+        "basis": {
+          "period": "next fiscal year estimate",
+          "currency": "USD"
+        },
+        "note": "Price / analyst consensus EPS. Forecasts may change."
+      }
+    },
+    "historical": {}
+  },
+  "datasets": {},
+  "retrievedAt": "2026-10-07T21:13:43Z",
+  "warnings": [
+    "Sample data for development: these are generated values, not real financial statements."
+  ],
+  "history": [
+    {
+      "period": "FY",
+      "fiscalYear": 2025,
+      "date": "2025-12-31",
+      "currency": "USD",
+      "revenue": 334000000000,
+      "grossProfit": 103540000000,
+      "operatingIncome": 48430000000,
+      "netIncome": 34068000000,
+      "epsDiluted": 7.9,
+      "operatingCashFlow": 55945000000,
+      "capitalExpenditure": 20040000000,
+      "freeCashFlow": 35905000000,
+      "dividendsPaid": 17067600000,
+      "cash": 23000000000,
+      "totalDebt": 41000000000,
+      "totalAssets": 335600000000,
+      "totalLiabilities": 65600000000,
+      "equity": 270000000000,
+      "currentAssets": 106500000000,
+      "currentLiabilities": 73480000000
+    },
+    {
+      "period": "FY",
+      "fiscalYear": 2024,
+      "date": "2024-12-31",
+      "currency": "USD",
+      "revenue": 344329896907,
+      "grossProfit": 106742268041,
+      "operatingIncome": 47861855670,
+      "netIncome": 33055670103,
+      "epsDiluted": 7.58,
+      "operatingCashFlow": 55092783505,
+      "capitalExpenditure": 20659793814,
+      "freeCashFlow": 34432989690,
+      "dividendsPaid": 16581514752,
+      "cash": 23000000000,
+      "totalDebt": 41000000000,
+      "totalAssets": 335600000000,
+      "totalLiabilities": 65600000000,
+      "equity": 270000000000,
+      "currentAssets": 109082474226,
+      "currentLiabilities": 75752577319
+    },
+    {
+      "period": "FY",
+      "fiscalYear": 2023,
+      "date": "2023-12-31",
+      "currency": "USD",
+      "revenue": 351357037660,
+      "grossProfit": 108920681674,
+      "operatingIncome": 46730486008,
+      "netIncome": 31622133389,
+      "epsDiluted": 7.16,
+      "operatingCashFlow": 53581948243,
+      "capitalExpenditure": 21081422259,
+      "freeCashFlow": 32500525983,
+      "dividendsPaid": 16079044608,
+      "cash": 23000000000,
+      "totalDebt": 41000000000,
+      "totalAssets": 335600000000,
+      "totalLiabilities": 65600000000,
+      "equity": 270000000000,
+      "currentAssets": 110839259415,
+      "currentLiabilities": 77298548285
+    },
+    {
+      "period": "FY",
+      "fiscalYear": 2022,
+      "date": "2022-12-31",
+      "currency": "USD",
+      "revenue": 418282187690,
+      "grossProfit": 129667478184,
+      "operatingIncome": 53121837836,
+      "netIncome": 35135703766,
+      "epsDiluted": 7.87,
+      "operatingCashFlow": 60650917215,
+      "capitalExpenditure": 25096931261,
+      "freeCashFlow": 35553985953,
+      "dividendsPaid": 15560189568,
+      "cash": 23000000000,
+      "totalDebt": 41000000000,
+      "totalAssets": 335600000000,
+      "totalLiabilities": 65600000000,
+      "equity": 270000000000,
+      "currentAssets": 127570546922,
+      "currentLiabilities": 92022081292
+    },
+    {
+      "period": "FY",
+      "fiscalYear": 2021,
+      "date": "2021-12-31",
+      "currency": "USD",
+      "revenue": 288470474269,
+      "grossProfit": 89425847023,
+      "operatingIncome": 34904927386,
+      "netIncome": 22500696993,
+      "epsDiluted": 4.98,
+      "operatingCashFlow": 39664690212,
+      "capitalExpenditure": 17308228456,
+      "freeCashFlow": 22356461755,
+      "dividendsPaid": 15024949632,
+      "cash": 23000000000,
+      "totalDebt": 41000000000,
+      "totalAssets": 335600000000,
+      "totalLiabilities": 65600000000,
+      "equity": 270000000000,
+      "currentAssets": 95117618567,
+      "currentLiabilities": 63463504339
+    },
+    {
+      "period": "FY",
+      "fiscalYear": 2020,
+      "date": "2020-12-31",
+      "currency": "USD",
+      "revenue": 192313649513,
+      "grossProfit": 59617231349,
+      "operatingIncome": 22116069694,
+      "netIncome": 13846582764,
+      "epsDiluted": 3.03,
+      "operatingCashFlow": 25000774436,
+      "capitalExpenditure": 11538818970,
+      "freeCashFlow": 13461955465,
+      "dividendsPaid": 14473324800,
+      "cash": 23000000000,
+      "totalDebt": 41000000000,
+      "totalAssets": 335600000000,
+      "totalLiabilities": 65600000000,
+      "equity": 270000000000,
+      "currentAssets": 71078412378,
+      "currentLiabilities": 42309002892
+    }
+  ]
+}

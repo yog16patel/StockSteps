@@ -1,0 +1,12 @@
+{
+  "symbol": "XOM",
+  "companyName": "Exxon Mobil Corp",
+  "description": "Sample profile for development. This is not real information about Exxon Mobil Corp.",
+  "sector": "Energy",
+  "industry": "Oil & Gas Integrated",
+  "country": "US",
+  "currency": "USD",
+  "exchange": "NYSE",
+  "logoUrl": "https://images.financialmodelingprep.com/symbol/XOM.png",
+  "isEtf": false
+}

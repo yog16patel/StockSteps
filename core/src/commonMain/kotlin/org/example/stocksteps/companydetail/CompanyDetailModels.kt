@@ -19,7 +19,7 @@ data class FinancialChartState(
 data class SnapshotScore(val category: String, val score: Double? = null, val context: String? = null)
 data class CompanySnapshot(val scores: List<SnapshotScore> = listOf("Growth", "Profitability", "Financial health", "Valuation", "Cash flow").map { SnapshotScore(it) }, val overall: Double? = null)
 data class CompanyRisk(val title: String, val explanation: String, val source: String)
-data class FinancialMetric(val id: String, val label: String, val explanation: String, val unit: String = "ratio", val value: Double? = null, val historicalAverage: Double? = null, val industryAverage: Double? = null, val context: String? = null, val historicalLabel: String = "5Y average", val historicalRange: String? = null)
+data class FinancialMetric(val id: String, val label: String, val explanation: String, val unit: String = "ratio", val value: Double? = null, val historicalAverage: Double? = null, val industryAverage: Double? = null, val context: String? = null, val historicalLabel: String = "5Y average", val historicalRange: String? = null, val calculation: String? = null, val why: String? = null)
 data class FinancialSection(val title: String, val metrics: List<FinancialMetric>, val explanation: String? = null)
 data class CompanyDetailUiState(
     val name: String = "",

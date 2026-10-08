@@ -1,0 +1,12 @@
+{
+  "symbol": "CNR.TO",
+  "companyName": "Canadian National Railway Co",
+  "description": "Sample profile for development. This is not real information about Canadian National Railway Co.",
+  "sector": "Industrials",
+  "industry": "Railroads",
+  "country": "CA",
+  "currency": "CAD",
+  "exchange": "TSX",
+  "logoUrl": "https://images.financialmodelingprep.com/symbol/CNR.TO.png",
+  "isEtf": false
+}

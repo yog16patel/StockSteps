@@ -1,0 +1,12 @@
+{
+  "symbol": "KO",
+  "companyName": "Coca-Cola Co",
+  "description": "Sample profile for development. This is not real information about Coca-Cola Co.",
+  "sector": "Consumer Defensive",
+  "industry": "Beverages - Non-Alcoholic",
+  "country": "US",
+  "currency": "USD",
+  "exchange": "NYSE",
+  "logoUrl": "https://images.financialmodelingprep.com/symbol/KO.png",
+  "isEtf": false
+}

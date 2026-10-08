@@ -1,7 +1,7 @@
 package org.example.stocksteps.companydetail
 
 object MetricEducation {
-    private val metrics = listOf(
+    private val metrics by lazy { listOf(
         FinancialMetric("marketCap", "Market cap", "The total market value of a company's shares. It measures company size, not whether a stock is a good investment.", "money"),
         FinancialMetric("pe", "P/E", "How much investors pay for each dollar of earnings. Compare with the company's history, industry and growth. P/E may not be meaningful when earnings are zero or negative."),
         FinancialMetric("forwardPe", "Forward P/E", "Price compared with estimated future earnings. Forecasts can change and may be wrong."),
@@ -46,9 +46,46 @@ object MetricEducation {
         FinancialMetric("peg", "PEG", "P/E relative to expected earnings growth. Forecasts and calculation methods can make comparisons unreliable."),
         FinancialMetric("priceSales", "Price / sales", "Company market value relative to revenue. It does not account for how much of sales becomes profit."),
         FinancialMetric("priceFcf", "Price / free cash flow", "Company market value relative to free cash flow. It may not be meaningful when free cash flow is negative."),
-        FinancialMetric("evEbitda", "EV / EBITDA", "Enterprise value relative to earnings before interest, tax, depreciation and amortization. This measure leaves out important cash costs.")
-    ).associateBy { it.id }
+        FinancialMetric("evEbitda", "EV / EBITDA", "Enterprise value relative to earnings before interest, tax, depreciation and amortization. This measure leaves out important cash costs."),
+        FinancialMetric("fcfGrowth", "Free cash flow growth", "How much free cash flow changed from the prior fiscal year. Not shown when the prior year's free cash flow was zero or negative.", "percent"),
+        FinancialMetric("yearRangePosition", "52-week range position", "Where today's price sits between its 52-week low (0%) and high (100%). It describes recent price movement, not value.", "percent"),
+        FinancialMetric("price", "Share price", "The latest trading price of one share. A higher share price doesn't mean a company is bigger or better.", "money"),
+        FinancialMetric("volume", "Trading volume", "How many shares traded in the latest session. Low volume can mean prices move more on small trades.", "count")
+    ).map { it.copy(calculation = CALCULATIONS[it.id]?.first, why = CALCULATIONS[it.id]?.second) }.associateBy { it.id } }
+
+    /** How each metric is calculated and why investors look at it (shown in metric info sheets). */
+    private val CALCULATIONS = mapOf(
+        "marketCap" to ("Share price × shares outstanding." to "Shows company size, which affects how a business is compared with peers."),
+        "pe" to ("Share price ÷ diluted earnings per share over the trailing twelve months." to "Shows how much investors pay for current earnings."),
+        "forwardPe" to ("Share price ÷ analysts' average EPS estimate for the next fiscal year." to "Shows price relative to expected, not reported, earnings."),
+        "priceSales" to ("Market cap ÷ revenue over the trailing twelve months." to "Useful when earnings are small or negative."),
+        "priceBook" to ("Market cap ÷ shareholder equity." to "Often used for asset-heavy businesses such as banks."),
+        "evEbitda" to ("(Market cap + debt − cash) ÷ EBITDA." to "Compares companies with different amounts of debt."),
+        "revenueGrowth" to ("(This fiscal year's revenue − last year's) ÷ last year's revenue." to "Shows whether sales are expanding or shrinking."),
+        "epsGrowth" to ("(This year's diluted EPS − last year's) ÷ last year's EPS, only when last year's EPS was positive." to "Shows how profit per share changed."),
+        "netIncomeGrowth" to ("(This year's net income − last year's) ÷ last year's, only when last year was profitable." to "Shows how total profit changed."),
+        "fcfGrowth" to ("(This year's free cash flow − last year's) ÷ last year's, when last year's was positive and in the same currency." to "Cash generation can differ from accounting profit."),
+        "grossMargin" to ("Gross profit ÷ revenue." to "Shows how much each sale earns before overhead costs."),
+        "operatingMargin" to ("Operating income ÷ revenue." to "Shows profitability from the core business."),
+        "netMargin" to ("Net income ÷ revenue." to "Shows how much of each dollar of sales becomes profit."),
+        "roe" to ("Net income ÷ shareholder equity." to "Shows profit generated with shareholders' money."),
+        "roic" to ("Operating profit after tax ÷ invested capital (provider definition)." to "Shows how efficiently a business uses all its capital."),
+        "debtEquity" to ("Total debt ÷ shareholder equity." to "Shows how much a company relies on borrowing."),
+        "currentRatio" to ("Current assets ÷ current liabilities." to "Shows ability to cover bills due within a year."),
+        "interestCoverage" to ("Operating income ÷ interest expense." to "Shows how comfortably earnings cover interest."),
+        "freeCashFlow" to ("Operating cash flow − capital expenditure." to "Cash available for dividends, debt repayment or reinvestment."),
+        "operatingCashFlow" to ("Cash from day-to-day operations in the fiscal year." to "Shows whether the business generates cash."),
+        "cash" to ("Cash and cash equivalents on the latest balance sheet." to "A cushion for expenses and investment."),
+        "debt" to ("Short- and long-term borrowings on the latest balance sheet." to "Debt must be repaid and carries interest costs."),
+        "dividendYield" to ("Dividends per share over the trailing year ÷ share price." to "Shows the cash income paid relative to the price."),
+        "payoutRatio" to ("Dividends paid ÷ net income." to "Shows how much profit is paid out instead of reinvested."),
+        "dividendGrowth" to ("Change in total dividends between the last two calendar years." to "Shows whether payments have been rising or falling."),
+        "yearRangePosition" to ("(Price − 52-week low) ÷ (52-week high − 52-week low)." to "Gives context for recent price moves.")
+    )
+
     fun metric(id: String): FinancialMetric = requireNotNull(metrics[id])
+    /** Null for ids without beginner education (callers show the metric's own description instead). */
+    fun find(id: String): FinancialMetric? = metrics[id]
     fun financialSections(): List<FinancialSection> = listOf(
         section("Growth", "revenue", "revenueGrowth", "revenueCagr3", "revenueCagr5", "netIncome", "netIncomeGrowth", "eps", "epsGrowth", "epsCagr3", "epsCagr5"),
         section("Profitability", "grossMargin", "operatingMargin", "netMargin", "roe", "roa", "roic"),

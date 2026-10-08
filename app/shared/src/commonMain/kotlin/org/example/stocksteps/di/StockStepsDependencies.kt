@@ -85,6 +85,7 @@ internal class StockStepsDependencies(baseUrl: () -> String, clientFactory: () -
     fun getArticleInsight(): GetArticleInsight = application.koin.get()
     fun getMovementExplanation(): GetMovementExplanation = application.koin.get()
     fun getMarketsOverview(): GetMarketsOverview = application.koin.get()
+    fun screenerData(): org.example.stocksteps.screener.ScreenerDataSource = org.example.stocksteps.screener.RemoteScreenerDataSource(application.koin.get())
     fun searchViewModel(query: String, selection: StockSearchResult?): StockSearchViewModel =
         application.koin.get { parametersOf(SearchInitialState(query, selection)) }
 

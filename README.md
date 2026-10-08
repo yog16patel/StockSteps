@@ -538,6 +538,20 @@ dated FX, precision policies, MOCK scenarios, persistence setup and known limits
 Authenticated routes start at `/api/v1/me/portfolio`; REAL requires the existing
 Firebase Admin credentials, while MOCK uses isolated in-memory data.
 
+### Smart Stock Screener and Stock Comparison
+
+Markets → **Discover Stocks** (presets and filters, server-side filtering/sorting/paging) and
+**Compare Stocks** (2–4 companies, aligned metrics, normalized price chart). Company Details has a
+Compare action. See [Screener & Comparison](docs/SCREENER_AND_COMPARISON.md) for metric
+definitions, presets, the provider capability matrix and quota controls.
+
+- `GET /api/v1/screener/catalog`, `POST /api/v1/screener/search`
+- `GET /api/v1/compare?symbols=AAPL,MSFT`, `GET /api/v1/compare/performance?symbols=…&period=1Y`
+- `GET|POST /api/v1/me/screens`, `PUT|DELETE /api/v1/me/screens/{id}` (signed in; free 3, StockSteps+ 25)
+- REAL settings: `SCREENER_EXCHANGES`, `SCREENER_UNIVERSE_LIMIT`, `SCREENER_MIN_MARKET_CAP`,
+  `SCREENER_FUNDAMENTALS_PER_HOUR` (quota budget), `SCREENER_REQUESTS_PER_MINUTE`.
+- Regenerate the MOCK screener companies with `python3 scripts/generate_screener_fixtures.py`.
+
 ### Portfolio Intelligence (Insights)
 
 Portfolio → Insights shows health facts, TWR/XIRR performance, benchmark comparison,

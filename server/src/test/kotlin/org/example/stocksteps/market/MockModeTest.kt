@@ -119,6 +119,12 @@ class MockModeTest {
                 when {
                     path.startsWith("home/") -> json.decodeFromString(org.example.stocksteps.home.HomePersonaFixture.serializer(), text)
                     path == "manifest.json" -> Unit
+                    path == "screener/universe.json" -> json.parseToJsonElement(text).let { root ->
+                        val symbols = (root as kotlinx.serialization.json.JsonObject)["symbols"] as kotlinx.serialization.json.JsonArray
+                        assertTrue(symbols.isNotEmpty())
+                        // Every universe company must have fixture data that Company Details can also show.
+                        symbols.forEach { s -> assertNotNull(javaClass.classLoader.getResource("fixtures/stocks/${(s as kotlinx.serialization.json.JsonPrimitive).content}/quote.json"), "Missing quote for $s") }
+                    }
                     path == "market/snapshot.json" -> json.decodeFromString(MarketSnapshot.serializer(), text)
                     path == "market/indices.json" -> json.decodeFromString(ListSerializer(IndexFixture.serializer()), text)
                     path == "stocks/search.json" -> json.decodeFromString(ListSerializer(StockSearchResult.serializer()), text)

@@ -13,6 +13,8 @@ struct CompanyDetailsScene: View {
     @State private var showValuation = false
     @State private var showMovement = false
     @State private var showPortfolio = false
+    @State private var showCompare = false
+    @State private var compareModel: ScreenerModel?
     @State private var portfolioModel = PortfolioViewModel()
     @Environment(\.openURL) private var openURL
 
@@ -41,8 +43,17 @@ struct CompanyDetailsScene: View {
             onOpenValuation: { showValuation = true },
             onOpenNews: { showNews = true },
             onOpenMovement: { showMovement = true },
-            onAddPortfolio: { showPortfolio = true }
+            onAddPortfolio: { showPortfolio = true },
+            onCompare: {
+                // Adds this company to the shared selection, then opens Compare in this stack.
+                SharedComparisonSelection.shared.instance.add(symbol: symbol, name: model.overview.value?.name ?? symbol)
+                if compareModel == nil { compareModel = ScreenerModel(accounts: accounts) }
+                showCompare = true
+            }
         )
+        .navigationDestination(isPresented: $showCompare) {
+            if let compareModel { CompareStocksScene(model: compareModel, onOpenStock: { _ in showCompare = false }) }
+        }
         // Deeper destinations stay inside the same navigation stack, so Back returns here.
         .navigationDestination(isPresented: $showFinancials) { CompanyFinancialsScene(symbol: symbol, client: model.client) }
         .navigationDestination(isPresented: $showNews) { CompanyNewsScene(symbol: symbol, client: model.client) }

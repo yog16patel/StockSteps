@@ -32,6 +32,10 @@ class UserApi(
     suspend fun portfolioAnalytics(accountId: String, period: org.example.stocksteps.portfolio.analytics.AnalyticsPeriod, benchmark: org.example.stocksteps.portfolio.analytics.BenchmarkId?, expectedOwner: String? = null): org.example.stocksteps.portfolio.analytics.PortfolioAnalytics =
         send(HttpMethod.Get, "portfolio/accounts/${accountId.segment()}/analytics?period=${period.label}" + (benchmark?.let { "&benchmark=${it.name}" } ?: ""), expectedOwner = expectedOwner)
     suspend fun entitlements(): org.example.stocksteps.portfolio.analytics.Entitlements = send(HttpMethod.Get, "entitlements")
+    suspend fun savedScreens(): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Get, "screens")
+    suspend fun saveScreen(request: org.example.stocksteps.screener.SaveScreenRequest): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Post, "screens", request)
+    suspend fun updateScreen(id: String, request: org.example.stocksteps.screener.UpdateScreenRequest): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Put, "screens/${id.segment()}", request)
+    suspend fun deleteScreen(id: String): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Delete, "screens/${id.segment()}")
     /** MOCK backend only (the route doesn't exist in REAL). */
     suspend fun simulateEntitlements(request: org.example.stocksteps.portfolio.analytics.DebugEntitlementRequest): org.example.stocksteps.portfolio.analytics.Entitlements =
         send(HttpMethod.Put, "entitlements/debug", request)

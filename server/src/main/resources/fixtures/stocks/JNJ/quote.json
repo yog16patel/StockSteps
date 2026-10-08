@@ -1,0 +1,16 @@
+{
+  "symbol": "JNJ",
+  "companyName": "Johnson & Johnson",
+  "price": 177.39,
+  "change": 1.39,
+  "changePercent": 0.7906,
+  "dayHigh": 178.45,
+  "dayLow": 174.94,
+  "previousClose": 176.0,
+  "volume": 4424000,
+  "timestamp": 1791403200,
+  "marketCap": 427509899999,
+  "open": 176.0,
+  "yearHigh": 177.39,
+  "yearLow": 147.81
+}

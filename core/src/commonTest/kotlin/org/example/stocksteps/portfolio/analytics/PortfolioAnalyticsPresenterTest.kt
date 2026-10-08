@@ -104,7 +104,7 @@ class PortfolioAnalyticsPresenterTest {
         auth.mutable.value = AuthSession(User("bob", "bob@example.test"), initializing = false)
         await { it.benchmark == BenchmarkId.TSX && it.view != null } // bob gets his own default, not alice's choice
         withTimeout(5_000) { while (server.analyticsRequests.none { it.startsWith("mock:bob:") }) delay(20) }
-        assertTrue(server.analyticsRequests.filter { it.startsWith("mock:bob:") }.none { it.endsWith("NASDAQ") })
+        assertTrue(server.analyticsRequests.filter { it.startsWith("mock:bob:") }.none { it.endsWith("NASDAQ") }, server.analyticsRequests.toString())
         auth.mutable.value = AuthSession(User("alice", "alice@example.test"), initializing = false)
         await { it.benchmark == BenchmarkId.NASDAQ && it.view != null }
     }

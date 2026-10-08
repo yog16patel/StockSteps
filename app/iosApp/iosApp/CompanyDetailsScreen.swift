@@ -17,6 +17,7 @@ struct CompanyDetailsScreen: View {
     let onOpenNews: () -> Void
     let onOpenMovement: () -> Void
     var onAddPortfolio: () -> Void = {}
+    var onCompare: () -> Void = {}
     @State private var education: GlanceMetric?
     @State private var showEvidence = false
     @State private var showSources = false
@@ -31,7 +32,10 @@ struct CompanyDetailsScreen: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 header(colors)
-                Button("Add to portfolio", systemImage: "briefcase", action: onAddPortfolio).buttonStyle(.bordered)
+                HStack {
+                    Button("Add to portfolio", systemImage: "briefcase", action: onAddPortfolio).buttonStyle(.bordered)
+                    Button("Compare", systemImage: "square.split.2x1", action: onCompare).buttonStyle(.bordered)
+                }
                 chartSection(colors).padding(.top, CGFloat(space.lg))
                 switch model.whyMoving {
                 case .content(let why): if let why { whySection(why, colors).padding(.top, CGFloat(space.xl)) }

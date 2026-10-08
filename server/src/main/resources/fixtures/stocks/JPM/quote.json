@@ -1,0 +1,16 @@
+{
+  "symbol": "JPM",
+  "companyName": "JPMorgan Chase & Co",
+  "price": 296.78,
+  "change": -1.22,
+  "changePercent": -0.4089,
+  "dayHigh": 299.79,
+  "dayLow": 295.0,
+  "previousClose": 298.0,
+  "volume": 2962000,
+  "timestamp": 1791403200,
+  "marketCap": 825048399999,
+  "open": 298.0,
+  "yearHigh": 298.0,
+  "yearLow": 254.92
+}

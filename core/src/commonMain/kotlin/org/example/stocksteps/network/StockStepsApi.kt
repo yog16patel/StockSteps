@@ -6,6 +6,8 @@ import io.ktor.client.plugins.expectSuccess
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
+import io.ktor.client.request.request
+import io.ktor.client.request.setBody
 import io.ktor.client.request.parameter
 import io.ktor.client.request.url
 import io.ktor.http.*
@@ -134,6 +136,26 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
 
     suspend fun getBackendInfo(): BackendInfo = request { url("$baseUrl/api/v1/meta") }
 
+    // Screener and comparison (public; all provider access stays on the server).
+    suspend fun getScreenerCatalog(): org.example.stocksteps.screener.ScreenerCatalog = request { url("$baseUrl/api/v1/screener/catalog") }
+    suspend fun searchScreener(query: org.example.stocksteps.screener.ScreenerQuery): org.example.stocksteps.screener.ScreenerPage = send(io.ktor.http.HttpMethod.Post) {
+        url("$baseUrl/api/v1/screener/search")
+        contentType(io.ktor.http.ContentType.Application.Json)
+        setBody(query)
+    }
+    suspend fun compare(symbols: List<String>): org.example.stocksteps.screener.ComparisonResponse {
+        require(symbols.all { Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(it) })
+        return request { url("$baseUrl/api/v1/compare"); parameter("symbols", symbols.joinToString(",") { it.uppercase() }) }
+    }
+    suspend fun comparePerformance(symbols: List<String>, period: org.example.stocksteps.screener.PerformancePeriod): org.example.stocksteps.screener.PerformanceComparison {
+        require(symbols.all { Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(it) })
+        return request {
+            url("$baseUrl/api/v1/compare/performance")
+            parameter("symbols", symbols.joinToString(",") { it.uppercase() })
+            parameter("period", period.label)
+        }
+    }
+
     suspend fun getMarketSnapshot(): MarketSnapshot = request { url("$baseUrl/market/snapshot") }
 
     suspend fun getGainers(): List<MarketMover> = request { url("$baseUrl/api/v1/market/gainers") }
@@ -146,8 +168,14 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
 
     private suspend inline fun <reified T> request(
         crossinline configure: io.ktor.client.request.HttpRequestBuilder.() -> Unit
+    ): T = send(io.ktor.http.HttpMethod.Get, configure)
+
+    private suspend inline fun <reified T> send(
+        method: io.ktor.http.HttpMethod,
+        crossinline configure: io.ktor.client.request.HttpRequestBuilder.() -> Unit
     ): T {
-        val response = client.get {
+        val response = client.request {
+            this.method = method
             expectSuccess = false
             configure()
         }

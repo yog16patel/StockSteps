@@ -1,0 +1,28 @@
+{
+  "description": "MOCK screener universe: captured US large caps plus generated sample US and Canadian companies (not real data).",
+  "symbols": [
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "AMZN",
+    "GOOGL",
+    "META",
+    "AMD",
+    "INTC",
+    "NFLX",
+    "TSLA",
+    "TD",
+    "KO",
+    "JPM",
+    "XOM",
+    "JNJ",
+    "RIVN",
+    "RY.TO",
+    "ENB.TO",
+    "CNR.TO",
+    "SHOP.TO",
+    "BCE.TO",
+    "CSU.TO",
+    "BB.TO"
+  ]
+}

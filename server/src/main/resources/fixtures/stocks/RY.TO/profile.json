@@ -1,0 +1,12 @@
+{
+  "symbol": "RY.TO",
+  "companyName": "Royal Bank of Canada",
+  "description": "Sample profile for development. This is not real information about Royal Bank of Canada.",
+  "sector": "Financial Services",
+  "industry": "Banks - Diversified",
+  "country": "CA",
+  "currency": "CAD",
+  "exchange": "TSX",
+  "logoUrl": "https://images.financialmodelingprep.com/symbol/RY.TO.png",
+  "isEtf": false
+}

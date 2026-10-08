@@ -86,7 +86,12 @@ internal fun CompanyDetailsScreen(
                 contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, bottom = spacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                item(key = "portfolio") { TextButton(onClick = { onAction(CompanyDetailsAction.AddPortfolio) }) { Text("Add to portfolio") } }
+                item(key = "portfolio") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        TextButton(onClick = { onAction(CompanyDetailsAction.AddPortfolio) }) { Text("Add to portfolio") }
+                        TextButton(onClick = { onAction(CompanyDetailsAction.Compare) }) { Text("Compare") }
+                    }
+                }
                 item(key = "header") { CompanyHeader(state.overview, onRetry = { onAction(CompanyDetailsAction.RetryCore) }, modifier = content) }
                 item(key = "chart") {
                     ChartSection(
