@@ -3,7 +3,6 @@ import Shared
 #if canImport(FirebaseCore)
 import FirebaseCore
 import FirebaseAuth
-import FirebaseFirestore
 import GoogleSignIn
 #endif
 
@@ -15,26 +14,33 @@ final class NativeAccountSubscription: NSObject, AccountSubscription {
 
 // Only this adapter file imports Firebase. Domain and screens use plain shared models.
 enum FirebaseAccountFactory {
-    static func makeClient() -> IosAccountClient {
+    /// Watchlists, notes and alerts are stored by the StockSteps backend selected in Settings → Development.
+    /// Configures Firebase from GoogleService-Info.plist when present; returns whether it's available.
+    @discardableResult
+    static func configure() -> Bool {
         #if canImport(FirebaseCore)
         if FirebaseApp.app() == nil,
            let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
            let options = FirebaseOptions(contentsOfFile: path) {
             FirebaseApp.configure(options: options)
         }
-        let configured = FirebaseApp.app() != nil
+        return FirebaseApp.app() != nil
+        #else
+        return false
+        #endif
+    }
+
+    static func makeClient() -> IosAccountClient {
+        #if canImport(FirebaseCore)
+        let configured = configure()
         #if DEBUG
         if configured && ProcessInfo.processInfo.arguments.contains("--firebase-emulators") {
             Auth.auth().useEmulator(withHost: "127.0.0.1", port: 9099)
-            let settings = Firestore.firestore().settings
-            settings.host = "127.0.0.1:8085"
-            settings.isSSLEnabled = false
-            Firestore.firestore().settings = settings
         }
         #endif
-        return IosAccountClient(auth: NativeAuthGateway(configured: configured), cloud: NativeWatchlistGateway(configured: configured))
+        return IosAccountClient(auth: NativeAuthGateway(configured: configured), baseUrl: { BackendSettings.currentURL }, environment: BackendSettings.environment)
         #else
-        return IosAccountClient(auth: UnconfiguredAuthGateway(), cloud: UnconfiguredWatchlistGateway())
+        return IosAccountClient(auth: UnconfiguredAuthGateway(), baseUrl: { BackendSettings.currentURL }, environment: BackendSettings.environment)
         #endif
     }
 }
@@ -49,15 +55,7 @@ private final class UnconfiguredAuthGateway: NSObject, PlatformAuthGateway {
     func signUp(email: String, password: String, completion: @escaping (String?) -> Void) { completion(configurationError) }
     func signInWithGoogle(completion: @escaping (String?) -> Void) { completion(configurationError) }
     func signOut(completion: @escaping (String?) -> Void) { completion(nil) }
-}
-
-private final class UnconfiguredWatchlistGateway: NSObject, PlatformWatchlistGateway {
-    func observe(uid: String, onSnapshot: @escaping ([WatchlistItem]?, KotlinBoolean, String?) -> Void) -> any AccountSubscription {
-        onSnapshot(nil, KotlinBoolean(bool: false), "Cloud sync is not configured yet.")
-        return NativeAccountSubscription({})
-    }
-    func put(uid: String, item: WatchlistItem, completion: @escaping (String?) -> Void) { completion("Cloud sync is not configured yet.") }
-    func delete(uid: String, symbol: String, completion: @escaping (String?) -> Void) { completion("Cloud sync is not configured yet.") }
+    func idToken(forceRefresh: Bool, completion: @escaping (String?, String?) -> Void) { completion(nil, configurationError) }
 }
 
 #if canImport(FirebaseCore)
@@ -91,6 +89,13 @@ private final class NativeAuthGateway: NSObject, PlatformAuthGateway {
         do { try auth?.signOut(); GIDSignIn.sharedInstance.signOut(); completion(nil) }
         catch { completion(safeAuthMessage(error)) }
     }
+    /// Firebase ID token for StockSteps backend requests (the SDK refreshes it as needed).
+    func idToken(forceRefresh: Bool, completion: @escaping (String?, String?) -> Void) {
+        guard let user = auth?.currentUser else { completion(nil, "Sign in to continue."); return }
+        user.getIDTokenForcingRefresh(forceRefresh) { token, error in
+            completion(token, token == nil ? (error.map(safeAuthMessage) ?? "Sign in again to continue.") : nil)
+        }
+    }
 }
 
 private func safeAuthMessage(_ error: Error) -> String {
@@ -105,70 +110,4 @@ private func safeAuthMessage(_ error: Error) -> String {
     }
 }
 
-private final class NativeWatchlistGateway: NSObject, PlatformWatchlistGateway {
-    private let database: Firestore?
-    init(configured: Bool) { database = configured ? Firestore.firestore() : nil }
-    func observe(uid: String, onSnapshot: @escaping ([WatchlistItem]?, KotlinBoolean, String?) -> Void) -> any AccountSubscription {
-        guard let database else {
-            onSnapshot(nil, KotlinBoolean(bool: false), "Cloud sync is not configured yet.")
-            return NativeAccountSubscription({})
-        }
-        let listener = database.collection("users").document(uid).collection("watchlist")
-            .addSnapshotListener(includeMetadataChanges: true) { snapshot, error in
-                if let error { onSnapshot(nil, KotlinBoolean(bool: false), safeCloudMessage(error)); return }
-                guard let snapshot else { return }
-                var items: [WatchlistItem] = []
-                for document in snapshot.documents {
-                    let data = document.data()
-                    guard let symbol = data["symbol"] as? String,
-                          symbol == document.documentID,
-                          symbol.range(of: "^[A-Z0-9][A-Z0-9.^-]{0,31}$", options: .regularExpression) != nil,
-                          let added = data["addedAt"] as? Int64,
-                          let updated = data["updatedAt"] as? Int64,
-                          added >= 0, updated >= added else {
-                        onSnapshot(nil, KotlinBoolean(bool: false), "Cloud watchlist data could not be read. Local data is safe.")
-                        return
-                    }
-                    items.append(WatchlistItem(symbol: symbol, addedAt: added, updatedAt: updated, name: data["name"] as? String, exchange: data["exchange"] as? String, currency: data["currency"] as? String, exchangeFullName: data["exchangeFullName"] as? String))
-                }
-                onSnapshot(items, KotlinBoolean(bool: !snapshot.metadata.isFromCache && !snapshot.metadata.hasPendingWrites), nil)
-            }
-        return NativeAccountSubscription { listener.remove() }
-    }
-    func put(uid: String, item: WatchlistItem, completion: @escaping (String?) -> Void) {
-        guard let database else { completion("Cloud sync is not configured yet."); return }
-        let document = database.collection("users").document(uid).collection("watchlist").document(item.symbol)
-        database.runTransaction({ transaction, errorPointer in
-            do {
-                let existing = try transaction.getDocument(document).data()?["addedAt"] as? Int64
-                let added = min(item.addedAt, existing ?? item.addedAt)
-                var data: [String: Any] = ["symbol": item.symbol, "addedAt": added, "updatedAt": max(item.updatedAt, added)]
-                data["name"] = item.name
-                data["exchange"] = item.exchange
-                data["currency"] = item.currency
-                data["exchangeFullName"] = item.exchangeFullName
-                transaction.setData(data, forDocument: document)
-                return nil
-            } catch { errorPointer?.pointee = error as NSError; return nil }
-        }) { _, error in completion(error.map(safeCloudMessage)) }
-    }
-    func delete(uid: String, symbol: String, completion: @escaping (String?) -> Void) {
-        guard let database else { completion("Cloud sync is not configured yet."); return }
-        let document = database.collection("users").document(uid).collection("watchlist").document(symbol)
-        database.runTransaction({ transaction, errorPointer in
-            do {
-                _ = try transaction.getDocument(document)
-                transaction.deleteDocument(document)
-                return nil
-            } catch { errorPointer?.pointee = error as NSError; return nil }
-        }) { _, error in completion(error.map(safeCloudMessage)) }
-    }
-}
-
-private func safeCloudMessage(_ error: Error) -> String {
-    if (error as NSError).code == FirestoreErrorCode.permissionDenied.rawValue {
-        return "Cloud sync was denied. Check your account or cloud permissions. Local data is safe."
-    }
-    return "Could not sync. Your changes are saved on this device."
-}
 #endif

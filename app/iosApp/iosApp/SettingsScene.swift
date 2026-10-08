@@ -53,6 +53,11 @@ enum BackendSettings {
         #endif
     }
 
+    /// "mock" or "real": the effective choice, used to keep each backend's user data apart.
+    static var environment: String {
+        (UserDefaults.standard.string(forKey: storageKey) == mock && mockURL != nil) ? "mock" : "real"
+    }
+
     /// Read on every request, so switching applies to the next call of every client.
     static var currentURL: String {
         let stored = UserDefaults.standard.string(forKey: storageKey) ?? real

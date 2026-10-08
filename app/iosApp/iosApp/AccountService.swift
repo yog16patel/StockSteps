@@ -11,19 +11,25 @@ protocol AccountServing {
     func remove(symbol: String) async throws
     func retrySync()
     func close()
+    /// The shared client behind signed-in watchlists and alerts (nil in previews/tests).
+    var client: IosAccountClient? { get }
 }
 
 final class AccountService: AccountServing {
-    private let client: IosAccountClient
-    init(client: IosAccountClient = FirebaseAccountFactory.makeClient()) { self.client = client }
-    func observe(onChange: @escaping (AccountSnapshot) -> Void) -> any AccountSubscription { client.observe(onChange: onChange) }
-    func signIn(email: String, password: String) async throws { try await client.signIn(email: email, password: password) }
-    func signUp(email: String, password: String) async throws { try await client.signUp(email: email, password: password) }
-    func signInWithGoogle() async throws { try await client.signInWithGoogle() }
-    func signOut() async throws { try await client.signOut() }
-    func add(symbol: String) async throws { try await client.add(symbol: symbol) }
-    func addListing(stock: StockSearchResult) async throws { try await client.addListing(stock: stock) }
-    func remove(symbol: String) async throws { try await client.remove(symbol: symbol) }
-    func retrySync() { client.retrySync() }
-    func close() { client.close() }
+    let shared: IosAccountClient
+    var client: IosAccountClient? { shared }
+    init(client: IosAccountClient = FirebaseAccountFactory.makeClient()) {
+        shared = client
+        Task { @MainActor in PushCoordinator.shared.attach(client) }
+    }
+    func observe(onChange: @escaping (AccountSnapshot) -> Void) -> any AccountSubscription { shared.observe(onChange: onChange) }
+    func signIn(email: String, password: String) async throws { try await shared.signIn(email: email, password: password) }
+    func signUp(email: String, password: String) async throws { try await shared.signUp(email: email, password: password) }
+    func signInWithGoogle() async throws { try await shared.signInWithGoogle() }
+    func signOut() async throws { try await shared.signOut() }
+    func add(symbol: String) async throws { try await shared.add(symbol: symbol) }
+    func addListing(stock: StockSearchResult) async throws { try await shared.addListing(stock: stock) }
+    func remove(symbol: String) async throws { try await shared.remove(symbol: symbol) }
+    func retrySync() { shared.retrySync() }
+    func close() { shared.close() }
 }

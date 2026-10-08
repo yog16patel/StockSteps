@@ -11,11 +11,22 @@ class SignUp(private val repository: AuthRepository) {
  * the device can't see it. Public market data caches are untouched. Fails without clearing if
  * Firebase sign-out fails, so the app never looks signed out while it isn't.
  */
-class SignOut(private val repository: AuthRepository, private val local: org.example.stocksteps.data.watchlist.WatchlistLocalStore? = null) {
+class SignOut(
+    private val repository: AuthRepository,
+    private val local: org.example.stocksteps.data.watchlist.WatchlistLocalStore? = null,
+    private val cache: org.example.stocksteps.data.userdata.UserDataCache? = null,
+    /** Runs while still signed in (e.g. unlinking this device's push token). */
+    private val beforeSignOut: suspend () -> Unit = {}
+) {
     suspend operator fun invoke() {
         val uid = repository.session.value.user?.id
+        if (uid != null) beforeSignOut()
         repository.signOut()
-        if (uid != null) local?.clearOwner(org.example.stocksteps.data.watchlist.watchlistOwner(uid))
+        if (uid != null) {
+            local?.clearOwner(org.example.stocksteps.data.watchlist.watchlistOwner(uid))
+            // Cached watchlists, notes, alerts and quotes for this account (every environment).
+            cache?.clearAccount(uid)
+        }
     }
 }
 class AddToWatchlist(private val repository: WatchlistRepository) {

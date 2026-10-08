@@ -263,7 +263,7 @@ object MarketsPresenter {
     }
 
     /** Days since 1970-01-01 for "yyyy-MM-dd". */
-    private fun dayNumber(date: String): Int? = runCatching {
+    fun dayNumber(date: String): Int? = runCatching {
         val (y, m, d) = date.take(10).split("-").map { it.toInt() }
         val year = if (m <= 2) y - 1 else y
         val era = (if (year >= 0) year else year - 399) / 400

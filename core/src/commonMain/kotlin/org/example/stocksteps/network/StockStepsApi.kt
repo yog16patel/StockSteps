@@ -117,6 +117,15 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
     /** Markets dashboard: session, indices, movers, sectors and market news in one request. */
     suspend fun getMarketsOverview(): MarketsOverview = request { url("$baseUrl/api/v1/markets/overview") }
 
+    /** Quotes, names/logos and next earnings for watched symbols (public market data). */
+    suspend fun getWatchData(symbols: List<String>): WatchDataResponse {
+        require(symbols.isNotEmpty() && symbols.size <= 100 && symbols.all { Regex("[A-Z0-9][A-Z0-9.^-]{0,31}").matches(it) })
+        return request {
+            url("$baseUrl/api/v1/stocks/watch-data")
+            parameter("symbols", symbols.joinToString(","))
+        }
+    }
+
     suspend fun getBackendInfo(): BackendInfo = request { url("$baseUrl/api/v1/meta") }
 
     suspend fun getMarketSnapshot(): MarketSnapshot = request { url("$baseUrl/market/snapshot") }

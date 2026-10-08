@@ -60,6 +60,10 @@ internal fun CompanyDetailsScene(
             }
         }
     )
+    watchlist.choosing?.let { stock ->
+        org.example.stocksteps.presentation.stocksearch.WatchlistChooserSheet(stock, watchlist.lists,
+            onChoose = { watchlistModel?.choose(it) }, onDismiss = { watchlistModel?.cancelChoice() })
+    }
 }
 
 /** Watchlist entries keep the listing metadata (name, exchange) when it is known. */

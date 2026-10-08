@@ -13,6 +13,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import org.example.stocksteps.settings.BackendEndpoints
+import org.example.stocksteps.settings.BackendRouter
+import kotlinx.coroutines.flow.receiveAsFlow
 import org.example.stocksteps.settings.ThemeMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,12 +29,64 @@ import androidx.compose.ui.tooling.preview.Preview
 class MainActivity : androidx.fragment.app.FragmentActivity() {
     private val themePreferences by lazy { AndroidThemePreferenceStore(applicationContext) }
     private val backendEnvironment by lazy { AndroidBackendEnvironmentStore(applicationContext) }
+    private val backendRouter by lazy {
+        BackendRouter(
+            store = backendEnvironment,
+            endpoints = BackendEndpoints(
+                real = BuildConfig.BACKEND_URL,
+                mock = BuildConfig.MOCK_BACKEND_URL.ifBlank { null }
+            )
+        )
+    }
     private val appLock by lazy { androidx.lifecycle.ViewModelProvider(this)[org.example.stocksteps.security.AndroidAppLockOwner::class.java] }
+
+    /** Symbols from tapped alert notifications (FCM background notifications and our own foreground ones). */
+    private val notificationLinks = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.BUFFERED)
+    private var permissionResult: kotlinx.coroutines.CompletableDeferred<Boolean>? = null
+    private val permissionLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
+        permissionResult?.complete(granted)
+    }
+
+    /** Asked only when the user turns on notifications (after the app explains why). */
+    private val notifications = object : org.example.stocksteps.presentation.watchlist.NotificationAccess {
+        override val enabled: Boolean get() = org.example.stocksteps.account.AndroidPushTokens.notificationsAllowed(this@MainActivity)
+        override suspend fun request(): Boolean {
+            if (!enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val result = kotlinx.coroutines.CompletableDeferred<Boolean>()
+                permissionResult = result
+                permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                result.await()
+            }
+            if (!enabled) {
+                // Denied before (or disabled in system settings): open this app's notification settings.
+                startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName))
+                return false
+            }
+            org.example.stocksteps.account.AndroidPushTokens.refresh(applicationContext)
+            return true
+        }
+    }
+
+    private fun handleNotification(intent: android.content.Intent?) {
+        val symbol = intent?.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_SYMBOL)
+        if (intent?.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_TYPE) == "alert" && symbol != null) {
+            notificationLinks.trySend(symbol)
+            intent.removeExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_SYMBOL)
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNotification(intent)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         appLock.authenticator.attach(this)
+        handleNotification(intent)
 
         setContent {
             // System bar icons follow the app's chosen theme, not only the OS setting.
@@ -46,7 +100,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark }
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
             }
-            val accountOwner = viewModel { AndroidAccountOwner(application) }
+            val accountOwner = viewModel { AndroidAccountOwner(application, backendRouter) }
             androidx.compose.runtime.DisposableEffect(accountOwner) {
                 accountOwner.google.attach(this@MainActivity)
                 onDispose { accountOwner.google.detach(this@MainActivity) }
@@ -91,11 +145,10 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 backIcon = { AndroidBackIcon() },
                 themePreferences = themePreferences,
                 appVersion = BuildConfig.VERSION_NAME,
-                backendEndpoints = BuildConfig.BACKEND_URL.takeIf { it.isNotBlank() }?.let { real ->
-                    BackendEndpoints(real = real, mock = BuildConfig.MOCK_BACKEND_URL.ifBlank { null })
-                },
-                backendEnvironment = backendEnvironment,
-                appLock = appLock.manager
+                backendRouter = accountOwner.backend,
+                appLock = appLock.manager,
+                notifications = notifications,
+                notificationLinks = notificationLinks.receiveAsFlow()
             )
         }
     }
@@ -104,6 +157,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     // Rotation (isChangingConfigurations) is not leaving the app.
     override fun onStart() {
         super.onStart()
+        // Permission may have changed in system settings while the app was away.
+        org.example.stocksteps.account.AndroidPushTokens.refresh(applicationContext)
         appLock.manager.onForeground()
     }
 

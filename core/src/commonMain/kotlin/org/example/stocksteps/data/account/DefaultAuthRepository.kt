@@ -40,6 +40,17 @@ class DefaultAuthRepository(private val gateway: PlatformAuthGateway, scope: Cor
 
     override suspend fun signOut() = awaitAccountOperation(gateway::signOut)
 
+    override suspend fun idToken(forceRefresh: Boolean): String? {
+        if (session.value.user == null) return null
+        return suspendCancellableCoroutine { continuation ->
+            gateway.idToken(forceRefresh) { token, error ->
+                if (!continuation.isActive) return@idToken
+                if (token != null) continuation.resume(token)
+                else continuation.resumeWithException(AccountException(error ?: "Sign in again to continue."))
+            }
+        }
+    }
+
     private fun validate(email: String, password: String) {
         gateway.configurationError?.let { throw AccountException(it) }
         if (!email.trim().matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))) throw AccountException("Enter a valid email address.")

@@ -5,6 +5,9 @@ struct AppScene: View {
     @State private var searchModel: StockSearchViewModel
     @State private var homeModel: HomeViewModel
     @State private var marketsModel: MarketsModel
+    @State private var watchlistsModel: WatchlistsModel
+    /// Alerts screen target: a symbol, or "" for all alerts.
+    @State private var alertsTarget: String?
     let accounts: AccountViewModel
     var appLock: AppLockModel?
     @State private var showingAuth = false
@@ -23,6 +26,7 @@ struct AppScene: View {
         _searchModel = State(initialValue: StockSearchViewModel(service: StockSearchService(baseURL: baseURL)))
         _homeModel = State(initialValue: HomeViewModel(service: HomeQuoteService(baseURL: baseURL)))
         _marketsModel = State(initialValue: MarketsModel(baseURL: baseURL))
+        _watchlistsModel = State(initialValue: WatchlistsModel(client: accounts.client))
     }
 
     var body: some View {
@@ -38,7 +42,8 @@ struct AppScene: View {
                     .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
                     .tag(AppRoute.markets)
 
-                WatchListScene(model: accounts, onSignIn: { showingAuth = true }, onSearch: { initialStock = nil; showingSearch = true }, onExplore: explore)
+                WatchListScene(accounts: accounts, model: watchlistsModel, onSignIn: { showingAuth = true }, onSearch: { initialStock = nil; showingSearch = true },
+                               onExplore: explore, onOpenAlerts: { alertsTarget = $0 ?? "" })
                     .tabItem { Label("Watchlist", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 
@@ -52,15 +57,24 @@ struct AppScene: View {
             }
             .tint(StockStepsTheme.color(ThemeColors.shared.light.primary))
             // Home and Settings show their own compact headers instead of a navigation title.
-            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .markets && selectedTab != .settings))
+            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .markets && selectedTab != .watchlist && selectedTab != .settings))
             // Every client reads the URL per request; reload Home so its data matches the new backend.
             .navigationDestination(item: $detailsSymbol) { symbol in
-                CompanyDetailsScene(symbol: symbol, accounts: accounts)
+                CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel)
+            }
+            .navigationDestination(item: $alertsTarget) { target in
+                AlertsScene(model: watchlistsModel, symbol: target.isEmpty ? nil : target, onOpenStock: explore)
+            }
+            // Tapping an alert notification opens that stock's alerts.
+            .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenAlerts)) { note in
+                if let symbol = note.object as? String { alertsTarget = symbol }
             }
             .onChange(of: backendEnvironment) { _, _ in
                 homeModel.refreshIndices()
                 homeModel.refreshNews()
                 marketsModel.reset()
+                // Watchlists, notes, alerts and the push registration follow the selected backend.
+                accounts.client?.setEnvironment(environment: BackendSettings.environment)
             }
         }
         .sheet(isPresented: $showingAuth) {

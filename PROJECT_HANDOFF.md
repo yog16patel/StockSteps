@@ -1,6 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: "Add Markets dashboard with indices, movers, sectors and market session on Android and iOS" on `main`.
+Last updated: 2026-10-08 (America/Toronto). Uncommitted local work on top of the current commit:
+Watchlist & Smart Alerts (see the last section). Current commit: "Add Markets dashboard with indices, movers, sectors and market session on Android and iOS" on `main`.
 Previous commit: `4ddcd10` (Add Company News, article explanations and Why Did It Move on Android and iOS).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
@@ -1812,3 +1813,57 @@ xcodebuild BUILD SUCCEEDED; a temporary MOCK server (port 8094) served the overv
 (stopped). NOT verified: on-device UI (Android/iOS, light/dark, large fonts), REAL mode (FMP index
 symbols ^GSPC/^IXIC/^DJI/^GSPTSE and ETF quotes on the current plan are unverified — proxies and
 unavailable states cover failures), unscheduled market closures.
+
+### Watchlist & Smart Alerts (2026-10-08, uncommitted local work)
+
+Owner decisions: the backend owns signed-in watchlists, notes, alerts and push devices (Firestore in
+REAL, memory in MOCK); guests keep the on-device single list, imported once into "My Stocks" at
+sign-in; the legacy Firestore list is imported once by the backend.
+
+- Server `userdata/`: `UserAuthenticator` (REAL `FirebaseIdTokenAuthenticator` via google-auth
+  `TokenVerifier`; MOCK `MockUserAuthenticator`, unverified), `UserDataStore` (`InMemoryUserDataStore`,
+  `FirestoreUserDataStore`: users/{uid}/watchlists, users/{uid}/meta, alertRules, alertEvents,
+  notificationOutbox, pushDevices — JSON payload + query fields), `WatchlistsService` (idempotent
+  default list, validation, duplicates, move/copy/reorder, per-entry notes, limits), `AlertsService`
+  (validation, currency match, CONDITION_ALREADY_MET flow, duplicates, pause/resume/re-arm),
+  `AlertRules` (pure trigger logic, stale-quote rejection, regular-session moves, earnings with
+  ESTIMATED/CONFIRMED wording, news event grouping), `AlertEvaluator` (grouped by instrument, atomic
+  event keys, durable outbox with leases and retries, invalid-token cleanup, delivery status),
+  `FcmPushSender`/`SimulatedPushSender`, `FinnhubEarningsCalendar`, `WatchMarketData` caches, routes in
+  `UserRoutes.kt`; MOCK alert loop every minute; sample `earnings-upcoming.json` fixtures.
+- Core: `model/UserData.kt`; `data/userdata/` (`UserApi` with 401 token refresh, `ServerBackedRepository`
+  + `UserWatchlistsRepository`/`AlertsRepository` with per-environment+account offline cache,
+  `WatchDataRepository`, `DeviceRegistrar`, `AccountWatchlistRepository` facade for Home/Details/Search
+  and guest import); `SignOut` unlinks the device first and clears cached user data;
+  `watchlist/WatchlistPresentation.kt` (equal-weighted summary of fresh same-session quotes, rows,
+  deterministic insights, alert cards/history labels). `AuthRepository.idToken`.
+- Android: Watchlist tab rewritten (`WatchListScreen/Scene/ViewModel`), `AlertsScene` (`AlertsRoute`),
+  `AlertEditorSheet`, note/move/rename/delete flows, `StockTextField`, list chooser on Company Details
+  and Search; FCM (`AndroidPush.kt`: token source, `StockStepsMessagingService`, `stock_alerts` channel),
+  POST_NOTIFICATIONS asked only from the alert/alerts screens, notification taps open that stock's
+  alerts. Firestore dependency and `AndroidWatchlistGateway` (+ its emulator test) removed.
+- iOS: `IosAccountClient` (new constructor, user-data observation, mutations, presenters, push token),
+  Firestore watchlist adapters removed, ID tokens from FirebaseAuth, FirebaseMessaging product
+  (replaced FirebaseFirestore in the project), `iosApp.entitlements` (aps-environment development),
+  `UIBackgroundModes` remote-notification, `PushNotifications.swift` (app delegate, APNs → FCM token,
+  foreground banners, tap → alerts), SwiftUI `WatchListScene` (lists, summary, insights, row menus,
+  notes, list management), `AlertEditorSheet`, `AlertsScene`, `WatchlistChooser`; environment switch
+  re-registers user data.
+- `firestore.rules`: documents the server-only collections (default deny); legacy path unchanged for
+  older app versions.
+- Tests: server `WatchlistsServiceTest`, `AlertsTest`, `UserRoutesTest`; core `WatchlistPresenterTest`,
+  `UserDataRepositoriesTest`; shared `WatchListViewModelTest`.
+
+Validation: server 136 (3 skipped), core JVM 102, core iOS 102, shared Android host 57, shared iOS 50 —
+all pass; Android assembleDebug and iOS xcodebuild BUILD SUCCEEDED; a temporary MOCK server served
+lists, notes, the already-met flow, earnings/price triggers (SIMULATED delivery), duplicate-run
+protection and user isolation. NOT verified: on-device UI and real push delivery on Android/iOS
+(needs FCM credentials, an APNs key and a device), REAL Firestore store (no emulator here), Cloud
+Scheduler setup, Finnhub earnings on the current plan. Limitations: watchlist edits need a connection
+(cached reads offline); reordering uses Move up/down (no drag); notes are per watchlist entry; news
+alerts in MOCK rarely fire (fixture news predates rules); iOS times are shown in ET.
+Fixes after first run: Koin `named("guest")` binding is now typed `WatchlistRepository` (launch crash;
+covered by iOS `AccountDependenciesTest`, which builds the whole account graph); a REAL server without
+Google Application Default Credentials no longer crashes at startup — it logs a warning and
+`UnavailableUserDataStore` answers user-data and evaluator requests with 503 USER_DATA_UNAVAILABLE
+(local REAL watchlists need `gcloud auth application-default login` with Firestore access).

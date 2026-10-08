@@ -34,7 +34,8 @@ class FixtureMarketDataSource(
         FixtureMarketDataSource::class.java.classLoader.getResource(path)?.readText()
     }
 ) : StockProviderRepository, MarketDataProvider, NewsProviderRepository, PriceHistoryProvider, WhyMovingSource,
-    org.example.stocksteps.service.QuarterlyEarningsSource, org.example.stocksteps.service.IndexDataSource {
+    org.example.stocksteps.service.QuarterlyEarningsSource, org.example.stocksteps.service.IndexDataSource,
+    org.example.stocksteps.userdata.EarningsCalendarSource {
 
     @Serializable
     private data class Manifest(
@@ -60,6 +61,9 @@ class FixtureMarketDataSource(
         load("market/indices.json", ListSerializer(org.example.stocksteps.service.IndexFixture.serializer())).orEmpty()
             .associateBy { it.quote.symbol.uppercase(Locale.ROOT) }
     }
+    /** `stocks/{SYMBOL}/earnings-upcoming.json` (sample dates; ESTIMATED unless the fixture says CONFIRMED). */
+    override suspend fun upcoming(symbol: String): UpcomingEarnings? = stock(symbol, "earnings-upcoming", UpcomingEarnings.serializer())
+
     override suspend fun indexQuote(symbol: String): StockQuote? = indices[symbol.uppercase(Locale.ROOT)]?.quote
     override suspend fun indexHistory(symbol: String): List<PricePoint> = indices[symbol.uppercase(Locale.ROOT)]?.history.orEmpty()
 

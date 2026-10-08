@@ -26,6 +26,7 @@ sqldelight-sqlite = { module = "app.cash.sqldelight:sqlite-driver", version = "2
 firebase-bom = { module = "com.google.firebase:firebase-bom", version = "34.19.0" }
 firebase-auth = { module = "com.google.firebase:firebase-auth" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
+firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 
 compose-navigation = { module = "org.jetbrains.androidx.navigation:navigation-compose", version = "2.9.2" }
 koin-core = { module = "io.insert-koin:koin-core", version = "4.2.2" }

@@ -18,10 +18,16 @@ service cloud.firestore {
         && data.addedAt is int && data.updatedAt is int
         && data.addedAt >= 0 && data.updatedAt >= data.addedAt;
     }
+    // Legacy single-list watchlist: apps no longer write it (the backend imports it once into
+    // "My Stocks"); create/update stay allowed only so older app versions keep working.
     match /users/{uid}/watchlist/{symbol} {
       allow read, delete: if owns(uid);
       allow create, update: if owns(uid) && validItem(symbol);
     }
+    // Watchlists, notes, alert rules/events, the notification outbox and push devices
+    // (users/{uid}/watchlists, users/{uid}/meta, alertRules, alertEvents, notificationOutbox,
+    // pushDevices) are written only by the backend with its service account. Rules don't apply
+    // to that access, and no client rule grants them, so apps can never read or write them directly.
     // All unspecified paths are denied by default.
   }
 }

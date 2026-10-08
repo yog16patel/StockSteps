@@ -12,6 +12,8 @@ interface AuthRepository {
     suspend fun signIn(email: String, password: String)
     suspend fun signInWithGoogle() { throw AccountException("Google sign-in is not configured.") }
     suspend fun signOut()
+    /** A Firebase ID token for StockSteps backend requests; null when signed out. */
+    suspend fun idToken(forceRefresh: Boolean = false): String? = null
 }
 
 class AccountException(message: String) : Exception(message)

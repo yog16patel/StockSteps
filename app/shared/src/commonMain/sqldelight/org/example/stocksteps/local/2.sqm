@@ -1,0 +1,7 @@
+CREATE TABLE user_cache (
+    owner TEXT NOT NULL,
+    cacheKey TEXT NOT NULL,
+    json TEXT NOT NULL,
+    savedAt INTEGER NOT NULL,
+    PRIMARY KEY (owner, cacheKey)
+);

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">StockSteps</string>
+    <string name="alerts_channel_name">Stock alerts</string>
+    <string name="alerts_channel_description">Price, daily move, earnings and company news alerts you set up.</string>
 </resources>

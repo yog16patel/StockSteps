@@ -59,4 +59,7 @@ internal fun StockSearchScene(
         onDetailAction = model::detailAction,
         onToggleWatchlist = { state.selected?.let { watchlistModel?.toggle(it) } }
     )
+    watchlistState.choosing?.let { stock ->
+        WatchlistChooserSheet(stock, watchlistState.lists, onChoose = { watchlistModel?.choose(it) }, onDismiss = { watchlistModel?.cancelChoice() })
+    }
 }

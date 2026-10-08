@@ -47,7 +47,10 @@ internal fun AppNavigation(
     backIcon: @Composable () -> Unit,
     themePreferences: org.example.stocksteps.settings.ThemePreferenceStore,
     appVersion: String?,
-    appLock: org.example.stocksteps.security.AppLockManager? = null
+    appLock: org.example.stocksteps.security.AppLockManager? = null,
+    notifications: org.example.stocksteps.presentation.watchlist.NotificationAccess? = null,
+    /** Symbols from tapped alert notifications; each opens that stock's alerts. */
+    notificationLinks: kotlinx.coroutines.flow.Flow<String>? = null
 ) {
     val session = accounts?.auth?.session?.collectAsStateWithLifecycle()?.value
     if (session?.initializing == true) {
@@ -110,6 +113,11 @@ internal fun AppNavigation(
     val sampleData by backendInfo.isMock.collectAsStateWithLifecycle()
     val isSettings = destination?.hasRoute<SettingsRoute>() == true
     val isMarkets = destination?.hasRoute<MarketsRoute>() == true
+    val isWatchlist = destination?.hasRoute<WatchListRoute>() == true
+    val isAlerts = destination?.hasRoute<org.example.stocksteps.presentation.watchlist.AlertsRoute>() == true
+    androidx.compose.runtime.LaunchedEffect(notificationLinks) {
+        notificationLinks?.collect { symbol -> navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(symbol)) }
+    }
     val isCompanyDetails = destination?.hasRoute<CompanyDetailsRoute>() == true
     val isCompanyFinancials = destination?.hasRoute<CompanyFinancialsRoute>() == true
     val isCompanyValuation = destination?.hasRoute<CompanyValuationRoute>() == true
@@ -136,7 +144,7 @@ internal fun AppNavigation(
                         else -> "Home"
                     },
                     // Home, Settings, Company Details and Financials render their own headers.
-                    visible = !isAuth && !isHome && !isSettings && !isMarkets && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation && !isNewsInsight && !isMovement,
+                    visible = !isAuth && !isHome && !isSettings && !isMarkets && !isWatchlist && !isAlerts && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation && !isNewsInsight && !isMovement,
                     backButton = if (hasBack) AppBarBackButton.BACK else AppBarBackButton.NONE
                 ),
                 onBack = { navController.popBackStack() },
@@ -207,9 +215,23 @@ internal fun AppNavigation(
                 if (accounts != null) WatchListScene(
                     accounts = accounts,
                     hinge = hinge,
+                    notifications = notifications,
                     onSignIn = { navController.navigate(AuthRoute()) },
                     onSearch = { navController.navigate(StockSearchRoute()) },
-                    onExplore = { stock -> openStock(stock.symbol) }
+                    onOpenStock = openStock,
+                    onOpenAlerts = { symbol -> navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(symbol)) }
+                )
+            }
+            composable<org.example.stocksteps.presentation.watchlist.AlertsRoute> { entry ->
+                if (accounts != null) org.example.stocksteps.presentation.watchlist.AlertsScene(
+                    route = entry.toRoute<org.example.stocksteps.presentation.watchlist.AlertsRoute>(),
+                    accounts = accounts,
+                    hinge = hinge,
+                    notifications = notifications,
+                    backIcon = backIcon,
+                    onBack = { navController.popBackStack() },
+                    onOpenStock = openStock,
+                    onSignIn = { navController.navigate(AuthRoute()) }
                 )
             }
             composable<LearnRoute> { LearnScene(hinge) }

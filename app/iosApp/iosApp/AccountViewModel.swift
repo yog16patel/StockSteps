@@ -18,6 +18,8 @@ struct NativeAccountState {
 @MainActor
 @Observable
 final class AccountViewModel {
+    /// Shared client for signed-in watchlists and alerts.
+    var client: IosAccountClient? { service.client }
     private(set) var state = NativeAccountState()
     @ObservationIgnored private let service: any AccountServing
     @ObservationIgnored private var subscription: (any AccountSubscription)?

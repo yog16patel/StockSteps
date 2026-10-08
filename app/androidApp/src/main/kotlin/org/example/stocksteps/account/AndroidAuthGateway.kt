@@ -35,6 +35,13 @@ internal class AndroidAuthGateway(private val auth: FirebaseAuth?, private val g
                 .addOnCompleteListener { completion(it.exception?.safeAuthMessage()) }
         }
     }
+    override fun idToken(forceRefresh: Boolean, completion: (String?, String?) -> Unit) {
+        val user = auth?.currentUser ?: return completion(null, "Sign in to continue.")
+        user.getIdToken(forceRefresh).addOnCompleteListener { task ->
+            if (task.isSuccessful) completion(task.result?.token, null)
+            else completion(null, task.exception?.safeAuthMessage() ?: "Sign in again to continue.")
+        }
+    }
     override fun signOut(completion: (String?) -> Unit) {
         try { auth?.signOut(); google?.clearSession(); completion(null) }
         catch (cause: Exception) { completion(cause.safeAuthMessage()) }

@@ -52,3 +52,22 @@ DELETE FROM watchlist WHERE owner = ?;
 
 clearOwnerPending:
 DELETE FROM pending_operation WHERE owner = ?;
+
+-- Last server copy of signed-in user data (watchlists, alerts, quotes) for offline reading.
+-- owner = "<environment>|user:<uid>", so Mock and Real data and different accounts never mix.
+CREATE TABLE user_cache (
+    owner TEXT NOT NULL,
+    cacheKey TEXT NOT NULL,
+    json TEXT NOT NULL,
+    savedAt INTEGER NOT NULL,
+    PRIMARY KEY (owner, cacheKey)
+);
+
+cachedValue:
+SELECT json, savedAt FROM user_cache WHERE owner = ? AND cacheKey = ?;
+
+putCachedValue:
+INSERT OR REPLACE INTO user_cache(owner, cacheKey, json, savedAt) VALUES (?, ?, ?, ?);
+
+clearCacheOwner:
+DELETE FROM user_cache WHERE owner LIKE ?;

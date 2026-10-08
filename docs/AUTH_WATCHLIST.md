@@ -1,3 +1,8 @@
+> **Update 2026-10-08:** signed-in watchlists are now stored by the StockSteps backend (multiple
+> lists, notes and alerts). The apps no longer write `users/{uid}/watchlist`; the backend imports it
+> once into "My Stocks". This file's Firestore sync sections describe the previous design; the
+> on-device SQL list is still used for signed-out (guest) users. See README "Watchlists and smart alerts".
+
 # Authentication and offline watchlist
 
 ## App setup

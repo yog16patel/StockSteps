@@ -106,6 +106,42 @@ requests; other chart ranges load when selected and are cached per screen. A 404
 failure shows a compact retry state. `StockQuote` also carries `open`, `yearHigh` and `yearLow`
 (from FMP's quote, no extra call) for the quick stats and the day/52-week range bars.
 
+### Watchlists and smart alerts
+
+Signed-in watchlists, private notes, alert rules, alert history and push devices are owned by the
+backend (`/api/v1/me/*`, Firebase ID token in `Authorization: Bearer …`, verified against Google's
+securetoken keys; the uid always comes from the token). REAL stores them in Firestore server-only
+collections; MOCK keeps them in memory and reads the uid without verifying the token. Signed-out
+users keep the on-device list, imported once into "My Stocks" at sign-in; the old Firestore list
+(`users/{uid}/watchlist`) is imported once by the backend.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET/POST /api/v1/me/watchlists`, `PATCH/DELETE …/{id}`, `PUT …/order`, `POST …/import` | Lists (first read creates "My Stocks" exactly once) |
+| `POST …/{id}/entries`, `PATCH/DELETE …/entries/{entryId}`, `POST …/move`, `PUT …/entries/order` | Stocks, per-entry notes, move/copy, reorder |
+| `GET/POST /api/v1/me/alerts`, `PATCH/DELETE …/{id}` | Alert rules + recent history (409 `CONDITION_ALREADY_MET` asks before notifying) |
+| `POST /api/v1/me/devices`, `DELETE …/devices/{deviceId}` | Push token per install (unlinked before sign-out) |
+| `GET /api/v1/stocks/watch-data?symbols=` | Public quotes, names/logos and next earnings for up to 100 symbols |
+| `POST /internal/alerts/evaluate` | One evaluation pass (scheduler) |
+
+Alerts: price above/below (≥ / ≤, one-time or re-arming after a cross back), daily move vs previous
+close (regular session only, once per session), earnings reminders (day before / day of; dates are
+ESTIMATED unless the source confirms them) and important company news (concrete events in headlines
+naming the company, syndicated copies grouped). Prices are FMP's delayed quotes; nothing triggers on
+a quote from an earlier session or older than 30 minutes while the market is open. Each trigger has a
+deterministic event key, is recorded atomically with its notifications in a durable outbox and sent
+through FCM HTTP v1 (Application Default Credentials; "accepted" is not "seen"). Invalid tokens are
+removed; crashed sends are retried after a lease expires.
+
+Deployment (REAL): set `ALERTS_EVALUATOR_TOKEN` (≥ 32 chars) and create a Cloud Scheduler job that
+POSTs `/internal/alerts/evaluate` with header `X-StockSteps-Scheduler-Token` every 15 minutes during
+US market hours (e.g. `*/15 13-21 * * 1-5` UTC) plus once around 13:00 UTC for earnings reminders.
+The Cloud Run service account needs Firestore access and the Firebase Cloud Messaging API role;
+`FIREBASE_PROJECT_ID` defaults to `stocksteps`. Upload an APNs key in the Firebase console for iOS
+delivery; the iOS target has the `aps-environment` entitlement (switch to `production` for release).
+MOCK checks alerts every minute (`STOCKSTEPS_MOCK_ALERT_SECONDS`, 0 disables) and only simulates
+pushes. Limits per user: 20 watchlists, 100 stocks per list, 1,000-character notes, 50 alerts.
+
 ### Markets dashboard
 
 `GET /api/v1/markets/overview` returns the whole Markets tab in one response (`MarketsOverview`):

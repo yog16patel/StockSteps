@@ -9,6 +9,13 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.launch
+import org.example.stocksteps.userdata.WatchDataService
+import org.example.stocksteps.userdata.WatchlistsService
+import org.example.stocksteps.userdata.AlertsService
+import org.example.stocksteps.userdata.watchDataRoutes
+import org.example.stocksteps.userdata.userRoutes
+import org.example.stocksteps.userdata.alertEvaluationRoutes
 import java.util.Locale
 import org.example.stocksteps.appconfig.AppConfig
 import org.example.stocksteps.appconfig.DataMode
@@ -85,6 +92,18 @@ fun Application.module() {
             timeoutMillis = if (dataMode == DataMode.MOCK) 2_000 else 10_000
         ))
         movementRoutes(movement)
+        val userData = sources.userData()
+        val watchMarket = org.example.stocksteps.userdata.WatchMarketData(stockService, sources.earningsCalendar, sources.news)
+        val alertRules = org.example.stocksteps.userdata.AlertRules()
+        val evaluator = org.example.stocksteps.userdata.AlertEvaluator(userData, watchMarket, sources.pushSender(), alertRules, sources.marketClock)
+        run {
+            watchDataRoutes(WatchDataService(watchMarket, alertRules, org.example.stocksteps.service.UsMarketCalendar(), sources.marketClock,
+                if (dataMode == DataMode.MOCK) "Sample data, not live prices." else "Quotes may be delayed. Times show when each price was last updated."))
+            userRoutes(sources.userAuth, WatchlistsService(userData, now = sources.marketClock::millis),
+                AlertsService(userData, watchMarket, alertRules, sources.alertsDeliveryNote, now = sources.marketClock::millis), userData, now = sources.marketClock::millis)
+            alertEvaluationRoutes(evaluator, System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
+        }
+        if (dataMode == DataMode.MOCK) startMockAlertLoop(evaluator)
         marketsRoutes(org.example.stocksteps.service.MarketsService(
             movers = sources.marketData,
             quotes = sources.stockProvider,
@@ -243,8 +262,14 @@ internal class DataSources(
         sampleData = false,
         notice = "Quotes come from Financial Modeling Prep and may be delayed. Times show when each value was last updated."
     ),
-    /** The instant used for the market session (MOCK pins it to the fixture capture time). */
+    /** The instant used for the market session and alerts (MOCK starts it at the fixture capture time). */
     val marketClock: java.time.Clock = java.time.Clock.systemUTC(),
+    /** Watchlists, notes, alerts, outbox and devices: Firestore in REAL, process memory in MOCK. */
+    val userData: () -> org.example.stocksteps.userdata.UserDataStore = { org.example.stocksteps.userdata.InMemoryUserDataStore() },
+    val userAuth: org.example.stocksteps.userdata.UserAuthenticator = org.example.stocksteps.userdata.MockUserAuthenticator(),
+    val pushSender: () -> org.example.stocksteps.userdata.PushSender = { org.example.stocksteps.userdata.SimulatedPushSender() },
+    val earningsCalendar: org.example.stocksteps.userdata.EarningsCalendarSource? = null,
+    val alertsDeliveryNote: String = "Alerts are checked about every 15 minutes during US market hours using quotes that may be delayed. They aren't real-time.",
     /** Reported quarterly EPS for the historical P/E series. */
     val earnings: org.example.stocksteps.service.QuarterlyEarningsSource = org.example.stocksteps.service.QuarterlyEarningsSource { emptyList() }
 )
@@ -276,6 +301,30 @@ private fun Application.realDataSources(): DataSources {
         insights = AppConfig.geminiApiKey?.let { org.example.stocksteps.news.GeminiArticleInsightGenerator(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
         insightVersion = "${AppConfig.geminiNewsModel}:${org.example.stocksteps.news.GeminiArticleInsightGenerator.PROMPT_VERSION}",
         narrator = AppConfig.geminiApiKey?.let { org.example.stocksteps.news.GeminiMovementNarrator(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
+        userData = {
+            // Without Google credentials (e.g. a local REAL run without ADC) market data still works;
+            // watchlist/alert requests answer 503 instead of the server failing to start.
+            try {
+                org.example.stocksteps.userdata.FirestoreUserDataStore(
+                    com.google.cloud.firestore.FirestoreOptions.getDefaultInstance().toBuilder()
+                        .setProjectId(AppConfig.newsFirestoreProject)
+                        .setDatabaseId(AppConfig.newsFirestoreDatabase)
+                        .build().service
+                )
+            } catch (cause: Exception) {
+                log.warn("User data storage unavailable (Google credentials not found); watchlists and alerts are disabled.")
+                org.example.stocksteps.userdata.UnavailableUserDataStore
+            }
+        },
+        userAuth = org.example.stocksteps.userdata.FirebaseIdTokenAuthenticator(AppConfig.firebaseProjectId),
+        pushSender = {
+            // Without Application Default Credentials, events are recorded and delivery is marked failed.
+            runCatching { org.example.stocksteps.userdata.FcmPushSender(HttpClientProvider.client, AppConfig.firebaseProjectId) }
+                .getOrElse { org.example.stocksteps.userdata.PushSender { org.example.stocksteps.userdata.PushResult.Failed("Push credentials not configured") } }
+        },
+        earningsCalendar = org.example.stocksteps.userdata.FinnhubEarningsCalendar(HttpClientProvider.client, AppConfig.finnhubApiKey) {
+            java.time.LocalDate.now(java.time.ZoneId.of("America/New_York"))
+        },
         movementVersion = AppConfig.geminiApiKey?.let { "${AppConfig.geminiNewsModel}:${org.example.stocksteps.news.GeminiMovementNarrator.PROMPT_VERSION}" } ?: "movement-template-v1"
     )
 }
@@ -295,7 +344,10 @@ internal fun mockDataSources(): DataSources {
             sampleData = true,
             notice = "Sample data captured ${java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy").withZone(java.time.ZoneId.of("America/New_York")).format(pinned)}. Not live prices."
         ),
-        marketClock = java.time.Clock.fixed(pinned, java.time.ZoneOffset.UTC))
+        // Mock time starts at the capture instant and advances, so sessions and alerts behave consistently.
+        marketClock = java.time.Clock.offset(java.time.Clock.systemUTC(), java.time.Duration.between(java.time.Instant.now(), pinned)),
+        earningsCalendar = fixtures,
+        alertsDeliveryNote = "Sample mode: alerts are checked every minute against sample prices. Notifications are simulated on the server, not sent to your device.")
 }
 
 /** `GET /api/v1/stocks/{symbol}/valuation`: the full P/E history; ranges are sliced by the apps. */
@@ -393,4 +445,21 @@ fun Route.movementRoutes(movement: org.example.stocksteps.service.MovementServic
 /** `GET /api/v1/markets/overview`: the Markets dashboard (session, indices, movers, sectors, news). */
 fun Route.marketsRoutes(markets: org.example.stocksteps.service.MarketsService) {
     get("/api/v1/markets/overview") { call.respond(markets.overview()) }
+}
+
+/**
+ * MOCK only: evaluates alerts every STOCKSTEPS_MOCK_ALERT_SECONDS (default 60; 0 disables) so sample
+ * alerts can trigger locally. REAL never runs a background loop: Cloud Run can stop idle instances,
+ * so Cloud Scheduler calls `POST /internal/alerts/evaluate` instead.
+ */
+private fun Application.startMockAlertLoop(evaluator: org.example.stocksteps.userdata.AlertEvaluator) {
+    val seconds = System.getenv("STOCKSTEPS_MOCK_ALERT_SECONDS")?.toLongOrNull() ?: 60
+    if (seconds <= 0) return
+    val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default).launch {
+        while (true) {
+            kotlinx.coroutines.delay(seconds * 1_000)
+            runCatching { evaluator.run() }.onFailure { log.warn("Mock alert evaluation failed") }
+        }
+    }
+    monitor.subscribe(ApplicationStopped) { job.cancel() }
 }
