@@ -25,7 +25,8 @@ internal fun HomeScene(
     onExplore: (String) -> Unit,
     onEarnings: (String) -> Unit = onExplore,
     onResearch: (symbol: String, name: String) -> Unit = { symbol, _ -> onExplore(symbol) },
-    onPractice: () -> Unit = {}
+    onPractice: () -> Unit = {},
+    onDailyBrief: () -> Unit = {}
 ) {
     val model = viewModel(key = "home:$environment") { HomeViewModel(accounts.home) }
     val state by model.state.collectAsStateWithLifecycle()
@@ -38,8 +39,9 @@ internal fun HomeScene(
     }
     val portfolio by accounts.portfolioPresenter.state.collectAsStateWithLifecycle()
     val learning by accounts.learning.state.collectAsStateWithLifecycle()
+    val brief by accounts.dailyBrief.state.collectAsStateWithLifecycle()
     HomeScreen(state, hour, hinge, portfolio = portfolio, onPortfolio = onPortfolio, showMockPersonas = environment == BackendEnvironment.MOCK,
-        research = learning.inProgress.firstOrNull()) { action ->
+        research = learning.inProgress.firstOrNull(), dailyBrief = brief) { action ->
         when (action) {
             HomeAction.Refresh -> model.refresh()
             HomeAction.RetryQuotes -> model.retryQuotes()
@@ -50,6 +52,7 @@ internal fun HomeScene(
             is HomeAction.Persona -> model.persona(action.id)
             HomeAction.Learn -> onLearn()
             HomeAction.Practice -> onPractice()
+            HomeAction.DailyBrief -> onDailyBrief()
             HomeAction.Search -> onSearch()
             HomeAction.Watchlist -> onWatchlist()
             HomeAction.Settings -> onSettings()

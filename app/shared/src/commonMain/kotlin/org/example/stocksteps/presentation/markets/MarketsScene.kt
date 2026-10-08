@@ -42,6 +42,8 @@ import org.jetbrains.compose.resources.stringResource
 
 internal sealed interface MarketsAction {
     data object Refresh : MarketsAction
+    data object DailyBrief : MarketsAction
+    data object BriefHistory : MarketsAction
     data object Retry : MarketsAction
     data object Search : MarketsAction
     data class SelectTab(val tab: MoversTab) : MarketsAction
@@ -65,7 +67,11 @@ internal fun MarketsScene(
     onSearch: () -> Unit,
     onDiscover: () -> Unit = {},
     onCompare: () -> Unit = {},
-    onEarnings: () -> Unit = {}
+    onEarnings: () -> Unit = {},
+    /** Shared Daily Market Brief presenter (null without an account graph, e.g. previews). */
+    brief: org.example.stocksteps.brief.DailyBriefPresenter? = null,
+    onDailyBrief: () -> Unit = {},
+    onBriefHistory: () -> Unit = {}
 ) {
     val model = viewModel(key = "markets:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
@@ -73,7 +79,8 @@ internal fun MarketsScene(
     }
     val state by model.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
-    MarketsScreen(state, hinge) { action ->
+    val briefState = brief?.state?.collectAsStateWithLifecycle()?.value
+    MarketsScreen(state, hinge, briefState) { action ->
         when (action) {
             MarketsAction.Refresh -> model.refresh()
             MarketsAction.Retry -> model.retry()
@@ -86,6 +93,8 @@ internal fun MarketsScene(
             MarketsAction.Discover -> onDiscover()
             MarketsAction.Compare -> onCompare()
             MarketsAction.Earnings -> onEarnings()
+            MarketsAction.DailyBrief -> onDailyBrief()
+            MarketsAction.BriefHistory -> onBriefHistory()
         }
     }
 }
@@ -96,7 +105,7 @@ internal fun MarketsScene(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun MarketsScreen(state: MarketsState, hinge: WindowHinge?, onAction: (MarketsAction) -> Unit) {
+internal fun MarketsScreen(state: MarketsState, hinge: WindowHinge?, brief: org.example.stocksteps.brief.DailyBriefUiState? = null, onAction: (MarketsAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val model = remember(state.overview, state.tab, state.expanded, state.loadedAt) { state.model }
@@ -114,6 +123,10 @@ internal fun MarketsScreen(state: MarketsState, hinge: WindowHinge?, onAction: (
                     modifier = Modifier.fillMaxSize()
                 ) {
                     item(key = "title") { Title(content.padding(top = spacing.lg), onSearch = { onAction(MarketsAction.Search) }) }
+                    if (brief != null) item(key = "daily-brief") {
+                        org.example.stocksteps.presentation.brief.DailyBriefPreviewCard(brief, org.example.stocksteps.presentation.brief.briefNow(),
+                            { onAction(MarketsAction.DailyBrief) }, content.padding(top = spacing.xl), onHistory = { onAction(MarketsAction.BriefHistory) })
+                    }
                     item(key = "tools") { ResearchTools(content.padding(top = spacing.xl), onAction) }
                     if (model == null) {
                         item(key = "state") {

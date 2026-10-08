@@ -27,6 +27,9 @@ struct HomeScreen: View {
     var research: ResearchProgress? = nil
     var onResearch: (ResearchTarget) -> Void = { _ in }
     var onPractice: () -> Void = {}
+    /// The shared Daily Market Brief (compact preview only).
+    var briefModel: BriefModel? = nil
+    var onDailyBrief: () -> Void = {}
     @Environment(\.colorScheme) private var scheme
     private let space = StockStepsTheme.spacing
     private let type = StockStepsTheme.typography
@@ -44,6 +47,7 @@ struct HomeScreen: View {
                         }
                     }
                 }
+                if let briefModel { DailyBriefPreviewCard(model: briefModel, onOpen: onDailyBrief) }
                 if let state, !state.initializing {
                     VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                         Text(PersonalDashboardRules.shared.greeting(hour: Int32(localHour)))
@@ -54,7 +58,7 @@ struct HomeScreen: View {
                     }
                     if let portfolio { PortfolioSummaryCard(state: portfolio, onOpen: onPortfolio) }
                     watchlist(state)
-                    if !state.brief.isEmpty { facts("Your Daily Brief", state.brief) }
+                    if !state.brief.isEmpty { facts("Today in your watchlist", state.brief) }
                     if !state.events.isEmpty { facts("Upcoming & alerts", state.events) }
                     if state.alertsError != nil {
                         StockSectionMessage(message: "Alerts unavailable.", actionTitle: "Try again", action: onRetryAlerts)

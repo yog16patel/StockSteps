@@ -85,6 +85,9 @@ struct MarketsScene: View {
     var onDiscover: () -> Void = {}
     var onCompare: () -> Void = {}
     var onEarnings: () -> Void = {}
+    var brief: BriefModel? = nil
+    var onDailyBrief: () -> Void = {}
+    var onBriefHistory: () -> Void = {}
     @State private var lesson: MarketLesson?
     @State private var movementSymbol: String?
 
@@ -93,6 +96,7 @@ struct MarketsScene: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 title(colors).padding(.top, CGFloat(space.lg))
+                if let brief { DailyBriefPreviewCard(model: brief, onOpen: onDailyBrief, onHistory: onBriefHistory).padding(.top, CGFloat(space.xl)) }
                 researchTools(colors).padding(.top, CGFloat(space.xl))
                 if let content = model.model {
                     header(content.header, colors).padding(.top, CGFloat(space.xl))

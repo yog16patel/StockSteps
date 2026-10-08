@@ -26,6 +26,8 @@ internal fun HomeScreen(
     onPortfolio: () -> Unit = {},
     /** The most recently visited unfinished Guided Research (saved progress), if any. */
     research: org.example.stocksteps.learning.ResearchProgress? = null,
+    /** The shared Daily Market Brief state (compact preview only; the reader is its own screen). */
+    dailyBrief: org.example.stocksteps.brief.DailyBriefUiState? = null,
     onAction: (HomeAction) -> Unit
 ) {
     val spacing = StockStepsTheme.spacing
@@ -41,6 +43,10 @@ internal fun HomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 item("header") { PersonalHomeHeader(onAction, content) }
+                item("daily-brief") {
+                    org.example.stocksteps.presentation.brief.DailyBriefPreviewCard(dailyBrief, org.example.stocksteps.presentation.brief.briefNow(),
+                        { onAction(HomeAction.DailyBrief) }, content)
+                }
                 if (showMockPersonas) {
                     item("mock-persona") { HomePersonaPicker(state.mockPersona, onAction) }
                 }
@@ -65,7 +71,7 @@ internal fun HomeScreen(
                     item("watchlist") { HomeWatchlistSection(state, onAction, content) }
                     if (state.brief.isNotEmpty()) {
                         item("brief") {
-                            HomeFactsSection("Your Daily Brief", state.brief, onAction, content)
+                            HomeFactsSection("Today in your watchlist", state.brief, onAction, content)
                         }
                     }
                     if (state.events.isNotEmpty() || state.alertsError != null) {

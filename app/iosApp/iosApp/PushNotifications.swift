@@ -64,6 +64,11 @@ final class PushCoordinator: NSObject, UNUserNotificationCenterDelegate {
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         let info = response.notification.request.content.userInfo
+        if info["type"] as? String == "daily-brief" {
+            let id = info["briefId"] as? String ?? ""
+            await MainActor.run { NotificationCenter.default.post(name: .stockStepsOpenBrief, object: id) }
+            return
+        }
         guard info["type"] as? String == "alert", let symbol = info["symbol"] as? String else { return }
         await MainActor.run { NotificationCenter.default.post(name: .stockStepsOpenAlerts, object: symbol) }
     }

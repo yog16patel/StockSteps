@@ -1,7 +1,9 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **Add Practice Portfolio simulator with free tier, 14-day trial and StockSteps+ on Android and iOS** on `main`.
-Includes the Practice Portfolio (next section, `docs/PRACTICE_PORTFOLIO.md`).
+Last updated: 2026-10-08 (America/Toronto). Current commit: **Add Daily Market Brief on Android and iOS** on `main`.
+Includes the Daily Market Brief (next section, `docs/DAILY_MARKET_BRIEF.md`); see also `CLAUDE.md` and `docs/project-status.md`.
+Previous commit: **Add Practice Portfolio simulator with free tier, 14-day trial and StockSteps+ on Android and iOS** (`a4a4aeb`).
+Includes the Practice Portfolio (`docs/PRACTICE_PORTFOLIO.md`).
 Previous commit: **Add Guided Stock Research and beginner learning on Android and iOS**.
 Includes Guided Stock Research & Interactive Beginner Learning (`docs/GUIDED_RESEARCH.md`).
 Previous commit: **Add spacing around Markets research tools** (`54b5559`), a small UI follow-up to **Add Earnings Intelligence and earnings calendar on Android and iOS** (`af39fb4`): more spacing above/between the Markets Discover, Compare and Earnings tiles and before the session header, and an icon on the Earnings tile (Android and iOS). Validated with Android compile + installDebug and iOS xcodebuild BUILD SUCCEEDED; no logic changes.
@@ -17,7 +19,35 @@ item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
 
-## Current milestone — Practice Portfolio (2026-10-08, commit: “Add Practice Portfolio simulator with free tier, 14-day trial and StockSteps+ on Android and iOS”)
+## Current milestone — Daily Market Brief (2026-10-08, commit: “Add Daily Market Brief on Android and iOS”)
+
+Read `docs/DAILY_MARKET_BRIEF.md` (entry points, sections, architecture, API, caching, MOCK scenarios,
+tests, limits).
+
+Completed:
+- Core `brief` package: models, central `BriefPolicy`, `StoryRanker` (validity, dedupe, market relevance,
+  diversity), neutral wording, concepts from `BeginnerEducation`, reading time, `DailyBriefPresenter`
+  (public cache for offline copies, per-account overlays, AI, history, preferences, MOCK scenarios).
+- Server `brief` package: `TsxMarketCalendar` + `BriefSessions` (US/CA phases, editions), `DailyBriefService`
+  (global brief per edition from the cached Markets overview, persisted; private overlays from watchlists,
+  watch data and the earnings service; Plus-only validated AI; preferences; notification dispatch),
+  routes, `UserDataStore` brief + preference methods (InMemory, Firestore `dailyBriefs`, `briefPreferences`).
+- Android: Home preview card (after the header), Markets preview with Previous briefs, reader, history,
+  notification preferences sheet, FCM deep link (`type=daily-brief`). The old Home facts section is now
+  "Today in your watchlist".
+- iOS: `IosBriefClient` + `DailyBriefScenes.swift` with the same entry points and APNs deep link.
+
+Validation: core JVM 299 and backend 247 after the final relevance tweak; core iOS 298, shared Android
+host 55, shared iOS 49 on the run before it — 0 failures everywhere; Android assembleDebug +
+installDebug and iOS xcodebuild BUILD SUCCEEDED. Local MOCK server restarted; live: after-close brief with
+three index closes and two market stories (off-topic political news excluded), weekend scenario, private
+overlay, dispatch endpoint.
+
+Limitations / next:
+- Commit and push were requested by the user; the backend isn't deployed. Scheduled dispatch needs a Cloud Scheduler job; no retry queue for brief pushes.
+- REAL AI needs `GEMINI_API_KEY` (otherwise 503). Summaries are provider excerpts. No UI-automation tests.
+
+## Previous milestone — Practice Portfolio (2026-10-08, commit: “Add Practice Portfolio simulator with free tier, 14-day trial and StockSteps+ on Android and iOS”)
 
 Read `docs/PRACTICE_PORTFOLIO.md` (access matrix, trial lifecycle, accounting, execution policy,
 safety/idempotency, API, corporate actions, MOCK scenarios, UI, limits).

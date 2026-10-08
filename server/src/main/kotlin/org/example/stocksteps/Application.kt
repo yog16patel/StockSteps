@@ -18,6 +18,7 @@ import org.example.stocksteps.screener.screenerRoutes
 import org.example.stocksteps.earnings.earningsRoutes
 import org.example.stocksteps.learning.learningRoutes
 import org.example.stocksteps.practice.practiceRoutes
+import org.example.stocksteps.brief.dailyBriefRoutes
 import org.example.stocksteps.userdata.ChartBenchmarkHistory
 import org.example.stocksteps.userdata.MockBenchmarkHistory
 import org.example.stocksteps.userdata.PortfolioAnalyticsService
@@ -172,7 +173,7 @@ fun Application.module() {
             alertEvaluationRoutes(evaluator, System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
         }
         if (dataMode == DataMode.MOCK) startMockAlertLoop(evaluator)
-        marketsRoutes(org.example.stocksteps.service.MarketsService(
+        val marketsService = org.example.stocksteps.service.MarketsService(
             movers = sources.marketData,
             quotes = sources.stockProvider,
             indexData = sources.indexData ?: object : org.example.stocksteps.service.IndexDataSource {
@@ -182,7 +183,18 @@ fun Application.module() {
             news = sources.news,
             labels = sources.marketsLabels,
             clock = sources.marketClock
-        ))
+        )
+        marketsRoutes(marketsService)
+        // Daily Market Brief: one global brief per edition (from the Markets cache) plus per-user overlays.
+        dailyBriefRoutes(org.example.stocksteps.brief.DailyBriefService(
+            source = org.example.stocksteps.brief.MarketsBriefSource(marketsService),
+            store = userData, entitlements = entitlements, watch = watchMarket, earnings = earnings,
+            ai = if (dataMode == DataMode.MOCK) org.example.stocksteps.brief.TemplateBriefAi
+                else AppConfig.geminiApiKey?.let { org.example.stocksteps.brief.GeminiBriefAi(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
+            marketClock = sources.marketClock, clock = java.time.Clock.systemUTC(), sampleData = dataMode == DataMode.MOCK,
+            aiDailyLimit = System.getenv("BRIEF_AI_DAILY_LIMIT")?.toIntOrNull() ?: 15
+        ), sources.userAuth, RequestRateLimiter(System.getenv("BRIEF_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 120), sources.pushSender(),
+            System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
         sparklineRoutes(org.example.stocksteps.service.SparklineService(sources.priceHistory))
         val companyDetails = org.example.stocksteps.service.CompanyDetailsService(
             stocks = stockService,

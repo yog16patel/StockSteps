@@ -69,6 +69,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     }
 
     private fun handleNotification(intent: android.content.Intent?) {
+        // Daily Market Brief notifications open that brief (FCM puts data keys on the launch intent).
+        if (intent?.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_TYPE) == "daily-brief") {
+            notificationLinks.trySend("brief:" + intent.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_BRIEF).orEmpty())
+            intent.removeExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_TYPE)
+            return
+        }
         val symbol = intent?.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_SYMBOL)
         if (intent?.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_TYPE) == "alert" && symbol != null) {
             notificationLinks.trySend(symbol)

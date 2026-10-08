@@ -51,6 +51,7 @@ internal object AlertNotifications {
     const val CHANNEL = "stock_alerts"
     const val EXTRA_SYMBOL = "symbol"
     const val EXTRA_TYPE = "type"
+    const val EXTRA_BRIEF = "briefId"
 
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -61,14 +62,15 @@ internal object AlertNotifications {
     }
 
     /** Opens the app on that stock's alerts (same extras FCM puts on background notifications). */
-    fun show(context: Context, title: String, body: String, symbol: String?) {
+    fun show(context: Context, title: String, body: String, symbol: String?, type: String = "alert", briefId: String? = null) {
         if (!AndroidPushTokens.notificationsAllowed(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(EXTRA_TYPE, "alert")
+            putExtra(EXTRA_TYPE, type)
             symbol?.let { putExtra(EXTRA_SYMBOL, it) }
+            briefId?.let { putExtra(EXTRA_BRIEF, it) }
         }
-        val pending = PendingIntent.getActivity(context, symbol.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val pending = PendingIntent.getActivity(context, (briefId ?: symbol).hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_markets)
             .setContentTitle(title)
@@ -88,6 +90,7 @@ class StockStepsMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         // Background notification messages are shown by the system; foreground ones arrive here.
         val notification = message.notification ?: return
-        AlertNotifications.show(applicationContext, notification.title ?: "StockSteps alert", notification.body.orEmpty(), message.data[AlertNotifications.EXTRA_SYMBOL])
+        AlertNotifications.show(applicationContext, notification.title ?: "StockSteps alert", notification.body.orEmpty(), message.data[AlertNotifications.EXTRA_SYMBOL],
+            type = message.data[AlertNotifications.EXTRA_TYPE] ?: "alert", briefId = message.data[AlertNotifications.EXTRA_BRIEF])
     }
 }

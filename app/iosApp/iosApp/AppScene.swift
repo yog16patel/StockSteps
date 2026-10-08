@@ -30,6 +30,9 @@ struct AppScene: View {
     @State private var practiceTarget: PracticeOrderTarget?
     /// Search opened from Practice: picking a company opens its simulated order directly.
     @State private var searchForPractice = false
+    @State private var briefModel: BriefModel?
+    @State private var briefTarget: BriefTarget?
+    @State private var showingBriefHistory = false
 
 
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
@@ -44,6 +47,7 @@ struct AppScene: View {
         _screenerModel = State(initialValue: ScreenerModel(accounts: accounts, baseURL: baseURL))
         _earningsModel = State(initialValue: EarningsModel(accounts: accounts, baseURL: baseURL))
         _learningModel = State(initialValue: LearningModel(accounts: accounts, baseURL: baseURL))
+        _briefModel = State(initialValue: accounts.client.map { BriefModel(account: $0) })
     }
 
     var body: some View {
@@ -64,7 +68,9 @@ struct AppScene: View {
                             onEarnings: { earningsSymbol = $0 },
                             learning: learningModel,
                             onResearch: { researchTarget = $0 },
-                            onPractice: openPractice
+                            onPractice: openPractice,
+                            briefModel: briefModel,
+                            onDailyBrief: { briefTarget = BriefTarget(briefId: nil) }
                         )
                     } else {
                         Color.clear
@@ -74,7 +80,8 @@ struct AppScene: View {
                 .tag(AppRoute.home)
 
                 MarketsScene(model: marketsModel, onOpenStock: explore, onSearch: { initialStock = nil; showingSearch = true },
-                             onDiscover: { showingDiscover = true }, onCompare: { showingCompare = true }, onEarnings: { showingEarnings = true })
+                             onDiscover: { showingDiscover = true }, onCompare: { showingCompare = true }, onEarnings: { showingEarnings = true },
+                             brief: briefModel, onDailyBrief: { briefTarget = BriefTarget(briefId: nil) }, onBriefHistory: { showingBriefHistory = true })
                     .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
                     .tag(AppRoute.markets)
 
@@ -105,6 +112,23 @@ struct AppScene: View {
                 CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel, learning: learningModel,
                                     onSearch: { initialStock = nil; showingSearch = true }, onLearn: { detailsSymbol = nil; selectedTab = .learn },
                                     onUpgrade: { showingSettings = true }, onPracticeBuy: { practiceTrade(PracticeOrderTarget(symbol: $0, sell: false)) })
+            }
+            .navigationDestination(item: $briefTarget) { target in
+                if let briefModel {
+                    DailyBriefScene(target: target, model: briefModel, onOpenStock: explore, onHistory: { showingBriefHistory = true },
+                                    onWatchlist: { briefTarget = nil; selectedTab = .watchlist }, onLearn: { briefTarget = nil; selectedTab = .learn },
+                                    onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true })
+                }
+            }
+            .navigationDestination(isPresented: $showingBriefHistory) {
+                if let briefModel {
+                    DailyBriefHistoryScene(model: briefModel, onOpenBrief: { id in showingBriefHistory = false; briefTarget = BriefTarget(briefId: id) },
+                                           onUpgrade: { showingSettings = true })
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenBrief)) { note in
+                let id = note.object as? String
+                briefTarget = BriefTarget(briefId: (id?.isEmpty ?? true) ? nil : id)
             }
             .navigationDestination(isPresented: $showingPractice) {
                 if let practiceModel {

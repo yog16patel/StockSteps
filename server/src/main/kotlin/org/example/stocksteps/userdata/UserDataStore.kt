@@ -79,6 +79,13 @@ interface UserDataStore {
     /** Saved screener definitions (filters and sort, never results), atomically per user. */
     suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T
 
+    // Daily Market Brief: global briefs (shared, never per-user data) and per-user notification preferences.
+    suspend fun saveBrief(brief: org.example.stocksteps.brief.DailyBrief)
+    suspend fun brief(id: String): org.example.stocksteps.brief.DailyBrief?
+    suspend fun recentBriefs(limit: Int): List<org.example.stocksteps.brief.BriefSummary>
+    suspend fun <T> updateBriefPreferences(uid: String, block: (org.example.stocksteps.brief.BriefPreferenceRecord?) -> Pair<org.example.stocksteps.brief.BriefPreferenceRecord?, T>): T
+    suspend fun briefSubscribers(limit: Int): List<org.example.stocksteps.brief.BriefPreferenceRecord>
+
     /** Practice Portfolio ledger, trial and challenges: one atomic document per user (orders, trial and reset are race-free). */
     suspend fun <T> updatePractice(uid: String, block: (org.example.stocksteps.practice.PracticeAccountData) -> Pair<org.example.stocksteps.practice.PracticeAccountData, T>): T
 
@@ -117,6 +124,17 @@ class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>>
         result
     }
 
+    private val briefs = LinkedHashMap<String, org.example.stocksteps.brief.DailyBrief>()
+    private val briefPrefs = HashMap<String, org.example.stocksteps.brief.BriefPreferenceRecord>()
+    override suspend fun saveBrief(brief: org.example.stocksteps.brief.DailyBrief) = lock.withLock { briefs[brief.id] = brief; Unit }
+    override suspend fun brief(id: String) = lock.withLock { briefs[id] }
+    override suspend fun recentBriefs(limit: Int) = lock.withLock { briefs.values.sortedByDescending { it.generatedAt }.take(limit).map { it.summary() } }
+    override suspend fun <T> updateBriefPreferences(uid: String, block: (org.example.stocksteps.brief.BriefPreferenceRecord?) -> Pair<org.example.stocksteps.brief.BriefPreferenceRecord?, T>): T = lock.withLock {
+        val (next, result) = block(briefPrefs[uid])
+        if (next == null) briefPrefs.remove(uid) else briefPrefs[uid] = next
+        result
+    }
+    override suspend fun briefSubscribers(limit: Int) = lock.withLock { briefPrefs.values.filter { it.preferences.notificationsEnabled }.take(limit) }
     private val practice = HashMap<String, org.example.stocksteps.practice.PracticeAccountData>()
     override suspend fun <T> updatePractice(uid: String, block: (org.example.stocksteps.practice.PracticeAccountData) -> Pair<org.example.stocksteps.practice.PracticeAccountData, T>): T = lock.withLock {
         val (next, result) = block(practice[uid] ?: org.example.stocksteps.practice.PracticeAccountData())
@@ -221,6 +239,11 @@ object UnavailableUserDataStore : UserDataStore {
         throw UserDataException(503, "USER_DATA_UNAVAILABLE", "Watchlists and alerts are temporarily unavailable.")
     override suspend fun <T> updateWatchlists(uid: String, block: (UserWatchlists) -> Pair<UserWatchlists, T>): T = unavailable()
     override suspend fun entitlement(uid: String): StoredEntitlement? = unavailable()
+    override suspend fun saveBrief(brief: org.example.stocksteps.brief.DailyBrief) = unavailable()
+    override suspend fun brief(id: String): org.example.stocksteps.brief.DailyBrief? = unavailable()
+    override suspend fun recentBriefs(limit: Int): List<org.example.stocksteps.brief.BriefSummary> = unavailable()
+    override suspend fun <T> updateBriefPreferences(uid: String, block: (org.example.stocksteps.brief.BriefPreferenceRecord?) -> Pair<org.example.stocksteps.brief.BriefPreferenceRecord?, T>): T = unavailable()
+    override suspend fun briefSubscribers(limit: Int): List<org.example.stocksteps.brief.BriefPreferenceRecord> = unavailable()
     override suspend fun <T> updatePractice(uid: String, block: (org.example.stocksteps.practice.PracticeAccountData) -> Pair<org.example.stocksteps.practice.PracticeAccountData, T>): T = unavailable()
     override suspend fun <T> updateLearning(uid: String, block: (org.example.stocksteps.learning.LearningProgressDocument) -> Pair<org.example.stocksteps.learning.LearningProgressDocument, T>): T = unavailable()
     override suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T = unavailable()

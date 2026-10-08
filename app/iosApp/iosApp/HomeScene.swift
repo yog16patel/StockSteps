@@ -15,6 +15,8 @@ struct HomeScene: View {
     var learning: LearningModel? = nil
     var onResearch: (ResearchTarget) -> Void = { _ in }
     var onPractice: () -> Void = {}
+    var briefModel: BriefModel? = nil
+    var onDailyBrief: () -> Void = {}
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @State private var localHour = Calendar.current.component(.hour, from: Date())
@@ -44,7 +46,9 @@ struct HomeScene: View {
             onPersona: model.persona,
             research: learning?.latestInProgress,
             onResearch: onResearch,
-            onPractice: onPractice
+            onPractice: onPractice,
+            briefModel: briefModel,
+            onDailyBrief: onDailyBrief
         )
         .onAppear { model.connect(accounts); model.visible(); updateHour() }
         .onChange(of: scenePhase) { _, phase in

@@ -538,6 +538,19 @@ dated FX, precision policies, MOCK scenarios, persistence setup and known limits
 Authenticated routes start at `/api/v1/me/portfolio`; REAL requires the existing
 Firebase Admin credentials, while MOCK uses isolated in-memory data.
 
+### Daily Market Brief
+
+A 3-minute, source-backed brief: index snapshot (S&P 500, Nasdaq Composite, S&P/TSX Composite) with
+session-aware labels, up to three market stories linking to their publishers, watchlist and earnings
+highlights, and a Concept of the Day from Learn. Home and Markets show a compact preview; the reader is
+its own screen; opt-in notifications deep-link to it. StockSteps+ adds the full personal brief, history
+and validated AI explanations. See [Daily Market Brief](docs/DAILY_MARKET_BRIEF.md).
+
+- Public: `GET /api/v1/daily-brief/latest`, `/history`, `/{id}`, `/{id}/sources`
+- Signed in: `GET /api/v1/me/daily-brief/{id}/personalized`, `/history`, `GET/PUT /preferences`,
+  `POST /{id}/ai/explain`, `/{id}/ai/ask` (StockSteps+)
+- Scheduler: `POST /internal/daily-brief/dispatch`
+
 ### Practice Portfolio (simulated)
 
 A virtual-money investing simulator, separate from the real Portfolio: $10,000 of virtual cash,

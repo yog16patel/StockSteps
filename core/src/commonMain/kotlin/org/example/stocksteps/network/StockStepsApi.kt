@@ -125,6 +125,15 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
     /** Markets dashboard: session, indices, movers, sectors and market news in one request. */
     suspend fun getMarketsOverview(): MarketsOverview = request { url("$baseUrl/api/v1/markets/overview") }
 
+    // Daily Market Brief: public, shared content (no user data). [scenario] is MOCK-only.
+    suspend fun getLatestBrief(scenario: String? = null): org.example.stocksteps.brief.DailyBrief =
+        request { url("$baseUrl/api/v1/daily-brief/latest" + (scenario?.let { "?scenario=$it" } ?: "")) }
+    suspend fun getBrief(id: String): org.example.stocksteps.brief.DailyBrief {
+        require(Regex("[a-z0-9-]{10,80}").matches(id))
+        return request { url("$baseUrl/api/v1/daily-brief/$id") }
+    }
+    suspend fun getBriefHistory(): org.example.stocksteps.brief.BriefHistory = request { url("$baseUrl/api/v1/daily-brief/history") }
+
     /** Quotes, names/logos and next earnings for watched symbols (public market data). */
     suspend fun getWatchData(symbols: List<String>): WatchDataResponse {
         require(symbols.isNotEmpty() && symbols.size <= 100 && symbols.all { Regex("[A-Z0-9][A-Z0-9.^-]{0,31}").matches(it) })

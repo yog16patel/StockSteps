@@ -54,6 +54,18 @@ class UserApi(
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return send(HttpMethod.Post, "earnings/${symbol.uppercase()}/ask", org.example.stocksteps.earnings.EarningsQuestion(question))
     }
+    // Daily Market Brief (signed in): overlay, history, preferences and StockSteps+ AI. Plans are enforced by the server.
+    suspend fun brief(id: String, expectedOwner: String? = null): org.example.stocksteps.brief.DailyBrief = send(HttpMethod.Get, "daily-brief/${id.segment()}", expectedOwner = expectedOwner)
+    suspend fun briefHistory(expectedOwner: String? = null): org.example.stocksteps.brief.BriefHistory = send(HttpMethod.Get, "daily-brief/history", expectedOwner = expectedOwner)
+    suspend fun personalizedBrief(id: String, scenario: String? = null, expectedOwner: String? = null): org.example.stocksteps.brief.PersonalizedBrief =
+        send(HttpMethod.Get, "daily-brief/${id.segment()}/personalized" + (scenario?.let { "?scenario=$it" } ?: ""), expectedOwner = expectedOwner)
+    suspend fun briefExplain(id: String, storyId: String, scenario: String? = null, expectedOwner: String? = null): org.example.stocksteps.brief.BriefAiAnswer =
+        send(HttpMethod.Post, "daily-brief/${id.segment()}/ai/explain" + (scenario?.let { "?scenario=$it" } ?: ""), org.example.stocksteps.brief.BriefAiRequest(storyId = storyId), expectedOwner)
+    suspend fun briefAsk(id: String, question: String, scenario: String? = null, expectedOwner: String? = null): org.example.stocksteps.brief.BriefAiAnswer =
+        send(HttpMethod.Post, "daily-brief/${id.segment()}/ai/ask" + (scenario?.let { "?scenario=$it" } ?: ""), org.example.stocksteps.brief.BriefAiRequest(question = question), expectedOwner)
+    suspend fun briefPreferences(expectedOwner: String? = null): org.example.stocksteps.brief.BriefPreferences = send(HttpMethod.Get, "daily-brief/preferences", expectedOwner = expectedOwner)
+    suspend fun saveBriefPreferences(value: org.example.stocksteps.brief.BriefPreferences, expectedOwner: String? = null): org.example.stocksteps.brief.BriefPreferences =
+        send(HttpMethod.Put, "daily-brief/preferences", value, expectedOwner)
     // Practice Portfolio (simulated, virtual money). The server prices orders and enforces plans and limits.
     suspend fun practice(expectedOwner: String? = null): org.example.stocksteps.practice.PracticeOverview = send(HttpMethod.Get, "practice", expectedOwner = expectedOwner)
     suspend fun practiceTransactions(type: String?, expectedOwner: String? = null): org.example.stocksteps.practice.PracticeTransactions =

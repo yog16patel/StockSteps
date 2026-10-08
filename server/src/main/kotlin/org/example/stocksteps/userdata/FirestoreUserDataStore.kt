@@ -15,6 +15,8 @@ import java.util.concurrent.TimeUnit
  * - `users/{uid}/watchlists/{watchlistId}` — `data`: Watchlist JSON (entries and notes inside).
  * - `users/{uid}/meta/watchlists` — `initialized`: default list / legacy import done.
  * - `users/{uid}/meta/screens` — `data`: JSON list of SavedScreen (filter definitions only).
+ * - `dailyBriefs/{briefId}` — `generatedAt`, `data`: DailyBrief JSON (global, shared by everyone; no user data).
+ * - `briefPreferences/{uid}` — `enabled`, `data`: BriefPreferenceRecord JSON (notification settings).
  * - `users/{uid}/practice/account` — `data`: PracticeAccountData JSON (simulated ledger, trial, challenges, idempotency keys).
  * - `users/{uid}/meta/learning` — `data`: LearningProgressDocument JSON (Guided Research progress).
  * - `users/{uid}/meta/entitlements` — `plan`, `expiresAt`, `data`: StoredEntitlement JSON (billing writes it).
@@ -50,6 +52,32 @@ class FirestoreUserDataStore(private val db: Firestore) : UserDataStore {
             if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next)))
             result
         }.await()
+    }
+
+    override suspend fun saveBrief(brief: org.example.stocksteps.brief.DailyBrief) = io {
+        db.collection("dailyBriefs").document(brief.id).set(mapOf("generatedAt" to brief.generatedAt, "data" to encode(org.example.stocksteps.brief.DailyBrief.serializer(), brief))).await()
+        Unit
+    }
+    override suspend fun brief(id: String): org.example.stocksteps.brief.DailyBrief? = io {
+        db.collection("dailyBriefs").document(id).get().await().getString("data")?.let { decode(org.example.stocksteps.brief.DailyBrief.serializer(), it) }
+    }
+    override suspend fun recentBriefs(limit: Int): List<org.example.stocksteps.brief.BriefSummary> = io {
+        db.collection("dailyBriefs").orderBy("generatedAt", com.google.cloud.firestore.Query.Direction.DESCENDING).limit(limit).get().await().documents
+            .mapNotNull { it.getString("data")?.let { text -> runCatching { decode(org.example.stocksteps.brief.DailyBrief.serializer(), text).summary() }.getOrNull() } }
+    }
+    override suspend fun <T> updateBriefPreferences(uid: String, block: (org.example.stocksteps.brief.BriefPreferenceRecord?) -> Pair<org.example.stocksteps.brief.BriefPreferenceRecord?, T>): T = io {
+        val reference = db.collection("briefPreferences").document(uid)
+        db.runTransaction { tx ->
+            val current = tx.get(reference).get().getString("data")?.let { decode(org.example.stocksteps.brief.BriefPreferenceRecord.serializer(), it) }
+            val (next, result) = block(current)
+            if (next == null) { if (current != null) tx.delete(reference) }
+            else if (next != current) tx.set(reference, mapOf("enabled" to next.preferences.notificationsEnabled, "data" to encode(org.example.stocksteps.brief.BriefPreferenceRecord.serializer(), next)))
+            result
+        }.await()
+    }
+    override suspend fun briefSubscribers(limit: Int): List<org.example.stocksteps.brief.BriefPreferenceRecord> = io {
+        db.collection("briefPreferences").whereEqualTo("enabled", true).limit(limit).get().await().documents
+            .mapNotNull { it.getString("data")?.let { text -> runCatching { decode(org.example.stocksteps.brief.BriefPreferenceRecord.serializer(), text) }.getOrNull() } }
     }
 
     override suspend fun <T> updatePractice(uid: String, block: (org.example.stocksteps.practice.PracticeAccountData) -> Pair<org.example.stocksteps.practice.PracticeAccountData, T>): T = io {
