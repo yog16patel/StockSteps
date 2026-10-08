@@ -34,7 +34,7 @@ class FixtureMarketDataSource(
         FixtureMarketDataSource::class.java.classLoader.getResource(path)?.readText()
     }
 ) : StockProviderRepository, MarketDataProvider, NewsProviderRepository, PriceHistoryProvider, WhyMovingSource,
-    org.example.stocksteps.service.QuarterlyEarningsSource {
+    org.example.stocksteps.service.QuarterlyEarningsSource, org.example.stocksteps.service.IndexDataSource {
 
     @Serializable
     private data class Manifest(
@@ -51,6 +51,17 @@ class FixtureMarketDataSource(
             ?.let { runCatching { Instant.parse(it) }.getOrNull() }
         captured?.let { Duration.between(it, now()).coerceAtLeast(Duration.ZERO) } ?: Duration.ZERO
     }
+
+    /** When the fixtures were captured; MOCK evaluates the market session at this instant. */
+    val capturedAt: Instant? get() = manifest?.capturedAt?.let { runCatching { Instant.parse(it) }.getOrNull() }
+
+    /** `market/indices.json`: index levels (^GSPC, ^IXIC, ^DJI, ^GSPTSE) with their daily history. */
+    private val indices: Map<String, org.example.stocksteps.service.IndexFixture> by lazy {
+        load("market/indices.json", ListSerializer(org.example.stocksteps.service.IndexFixture.serializer())).orEmpty()
+            .associateBy { it.quote.symbol.uppercase(Locale.ROOT) }
+    }
+    override suspend fun indexQuote(symbol: String): StockQuote? = indices[symbol.uppercase(Locale.ROOT)]?.quote
+    override suspend fun indexHistory(symbol: String): List<PricePoint> = indices[symbol.uppercase(Locale.ROOT)]?.history.orEmpty()
 
     private val manifest: Manifest? by lazy { load("manifest.json", Manifest.serializer()) }
     private val snapshot: MarketSnapshot? by lazy { load("market/snapshot.json", MarketSnapshot.serializer()) }

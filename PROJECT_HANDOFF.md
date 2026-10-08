@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: "Add Company News, article explanations and Why Did It Move on Android and iOS" on `main`.
-Previous commit: `0d17770` (Add optional biometric app unlock and full sign-out cleanup).
+Last updated: 2026-10-08 (America/Toronto). Current commit: "Add Markets dashboard with indices, movers, sectors and market session on Android and iOS" on `main`.
+Previous commit: `4ddcd10` (Add Company News, article explanations and Why Did It Move on Android and iOS).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -17,7 +17,8 @@ pending items as instructions to implement them automatically.
 ### Repository state and immediate scope
 
 - Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
-- Current commit: **Add Company News, article explanations and Why Did It Move on Android and iOS**: Company News, on-demand article explanations and Why Did It Move? on
+- Current commit: **Add Markets dashboard with indices, movers, sectors and market session on Android and iOS**: Markets tab on backend, Android and iOS (see the last section).
+- Previous commit `4ddcd10`, **Add Company News, article explanations and Why Did It Move on Android and iOS**: Company News, on-demand article explanations and Why Did It Move? on
   backend, Android and iOS (see the last section).
 - Previous commit `0d17770`, **Add optional biometric app unlock and full sign-out cleanup**: biometric app lock, Security & Sign-In settings, sign-out cache clearing (see "Persistent sign-in and biometric app unlock" at the end).
 - Previous commit `4de8848`, **Add Valuation screen with monthly historical P/E on Android and iOS**: Valuation screen, `/valuation` endpoint and monthly P/E series (see "Valuation screen" at the end).
@@ -1773,3 +1774,41 @@ fixtures in MOCK, benchmark quotes are from a different session and are left out
 Next: on-device review of the three screens on both platforms; restart the user's mock server
 (`./gradlew :server:stopMock` then `runMock`) to serve the new endpoints; optional persistent
 insight cache.
+
+### Markets dashboard (2026-10-08, in commit "Add Markets dashboard with indices, movers, sectors and market session on Android and iOS")
+
+- Core: `model/Markets.kt` (`MarketsOverview`, `MarketSession`/`MarketSessionStatus`, `IndexQuote`,
+  `MarketMoverList`, `SectorPerformance(Section)`; reuses `MarketMover`, `NewsArticle`,
+  `SnapshotSectionError`), `getMarketsOverview()`, `MarketsRepository`/`GetMarketsOverview`,
+  `markets/MarketsPresentation.kt` (`MarketsPresenter`: header/status/time labels in exchange time
+  without a time-zone library, index cards, movers tabs with preview/expand, sector bars, news,
+  daily lesson; `MarketEducation`: reviewed index, sector and lesson texts).
+- Backend: `UsMarketCalendar` (NYSE holidays incl. Good Friday/Juneteenth/observed rules, early
+  closes, DST via zone rules), `MarketsService` (parallel sections, per-dataset caches with
+  session-dependent TTLs, coalescing, 8 s call timeout, 4 concurrent quotes, failure cooldowns,
+  `MarketsUsage` counters), `MoverRules`, `IndexDataSource` (REAL: FMP quote + daily history via
+  `PriceChartService`; MOCK: `market/indices.json`), route `GET /api/v1/markets/overview`.
+  `DataSources` gained `indexData`, `marketsLabels`, `marketClock` (MOCK pinned to the fixture
+  capture time or `STOCKSTEPS_MOCK_CLOCK`).
+- Mock fixtures: `market/indices.json` (synthetic levels + 30 daily closes, consistent with the
+  captured SPY/QQQ/DIA moves), quotes + daily closes for XLV, XLF, XLI, XLP, XLE, XLU, XLRE, XLB.
+  Movers come from the captured snapshot; most-active volume from sample-filled quotes.
+- Android: `MainDestination.MARKETS` tab (icon `ic_markets`), `presentation/markets/`
+  (`MarketsRoute`, `MarketsViewModel`, `MarketsScene.kt` with pull-to-refresh, index carousel,
+  movers tabs with "Why did it move?" buttons → `StockMovementRoute`, sector bars, news, lesson
+  sheets). Home "View all" movers opens the Markets tab. New theme token `indexCardWidth`, icon
+  `StockIcons.Search`.
+- iOS: `IosMarketsClient.kt`, `MarketsScene.swift` (`MarketsModel`, `.refreshable`, sheets,
+  movement push), Markets tab in `AppScene` (reset on backend switch).
+- Not implemented on purpose: trending stocks and market breadth (no defensible data source),
+  sector details screen (sector tap opens an explanation sheet instead), separate index screens.
+- Tests: server `MarketsTest` (9: sessions incl. weekends/holidays/early close/DST, mover rules,
+  index/proxy/unavailable, CAD, sector alignment, partial failures + cooldown, coalescing +
+  timeout, MOCK route); `MockModeTest` decodes `market/indices.json`; core `MarketsPresenterTest`
+  (6); shared `MarketsViewModelTest` (4).
+
+Validation: server, core JVM and shared Android host tests pass; Android assembleDebug and iOS
+xcodebuild BUILD SUCCEEDED; a temporary MOCK server (port 8094) served the overview with no errors
+(stopped). NOT verified: on-device UI (Android/iOS, light/dark, large fonts), REAL mode (FMP index
+symbols ^GSPC/^IXIC/^DJI/^GSPTSE and ETF quotes on the current plan are unverified — proxies and
+unavailable states cover failures), unscheduled market closures.

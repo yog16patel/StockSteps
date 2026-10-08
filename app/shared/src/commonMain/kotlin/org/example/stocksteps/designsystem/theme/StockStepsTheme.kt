@@ -149,6 +149,7 @@ internal data class StockStepsDimensions(
     val rangeBar: Dp = ThemeDimensions.rangeBar.dp,
     val rangeMarker: Dp = ThemeDimensions.rangeMarker.dp,
     val changeColumn: Dp = ThemeDimensions.changeColumn.dp,
+    val indexCardWidth: Dp = ThemeDimensions.indexCardWidth.dp,
     val multiColumnMinWidth: Dp = ThemeDimensions.multiColumnMinWidth.dp,
     val largeFontScale: Float = ThemeDimensions.largeFontScale
 )

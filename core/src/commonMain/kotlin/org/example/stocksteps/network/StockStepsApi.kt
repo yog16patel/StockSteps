@@ -114,6 +114,9 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
         }
     }
 
+    /** Markets dashboard: session, indices, movers, sectors and market news in one request. */
+    suspend fun getMarketsOverview(): MarketsOverview = request { url("$baseUrl/api/v1/markets/overview") }
+
     suspend fun getBackendInfo(): BackendInfo = request { url("$baseUrl/api/v1/meta") }
 
     suspend fun getMarketSnapshot(): MarketSnapshot = request { url("$baseUrl/market/snapshot") }

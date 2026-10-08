@@ -229,4 +229,21 @@
     <string name="movement_failed">We couldn't load this explanation.</string>
     <string name="movement_limits">Limitations</string>
     <string name="movement_labels">What the labels mean</string>
+    <string name="nav_markets">Markets</string>
+    <string name="markets_title">Explore Markets</string>
+    <string name="markets_subtitle">Discover what's happening in the market.</string>
+    <string name="markets_search">Search stocks</string>
+    <string name="markets_unavailable">Market data isn't available right now.</string>
+    <string name="markets_indices_failed">Market indices aren't available right now.</string>
+    <string name="markets_index_unavailable">Not available right now</string>
+    <string name="markets_movers_title">Top Movers</string>
+    <string name="markets_section_failed">This section couldn't be loaded.</string>
+    <string name="markets_show_all">Show all %1$d</string>
+    <string name="markets_show_fewer">Show fewer</string>
+    <string name="markets_why_moved">Why did %1$s move?</string>
+    <string name="markets_sectors_title">Sector Performance</string>
+    <string name="markets_sectors_empty">Sector data isn't available right now.</string>
+    <string name="markets_news_title">Market News</string>
+    <string name="markets_news_empty">No market news right now.</string>
+    <string name="markets_lesson_eyebrow">Today's lesson</string>
 </resources>

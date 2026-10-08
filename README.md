@@ -106,6 +106,28 @@ requests; other chart ranges load when selected and are cached per screen. A 404
 failure shows a compact retry state. `StockQuote` also carries `open`, `yearHigh` and `yearLow`
 (from FMP's quote, no extra call) for the quick stats and the day/52-week range bars.
 
+### Markets dashboard
+
+`GET /api/v1/markets/overview` returns the whole Markets tab in one response (`MarketsOverview`):
+
+- **Session** from the NYSE calendar in America/New_York (`UsMarketCalendar`): open, pre-market
+  (4:00–9:30), after-hours (16:00–20:00), closed, weekend, holiday (with name), early closes at
+  1:00 PM, next open. MOCK evaluates it at the fixture capture time (override with
+  `STOCKSTEPS_MOCK_CLOCK=2026-11-26T15:00:00Z`).
+- **Indices**: S&P 500 (^GSPC), Nasdaq Composite (^IXIC), Dow (^DJI), S&P/TSX Composite
+  (^GSPTSE) in points with 22 daily closes. If an index isn't available the matching fund is used
+  and labelled as a proxy (SPY, ONEQ, DIA, XIC.TO); otherwise the card is unavailable.
+- **Movers**: FMP's daily gainers / losers / most-active lists, cleaned (valid US-listed symbols,
+  positive price, no duplicates, |change| ≤ 1000%), top 10. Most active is ranked by each stock's
+  own quote volume (absolute shares, not relative volume).
+- **Sectors**: the 11 Select Sector SPDR ETFs, change since the previous close, only funds quoted
+  on the same session; labelled as ETF proxies.
+- **News**: the existing market-news feed (top 5, https links only). Trending stocks and market
+  breadth are not offered: no defensible data source is configured.
+- Sections fail independently (`errors`). Caching: overview 30 s while a session is active / 5 min
+  otherwise; indices and movers 1 min / 15 min; sectors 2 min / 30 min; news 5 min; failures
+  briefly, rate limits 10 min and denied access 1 h; concurrent requests share one load.
+
 ### Company News, explanations and "Why did it move?"
 
 - **News feed**: the backend fetches a company's feed once per 10 minutes and slices every

@@ -85,6 +85,17 @@ fun Application.module() {
             timeoutMillis = if (dataMode == DataMode.MOCK) 2_000 else 10_000
         ))
         movementRoutes(movement)
+        marketsRoutes(org.example.stocksteps.service.MarketsService(
+            movers = sources.marketData,
+            quotes = sources.stockProvider,
+            indexData = sources.indexData ?: object : org.example.stocksteps.service.IndexDataSource {
+                override suspend fun indexQuote(symbol: String) = sources.stockProvider.getQuote(symbol)
+                override suspend fun indexHistory(symbol: String) = charts.getChart(symbol, ChartRange.ONE_MONTH)?.points.orEmpty()
+            },
+            news = sources.news,
+            labels = sources.marketsLabels,
+            clock = sources.marketClock
+        ))
         sparklineRoutes(org.example.stocksteps.service.SparklineService(sources.priceHistory))
         companyDetailsRoutes(
             details = org.example.stocksteps.service.CompanyDetailsService(
@@ -224,6 +235,16 @@ internal class DataSources(
     /** Optional AI wording of computed movement facts; null keeps the deterministic template. */
     val narrator: org.example.stocksteps.service.MovementNarrator? = null,
     val movementVersion: String = "movement-template-v1",
+    /** Index levels; null in REAL, where the module builds one from the stock provider and charts. */
+    val indexData: org.example.stocksteps.service.IndexDataSource? = null,
+    val marketsLabels: org.example.stocksteps.service.MarketsSourceLabels = org.example.stocksteps.service.MarketsSourceLabels(
+        movers = "US-listed stocks in FMP's daily market movers lists",
+        quotes = "Financial Modeling Prep",
+        sampleData = false,
+        notice = "Quotes come from Financial Modeling Prep and may be delayed. Times show when each value was last updated."
+    ),
+    /** The instant used for the market session (MOCK pins it to the fixture capture time). */
+    val marketClock: java.time.Clock = java.time.Clock.systemUTC(),
     /** Reported quarterly EPS for the historical P/E series. */
     val earnings: org.example.stocksteps.service.QuarterlyEarningsSource = org.example.stocksteps.service.QuarterlyEarningsSource { emptyList() }
 )
@@ -262,8 +283,19 @@ private fun Application.realDataSources(): DataSources {
 /** Captured fixtures plus sample values for gaps: no provider keys, network calls, Gemini or Firestore. */
 internal fun mockDataSources(): DataSources {
     val fixtures = FixtureMarketDataSource(sampleFallback = true)
+    // STOCKSTEPS_MOCK_CLOCK (ISO instant) lets developers view other sessions (premarket, holiday…).
+    val pinned = System.getenv("STOCKSTEPS_MOCK_CLOCK")?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
+        ?: fixtures.capturedAt ?: java.time.Instant.EPOCH
     return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null), earnings = fixtures,
-        insights = org.example.stocksteps.news.TemplateArticleInsightGenerator(), insightVersion = "mock-template-v1")
+        insights = org.example.stocksteps.news.TemplateArticleInsightGenerator(), insightVersion = "mock-template-v1",
+        indexData = fixtures,
+        marketsLabels = org.example.stocksteps.service.MarketsSourceLabels(
+            movers = "Sample: movers captured from FMP's daily lists",
+            quotes = "StockSteps sample fixtures",
+            sampleData = true,
+            notice = "Sample data captured ${java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy").withZone(java.time.ZoneId.of("America/New_York")).format(pinned)}. Not live prices."
+        ),
+        marketClock = java.time.Clock.fixed(pinned, java.time.ZoneOffset.UTC))
 }
 
 /** `GET /api/v1/stocks/{symbol}/valuation`: the full P/E history; ranges are sliced by the apps. */
@@ -356,4 +388,9 @@ fun Route.movementRoutes(movement: org.example.stocksteps.service.MovementServic
         }
         call.respond(explanation)
     }
+}
+
+/** `GET /api/v1/markets/overview`: the Markets dashboard (session, indices, movers, sectors, news). */
+fun Route.marketsRoutes(markets: org.example.stocksteps.service.MarketsService) {
+    get("/api/v1/markets/overview") { call.respond(markets.overview()) }
 }

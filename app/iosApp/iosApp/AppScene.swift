@@ -4,6 +4,7 @@ import Shared
 struct AppScene: View {
     @State private var searchModel: StockSearchViewModel
     @State private var homeModel: HomeViewModel
+    @State private var marketsModel: MarketsModel
     let accounts: AccountViewModel
     var appLock: AppLockModel?
     @State private var showingAuth = false
@@ -21,6 +22,7 @@ struct AppScene: View {
         self.appLock = appLock
         _searchModel = State(initialValue: StockSearchViewModel(service: StockSearchService(baseURL: baseURL)))
         _homeModel = State(initialValue: HomeViewModel(service: HomeQuoteService(baseURL: baseURL)))
+        _marketsModel = State(initialValue: MarketsModel(baseURL: baseURL))
     }
 
     var body: some View {
@@ -31,6 +33,10 @@ struct AppScene: View {
                 }
                 .tabItem { Label("Home", systemImage: "house") }
                 .tag(AppRoute.home)
+
+                MarketsScene(model: marketsModel, onOpenStock: explore, onSearch: { initialStock = nil; showingSearch = true })
+                    .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
+                    .tag(AppRoute.markets)
 
                 WatchListScene(model: accounts, onSignIn: { showingAuth = true }, onSearch: { initialStock = nil; showingSearch = true }, onExplore: explore)
                     .tabItem { Label("Watchlist", systemImage: "star") }
@@ -46,7 +52,7 @@ struct AppScene: View {
             }
             .tint(StockStepsTheme.color(ThemeColors.shared.light.primary))
             // Home and Settings show their own compact headers instead of a navigation title.
-            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .settings))
+            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .markets && selectedTab != .settings))
             // Every client reads the URL per request; reload Home so its data matches the new backend.
             .navigationDestination(item: $detailsSymbol) { symbol in
                 CompanyDetailsScene(symbol: symbol, accounts: accounts)
@@ -54,6 +60,7 @@ struct AppScene: View {
             .onChange(of: backendEnvironment) { _, _ in
                 homeModel.refreshIndices()
                 homeModel.refreshNews()
+                marketsModel.reset()
             }
         }
         .sheet(isPresented: $showingAuth) {
@@ -77,6 +84,7 @@ struct AppScene: View {
     private var tabTitle: String {
         switch selectedTab {
         case .home: "Home"
+        case .markets: "Markets"
         case .watchlist: "Watchlist"
         case .learn: "Learn"
         case .settings: "Settings"

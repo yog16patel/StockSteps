@@ -22,6 +22,8 @@ import org.example.stocksteps.presentation.discovery.DiscoveryScene
 import org.example.stocksteps.presentation.home.HomeScene
 import org.example.stocksteps.presentation.stocksearch.StockSearchRoute
 import org.example.stocksteps.presentation.companydetails.*
+import org.example.stocksteps.presentation.markets.MarketsRoute
+import org.example.stocksteps.presentation.markets.MarketsScene
 import org.example.stocksteps.presentation.stocksearch.StockSearchScene
 import org.example.stocksteps.model.*
 import org.example.stocksteps.presentation.components.StockStepsTopBar
@@ -81,6 +83,7 @@ internal fun AppNavigation(
     fun openTab(tab: MainDestination) {
         val route: Any = when (tab) {
             MainDestination.HOME -> DiscoveryRoute
+            MainDestination.MARKETS -> MarketsRoute
             MainDestination.WATCHLIST -> WatchListRoute
             MainDestination.LEARN -> LearnRoute
             MainDestination.SETTINGS -> SettingsRoute
@@ -106,6 +109,7 @@ internal fun AppNavigation(
     }
     val sampleData by backendInfo.isMock.collectAsStateWithLifecycle()
     val isSettings = destination?.hasRoute<SettingsRoute>() == true
+    val isMarkets = destination?.hasRoute<MarketsRoute>() == true
     val isCompanyDetails = destination?.hasRoute<CompanyDetailsRoute>() == true
     val isCompanyFinancials = destination?.hasRoute<CompanyFinancialsRoute>() == true
     val isCompanyValuation = destination?.hasRoute<CompanyValuationRoute>() == true
@@ -132,7 +136,7 @@ internal fun AppNavigation(
                         else -> "Home"
                     },
                     // Home, Settings, Company Details and Financials render their own headers.
-                    visible = !isAuth && !isHome && !isSettings && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation && !isNewsInsight && !isMovement,
+                    visible = !isAuth && !isHome && !isSettings && !isMarkets && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation && !isNewsInsight && !isMovement,
                     backButton = if (hasBack) AppBarBackButton.BACK else AppBarBackButton.NONE
                 ),
                 onBack = { navController.popBackStack() },
@@ -153,6 +157,7 @@ internal fun AppNavigation(
                         MainDestination.entries.forEach { tab ->
                             val selected = when (tab) {
                                 MainDestination.HOME -> isHome
+                                MainDestination.MARKETS -> isMarkets
                                 MainDestination.WATCHLIST -> destination.hasRoute<WatchListRoute>()
                                 MainDestination.LEARN -> destination.hasRoute<LearnRoute>()
                                 MainDestination.SETTINGS -> destination.hasRoute<SettingsRoute>()
@@ -184,7 +189,18 @@ internal fun AppNavigation(
                     accounts = accounts,
                     hinge = hinge,
                     onLearn = { openTab(MainDestination.LEARN) },
+                    onViewAllMovers = { openTab(MainDestination.MARKETS) },
                     onExplore = { stock -> openStock(stock.symbol) }
+                )
+            }
+            composable<MarketsRoute> {
+                MarketsScene(
+                    backend = backend,
+                    environment = environment,
+                    hinge = hinge,
+                    onOpenStock = openStock,
+                    onWhyMoved = { symbol -> navController.navigate(StockMovementRoute(symbol)) },
+                    onSearch = { navController.navigate(StockSearchRoute()) }
                 )
             }
             composable<WatchListRoute> {
@@ -268,6 +284,7 @@ internal fun AppNavigation(
 
 private fun MainDestination.labelResource(): StringResource = when (this) {
     MainDestination.HOME -> Res.string.nav_home
+    MainDestination.MARKETS -> Res.string.nav_markets
     MainDestination.WATCHLIST -> Res.string.nav_watchlist
     MainDestination.LEARN -> Res.string.nav_learn
     MainDestination.SETTINGS -> Res.string.nav_settings

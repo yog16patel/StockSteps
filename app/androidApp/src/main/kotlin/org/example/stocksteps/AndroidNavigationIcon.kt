@@ -8,6 +8,7 @@ import androidx.compose.ui.res.painterResource
 internal fun AndroidNavigationIcon(destination: MainDestination) {
     val drawable = when (destination) {
         MainDestination.HOME -> R.drawable.ic_home
+        MainDestination.MARKETS -> R.drawable.ic_markets
         MainDestination.WATCHLIST -> R.drawable.ic_watchlist
         MainDestination.LEARN -> R.drawable.ic_learn_more
         MainDestination.SETTINGS -> R.drawable.ic_settings

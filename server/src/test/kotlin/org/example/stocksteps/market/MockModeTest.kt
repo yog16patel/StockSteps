@@ -119,6 +119,7 @@ class MockModeTest {
                 when {
                     path == "manifest.json" -> Unit
                     path == "market/snapshot.json" -> json.decodeFromString(MarketSnapshot.serializer(), text)
+                    path == "market/indices.json" -> json.decodeFromString(ListSerializer(IndexFixture.serializer()), text)
                     path == "stocks/search.json" -> json.decodeFromString(ListSerializer(StockSearchResult.serializer()), text)
                     path.startsWith("news/") -> json.decodeFromString(ListSerializer(NewsArticle.serializer()), text)
                     path.endsWith("/quote.json") -> json.decodeFromString(StockQuote.serializer(), text)

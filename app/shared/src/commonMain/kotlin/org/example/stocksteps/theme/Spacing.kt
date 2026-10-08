@@ -84,6 +84,8 @@ object ThemeDimensions {
     val rangeBar = 6
     val rangeMarker = 12
     val changeColumn = 64
+    /** Markets index card width: two cards and part of a third fit on common phones. */
+    val indexCardWidth = 164
     // Below this width, or above this font scale, side-by-side values stack.
     val multiColumnMinWidth = 300
     val largeFontScale = 1.3f
