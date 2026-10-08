@@ -93,9 +93,9 @@ struct MarketsScene: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 title(colors).padding(.top, CGFloat(space.lg))
-                researchTools(colors).padding(.top, CGFloat(space.md))
+                researchTools(colors).padding(.top, CGFloat(space.xl))
                 if let content = model.model {
-                    header(content.header, colors).padding(.top, CGFloat(space.sm))
+                    header(content.header, colors).padding(.top, CGFloat(space.xl))
                     indices(content, colors).padding(.top, CGFloat(space.lg))
                     movers(content.movers, colors).padding(.top, CGFloat(space.xl))
                     sectors(content.sectors, colors).padding(.top, CGFloat(space.xl))
@@ -135,8 +135,8 @@ struct MarketsScene: View {
 
     /// Market Overview (this screen) plus entry points to Discover Stocks and Compare Stocks.
     private func researchTools(_ colors: StockColors) -> some View {
-        VStack(spacing: CGFloat(space.sm)) {
-            HStack(spacing: CGFloat(space.sm)) {
+        VStack(spacing: CGFloat(space.md)) {
+            HStack(spacing: CGFloat(space.md)) {
                 tool("Discover Stocks", "Find companies by growth, dividends, strength or valuation", "magnifyingglass", colors, onDiscover)
                 tool("Compare Stocks", "See 2–4 companies side by side", "square.split.2x1", colors, onCompare)
             }
@@ -146,7 +146,7 @@ struct MarketsScene: View {
 
     private func tool(_ title: String, _ subtitle: String, _ icon: String, _ colors: StockColors, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 Image(systemName: icon).foregroundStyle(colors.primary)
                 Text(title).font(.headline).foregroundStyle(colors.textPrimary)
                 Text(subtitle).font(.caption).foregroundStyle(colors.textSecondary).multilineTextAlignment(.leading)

@@ -114,7 +114,7 @@ internal fun MarketsScreen(state: MarketsState, hinge: WindowHinge?, onAction: (
                     modifier = Modifier.fillMaxSize()
                 ) {
                     item(key = "title") { Title(content.padding(top = spacing.lg), onSearch = { onAction(MarketsAction.Search) }) }
-                    item(key = "tools") { ResearchTools(content.padding(top = spacing.md), onAction) }
+                    item(key = "tools") { ResearchTools(content.padding(top = spacing.xl), onAction) }
                     if (model == null) {
                         item(key = "state") {
                             if (state.loading) LoadingSkeleton(content.padding(top = spacing.lg))
@@ -124,7 +124,7 @@ internal fun MarketsScreen(state: MarketsState, hinge: WindowHinge?, onAction: (
                         }
                         return@LazyColumn
                     }
-                    item(key = "header") { SessionHeader(model.header, content.padding(top = spacing.sm)) }
+                    item(key = "header") { SessionHeader(model.header, content.padding(top = spacing.xl)) }
                     item(key = "indices") {
                         Indices(model, onOpen = { id -> lesson = MarketEducation.index(id) }, onRetry = { onAction(MarketsAction.Retry) }, modifier = content.padding(top = spacing.lg))
                     }
@@ -175,22 +175,27 @@ private fun Title(modifier: Modifier, onSearch: () -> Unit) {
 private fun ResearchTools(modifier: Modifier, onAction: (MarketsAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
         listOf(
             Triple("Discover Stocks", "Find companies by growth, dividends, strength or valuation", MarketsAction.Discover),
             Triple("Compare Stocks", "See 2–4 companies side by side", MarketsAction.Compare)
         ).forEach { (title, subtitle, action) ->
             StockCard(Modifier.weight(1f).fillMaxHeight(), onClick = { onAction(action) }, onClickLabel = "Open $title") {
                 Icon(if (action == MarketsAction.Discover) StockIcons.Search else StockIcons.PieChart, contentDescription = null, tint = colors.primary)
-                Text(title, Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
-                Text(subtitle, style = StockStepsTheme.typography.caption, color = colors.textSecondary)
+                Text(title, Modifier.padding(top = spacing.sm), style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
+                Text(subtitle, Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.caption, color = colors.textSecondary)
             }
         }
     }
     StockCard(Modifier.fillMaxWidth(), onClick = { onAction(MarketsAction.Earnings) }, onClickLabel = "Open Earnings Center") {
-        Text("Earnings Center", style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
-        Text("Upcoming dates, recent results and the companies you follow", style = StockStepsTheme.typography.caption, color = colors.textSecondary)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+            Icon(StockIcons.TrendingUp, contentDescription = null, tint = colors.primary)
+            Column {
+                Text("Earnings Center", style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
+                Text("Upcoming dates, recent results and the companies you follow", Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.caption, color = colors.textSecondary)
+            }
+        }
     }
     }
 }
@@ -242,8 +247,8 @@ private fun IndexCard(card: IndexCardModel, onClick: () -> Unit) {
         } else {
             Text(stringResource(Res.string.markets_index_unavailable), style = StockStepsTheme.typography.caption, color = colors.textTertiary)
         }
-        card.proxyLabel?.let { Text(it, Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.tiny, color = colors.cautionText, maxLines = 1) }
-        card.updated?.let { Text(it, Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.tiny, color = colors.textTertiary, maxLines = 1) }
+        card.proxyLabel?.let { Text(it, Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.tiny, color = colors.cautionText, maxLines = 1) }
+        card.updated?.let { Text(it, Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.tiny, color = colors.textTertiary, maxLines = 1) }
     }
 }
 

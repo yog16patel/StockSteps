@@ -1,8 +1,9 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **Add Earnings Intelligence and earnings calendar on Android and iOS** on `main`.
+Last updated: 2026-10-08 (America/Toronto). Current commit: **Add spacing around Markets research tools** on `main`.
+Small UI follow-up to **Add Earnings Intelligence and earnings calendar on Android and iOS** (`af39fb4`): more spacing above/between the Markets Discover, Compare and Earnings tiles and before the session header, and an icon on the Earnings tile (Android and iOS). Validated with Android compile + installDebug and iOS xcodebuild BUILD SUCCEEDED; no logic changes.
 Includes Earnings Intelligence & Earnings Calendar (next section, `docs/EARNINGS.md`).
-Previous commit: `4c65521` (Add Smart Stock Screener and Stock Comparison on Android and iOS).
+Earlier commit: `4c65521` (Add Smart Stock Screener and Stock Comparison on Android and iOS).
 Includes the Smart Stock Screener & Stock Comparison (next section, `docs/SCREENER_AND_COMPARISON.md`).
 Previous commit: `bf44bd7` (Add Portfolio Intelligence and advanced performance analytics on Android and iOS).
 Includes Portfolio Intelligence (next section, `docs/PORTFOLIO_INTELLIGENCE.md`) on top of the Portfolio
