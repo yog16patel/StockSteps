@@ -37,7 +37,8 @@ internal fun PortfolioScene(
     hinge: WindowHinge? = null,
     onSignIn: () -> Unit = {},
     onAlerts: (String) -> Unit = {},
-    onInsights: () -> Unit = {}
+    onInsights: () -> Unit = {},
+    onPractice: (() -> Unit)? = null
 ) {
     val model = viewModel(key = "portfolio") { PortfolioViewModel(accounts.portfolioPresenter) }
     val state by model.state.collectAsStateWithLifecycle()
@@ -69,6 +70,7 @@ internal fun PortfolioScene(
                 onSignIn = onSignIn,
                 onAlerts = onAlerts,
                 onInsights = onInsights,
+                onPractice = onPractice,
                 onDeleteTransaction = model.presenter::deleteTransaction,
                 onSaveTransaction = { model.presenter.saveTransaction(it, true) },
                 onWatchlist = { symbol ->

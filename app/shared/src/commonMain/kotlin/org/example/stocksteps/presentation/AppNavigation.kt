@@ -100,7 +100,7 @@ internal fun AppNavigation(
     }
 
     val isAuth = destination?.hasRoute<AuthRoute>() == true
-    val isSearch = destination?.hasRoute<StockSearchRoute>() == true || destination?.hasRoute<PortfolioSearchRoute>() == true
+    val isSearch = destination?.hasRoute<StockSearchRoute>() == true || destination?.hasRoute<PortfolioSearchRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeSearchRoute>() == true
 
     val isHome = destination?.hasRoute<DiscoveryRoute>() == true
     // Keyed by environment: switching creates fresh scene models (fresh data), while every
@@ -128,7 +128,12 @@ internal fun AppNavigation(
     val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true || destination?.hasRoute<PortfolioInsightsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCenterRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true ||
-        destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true
+        destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true ||
+        destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeOrderRoute>() == true
+    // Practice needs an account: the server keeps the simulated ledger.
+    val openPractice: () -> Unit = { if (accounts?.auth?.session?.value?.user == null) navController.navigate(AuthRoute()) else navController.navigate(org.example.stocksteps.presentation.practice.PracticeRoute) { launchSingleTop = true } }
+    val practiceTrade: (String, String) -> Unit = { symbol, side -> if (accounts?.auth?.session?.value?.user == null) navController.navigate(AuthRoute()) else navController.navigate(org.example.stocksteps.presentation.practice.PracticeOrderRoute(symbol, side)) }
+    val backToPractice: () -> Unit = { navController.navigate(org.example.stocksteps.presentation.practice.PracticeRoute) { popUpTo<org.example.stocksteps.presentation.practice.PracticeRoute> { inclusive = true }; launchSingleTop = true } }
     val openResearch: (String, String?) -> Unit = { symbol, name -> navController.navigate(org.example.stocksteps.presentation.research.GuidedResearchRoute(symbol, name)) }
     // Every stock tap (Home movers, Watchlist, Search) opens the same Company Details page.
     val addPortfolio: (InstrumentRef) -> Unit = { instrument ->
@@ -151,6 +156,8 @@ internal fun AppNavigation(
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCenterRoute>() == true -> "Earnings"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true -> "Earnings details"
                         destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true -> "Research"
+                        destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true -> "Practice"
+                        destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeOrderRoute>() == true -> "Practice order"
                         destination?.hasRoute<PortfolioRoute>() == true -> "Portfolio"
                         isSearch -> "Search stocks"
                         isCompanyFinancials -> "Financials"
@@ -222,7 +229,8 @@ internal fun AppNavigation(
                     onAlerts = { symbol -> navController.navigate(AlertsRoute(symbol)) },
                     onExplore = openStock,
                     onEarnings = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
-                    onResearch = openResearch
+                    onResearch = openResearch,
+                    onPractice = openPractice
                 )
             }
             composable<PortfolioRoute> {
@@ -231,7 +239,8 @@ internal fun AppNavigation(
                     onHolding = { account, symbol -> navController.navigate(HoldingDetailsRoute(account, symbol)) },
                     onOpenCompany = openStock, hinge = hinge,
                     onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) },
-                    onInsights = { navController.navigate(PortfolioInsightsRoute) })
+                    onInsights = { navController.navigate(PortfolioInsightsRoute) },
+                    onPractice = openPractice)
             }
             composable<org.example.stocksteps.presentation.screener.ScreenerRoute> { entry ->
                 org.example.stocksteps.presentation.screener.ScreenerScene(
@@ -254,6 +263,18 @@ internal fun AppNavigation(
                     onAdd = { navController.navigate(PortfolioEntryRoute()) },
                     onHolding = { _, _ -> }, onOpenCompany = openStock, holding = entry.toRoute(), hinge = hinge,
                     onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) })
+            }
+            composable<org.example.stocksteps.presentation.practice.PracticeSearchRoute> {
+                StockSearchScene(
+                    route = StockSearchRoute(),
+                    backend = backend,
+                    environment = environment,
+                    hinge = hinge,
+                    accounts = accounts,
+                    onOpenStock = { stock ->
+                        navController.navigate(org.example.stocksteps.presentation.practice.PracticeOrderRoute(stock.symbol, "BUY")) { popUpTo<org.example.stocksteps.presentation.practice.PracticeSearchRoute> { inclusive = true } }
+                    }
+                )
             }
             composable<PortfolioSearchRoute> {
                 StockSearchScene(
@@ -332,7 +353,25 @@ internal fun AppNavigation(
                 )
             }
             composable<LearnRoute> {
-                LearnScene(hinge, accounts, onResearch = openResearch, onSearch = { navController.navigate(StockSearchRoute()) })
+                LearnScene(hinge, accounts, onResearch = openResearch, onSearch = { navController.navigate(StockSearchRoute()) }, onPractice = openPractice)
+            }
+            composable<org.example.stocksteps.presentation.practice.PracticeRoute> {
+                if (accounts != null) org.example.stocksteps.presentation.practice.PracticeScene(accounts, hinge,
+                    onBuy = { navController.navigate(org.example.stocksteps.presentation.practice.PracticeSearchRoute) },
+                    onExplore = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
+                    onLearn = { openTab(MainDestination.LEARN) },
+                    onSignIn = { navController.navigate(AuthRoute()) },
+                    onCompany = openStock,
+                    onTrade = { symbol, side -> practiceTrade(symbol, side.name) },
+                    onManagePlan = { navController.navigate(SettingsRoute) })
+            }
+            composable<org.example.stocksteps.presentation.practice.PracticeOrderRoute> { entry ->
+                if (accounts != null) org.example.stocksteps.presentation.practice.PracticeOrderScene(entry.toRoute(), environment, accounts, hinge,
+                    onViewHoldings = backToPractice,
+                    onExplore = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
+                    onLearn = { openTab(MainDestination.LEARN) },
+                    onUpgrade = backToPractice,
+                    onBack = { navController.popBackStack() })
             }
             composable<org.example.stocksteps.presentation.research.GuidedResearchRoute> { entry ->
                 org.example.stocksteps.presentation.research.GuidedResearchScene(entry.toRoute(), backend, environment, accounts, hinge,
@@ -393,7 +432,8 @@ internal fun AppNavigation(
                         navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute)
                     },
                     onEarnings = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
-                    onResearch = openResearch
+                    onResearch = openResearch,
+                    onPracticeBuy = { symbol -> practiceTrade(symbol, "BUY") }
                 )
             }
             composable<CompanyFinancialsRoute> { entry ->

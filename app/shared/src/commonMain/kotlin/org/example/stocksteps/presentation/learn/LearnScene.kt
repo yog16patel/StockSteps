@@ -15,10 +15,11 @@ internal fun LearnScene(
     hinge: WindowHinge?,
     accounts: AccountDependencies?,
     onResearch: (symbol: String, name: String) -> Unit,
-    onSearch: () -> Unit
+    onSearch: () -> Unit,
+    onPractice: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val repository = accounts?.learning ?: remember { ephemeralLearningProgress(scope) }
     val progress by repository.state.collectAsStateWithLifecycle()
-    LearnScreen(progress, hinge, onResearch = onResearch, onSearch = onSearch)
+    LearnScreen(progress, hinge, onResearch = onResearch, onSearch = onSearch, onPractice = onPractice)
 }

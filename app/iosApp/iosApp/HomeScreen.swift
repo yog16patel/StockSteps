@@ -26,6 +26,7 @@ struct HomeScreen: View {
     /// The most recently visited unfinished Guided Research (saved progress), if any.
     var research: ResearchProgress? = nil
     var onResearch: (ResearchTarget) -> Void = { _ in }
+    var onPractice: () -> Void = {}
     @Environment(\.colorScheme) private var scheme
     private let space = StockStepsTheme.spacing
     private let type = StockStepsTheme.typography
@@ -67,6 +68,7 @@ struct HomeScreen: View {
                     } else {
                         HomeLearnBanner(action: onLearn)
                     }
+                    PracticeEntryCard(message: "Practice investing with virtual money. No real money is used.", action: onPractice)
                     if let notice = state.newsNotice { caption(notice) }
                     if state.watchlistCount > 0 { news(state) }
                     if !state.recent.isEmpty { recentlyViewed(state) }

@@ -8,6 +8,7 @@ internal sealed interface HomeAction {
     data object RetryWatchlists : HomeAction
     data object RetryAlerts : HomeAction
     data object Learn : HomeAction
+    data object Practice : HomeAction
     data object Search : HomeAction
     data object Watchlist : HomeAction
     data object Alerts : HomeAction

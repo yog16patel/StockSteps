@@ -17,6 +17,7 @@ import org.example.stocksteps.screener.savedScreenRoutes
 import org.example.stocksteps.screener.screenerRoutes
 import org.example.stocksteps.earnings.earningsRoutes
 import org.example.stocksteps.learning.learningRoutes
+import org.example.stocksteps.practice.practiceRoutes
 import org.example.stocksteps.userdata.ChartBenchmarkHistory
 import org.example.stocksteps.userdata.MockBenchmarkHistory
 import org.example.stocksteps.userdata.PortfolioAnalyticsService
@@ -159,6 +160,15 @@ fun Application.module() {
             savedScreenRoutes(sources.userAuth, SavedScreensService(userData, entitlements, sources.marketClock::millis))
             userRoutes(sources.userAuth, WatchlistsService(userData, now = sources.marketClock::millis),
                 AlertsService(userData, watchMarket, alertRules, sources.alertsDeliveryNote, now = sources.marketClock::millis, isPlus = { entitlements.get(it).plus }), userData, now = sources.marketClock::millis)
+            // Practice Portfolio: a separate simulated ledger (never mixed with the real portfolio).
+            practiceRoutes(sources.userAuth, org.example.stocksteps.practice.PracticeService(
+                store = userData, entitlements = entitlements,
+                market = org.example.stocksteps.practice.WatchPracticeMarket(watchMarket, charts::getDailyCloses),
+                fx = if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client),
+                clock = java.time.Clock.systemUTC(), marketClock = sources.marketClock,
+                corporateActions = if (dataMode == DataMode.MOCK) org.example.stocksteps.practice.MockCorporateActions else null,
+                sampleData = dataMode == DataMode.MOCK
+            ), mock = dataMode == DataMode.MOCK)
             alertEvaluationRoutes(evaluator, System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
         }
         if (dataMode == DataMode.MOCK) startMockAlertLoop(evaluator)

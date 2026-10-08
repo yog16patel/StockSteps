@@ -500,6 +500,7 @@ struct LearnScreen: View {
     let learning: LearningModel
     let onResearch: (ResearchTarget) -> Void
     let onSearch: () -> Void
+    var onPractice: () -> Void = {}
     @Environment(\.colorScheme) private var scheme
     @State private var education: EducationEntry?
 
@@ -545,6 +546,8 @@ struct LearnScreen: View {
                     title("Completed research")
                     ForEach(completed, id: \.symbol) { journey in journeyCard(journey, action: "Review", colors) }
                 }
+                title("Practice what you learn")
+                PracticeEntryCard(message: "Try simulated investments with $10,000 of virtual money and guided challenges.", action: onPractice)
                 title("Financial terms")
                 ForEach(client.terms, id: \.id) { entry in
                     Button { education = entry } label: {

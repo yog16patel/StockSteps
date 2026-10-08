@@ -1,7 +1,9 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **Add Guided Stock Research and beginner learning on Android and iOS** on `main`.
-Includes Guided Stock Research & Interactive Beginner Learning (next section, `docs/GUIDED_RESEARCH.md`).
+Last updated: 2026-10-08 (America/Toronto). Current commit: **Add Practice Portfolio simulator with free tier, 14-day trial and StockSteps+ on Android and iOS** on `main`.
+Includes the Practice Portfolio (next section, `docs/PRACTICE_PORTFOLIO.md`).
+Previous commit: **Add Guided Stock Research and beginner learning on Android and iOS**.
+Includes Guided Stock Research & Interactive Beginner Learning (`docs/GUIDED_RESEARCH.md`).
 Previous commit: **Add spacing around Markets research tools** (`54b5559`), a small UI follow-up to **Add Earnings Intelligence and earnings calendar on Android and iOS** (`af39fb4`): more spacing above/between the Markets Discover, Compare and Earnings tiles and before the session header, and an icon on the Earnings tile (Android and iOS). Validated with Android compile + installDebug and iOS xcodebuild BUILD SUCCEEDED; no logic changes.
 Includes Earnings Intelligence & Earnings Calendar (`docs/EARNINGS.md`).
 Earlier commit: `4c65521` (Add Smart Stock Screener and Stock Comparison on Android and iOS).
@@ -15,7 +17,54 @@ item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
 
-## Current milestone — Guided Stock Research & Interactive Beginner Learning (2026-10-08, commit: “Add Guided Stock Research and beginner learning on Android and iOS”)
+## Current milestone — Practice Portfolio (2026-10-08, commit: “Add Practice Portfolio simulator with free tier, 14-day trial and StockSteps+ on Android and iOS”)
+
+Read `docs/PRACTICE_PORTFOLIO.md` (access matrix, trial lifecycle, accounting, execution policy,
+safety/idempotency, API, corporate actions, MOCK scenarios, UI, limits).
+
+Completed:
+- Core `practice` package: models (decimal strings), `PracticePolicy` (typed capabilities, Free 3
+  holdings, 14-day trial, ranges), `PracticeEngine` (weighted-average cost, cents rounding, 0.0001
+  shares, valuation, ledger-dated history, blockers), challenges and deterministic insights,
+  `PracticePresenter` (owner-tagged, offline cache, sheets, trial/reset/challenges) and
+  `PracticeOrderPresenter` (debounced preview, review, idempotent confirm, price-change re-review).
+- Server `practice` package: `PracticeService` + routes under `/api/v1/me/practice`; atomic
+  `UserDataStore.updatePractice` (InMemory, Firestore `users/{uid}/practice/account`, Unavailable 503);
+  server-priced fills from fresh quotes + dated FX; trial activation; reset with archive; challenges;
+  corporate actions (MOCK sample events only); MOCK scenarios.
+- Android Compose (`presentation/practice`) and iOS SwiftUI (`PracticeScenes.swift`, `IosPracticeClient`):
+  Practice home (Overview/Holdings/Activity/Challenges), order entry/review/confirmation, paywall,
+  trial confirmation/expired, StockSteps+ info, reset; entry points on Portfolio, Home, Learn and
+  Company Details (Practice Buy). `StockCard` reuse; no new tab.
+- Analytics `AllocationSlice` untouched; Practice uses `PracticeAllocationSlice`.
+- Practice "Buy Stock" opens a practice search (`PracticeSearchRoute` on Android; a search mode on iOS):
+  picking a company opens its simulated order directly instead of Company Details.
+
+Validation: core JVM 285, core iOS 285, backend 226, shared Android host 55, shared iOS 49 — 0 failures;
+Android assembleDebug and iOS xcodebuild BUILD SUCCEEDED. Local MOCK server restarted; live check:
+3 × AAPL filled at 336.67 USD × 1.35 = 1,363.51 CAD; expired-trial scenario shows 8 holdings and the
+one-time notice; a 9th new holding returns HOLDING_LIMIT.
+
+MOCK vs REAL data for Practice (explained to the user 2026-10-08):
+- The app was being tested in MOCK (bottom bar "Sample data · mock backend"): prices are fixture data
+  captured 2026-10-07; the MOCK market clock starts at that capture time; FX is a fixed 1.35 sample.
+- REAL (Settings → Development → Backend Data Source → Real): quotes come from the backend's provider
+  (FMP, or Finnhub via `QUOTE_PROVIDER`), usually delayed rather than true real-time. Policy: during
+  market hours a fill needs a quote ≤ 30 minutes old (otherwise blocked as stale); when the market is
+  closed it fills at that session's closing price, labelled as such. USD→CAD uses Bank of Canada daily
+  rates. Apps never call providers directly.
+- Before Practice works in REAL: (1) commit and deploy the backend — the deployed Cloud Run server
+  doesn't have `/api/v1/me/practice` until then (404); (2) Firestore credentials are needed, otherwise
+  practice requests return 503; (3) dividends/splits aren't applied in REAL (no verified source yet),
+  which the overview states.
+
+Limitations / next:
+- Commit and push were requested by the user; the backend isn't deployed. StockSteps+ purchase/restore isn't implemented (no verified store products); the
+  sheet says so and shows no prices. No REAL corporate-action source. No device UI walkthrough or
+  UI-test automation; accessibility verified structurally.
+- Next: store billing + server receipt validation for StockSteps+, a verified dividend/split feed.
+
+## Previous milestone — Guided Stock Research & Interactive Beginner Learning (2026-10-08, commit: “Add Guided Stock Research and beginner learning on Android and iOS”)
 
 Read `docs/GUIDED_RESEARCH.md` (steps, data rules, architecture, entry points, persistence, AI
 boundary, MOCK scenarios, tests, limits).

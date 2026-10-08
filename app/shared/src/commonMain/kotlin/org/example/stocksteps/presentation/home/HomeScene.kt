@@ -24,7 +24,8 @@ internal fun HomeScene(
     onAlerts: (String?) -> Unit,
     onExplore: (String) -> Unit,
     onEarnings: (String) -> Unit = onExplore,
-    onResearch: (symbol: String, name: String) -> Unit = { symbol, _ -> onExplore(symbol) }
+    onResearch: (symbol: String, name: String) -> Unit = { symbol, _ -> onExplore(symbol) },
+    onPractice: () -> Unit = {}
 ) {
     val model = viewModel(key = "home:$environment") { HomeViewModel(accounts.home) }
     val state by model.state.collectAsStateWithLifecycle()
@@ -48,6 +49,7 @@ internal fun HomeScene(
             HomeAction.ClearRecent -> model.clearRecent()
             is HomeAction.Persona -> model.persona(action.id)
             HomeAction.Learn -> onLearn()
+            HomeAction.Practice -> onPractice()
             HomeAction.Search -> onSearch()
             HomeAction.Watchlist -> onWatchlist()
             HomeAction.Settings -> onSettings()

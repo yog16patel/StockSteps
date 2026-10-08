@@ -23,6 +23,7 @@ struct CompanyDetailsScreen: View {
     var researchCompleted: Int? = nil
     var showResearch = false
     var onResearch: () -> Void = {}
+    var onPracticeBuy: () -> Void = {}
     @State private var education: GlanceMetric?
     @State private var showEvidence = false
     @State private var showSources = false
@@ -37,11 +38,13 @@ struct CompanyDetailsScreen: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 header(colors)
-                HStack {
+                ScrollView(.horizontal, showsIndicators: false) { HStack {
                     Button("Add to portfolio", systemImage: "briefcase", action: onAddPortfolio).buttonStyle(.bordered)
                     Button("Compare", systemImage: "square.split.2x1", action: onCompare).buttonStyle(.bordered)
                     Button("Earnings", systemImage: "calendar", action: onEarnings).buttonStyle(.bordered)
-                }
+                    Button("Practice Buy", systemImage: "graduationcap", action: onPracticeBuy).buttonStyle(.bordered)
+                        .accessibilityHint("Opens a simulated order with virtual money")
+                } }
                 chartSection(colors).padding(.top, CGFloat(space.lg))
                 if showResearch { UnderstandStockCard(completed: researchCompleted, action: onResearch).padding(.top, CGFloat(space.xl)) }
                 switch model.whyMoving {

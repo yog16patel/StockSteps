@@ -538,6 +538,18 @@ dated FX, precision policies, MOCK scenarios, persistence setup and known limits
 Authenticated routes start at `/api/v1/me/portfolio`; REAL requires the existing
 Firebase Admin credentials, while MOCK uses isolated in-memory data.
 
+### Practice Portfolio (simulated)
+
+A virtual-money investing simulator, separate from the real Portfolio: $10,000 of virtual cash,
+3 free open holdings forever, an optional 14-day feature trial (explicit start, no payment, no
+auto-renewal) and unlimited holdings with StockSteps+. The backend prices orders, enforces limits
+and trial dates, and makes every mutation atomic and idempotent. See
+[Practice Portfolio](docs/PRACTICE_PORTFOLIO.md).
+
+- `GET /api/v1/me/practice`, `/transactions`, `/performance?range=`, `/entitlement`, `/challenges`
+- `POST /api/v1/me/practice/orders/preview`, `/orders/execute`, `/reset`, `/trial/activate`,
+  `/challenges/{id}/complete`; MOCK only: `PUT /api/v1/me/practice/debug/scenario`
+
 ### Guided Stock Research and Beginner Learning
 
 Company Details → **Understand This Stock**, Home → **Continue learning** and the **Learn** tab open a

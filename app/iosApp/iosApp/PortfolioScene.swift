@@ -8,6 +8,7 @@ struct PortfolioScene: View {
     var onSignIn: () -> Void = {}
     var onAlerts: (String) -> Void = { _ in }
     var initialSymbol: String? = nil
+    var onPractice: (() -> Void)? = nil
     @State private var model = PortfolioViewModel()
     @State private var holdingSymbol: String?
     @State private var showAccount = false
@@ -26,7 +27,7 @@ struct PortfolioScene: View {
             onAdd: { editingTransaction = nil; showTransaction = true }, onHolding: { if initialSymbol == nil { holdingSymbol = $0 } }, onCompany: onCompany, onSignIn: onSignIn, onAlerts: onAlerts,
             onWatchlist: { row in if model.state?.mockScenario == nil { watchlistInstrument = InstrumentRef(symbol: row.symbol, name: row.name, exchange: row.exchange, currency: row.currency) } },
             onEditTransaction: { editingTransaction = $0; showTransaction = true }, onDeleteTransaction: model.deleteTransaction,
-            onInsights: { showInsights = true })
+            onInsights: { showInsights = true }, onPractice: initialSymbol == nil ? onPractice : nil)
         .onAppear { model.connect(accounts) }
         .sheet(isPresented: $showAccount) {
             PortfolioAccountForm(existing: editingAccount, onSave: { id, name, category, currency, archived in

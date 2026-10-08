@@ -3,6 +3,7 @@ package org.example.stocksteps.presentation.companydetails
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -89,10 +90,11 @@ internal fun CompanyDetailsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 item(key = "portfolio") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
                         TextButton(onClick = { onAction(CompanyDetailsAction.AddPortfolio) }) { Text("Add to portfolio") }
                         TextButton(onClick = { onAction(CompanyDetailsAction.Compare) }) { Text("Compare") }
                         TextButton(onClick = { onAction(CompanyDetailsAction.Earnings) }) { Text("Earnings") }
+                        TextButton(onClick = { onAction(CompanyDetailsAction.PracticeBuy) }) { Text("Practice Buy") }
                     }
                 }
                 item(key = "header") { CompanyHeader(state.overview, onRetry = { onAction(CompanyDetailsAction.RetryCore) }, modifier = content) }

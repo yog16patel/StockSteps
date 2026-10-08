@@ -30,7 +30,8 @@ internal fun CompanyDetailsScene(
     onOpenMovement: (String) -> Unit,
     onCompare: (symbol: String, name: String) -> Unit = { _, _ -> },
     onEarnings: (String) -> Unit = {},
-    onResearch: (symbol: String, name: String) -> Unit = { _, _ -> }
+    onResearch: (symbol: String, name: String) -> Unit = { _, _ -> },
+    onPracticeBuy: (String) -> Unit = {}
 ) {
     val model = viewModel(key = "company-details:${route.symbol}:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
@@ -60,6 +61,7 @@ internal fun CompanyDetailsScene(
                 }
                 CompanyDetailsAction.Compare -> state.overview.listing(route.symbol).let { onCompare(it.symbol, it.name) }
                 CompanyDetailsAction.Earnings -> onEarnings(route.symbol)
+                CompanyDetailsAction.PracticeBuy -> onPracticeBuy(route.symbol)
                 CompanyDetailsAction.Research -> state.overview.listing(route.symbol).let { onResearch(it.symbol, it.name) }
                 CompanyDetailsAction.Back -> onBack()
                 CompanyDetailsAction.ToggleWatchlist -> watchlistModel?.toggle(state.overview.listing(route.symbol))

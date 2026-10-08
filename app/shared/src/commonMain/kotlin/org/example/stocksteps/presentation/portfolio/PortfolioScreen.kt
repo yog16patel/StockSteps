@@ -8,6 +8,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import org.example.stocksteps.designsystem.components.StockCard
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.portfolio.*
 
@@ -30,7 +33,9 @@ internal fun PortfolioScreen(
     onInsights: () -> Unit = {},
     onDeleteTransaction: (String) -> Unit,
     onSaveTransaction: (PortfolioTransaction) -> Unit,
-    onWatchlist: (String) -> Unit
+    onWatchlist: (String) -> Unit,
+    /** Opens the separate, simulated Practice Portfolio (never mixed into these totals). */
+    onPractice: (() -> Unit)? = null
 ) {
     var accountEditor by remember { mutableStateOf(false) }
     var editingAccount by remember { mutableStateOf<PortfolioAccount?>(null) }
@@ -46,6 +51,15 @@ internal fun PortfolioScreen(
         item {
             Text(if (holdingSymbol == null) "Portfolio" else "Holding details", style = StockStepsTheme.typography.screenTitle)
             Text("Your investments, separate from your watchlists", style = StockStepsTheme.typography.small)
+        }
+        if (holdingSymbol == null && onPractice != null) item {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                StockCard(Modifier.weight(1f).semantics(mergeDescendants = true) { selected = true }, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    Text("My Portfolio", style = StockStepsTheme.typography.cardTitle)
+                    Text("Track investments you actually own.", style = StockStepsTheme.typography.small)
+                }
+                org.example.stocksteps.presentation.practice.PracticeEntryCard(onPractice, Modifier.weight(1f))
+            }
         }
         if (state.mockAvailable) item {
             PortfolioChoice("Sample scenario", state.mockScenario ?: "My saved accounts", listOf("My saved accounts") + PortfolioFixtureCatalog.ids) {

@@ -20,6 +20,8 @@ struct PortfolioScreen: View {
     let onEditTransaction: (PortfolioTransaction) -> Void
     let onDeleteTransaction: (String) -> Void
     var onInsights: () -> Void = {}
+    /// The separate, simulated Practice Portfolio (never mixed into these totals).
+    var onPractice: (() -> Void)? = nil
     @State private var deleteAccount: PortfolioAccount?
     @State private var deleteTransaction: PortfolioTransaction?
     @Environment(\.colorScheme) private var scheme
@@ -30,6 +32,18 @@ struct PortfolioScreen: View {
             LazyVStack(alignment: .leading, spacing: CGFloat(space.sectionGap)) {
                 Text(holdingSymbol == nil ? "Portfolio" : "Holding details")
                     .font(StockStepsTheme.font(StockStepsTheme.typography.screenTitle, relativeTo: .largeTitle))
+                if let onPractice {
+                    HStack(alignment: .top, spacing: CGFloat(space.sm)) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("My Portfolio").font(StockStepsTheme.font(StockStepsTheme.typography.cardTitle, relativeTo: .headline))
+                            Text("Track investments you actually own.").font(.caption)
+                        }
+                        .stockCard()
+                        .accessibilityElement(children: .combine)
+                        .accessibilityAddTraits(.isSelected)
+                        PracticeEntryCard(action: onPractice)
+                    }
+                }
                 if let state {
                     if state.mockAvailable {
                         Menu("Sample scenario: \(state.mockScenario ?? "My saved accounts")") {

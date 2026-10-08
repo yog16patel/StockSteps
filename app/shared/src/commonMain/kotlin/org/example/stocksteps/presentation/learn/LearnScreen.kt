@@ -30,7 +30,8 @@ internal fun LearnScreen(
     progress: LearningProgressRepository.State,
     hinge: WindowHinge?,
     onResearch: (symbol: String, name: String) -> Unit,
-    onSearch: () -> Unit
+    onSearch: () -> Unit,
+    onPractice: () -> Unit = {}
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -82,6 +83,11 @@ internal fun LearnScreen(
                 if (completed.isNotEmpty()) {
                     item("completed-title") { Title("Completed research", content) }
                     items(completed, key = { "done-${it.symbol}" }) { journey -> JourneyCard(journey, "Review", content) { onResearch(journey.symbol, journey.name) } }
+                }
+                item("practice-title") { Title("Practice what you learn", content) }
+                item("practice") {
+                    org.example.stocksteps.presentation.practice.PracticeEntryCard(onPractice, content,
+                        body = "Try simulated investments with \$10,000 of virtual money and guided challenges.")
                 }
                 item("terms-title") { Title("Financial terms", content) }
                 items(BeginnerEducation.entries, key = { "term-${it.id}" }) { entry ->

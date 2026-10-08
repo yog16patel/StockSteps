@@ -22,11 +22,13 @@ struct CompanyDetailsScene: View {
     var onSearch: () -> Void = {}
     var onLearn: () -> Void = {}
     var onUpgrade: () -> Void = {}
+    var onPracticeBuy: (String) -> Void = { _ in }
     @State private var research: ResearchTarget?
     @Environment(\.openURL) private var openURL
 
     init(symbol: String, accounts: AccountViewModel, watchlists: WatchlistsModel? = nil, learning: LearningModel? = nil,
          onSearch: @escaping () -> Void = {}, onLearn: @escaping () -> Void = {}, onUpgrade: @escaping () -> Void = {},
+         onPracticeBuy: @escaping (String) -> Void = { _ in },
          baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
         self.symbol = symbol
         self.accounts = accounts
@@ -35,6 +37,7 @@ struct CompanyDetailsScene: View {
         self.onSearch = onSearch
         self.onLearn = onLearn
         self.onUpgrade = onUpgrade
+        self.onPracticeBuy = onPracticeBuy
         _model = State(initialValue: CompanyDetailsModel(symbol: symbol, baseURL: baseURL))
     }
 
@@ -69,7 +72,8 @@ struct CompanyDetailsScene: View {
             },
             researchCompleted: learning?.completed(symbol),
             showResearch: learning != nil,
-            onResearch: { research = ResearchTarget(symbol: symbol, name: model.overview.value?.name) }
+            onResearch: { research = ResearchTarget(symbol: symbol, name: model.overview.value?.name) },
+            onPracticeBuy: { onPracticeBuy(symbol) }
         )
         .navigationDestination(item: $research) { target in
             if let learning {

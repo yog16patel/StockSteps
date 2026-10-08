@@ -5,5 +5,6 @@ struct LearnScene: View {
     let learning: LearningModel
     let onResearch: (ResearchTarget) -> Void
     let onSearch: () -> Void
-    var body: some View { LearnScreen(learning: learning, onResearch: onResearch, onSearch: onSearch) }
+    var onPractice: () -> Void = {}
+    var body: some View { LearnScreen(learning: learning, onResearch: onResearch, onSearch: onSearch, onPractice: onPractice) }
 }

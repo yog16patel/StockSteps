@@ -54,6 +54,24 @@ class UserApi(
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return send(HttpMethod.Post, "earnings/${symbol.uppercase()}/ask", org.example.stocksteps.earnings.EarningsQuestion(question))
     }
+    // Practice Portfolio (simulated, virtual money). The server prices orders and enforces plans and limits.
+    suspend fun practice(expectedOwner: String? = null): org.example.stocksteps.practice.PracticeOverview = send(HttpMethod.Get, "practice", expectedOwner = expectedOwner)
+    suspend fun practiceTransactions(type: String?, expectedOwner: String? = null): org.example.stocksteps.practice.PracticeTransactions =
+        send(HttpMethod.Get, "practice/transactions" + (type?.let { "?type=$it" } ?: ""), expectedOwner = expectedOwner)
+    suspend fun practicePerformance(range: String, expectedOwner: String? = null): org.example.stocksteps.practice.PracticePerformance =
+        send(HttpMethod.Get, "practice/performance?range=$range", expectedOwner = expectedOwner)
+    suspend fun practicePreview(request: org.example.stocksteps.practice.PracticeOrderRequest, expectedOwner: String? = null): org.example.stocksteps.practice.PracticeOrderPreview =
+        send(HttpMethod.Post, "practice/orders/preview", request, expectedOwner)
+    suspend fun practiceExecute(request: org.example.stocksteps.practice.PracticeOrderRequest, expectedOwner: String? = null): org.example.stocksteps.practice.PracticeOrderResult =
+        send(HttpMethod.Post, "practice/orders/execute", request, expectedOwner)
+    suspend fun practiceReset(request: org.example.stocksteps.practice.ResetRequest, expectedOwner: String? = null): org.example.stocksteps.practice.PracticeOverview = send(HttpMethod.Post, "practice/reset", request, expectedOwner)
+    suspend fun practiceActivateTrial(expectedOwner: String? = null): org.example.stocksteps.practice.PracticeEntitlement = send(HttpMethod.Post, "practice/trial/activate", expectedOwner = expectedOwner)
+    suspend fun practiceAcknowledgeTrialNotice(expectedOwner: String? = null): org.example.stocksteps.practice.PracticeEntitlement = send(HttpMethod.Post, "practice/notices/trial-expired", expectedOwner = expectedOwner)
+    suspend fun practiceCompleteChallenge(id: String, optionId: String, expectedOwner: String? = null): List<org.example.stocksteps.practice.PracticeChallengeView> =
+        send(HttpMethod.Post, "practice/challenges/${id.segment()}/complete", org.example.stocksteps.practice.ChallengeAnswer(optionId), expectedOwner)
+    /** MOCK backend only. */
+    suspend fun practiceScenario(name: String, expectedOwner: String? = null): org.example.stocksteps.practice.PracticeOverview =
+        send(HttpMethod.Put, "practice/debug/scenario", org.example.stocksteps.practice.PracticeScenarioRequest(name), expectedOwner)
     suspend fun learning(expectedOwner: String? = null): org.example.stocksteps.learning.LearningProgressDocument = send(HttpMethod.Get, "learning", expectedOwner = expectedOwner)
     /** The server merges per company (most recent visit wins) and returns the merged document. */
     suspend fun saveLearning(document: org.example.stocksteps.learning.LearningProgressDocument, expectedOwner: String? = null): org.example.stocksteps.learning.LearningProgressDocument =

@@ -25,6 +25,11 @@ struct AppScene: View {
     @State private var earningsSymbol: String?
     @State private var learningModel: LearningModel
     @State private var researchTarget: ResearchTarget?
+    @State private var practiceModel: PracticeModel?
+    @State private var showingPractice = false
+    @State private var practiceTarget: PracticeOrderTarget?
+    /// Search opened from Practice: picking a company opens its simulated order directly.
+    @State private var searchForPractice = false
 
 
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
@@ -58,7 +63,8 @@ struct AppScene: View {
                             onExplore: explore,
                             onEarnings: { earningsSymbol = $0 },
                             learning: learningModel,
-                            onResearch: { researchTarget = $0 }
+                            onResearch: { researchTarget = $0 },
+                            onPractice: openPractice
                         )
                     } else {
                         Color.clear
@@ -75,7 +81,7 @@ struct AppScene: View {
                 Group {
                     if appLock?.locked != true {
                         PortfolioScene(accounts: accounts, watchlists: watchlistsModel, onCompany: explore,
-                            onSignIn: { showingAuth = true }, onAlerts: { alertsTarget = $0 })
+                            onSignIn: { showingAuth = true }, onAlerts: { alertsTarget = $0 }, onPractice: openPractice)
                     } else { Color.clear }
                 }
                 .tabItem { Label("Portfolio", systemImage: "briefcase") }
@@ -86,7 +92,7 @@ struct AppScene: View {
                     .tabItem { Label("Watchlist", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 
-                LearnScene(learning: learningModel, onResearch: { researchTarget = $0 }, onSearch: { initialStock = nil; showingSearch = true })
+                LearnScene(learning: learningModel, onResearch: { researchTarget = $0 }, onSearch: { initialStock = nil; showingSearch = true }, onPractice: openPractice)
                     .tabItem { Label("Learn", systemImage: "book") }
                     .tag(AppRoute.learn)
 
@@ -98,7 +104,22 @@ struct AppScene: View {
             .navigationDestination(item: $detailsSymbol) { symbol in
                 CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel, learning: learningModel,
                                     onSearch: { initialStock = nil; showingSearch = true }, onLearn: { detailsSymbol = nil; selectedTab = .learn },
-                                    onUpgrade: { showingSettings = true })
+                                    onUpgrade: { showingSettings = true }, onPracticeBuy: { practiceTrade(PracticeOrderTarget(symbol: $0, sell: false)) })
+            }
+            .navigationDestination(isPresented: $showingPractice) {
+                if let practiceModel {
+                    PracticeScene(model: practiceModel, onBuy: { initialStock = nil; searchForPractice = true; showingSearch = true }, onExplore: { showingDiscover = true },
+                                  onLearn: { showingPractice = false; selectedTab = .learn }, onSignIn: { showingAuth = true }, onCompany: explore,
+                                  onTrade: { practiceTrade($0) }, onManagePlan: { showingSettings = true })
+                }
+            }
+            .navigationDestination(item: $practiceTarget) { target in
+                if let practiceModel {
+                    PracticeOrderScene(target: target, practice: practiceModel,
+                                       onViewHoldings: { practiceTarget = nil; showingPractice = true },
+                                       onExplore: { practiceTarget = nil; showingDiscover = true },
+                                       onLearn: { practiceTarget = nil; selectedTab = .learn })
+                }
             }
             .navigationDestination(item: $researchTarget) { target in
                 GuidedResearchScene(target: target, learning: learningModel, accounts: accounts, onCompany: explore,
@@ -148,12 +169,17 @@ struct AppScene: View {
                     )
             }.interactiveDismissDisabled(accounts.state.busy)
         }
-        .sheet(isPresented: $showingSearch) {
+        .sheet(isPresented: $showingSearch, onDismiss: { searchForPractice = false }) {
             StockSearchScene(model: searchModel, accounts: accounts, initialStock: initialStock, onClose: { showingSearch = false },
                              onOpenStock: { stock in
-                                 // Close search, then push the shared Company Details page.
                                  showingSearch = false
-                                 detailsSymbol = stock.symbol
+                                 if searchForPractice {
+                                     searchForPractice = false
+                                     practiceTrade(PracticeOrderTarget(symbol: stock.symbol, sell: false))
+                                 } else {
+                                     // Close search, then push the shared Company Details page.
+                                     detailsSymbol = stock.symbol
+                                 }
                              })
         }
     }
@@ -166,6 +192,14 @@ struct AppScene: View {
         case .learn: "Learn"
         }
     }
+    /// Practice needs an account: the server keeps the simulated ledger.
+    private func ensurePractice() -> Bool {
+        guard accounts.state.user != nil, let client = accounts.client else { showingAuth = true; return false }
+        if practiceModel == nil { practiceModel = PracticeModel(account: client) }
+        return true
+    }
+    private func openPractice() { if ensurePractice() { showingPractice = true } }
+    private func practiceTrade(_ target: PracticeOrderTarget) { if ensurePractice() { practiceTarget = target } }
     private func explore(_ symbol: String) {
         detailsSymbol = symbol
     }

@@ -84,6 +84,10 @@ internal fun HomeScreen(
                             actionLabel = "Continue researching ${research.name}")
                         else HomeLearnCard({ onAction(HomeAction.Learn) }, content)
                     }
+                    item("practice") {
+                        org.example.stocksteps.presentation.practice.PracticeEntryCard({ onAction(HomeAction.Practice) }, content,
+                            body = "Practice investing with virtual money. No real money is used.")
+                    }
                     if (state.watchlistCount > 0) {
                         item("news") { PersonalHomeNews(state, onAction, content) }
                     }

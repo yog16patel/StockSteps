@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit
  * - `users/{uid}/watchlists/{watchlistId}` — `data`: Watchlist JSON (entries and notes inside).
  * - `users/{uid}/meta/watchlists` — `initialized`: default list / legacy import done.
  * - `users/{uid}/meta/screens` — `data`: JSON list of SavedScreen (filter definitions only).
+ * - `users/{uid}/practice/account` — `data`: PracticeAccountData JSON (simulated ledger, trial, challenges, idempotency keys).
  * - `users/{uid}/meta/learning` — `data`: LearningProgressDocument JSON (Guided Research progress).
  * - `users/{uid}/meta/entitlements` — `plan`, `expiresAt`, `data`: StoredEntitlement JSON (billing writes it).
  * - `alertRules/{ruleId}` — `ownerUid`, `status`, `data`: AlertRule JSON.
@@ -47,6 +48,17 @@ class FirestoreUserDataStore(private val db: Firestore) : UserDataStore {
             val current = tx.get(reference).get().getString("data")?.let { decode(serializer, it) }.orEmpty()
             val (next, result) = block(current)
             if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next)))
+            result
+        }.await()
+    }
+
+    override suspend fun <T> updatePractice(uid: String, block: (org.example.stocksteps.practice.PracticeAccountData) -> Pair<org.example.stocksteps.practice.PracticeAccountData, T>): T = io {
+        val reference = db.collection("users").document(uid).collection("practice").document("account")
+        val serializer = org.example.stocksteps.practice.PracticeAccountData.serializer()
+        db.runTransaction { tx ->
+            val current = tx.get(reference).get().getString("data")?.let { decode(serializer, it) } ?: org.example.stocksteps.practice.PracticeAccountData()
+            val (next, result) = block(current)
+            if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next), "revision" to next.revision))
             result
         }.await()
     }

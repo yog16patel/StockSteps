@@ -68,6 +68,7 @@ class AccountDependencies(
             single { org.example.stocksteps.portfolio.analytics.PortfolioAnalyticsPresenter(get(), get(), scope) }
             single { org.example.stocksteps.screener.SavedScreensRepository(get(), get(), get(), environment, scope).also { it.start() } }
             single { org.example.stocksteps.learning.LearningProgressRepository(get(), org.example.stocksteps.learning.RemoteLearningSync(get()), get(), environment, scope).also { it.start() } }
+            single { org.example.stocksteps.practice.PracticePresenter(org.example.stocksteps.practice.RemotePractice(get()), get(), get(), environment, scope) }
             single { DeviceRegistrar(get(), get(), pushTokens, environment, { installId() }, scope).also { it.start() } }
             // The previous single list now only holds the signed-out guest list on this device.
             single<WatchlistRepository>(org.koin.core.qualifier.named("guest")) { OfflineWatchlistRepository(get(), get(), LocalOnlyWatchlistGateway, scope) }
@@ -93,6 +94,10 @@ class AccountDependencies(
     /** Created on first use (Insights), not at app start. */
     val insightsPresenter: org.example.stocksteps.portfolio.analytics.PortfolioAnalyticsPresenter by lazy { graph.koin.get() }
     val alerts: AlertsRepository = graph.koin.get()
+    /** Practice Portfolio (simulated): one presenter shared by Home, Portfolio, Learn and Company Details; created on first use. */
+    val practice: org.example.stocksteps.practice.PracticePresenter by lazy { graph.koin.get<org.example.stocksteps.practice.PracticePresenter>().also { it.start() } }
+    fun practiceOrder(symbol: String, side: org.example.stocksteps.practice.OrderSide, scope: CoroutineScope): org.example.stocksteps.practice.PracticeOrderPresenter =
+        org.example.stocksteps.practice.PracticeOrderPresenter(symbol, side, org.example.stocksteps.practice.RemotePractice(userApi), { auth.session.value.user?.id }, scope)
     /** Guided Research progress: on this device for guests, synced with the account when signed in. */
     val learning: org.example.stocksteps.learning.LearningProgressRepository = graph.koin.get()
     /** StockSteps+ research questions (the backend enforces the plan). */
