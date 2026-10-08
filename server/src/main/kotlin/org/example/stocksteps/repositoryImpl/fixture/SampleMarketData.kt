@@ -102,36 +102,62 @@ internal class SampleMarketData(private val now: () -> Instant) {
         val priceSales = 1.5 + rng.nextDouble() * 10
         val annualRevenue = marketCap / priceSales
         val netMargin = 4.0 + rng.nextDouble() * 26
-        val annualNetIncome = annualRevenue * netMargin / 100
-        val pe = marketCap / annualNetIncome
-        val divisor = if (quarter) 4 else 1
+        val pe = marketCap / (annualRevenue * netMargin / 100)
         val year = sessionDate(quote).year - 1
-        val basis = FinancialBasis(period = if (quarter) "quarter" else "annual", date = "$year-12-31", fiscalYear = year, currency = "USD")
-        val ttm = FinancialBasis(period = "TTM", date = "$year-12-31", fiscalYear = year, currency = "USD")
-        fun value(v: Double, b: FinancialBasis = basis) = FinancialFact(value = round2(v), source = FinancialSource.PROVIDER_DIRECT, availability = FinancialAvailability.AVAILABLE, basis = b)
-        fun amount(v: Double) = FinancialFact(amount = (v / divisor).toLong(), source = FinancialSource.PROVIDER_DIRECT, availability = FinancialAvailability.AVAILABLE, basis = basis)
         val grossMargin = netMargin + 15 + rng.nextDouble() * 35
         val operatingMargin = netMargin + 2 + rng.nextDouble() * 10
-        val operatingCashFlow = annualNetIncome * (1.1 + rng.nextDouble() * 0.4)
-        val freeCashFlow = operatingCashFlow * (0.5 + rng.nextDouble() * 0.4)
+        val cashToRevenue = 0.05 + rng.nextDouble() * 0.4
+        val debtToRevenue = rng.nextDouble() * 0.6
+        val shares = marketCap / price
+        // Statement history first; every latest-period fact below is read back from it.
+        val annual = (5 downTo 0).fold(listOf<FinancialPeriodStatement>()) { rows, back ->
+            val fiscalYear = year - back
+            val revenue = annualRevenue / (1..back).fold(1.0) { total, _ -> total * (1.03 + rng.nextDouble() * 0.15) }
+            val margin = (netMargin + rng.nextGaussian() * 2) / 100
+            val operating = revenue * margin * (1.1 + rng.nextDouble() * 0.4)
+            val capex = operating * (0.15 + rng.nextDouble() * 0.35)
+            rows + FinancialPeriodStatement(
+                period = "FY", fiscalYear = fiscalYear, date = "$fiscalYear-12-31", currency = "USD",
+                revenue = round0(revenue), grossProfit = round0(revenue * grossMargin / 100), operatingIncome = round0(revenue * operatingMargin / 100),
+                netIncome = round0(revenue * margin), epsDiluted = round2(revenue * margin / shares),
+                operatingCashFlow = round0(operating), capitalExpenditure = round0(capex), freeCashFlow = round0(operating) - round0(capex),
+                cash = round0(revenue * cashToRevenue), totalDebt = round0(revenue * debtToRevenue),
+                totalAssets = round0(revenue * 1.6), totalLiabilities = round0(revenue * 0.8), equity = round0(revenue * 0.8),
+                currentAssets = round0(revenue * 0.6), currentLiabilities = round0(revenue * 0.35)
+            )
+        }.reversed()
+        val history = if (quarter) quarters(annual) else annual
+        val latest = history.first()
+        val previous = history.firstOrNull { it.period == latest.period && it.fiscalYear == latest.fiscalYear?.minus(1) }
+        val basis = FinancialBasis(period = if (quarter) latest.period else "annual", date = latest.date, fiscalYear = latest.fiscalYear, currency = "USD")
+        val ttm = FinancialBasis(period = "TTM", date = "$year-12-31", fiscalYear = year, currency = "USD")
+        fun value(v: Double?, b: FinancialBasis = basis) = v?.let { FinancialFact(value = round2(it), source = FinancialSource.PROVIDER_DIRECT, availability = FinancialAvailability.AVAILABLE, basis = b) }
+            ?: FinancialFact(availability = FinancialAvailability.INSUFFICIENT_HISTORY, basis = b)
+        fun amount(v: Double?) = FinancialFact(amount = v?.toLong(), source = FinancialSource.PROVIDER_DIRECT, availability = FinancialAvailability.AVAILABLE, basis = basis)
+        fun change(get: (FinancialPeriodStatement) -> Double?) = previous?.let { p -> get(p)?.takeIf { it > 0 }?.let { (get(latest)!! - it) / it * 100 } }
         val dividend = if (rng.nextDouble() < 0.35) FinancialFact(availability = FinancialAvailability.NO_DIVIDEND, basis = ttm)
             else value(0.2 + rng.nextDouble() * 3, ttm)
+        val revenue = latest.revenue!!
         return CompanyFundamentals(
             symbol = symbol,
             financials = CompanyFinancials(
                 growth = mapOf(
-                    "revenue" to amount(annualRevenue), "revenueGrowth" to value(rng.nextGaussian() * 12 + 6),
-                    "netIncome" to amount(annualNetIncome), "netIncomeGrowth" to value(rng.nextGaussian() * 18 + 5),
-                    "eps" to value(price / pe / divisor), "epsGrowth" to value(rng.nextGaussian() * 18 + 5)
+                    "revenue" to amount(revenue), "revenueGrowth" to value(change { it.revenue }),
+                    "netIncome" to amount(latest.netIncome), "netIncomeGrowth" to value(change { it.netIncome }),
+                    "eps" to value(latest.epsDiluted), "epsGrowth" to value(change { it.epsDiluted })
                 ),
-                profitability = mapOf("grossMargin" to value(grossMargin), "operatingMargin" to value(operatingMargin), "netMargin" to value(netMargin)),
+                profitability = mapOf(
+                    "grossMargin" to value(latest.grossProfit!! / revenue * 100), "operatingMargin" to value(latest.operatingIncome!! / revenue * 100),
+                    "netMargin" to value(latest.netIncome!! / revenue * 100)
+                ),
                 financialHealth = mapOf(
-                    "cash" to amount(annualRevenue * (0.05 + rng.nextDouble() * 0.4)), "debt" to amount(annualRevenue * rng.nextDouble() * 0.6),
-                    "debtEquity" to value(rng.nextDouble() * 1.8), "currentRatio" to value(0.8 + rng.nextDouble() * 2.5)
+                    "cash" to amount(latest.cash), "debt" to amount(latest.totalDebt),
+                    "assets" to amount(latest.totalAssets), "liabilities" to amount(latest.totalLiabilities), "equity" to amount(latest.equity),
+                    "debtEquity" to value(latest.totalDebt!! / latest.equity!!), "currentRatio" to value(latest.currentAssets!! / latest.currentLiabilities!!)
                 ),
                 cashFlow = mapOf(
-                    "operatingCashFlow" to amount(operatingCashFlow), "freeCashFlow" to amount(freeCashFlow),
-                    "fcfMargin" to value(freeCashFlow / annualRevenue * 100)
+                    "operatingCashFlow" to amount(latest.operatingCashFlow), "capex" to amount(latest.capitalExpenditure),
+                    "freeCashFlow" to amount(latest.freeCashFlow), "fcfMargin" to value(latest.freeCashFlow!! / revenue * 100)
                 ),
                 shareholderReturns = mapOf("dividendYield" to dividend)
             ),
@@ -139,10 +165,37 @@ internal class SampleMarketData(private val now: () -> Instant) {
                 metrics = mapOf("pe" to value(pe, ttm), "priceSales" to value(priceSales, ttm)),
                 historical = mapOf("pe" to peHistory(symbol, pe, year))
             ),
+            datasets = mapOf("income" to FinancialAvailability.AVAILABLE, "cashFlow" to FinancialAvailability.AVAILABLE, "balance" to FinancialAvailability.AVAILABLE),
             warnings = listOf("Sample values for development; not real financial data."),
-            retrievedAt = now().toString()
+            retrievedAt = now().toString(),
+            history = history
         )
     }
+
+    /** Eight calendar quarters from the two latest fiscal years: flows split by season, balances interpolated. */
+    private fun quarters(annual: List<FinancialPeriodStatement>): List<FinancialPeriodStatement> {
+        val season = listOf(0.23, 0.24, 0.25, 0.28)
+        return annual.take(2).zip(annual.drop(1).take(2)).flatMap { (fy, prior) ->
+            (0 until 4).map { q ->
+                fun flow(v: Double?) = v?.let { round0(it * season[q]) }
+                fun point(a: Double?, b: Double?) = if (a != null && b != null) round0(b + (a - b) * (q + 1) / 4.0) else null
+                val operating = flow(fy.operatingCashFlow)
+                val capex = flow(fy.capitalExpenditure)
+                fy.copy(
+                    period = "Q${q + 1}", date = "${fy.fiscalYear}-${listOf("03-31", "06-30", "09-30", "12-31")[q]}",
+                    revenue = flow(fy.revenue), grossProfit = flow(fy.grossProfit), operatingIncome = flow(fy.operatingIncome),
+                    netIncome = flow(fy.netIncome), epsDiluted = fy.epsDiluted?.let { round2(it * season[q]) },
+                    operatingCashFlow = operating, capitalExpenditure = capex, freeCashFlow = if (operating != null && capex != null) operating - capex else null,
+                    dividendsPaid = flow(fy.dividendsPaid),
+                    cash = point(fy.cash, prior.cash), totalDebt = point(fy.totalDebt, prior.totalDebt), totalAssets = point(fy.totalAssets, prior.totalAssets),
+                    totalLiabilities = point(fy.totalLiabilities, prior.totalLiabilities), equity = point(fy.equity, prior.equity),
+                    currentAssets = point(fy.currentAssets, prior.currentAssets), currentLiabilities = point(fy.currentLiabilities, prior.currentLiabilities)
+                )
+            }.reversed()
+        }
+    }
+
+    private fun round0(value: Double) = kotlin.math.round(value)
 
     /** Five yearly P/E observations around [pe] with the comparison the backend would calculate. */
     fun peHistory(symbol: String, pe: Double, year: Int): HistoricalComparison {
@@ -189,6 +242,8 @@ internal class SampleMarketData(private val now: () -> Instant) {
         val history = stored.valuation.historical["pe"]?.takeIf { it.reliable }
             ?: pe?.let { peHistory(stored.symbol, it, year) }
         return stored.copy(
+            history = stored.history.ifEmpty { generated.history },
+            datasets = if (stored.history.isEmpty()) generated.datasets else stored.datasets,
             financials = financials,
             valuation = CompanyValuation(metrics, stored.valuation.historical + listOfNotNull(history?.let { "pe" to it })),
             warnings = (stored.warnings + "Some values are sample data for development.").distinct()

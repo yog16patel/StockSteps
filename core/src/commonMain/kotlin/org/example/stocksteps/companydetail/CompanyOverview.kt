@@ -383,7 +383,8 @@ object CompanyOverviewPresenter {
         else -> code
     }
 
-    private fun shortName(name: String) =
+    /** "Microsoft Corporation" → "Microsoft"; used wherever a sentence names the company. */
+    fun shortName(name: String) =
         name.substringBefore(",").removeSuffix(" Corporation").removeSuffix(" Inc.").removeSuffix(" Inc").trim().ifEmpty { name }
 
     /** First sentences up to [ABOUT_LIMIT] characters; never cuts mid-sentence unless one sentence is too long. */

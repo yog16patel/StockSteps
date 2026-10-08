@@ -5,6 +5,7 @@ import org.example.stocksteps.companydetail.CompanyOverview
 import org.example.stocksteps.companydetail.FinancialMetric
 import org.example.stocksteps.companydetail.FinancialPeriod
 import org.example.stocksteps.model.CompanyFundamentals
+import org.example.stocksteps.model.CompanyProfile
 import org.example.stocksteps.model.StockSearchResult
 import org.example.stocksteps.companydetail.CompanyOverviewPresenter
 import org.example.stocksteps.di.StockStepsDependencies
@@ -25,6 +26,7 @@ class IosCompanyDetailsClient(baseUrl: () -> String) {
     private val whyMoving = dependencies.getWhyMoving()
     private val news = dependencies.companyNews()
     private val fundamentals = dependencies.getCompanyFundamentals()
+    private val profile = dependencies.getCompanyProfile()
 
     @Throws(Exception::class)
     suspend fun getOverview(symbol: String): CompanyOverview = CompanyOverviewPresenter.build(details(symbol))
@@ -48,6 +50,10 @@ class IosCompanyDetailsClient(baseUrl: () -> String) {
     @Throws(Exception::class)
     suspend fun getFundamentals(symbol: String, period: FinancialPeriod): CompanyFundamentals =
         fundamentals(symbol, if (period == FinancialPeriod.ANNUAL) "annual" else "quarter")
+
+    /** Company profile, for the Financials header (name and exchange). */
+    @Throws(Exception::class)
+    suspend fun getProfile(symbol: String): CompanyProfile = profile(symbol)
 
     /** Valuation metrics (P/E, P/S with history) for the Financials destination. */
     fun valuation(symbol: String, fundamentals: CompanyFundamentals): List<FinancialMetric> =

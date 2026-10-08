@@ -1,0 +1,11 @@
+{
+    "symbol": "TD",
+    "companyName": "Toronto-Dominion Bank",
+    "description": "Sample profile for development: a Canadian bank offering personal, commercial and wealth services. Values are not actual filings.",
+    "sector": "Financial Services",
+    "industry": "Banks - Diversified",
+    "country": "CA",
+    "currency": "USD",
+    "exchange": "NYSE",
+    "logoUrl": "https://images.financialmodelingprep.com/symbol/TD.png"
+}

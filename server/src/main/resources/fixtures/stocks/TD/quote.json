@@ -1,0 +1,16 @@
+{
+    "symbol": "TD",
+    "companyName": "Toronto-Dominion Bank",
+    "price": 60.12,
+    "change": 0.47,
+    "changePercent": 0.7879,
+    "dayHigh": 60.45,
+    "dayLow": 59.42,
+    "previousClose": 59.65,
+    "volume": 2310000,
+    "timestamp": 1791403200,
+    "marketCap": 105200000000,
+    "open": 59.71,
+    "yearHigh": 64.7,
+    "yearLow": 53.6
+}

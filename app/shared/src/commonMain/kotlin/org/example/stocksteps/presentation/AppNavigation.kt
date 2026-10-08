@@ -114,8 +114,8 @@ internal fun AppNavigation(
                         destination?.hasRoute<SettingsRoute>() == true -> "Settings"
                         else -> "Home"
                     },
-                    // Home, Settings and Company Details render their own compact headers.
-                    visible = !isAuth && !isHome && !isSettings && !isCompanyDetails,
+                    // Home, Settings, Company Details and Financials render their own headers.
+                    visible = !isAuth && !isHome && !isSettings && !isCompanyDetails && !isCompanyFinancials,
                     backButton = if (hasBack) AppBarBackButton.BACK else AppBarBackButton.NONE
                 ),
                 onBack = { navController.popBackStack() },
@@ -226,7 +226,7 @@ internal fun AppNavigation(
                 )
             }
             composable<CompanyFinancialsRoute> { entry ->
-                CompanyFinancialsScene(entry.toRoute<CompanyFinancialsRoute>(), backend, environment, hinge)
+                CompanyFinancialsScene(entry.toRoute<CompanyFinancialsRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() })
             }
             composable<CompanyNewsRoute> { entry ->
                 CompanyNewsScene(entry.toRoute<CompanyNewsRoute>(), backend, environment, hinge)

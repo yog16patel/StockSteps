@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-07 (America/Toronto). Current commit: "Document mock backend connection setup" on `main`.
-Previous commit: `5be8532` (Add normalized financial history and shared Financials presenter).
+Last updated: 2026-10-07 (America/Toronto). Current commit: "Complete Financials screen with mock statement history on Android and iOS" on `main`.
+Previous commit: `c7c8ad6` (Document mock backend connection setup).
 This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
@@ -17,7 +17,9 @@ pending items as instructions to implement them automatically.
 ### Repository state and immediate scope
 
 - Workspace: `/Users/yogeshpatel/Documents/StockSteps`; branch: `main`.
-- Current commit: **Add normalized financial history and shared Financials presenter**: Financials data layer only (statement history in `/fundamentals`, `FinancialMath`, `FinancialStatementsPresenter`, tests); the Financials UI rewrite is still pending (see "Financials screen" at the end).
+- Current commit: **Complete Financials screen with mock statement history on Android and iOS**: Android + iOS Financials screens, mock statement-history fixtures and tests (see "Financials screen — complete" at the end).
+- Previous commit `c7c8ad6`, **Document mock backend connection setup** (owner).
+- Commit `5be8532`, **Add normalized financial history and shared Financials presenter**: the Financials data layer.
 - Previous commit `fc6d43f`, **Complete Company Details reference design on Android and iOS**: the full reference layout for Company Details on both platforms, iOS Financials/News destinations, mock gap filling and previews (see "Company Details reference-design pass" at the end).
 - Previous commit `af299e9`, **Add Company Details page, mock sample data and Home visual refresh**. Included the canonical Company Details page
   (backend `/details`, `/chart`, `/why-moving`; Android + SwiftUI), mock tooling (`stopMock`,
@@ -1543,7 +1545,7 @@ on open. Not verified: iOS runtime (Xcode 16.2 cannot resolve firebase-ios-sdk 1
 watchlist star tap (it would change the signed-in account's real watchlist), REAL mode for
 this pass. Pending: real why-moving pipeline; analyst/earnings/comparables need a data source.
 
-### Financials screen — data layer done, UI pending (2026-10-07, in commit "Add normalized financial history and shared Financials presenter")
+### Financials screen — data layer (superseded by "complete" below) (2026-10-07, in commit "Add normalized financial history and shared Financials presenter")
 
 Done: `CompanyFundamentals.history` (`FinancialPeriodStatement`, newest first; FY or Q rows merged
 from income/cash-flow/balance statements by fiscal year+period, capex normalized to positive
@@ -1593,3 +1595,43 @@ an unaccepted Xcode license; iOS builds were not rerun or claimed verified.
 The pending Financials UI, mock-history fixtures and acceptance work listed above
 remain pending. Run the local mock server again if its process stops; reverse
 forwarding alone does not start a server.
+
+### Financials screen — complete (2026-10-07, in commit "Complete Financials screen with mock statement history on Android and iOS")
+
+Builds on the data layer committed in "Add normalized financial history and shared Financials
+presenter". Now done on both platforms:
+
+- Mock: `scripts/generate-financial-history.py` writes 6 fiscal years + 8 quarters into the
+  fundamentals fixtures and rewrites the statement facts from the same rows (and P/E = price ÷
+  EPS for USD reporters), so Company Details and Financials agree. Scenarios: MSFT complete
+  (June FY), AAPL (Sept FY), NVDA fast growth (Jan FY; quarterly balance sheet
+  TEMPORARILY_UNAVAILABLE; one quarter without net income), TSLA net-loss year, negative-FCF
+  year, missing quarter, NO_DIVIDEND, LONGN zero first-year revenue, missing FY2023, missing net
+  income, too little history for 5Y CAGR, TD NYSE-listed (USD quote) reporting in CAD with an
+  October FY and no gross profit/capex/debt. `SampleMarketData` now generates history for any
+  other ticker and derives its facts from it; balance sheets are snapshots (fixed a bug that
+  divided quarterly cash/debt by 4). Gap filling keeps generated history when captured has none.
+- Android: `CompanyFinancialsScene.kt` rewritten (own top bar "<Company> Financials",
+  Annual/Quarterly + 3Y/5Y/10Y pills, per-section headline/change/meaning/chart/rows/
+  comparisons/"What is this?", ratios disclosure, summary card, expandable detailed table and
+  advanced metrics, valuation list), `CompanyFinancialsViewModel.kt` (per-frequency cache,
+  stale-response guard, content kept visible while loading, keyed by environment). New design
+  components `StockBarChart` (tap to inspect, negatives below zero, gaps for unreported,
+  grouped series labelled), `StockComparisonBars`, `StockDataTable` (horizontal scroll inside
+  the section only).
+- iOS: `CompanyFinancialsScene.swift` rewritten to mirror Android on the shared presenter;
+  `StockBarChart`/`StockComparisonBars` in `StockDetailComponents.swift`; client gained
+  `getProfile`. `CompanyOverviewPresenter.shortName` is public (titles use "Microsoft").
+- Tests: server `MockFinancialsTest` (fixture consistency, scenarios, generated history, route
+  contract, mock wiring has only fixture sources), `CompanyFundamentalsTest` now asserts the REAL
+  mapper's history from mocked FMP HTTP; shared `CompanyFinancialsViewModelTest`.
+
+Validation: server 84 (3 skipped), core 69, shared host 32 — all pass; Android assembleDebug and
+**iOS xcodebuild (Xcode 27) BUILD SUCCEEDED**. Android emulator, Mock mode: MSFT (dark, every
+section), Tesla (Quarterly, missing quarter, light), TD (CAD, October FY, limitations), a
+generated ticker (TXLZF). Not verified: iOS runtime (simulator access was not granted in this
+session); REAL mode live — the captured REAL fundamentals show statement datasets
+TEMPORARILY_UNAVAILABLE on the current FMP plan, so REAL Financials will show the load-failure
+state until the plan includes statements (mapping verified only against mocked FMP responses).
+Search keeps only USD listings on US exchanges (existing rule), so non-US listings can't be
+opened from Search.

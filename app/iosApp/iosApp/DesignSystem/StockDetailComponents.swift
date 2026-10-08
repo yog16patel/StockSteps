@@ -291,3 +291,114 @@ struct StockInfoLine: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+/// Compact period bar chart (one or two series). Tapping a period shows its exact value(s);
+/// negative values hang below zero and unreported periods stay empty, never drawn as zero.
+struct StockBarChart: View {
+    @Environment(\.colorScheme) private var scheme
+    let chart: FinancialChart
+    @State private var selected: Int?
+
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        let bars = chart.bars
+        let secondary = chart.secondary
+        let index = selected ?? bars.count - 1
+        let values = (bars + (secondary ?? [])).compactMap { $0.value?.doubleValue }
+        let top = max(values.max() ?? 0, 0)
+        let bottom = min(values.min() ?? 0, 0)
+        let span = top - bottom > 0 ? top - bottom : 1
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            VStack(alignment: .leading, spacing: 0) {
+                if bars.indices.contains(index) {
+                    Text(secondary != nil ? "\(chart.primaryLabel) · \(bars[index].detail)" : bars[index].detail)
+                }
+                if let secondary, secondary.indices.contains(index) {
+                    Text("\(chart.secondaryLabel ?? "") · \(secondary[index].detail)")
+                }
+            }
+            .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textPrimary)
+            if secondary != nil {
+                HStack(spacing: CGFloat(space.md)) {
+                    legend(chart.primaryLabel, colors.primary)
+                    legend(chart.secondaryLabel ?? "", colors.learnAccent)
+                }
+            }
+            GeometryReader { proxy in
+                let slot = proxy.size.width / CGFloat(bars.count)
+                let group = slot * 0.62
+                let width = secondary != nil ? group / 2 - 2 : group
+                let zero = proxy.size.height * CGFloat(top / span)
+                ZStack(alignment: .topLeading) {
+                    Path { p in p.move(to: CGPoint(x: 0, y: zero)); p.addLine(to: CGPoint(x: proxy.size.width, y: zero)) }
+                        .stroke(colors.border, lineWidth: 1)
+                    ForEach(bars.indices, id: \.self) { i in
+                        let start = slot * CGFloat(i) + (slot - group) / 2
+                        bar(bars[i].value?.doubleValue, x: start, width: width, zero: zero, height: proxy.size.height, span: span, color: colors.primary, colors: colors, selected: i == index)
+                        if let secondary, secondary.indices.contains(i) {
+                            bar(secondary[i].value?.doubleValue, x: start + width + 4, width: width, zero: zero, height: proxy.size.height, span: span, color: colors.learnAccent, colors: colors, selected: i == index)
+                        }
+                    }
+                }
+                .contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 0).onEnded { value in
+                    selected = min(max(Int(value.location.x / max(slot, 1)), 0), bars.count - 1)
+                })
+            }
+            .frame(height: 140)
+            HStack(spacing: 0) {
+                ForEach(bars.indices, id: \.self) { i in
+                    Text(bars[i].label).lineLimit(1).frame(maxWidth: .infinity)
+                        .foregroundStyle(i == index ? colors.textPrimary : colors.textTertiary)
+                }
+            }
+            .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(chart.description_)
+    }
+
+    @ViewBuilder
+    private func bar(_ value: Double?, x: CGFloat, width: CGFloat, zero: CGFloat, height: CGFloat, span: Double, color: Color, colors: StockColors, selected: Bool) -> some View {
+        if let value {
+            let h = max(CGFloat(abs(value) / span) * height, 1)
+            RoundedRectangle(cornerRadius: 3)
+                .fill((value < 0 ? colors.negative : color).opacity(selected ? 1 : 0.45))
+                .frame(width: width, height: h)
+                .offset(x: x, y: value >= 0 ? zero - h : zero)
+        }
+    }
+
+    private func legend(_ label: String, _ color: Color) -> some View {
+        HStack(spacing: CGFloat(space.xs)) {
+            Circle().fill(color).frame(width: CGFloat(dims.statusDot), height: CGFloat(dims.statusDot))
+            Text(label).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(StockStepsTheme.colors(scheme).textSecondary)
+        }
+    }
+}
+
+/// Two amounts as proportional horizontal bars with values and a factual caption.
+struct StockComparisonBars: View {
+    @Environment(\.colorScheme) private var scheme
+    let comparison: FinancialComparison
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        let largest = max(abs(comparison.first), abs(comparison.second), 1)
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Text(comparison.title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
+            ForEach([(comparison.firstLabel, comparison.first, comparison.firstText, colors.primary),
+                     (comparison.secondLabel, comparison.second, comparison.secondText, colors.learnAccent)], id: \.0) { label, value, text, color in
+                HStack(spacing: CGFloat(space.sm)) {
+                    Text(label).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary).frame(width: 72, alignment: .leading)
+                    GeometryReader { proxy in
+                        Capsule().fill(color).frame(width: max(proxy.size.width * CGFloat(abs(value) / largest), 4))
+                    }
+                    .frame(height: CGFloat(dims.rangeBar) * 2)
+                    Text(text).font(StockStepsTheme.font(type.numberLabelStrong)).foregroundStyle(colors.textPrimary)
+                }
+            }
+            Text(comparison.caption).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}

@@ -1,5 +1,12 @@
 [
   {
+    "symbol": "TD",
+    "name": "Toronto-Dominion Bank",
+    "currency": "USD",
+    "exchange": "NYSE",
+    "exchangeFullName": "New York Stock Exchange"
+  },
+  {
     "symbol": "AAPL",
     "name": "Apple Inc.",
     "currency": "USD",

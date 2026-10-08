@@ -187,7 +187,7 @@ fun Route.sparklineRoutes(service: org.example.stocksteps.service.SparklineServi
 }
 
 /** Every external data dependency, chosen once per process by [DataMode]. */
-private class DataSources(
+internal class DataSources(
     val stockProvider: StockProviderRepository,
     val quoteProvider: StockQuoteProviderRepository,
     val marketData: MarketDataProvider,
@@ -224,7 +224,7 @@ private fun Application.realDataSources(): DataSources {
 }
 
 /** Captured fixtures plus sample values for gaps: no provider keys, network calls, Gemini or Firestore. */
-private fun mockDataSources(): DataSources {
+internal fun mockDataSources(): DataSources {
     val fixtures = FixtureMarketDataSource(sampleFallback = true)
     return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null), whyMoving = fixtures)
 }

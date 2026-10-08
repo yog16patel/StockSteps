@@ -3,89 +3,148 @@
     "financials": {
         "growth": {
             "revenue": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "amount": 187100000000,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "revenueGrowth": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "BACKEND_CALCULATED",
+                "availability": "AVAILABLE",
+                "value": 43.3716,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "revenueCagr3": {
-                "availability": "INSUFFICIENT_HISTORY",
+                "source": "BACKEND_CALCULATED",
+                "availability": "AVAILABLE",
+                "value": 90.6499,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "revenueCagr5": {
-                "availability": "INSUFFICIENT_HISTORY",
+                "source": "BACKEND_CALCULATED",
+                "availability": "AVAILABLE",
+                "value": 62.133,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "netIncome": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "amount": 99163000000,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "netIncomeGrowth": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "BACKEND_CALCULATED",
+                "availability": "AVAILABLE",
+                "value": 35.691,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "eps": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "value": 3.98,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "epsGrowth": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "BACKEND_CALCULATED",
+                "availability": "AVAILABLE",
+                "value": 35.8362,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "epsCagr3": {
-                "availability": "INSUFFICIENT_HISTORY",
+                "source": "BACKEND_CALCULATED",
+                "availability": "AVAILABLE",
+                "value": 186.0738,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "epsCagr5": {
-                "availability": "INSUFFICIENT_HISTORY",
+                "source": "BACKEND_CALCULATED",
+                "availability": "AVAILABLE",
+                "value": 87.8827,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             }
         },
         "profitability": {
             "grossMargin": {
-                "value": 74.67463667900016,
-                "source": "PROVIDER_DIRECT",
+                "source": "BACKEND_CALCULATED",
                 "availability": "AVAILABLE",
+                "value": 70.0,
                 "basis": {
-                    "period": "TTM"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "operatingMargin": {
-                "value": 65.21426284537361,
-                "source": "PROVIDER_DIRECT",
+                "source": "BACKEND_CALCULATED",
                 "availability": "AVAILABLE",
+                "value": 60.0,
                 "basis": {
-                    "period": "TTM"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "netMargin": {
-                "value": 63.66294901458565,
-                "source": "PROVIDER_DIRECT",
+                "source": "BACKEND_CALCULATED",
                 "availability": "AVAILABLE",
+                "value": 53.0,
                 "basis": {
-                    "period": "TTM"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "roe": {
@@ -115,33 +174,58 @@
         },
         "financialHealth": {
             "cash": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "amount": 11500000000,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "debt": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "amount": 8400000000,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "assets": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "amount": 140000000000,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "liabilities": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "amount": 38000000000,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "equity": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "amount": 102000000000,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "netDebt": {
@@ -151,19 +235,25 @@
                 }
             },
             "debtEquity": {
-                "value": 0.1697061803444782,
-                "source": "PROVIDER_DIRECT",
+                "source": "BACKEND_CALCULATED",
                 "availability": "AVAILABLE",
+                "value": 0.0824,
                 "basis": {
-                    "period": "TTM"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "currentRatio": {
-                "value": 4.588949069016016,
-                "source": "PROVIDER_DIRECT",
+                "source": "BACKEND_CALCULATED",
                 "availability": "AVAILABLE",
+                "value": 4.6364,
                 "basis": {
-                    "period": "TTM"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "quickRatio": {
@@ -193,27 +283,47 @@
         },
         "cashFlow": {
             "operatingCashFlow": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "amount": 96000000000,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "capex": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "PROVIDER_DIRECT",
+                "availability": "AVAILABLE",
+                "amount": 6000000000,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "freeCashFlow": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "BACKEND_CALCULATED",
+                "availability": "AVAILABLE",
+                "amount": 90000000000,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             },
             "fcfMargin": {
-                "availability": "TEMPORARILY_UNAVAILABLE",
+                "source": "BACKEND_CALCULATED",
+                "availability": "AVAILABLE",
+                "value": 48.1026,
                 "basis": {
-                    "period": "annual"
+                    "period": "annual",
+                    "date": "2026-01-31",
+                    "fiscalYear": 2026,
+                    "currency": "USD"
                 }
             }
         },
@@ -274,11 +384,12 @@
     "valuation": {
         "metrics": {
             "pe": {
-                "value": 29.87044025157232,
                 "source": "PROVIDER_DIRECT",
                 "availability": "AVAILABLE",
+                "value": 59.6658,
                 "basis": {
-                    "period": "TTM"
+                    "period": "TTM",
+                    "currency": "USD"
                 }
             },
             "peg": {
@@ -345,18 +456,146 @@
         }
     },
     "datasets": {
-        "income": "TEMPORARILY_UNAVAILABLE",
-        "annualIncome": "TEMPORARILY_UNAVAILABLE",
-        "balance": "TEMPORARILY_UNAVAILABLE",
-        "cashFlow": "TEMPORARILY_UNAVAILABLE",
-        "ratiosTtm": "AVAILABLE",
-        "keyMetricsTtm": "AVAILABLE",
-        "historicalRatios": "TEMPORARILY_UNAVAILABLE",
-        "incomeTtm": "TEMPORARILY_UNAVAILABLE",
-        "cashFlowTtm": "TEMPORARILY_UNAVAILABLE",
-        "estimates": "AVAILABLE",
-        "dividends": "TEMPORARILY_UNAVAILABLE",
-        "shares": "AVAILABLE"
+        "income": "AVAILABLE",
+        "cashFlow": "AVAILABLE",
+        "balance": "AVAILABLE"
     },
-    "retrievedAt": "2026-10-07T21:13:44.298034Z"
+    "retrievedAt": "2026-10-07T21:13:44.298034Z",
+    "warnings": [
+        "Sample development data; not actual company filings."
+    ],
+    "history": [
+        {
+            "period": "FY",
+            "fiscalYear": 2026,
+            "date": "2026-01-31",
+            "currency": "USD",
+            "revenue": 187100000000,
+            "grossProfit": 130970000000,
+            "operatingIncome": 112260000000,
+            "netIncome": 99163000000,
+            "epsDiluted": 3.98,
+            "operatingCashFlow": 96000000000,
+            "capitalExpenditure": 6000000000,
+            "freeCashFlow": 90000000000,
+            "dividendsPaid": 1000000000,
+            "cash": 11500000000,
+            "totalDebt": 8400000000,
+            "totalAssets": 140000000000,
+            "totalLiabilities": 38000000000,
+            "equity": 102000000000,
+            "currentAssets": 102000000000,
+            "currentLiabilities": 22000000000
+        },
+        {
+            "period": "FY",
+            "fiscalYear": 2025,
+            "date": "2025-01-31",
+            "currency": "USD",
+            "revenue": 130500000000,
+            "grossProfit": 97875000000,
+            "operatingIncome": 80910000000,
+            "netIncome": 73080000000,
+            "epsDiluted": 2.93,
+            "operatingCashFlow": 64100000000,
+            "capitalExpenditure": 3200000000,
+            "freeCashFlow": 60900000000,
+            "dividendsPaid": 800000000,
+            "cash": 8590000000,
+            "totalDebt": 8500000000,
+            "totalAssets": 111600000000,
+            "totalLiabilities": 32300000000,
+            "equity": 79300000000,
+            "currentAssets": 80100000000,
+            "currentLiabilities": 18000000000
+        },
+        {
+            "period": "FY",
+            "fiscalYear": 2024,
+            "date": "2024-01-31",
+            "currency": "USD",
+            "revenue": 60900000000,
+            "grossProfit": 44457000000,
+            "operatingIncome": 32886000000,
+            "netIncome": 29841000000,
+            "epsDiluted": 1.2,
+            "operatingCashFlow": 28100000000,
+            "capitalExpenditure": 1100000000,
+            "freeCashFlow": 27000000000,
+            "dividendsPaid": 400000000,
+            "cash": 7280000000,
+            "totalDebt": 9700000000,
+            "totalAssets": 65700000000,
+            "totalLiabilities": 22800000000,
+            "equity": 42900000000,
+            "currentAssets": 44300000000,
+            "currentLiabilities": 10600000000
+        },
+        {
+            "period": "FY",
+            "fiscalYear": 2023,
+            "date": "2023-01-31",
+            "currency": "USD",
+            "revenue": 27000000000,
+            "grossProfit": 15390000000,
+            "operatingIncome": 4320000000,
+            "netIncome": 4320000000,
+            "epsDiluted": 0.17,
+            "operatingCashFlow": 5600000000,
+            "capitalExpenditure": 1800000000,
+            "freeCashFlow": 3800000000,
+            "dividendsPaid": 400000000,
+            "cash": 3390000000,
+            "totalDebt": 11000000000,
+            "totalAssets": 41200000000,
+            "totalLiabilities": 19100000000,
+            "equity": 22100000000,
+            "currentAssets": 23100000000,
+            "currentLiabilities": 6600000000
+        },
+        {
+            "period": "FY",
+            "fiscalYear": 2022,
+            "date": "2022-01-31",
+            "currency": "USD",
+            "revenue": 26900000000,
+            "grossProfit": 17485000000,
+            "operatingIncome": 9953000000,
+            "netIncome": 9684000000,
+            "epsDiluted": 0.39,
+            "operatingCashFlow": 9100000000,
+            "capitalExpenditure": 1000000000,
+            "freeCashFlow": 8100000000,
+            "dividendsPaid": 400000000,
+            "cash": 1990000000,
+            "totalDebt": 11800000000,
+            "totalAssets": 44200000000,
+            "totalLiabilities": 17600000000,
+            "equity": 26600000000,
+            "currentAssets": 28800000000,
+            "currentLiabilities": 4300000000
+        },
+        {
+            "period": "FY",
+            "fiscalYear": 2021,
+            "date": "2021-01-31",
+            "currency": "USD",
+            "revenue": 16700000000,
+            "grossProfit": 10354000000,
+            "operatingIncome": 4342000000,
+            "netIncome": 4342000000,
+            "epsDiluted": 0.17,
+            "operatingCashFlow": 5800000000,
+            "capitalExpenditure": 1100000000,
+            "freeCashFlow": 4700000000,
+            "dividendsPaid": 400000000,
+            "cash": 850000000,
+            "totalDebt": 6900000000,
+            "totalAssets": 28800000000,
+            "totalLiabilities": 11900000000,
+            "equity": 16900000000,
+            "currentAssets": 16100000000,
+            "currentLiabilities": 3900000000
+        }
+    ]
 }
