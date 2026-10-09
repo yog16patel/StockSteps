@@ -12,6 +12,7 @@ import kotlinx.serialization.json.*
 import org.example.stocksteps.configureApiErrors
 import org.example.stocksteps.model.*
 import org.example.stocksteps.portfolio.*
+import org.example.stocksteps.portfolio.Decimal
 import org.example.stocksteps.portfolio.analytics.SubscriptionTier
 import org.example.stocksteps.repositoryImpl.fixture.FixtureMarketDataSource
 import org.example.stocksteps.screener.RequestRateLimiter
@@ -22,67 +23,123 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.*
 
 class EarningsReactionTest {
-    private fun event(date: String, session: EarningsTime, exchange: String = "NYSE", actual: Boolean = true) = EarningsEvent(
+    private val us = UsExchangeCalendar()
+    private fun event(date: String, session: EarningsTime, exchange: String = "NYSE", previous: String? = null) = EarningsEvent(
         "T:2026-Q3", "T", "Test", exchange, fiscalYear = 2026, fiscalQuarter = 3, date = date, session = session, dateStatus = EarningsDateStatus.CONFIRMED,
-        actual = if (actual) EarningsActual(1.0, EpsBasis.ADJUSTED, 1e9, "USD", source = "t") else null, source = "t", updatedAt = "t")
-    // Mon Oct 5 … Fri Oct 9, then Mon Oct 12 (no weekend closes).
-    private val closes = mapOf("2026-10-05" to 100.0, "2026-10-06" to 102.0, "2026-10-07" to 101.0, "2026-10-08" to 110.0, "2026-10-09" to 99.0, "2026-10-12" to 105.0)
-        .mapKeys { LocalDate.parse(it.key) }
+        previousDate = previous, actual = EarningsActual(1.0, EpsBasis.ADJUSTED, 1e9, "USD", source = "t"), source = "t", updatedAt = "t")
+    // Mon Oct 5 … Fri Oct 9, Mon Oct 12 … Wed Oct 14 (US sessions; no weekend closes).
+    private val closes = mapOf("2026-10-02" to "99", "2026-10-05" to "100", "2026-10-06" to "102", "2026-10-07" to "101", "2026-10-08" to "110", "2026-10-09" to "99",
+        "2026-10-12" to "105", "2026-10-13" to "104", "2026-10-14" to "106", "2026-10-15" to "107")
+    private fun series(c: Map<String, String> = closes, currency: String = "USD", actions: List<CorporateAction> = emptyList(), known: Boolean = true) =
+        PriceSeries(c.map { (d, v) -> LocalDate.parse(d) to DailyBar(LocalDate.parse(d), Decimal.parse(v), currency, PriceAdjustment.SPLIT_ADJUSTED) }.toMap(),
+            actions, known, "test", Instant.parse("2026-10-20T00:00:00Z"))
     private val later = Instant.parse("2026-10-20T00:00:00Z")
-    private fun compute(e: EarningsEvent, c: Map<LocalDate, Double> = closes, now: Instant = later, market: Map<LocalDate, Double>? = null) =
-        EarningsReactionCalculator.compute(e, c, market, "SPY", now, "USD", "test")
+    private fun compute(e: EarningsEvent, w: ReactionWindow = ReactionWindow.FIRST_SESSION, s: PriceSeries? = series(), now: Instant = later, cal: ExchangeCalendar? = us) =
+        PriceReactionEngine.compute(e, "T:2026-Q3", w, s, cal, now)
 
     @Test fun beforeOpenUsesPreviousCloseToSameDayClose() {
-        val r = compute(event("2026-10-08", EarningsTime.BEFORE_OPEN), market = closes.mapValues { 100.0 })
-        assertEquals("2026-10-07", r.baselineDate); assertEquals("2026-10-08", r.endDate)
-        assertEquals((110.0 / 101.0 - 1) * 100, r.changePercent!!, 1e-9)
-        assertEquals(0.0, r.marketChangePercent!!, 1e-9)
-        assertFalse(r.approximate)
+        val r = compute(event("2026-10-08", EarningsTime.BEFORE_OPEN))
+        assertEquals("2026-10-07", r.baseline?.sessionDate); assertEquals("2026-10-08", r.endpoint?.sessionDate)
+        assertEquals("9", r.absoluteChange); assertEquals("8.91089109", r.percentChange)   // exact decimals
+        assertEquals(ReactionStatus.AVAILABLE, r.status)
     }
 
     @Test fun afterCloseUsesSameDayCloseToNextSessionClose() {
         val r = compute(event("2026-10-08", EarningsTime.AFTER_CLOSE))
-        assertEquals("2026-10-08", r.baselineDate); assertEquals("2026-10-09", r.endDate)
-        assertEquals((99.0 / 110.0 - 1) * 100, r.changePercent!!, 1e-9)
+        assertEquals("2026-10-08", r.baseline?.sessionDate); assertEquals("2026-10-09", r.endpoint?.sessionDate)
+        assertEquals("-11", r.absoluteChange); assertEquals("-10", r.percentChange)
+        assertEquals("2026-10-09T16:00-04:00", r.endpoint?.timestamp)
     }
 
-    @Test fun unknownTimeUsesAWiderWindowLabelledApproximate() {
+    @Test fun multiSessionWindowsCountTradingSessionsNotCalendarDays() {
+        val three = compute(event("2026-10-08", EarningsTime.AFTER_CLOSE), ReactionWindow.THREE_SESSIONS)
+        assertEquals("2026-10-13", three.endpoint?.sessionDate)                              // Fri 9, Mon 12, Tue 13 (weekend skipped)
+        val five = compute(event("2026-10-08", EarningsTime.AFTER_CLOSE), ReactionWindow.FIVE_SESSIONS)
+        assertEquals("2026-10-15", five.endpoint?.sessionDate)
+    }
+
+    @Test fun unknownTimeIsNotGuessedButABroaderComparisonIsLabelled() {
         val r = compute(event("2026-10-08", EarningsTime.UNKNOWN))
-        assertEquals("2026-10-07", r.baselineDate); assertEquals("2026-10-09", r.endDate)
-        assertTrue(r.approximate)
-        assertTrue(r.window!!.contains("approximate"))
+        assertEquals(ReactionStatus.EVENT_TIME_UNKNOWN, r.status)
+        assertEquals("2026-10-07", r.baseline?.sessionDate); assertEquals("2026-10-09", r.endpoint?.sessionDate)
+        assertTrue(r.statusMessage!!.contains("broader comparison"))
     }
 
-    @Test fun weekendAndHolidayAnnouncementsUseTheNextSession() {
+    @Test fun duringMarketWithoutIntradayDataIsALabelledRegularSessionComparison() {
+        val r = compute(event("2026-10-08", EarningsTime.DURING_MARKET))
+        assertEquals("2026-10-07", r.baseline?.sessionDate); assertEquals("2026-10-08", r.endpoint?.sessionDate)
+        assertTrue(r.warnings.any { it.contains("includes trading before the announcement") })
+    }
+
+    @Test fun weekendsHolidaysAndHalfDaysFollowTheExchangeCalendar() {
         val saturday = compute(event("2026-10-10", EarningsTime.BEFORE_OPEN))
-        assertEquals("2026-10-09", saturday.baselineDate); assertEquals("2026-10-12", saturday.endDate)
-        // A holiday is simply a day without a close: Thursday missing → Friday is the next session.
-        val holiday = compute(event("2026-10-08", EarningsTime.BEFORE_OPEN), closes - LocalDate.parse("2026-10-08"))
-        assertEquals("2026-10-09", holiday.endDate)
+        assertEquals("2026-10-09", saturday.baseline?.sessionDate); assertEquals("2026-10-12", saturday.endpoint?.sessionDate)
+        assertTrue(saturday.warnings.any { it.contains("wasn't a trading day") })
+        // Thu Jul 2 after the close: Fri Jul 3 is a US holiday (observed), so the next session is Mon Jul 6.
+        val july = series(mapOf("2026-07-02" to "30", "2026-07-06" to "31.2"))
+        assertEquals("2026-07-06", compute(event("2026-07-02", EarningsTime.AFTER_CLOSE), s = july).endpoint?.sessionDate)
+        // The same dates on the TSX: Jul 1 is Canada Day, Jul 3 is a trading day.
+        val tsx = TsxExchangeCalendar()
+        assertEquals("2026-07-02", PriceReactionEngine.plan(EarningsTime.AFTER_CLOSE, LocalDate.parse("2026-06-30"), tsx).first.toString())
+        assertEquals("2026-07-03", PriceReactionEngine.plan(EarningsTime.AFTER_CLOSE, LocalDate.parse("2026-07-02"), tsx).first.toString())
+        // Dec 24 is a half day: the close is at 1:00 pm, so the session is complete at 1:15 pm.
+        val xmas = series(mapOf("2025-12-23" to "50", "2025-12-24" to "50.5"))
+        val half = compute(event("2025-12-24", EarningsTime.BEFORE_OPEN), s = xmas, now = ZonedDateTime.of(2025, 12, 24, 13, 20, 0, 0, ZoneId.of("America/New_York")).toInstant())
+        assertEquals(ReactionStatus.AVAILABLE, half.status); assertTrue(half.endpoint!!.earlyClose); assertTrue(half.warnings.any { it.contains("early close") })
     }
 
-    @Test fun missingPricesAndIncompleteSessionsAreUnavailable() {
-        assertFalse(compute(event("2026-10-08", EarningsTime.AFTER_CLOSE), emptyMap()).available)
-        assertFalse(compute(event("2026-10-08", EarningsTime.AFTER_CLOSE, actual = false)).available)
+    @Test fun incompleteWindowsAreNeverFilled() {
         // Friday's session isn't finished at 3 pm New York time on Friday.
         val during = compute(event("2026-10-08", EarningsTime.AFTER_CLOSE), now = ZonedDateTime.of(2026, 10, 9, 15, 0, 0, 0, ZoneId.of("America/New_York")).toInstant())
-        assertFalse(during.available); assertTrue(during.reason!!.contains("hasn't finished"))
-        val after = compute(event("2026-10-08", EarningsTime.AFTER_CLOSE), now = ZonedDateTime.of(2026, 10, 9, 16, 30, 0, 0, ZoneId.of("America/New_York")).toInstant())
-        assertTrue(after.available)
+        assertEquals(ReactionStatus.WINDOW_INCOMPLETE, during.status); assertNull(during.absoluteChange); assertEquals("2026-10-08", during.baseline?.sessionDate)
+        assertEquals(ReactionStatus.AVAILABLE, compute(event("2026-10-08", EarningsTime.AFTER_CLOSE), now = ZonedDateTime.of(2026, 10, 9, 16, 30, 0, 0, ZoneId.of("America/New_York")).toInstant()).status)
+        // 20:15 UTC is 16:15 New York in summer (EDT) but 15:15 in winter (EST): only the summer session is complete.
+        assertEquals(ReactionStatus.AVAILABLE, compute(event("2026-07-01", EarningsTime.AFTER_CLOSE), s = series(mapOf("2026-07-01" to "100", "2026-07-02" to "101")), now = Instant.parse("2026-07-02T20:15:00Z")).status)
+        assertEquals(ReactionStatus.WINDOW_INCOMPLETE, compute(event("2026-12-01", EarningsTime.AFTER_CLOSE), s = series(mapOf("2026-12-01" to "100", "2026-12-02" to "101")), now = Instant.parse("2026-12-02T20:15:00Z")).status)
     }
 
-    @Test fun exchangeTimezonesFollowDaylightSavingRules() {
-        assertEquals(ZoneId.of("America/Toronto"), EarningsReactionCalculator.zone("TSX"))
-        assertEquals(ZoneId.of("America/New_York"), EarningsReactionCalculator.zone("NASDAQ"))
-        // 20:15 UTC is 16:15 New York in summer (EDT) but 15:15 in winter (EST): only the summer session is complete.
-        val summer = mapOf(LocalDate.parse("2026-07-01") to 100.0, LocalDate.parse("2026-07-02") to 101.0)
-        assertTrue(compute(event("2026-07-01", EarningsTime.AFTER_CLOSE), summer, Instant.parse("2026-07-02T20:15:00Z")).available)
-        val winter = mapOf(LocalDate.parse("2026-12-01") to 100.0, LocalDate.parse("2026-12-02") to 101.0)
-        assertFalse(compute(event("2026-12-01", EarningsTime.AFTER_CLOSE), winter, Instant.parse("2026-12-02T20:15:00Z")).available)
+    @Test fun missingInvalidAndIncomparablePricesAreUnavailable() {
+        val e = event("2026-10-08", EarningsTime.AFTER_CLOSE)
+        assertEquals(ReactionStatus.BASELINE_UNAVAILABLE, compute(e, s = series(closes - "2026-10-08")).status)
+        val halted = compute(e, s = series(closes - "2026-10-09"))
+        assertEquals(ReactionStatus.ENDPOINT_UNAVAILABLE, halted.status); assertTrue(halted.statusMessage!!.contains("trading halted"))
+        assertEquals(ReactionStatus.DATA_NOT_COMPARABLE, compute(e, s = series(closes + ("2026-10-08" to "0"))).status)
+        val mixedCurrency = series().let { s -> s.copy(bars = s.bars + (LocalDate.parse("2026-10-09") to s.bars.getValue(LocalDate.parse("2026-10-09")).copy(currency = "CAD"))) }
+        assertTrue(compute(e, s = mixedCurrency).statusMessage!!.contains("different currencies"))
+        val mixedBasis = series().let { s -> s.copy(bars = s.bars + (LocalDate.parse("2026-10-09") to s.bars.getValue(LocalDate.parse("2026-10-09")).copy(adjustment = PriceAdjustment.UNADJUSTED))) }
+        assertTrue(compute(e, s = mixedBasis).statusMessage!!.contains("adjustment bases"))
+        assertEquals(ReactionStatus.DATA_NOT_COMPARABLE, compute(e, cal = null).status)          // unsupported market
+        assertEquals(ReactionStatus.PROVIDER_UNAVAILABLE, compute(e, s = null).status)
+        // A gap inside a multi-session window is reported, not filled.
+        assertTrue(compute(e, ReactionWindow.THREE_SESSIONS, series(closes - "2026-10-12")).warnings.any { it.contains("No price for Mon, Oct 12") })
+    }
+
+    @Test fun corporateActionsQualifyOrBlockTheComparison() {
+        val e = event("2026-10-08", EarningsTime.AFTER_CLOSE)
+        val split = compute(e, s = series(actions = listOf(CorporateAction(LocalDate.parse("2026-10-09"), "SPLIT", "A 2-for-1 split"))))
+        assertEquals(ReactionStatus.AVAILABLE, split.status); assertTrue(split.warnings.any { it.contains("split-adjusted") })
+        val dividend = compute(e, s = series(actions = listOf(CorporateAction(LocalDate.parse("2026-10-09"), "SPECIAL_DIVIDEND", "A special dividend"))))
+        assertEquals(ReactionStatus.CORPORATE_ACTION_AMBIGUITY, dividend.status); assertNull(dividend.percentChange)
+        assertEquals(ReactionStatus.AVAILABLE, compute(e, s = series(actions = listOf(CorporateAction(LocalDate.parse("2026-10-20"), "SPECIAL_DIVIDEND", "Later")))).status)
+        assertTrue(compute(e, s = series(known = false)).warnings.any { it.contains("doesn't report stock splits") })
+    }
+
+    @Test fun rescheduledEventsUseTheCurrentDateAndSayItMoved() {
+        val r = compute(event("2026-10-08", EarningsTime.AFTER_CLOSE, previous = "2026-10-06"))
+        assertEquals("2026-10-08", r.baseline?.sessionDate)
+        assertTrue(r.warnings.any { it.contains("moved from Tue, Oct 6") })
+    }
+
+    @Test fun historyCoversFiveSessionsEachSideWithGapsAndTheMarker() {
+        val h = PriceReactionEngine.history(event("2026-10-08", EarningsTime.AFTER_CLOSE), "T:2026-Q3", series(closes - "2026-10-12"), us, later)
+        assertEquals("2026-10-02", h.points.first().date); assertEquals("2026-10-15", h.points.last().date)
+        assertEquals("2026-10-09", h.eventSlotDate); assertEquals(listOf("2026-10-12"), h.missingSessions)
+        assertEquals("Earnings: Thu, Oct 8, after market close", h.eventLabel)
+        assertTrue(h.points.map { it.date }.none { LocalDate.parse(it).dayOfWeek.value >= 6 })
     }
 
     @Test fun reactionLanguageNeverClaimsACause() {
-        val sentence = EarningsReactionCalculator.sentence(compute(event("2026-10-08", EarningsTime.AFTER_CLOSE)))!!
+        val sentence = EarningsReactionCalculator.sentence(PriceReaction(true, changePercent = -10.0, methodology = "m"))!!
         assertTrue(sentence.startsWith("The stock fell 10.0% over the measured earnings window"))
         assertFalse(Regex("(?i)\\bbecause\\b|due to|disappoint|cheer").containsMatchIn(sentence))
     }

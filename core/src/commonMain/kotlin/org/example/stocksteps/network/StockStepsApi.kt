@@ -164,6 +164,11 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
         require(org.example.stocksteps.earnings.EarningsReportMapper.parse(reportId) != null)
         return request { url("$baseUrl/api/v1/earnings/reports/${reportId.encodeURLPathPart()}") }
     }
+    /** Server-calculated post-earnings price reaction for one window (Phase 3). */
+    suspend fun earningsPriceReaction(reportId: String, window: org.example.stocksteps.earnings.ReactionWindow): org.example.stocksteps.earnings.EarningsPriceReactionResponse {
+        require(org.example.stocksteps.earnings.EarningsReportMapper.parse(reportId) != null)
+        return request { url("$baseUrl/api/v1/earnings/reports/${reportId.encodeURLPathPart()}/price-reaction?window=${window.name}") }
+    }
     suspend fun latestEarningsResults(symbol: String): org.example.stocksteps.earnings.EarningsResultsResponse {
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return request { url("$baseUrl/api/v1/earnings/company/${symbol.uppercase()}/latest") }

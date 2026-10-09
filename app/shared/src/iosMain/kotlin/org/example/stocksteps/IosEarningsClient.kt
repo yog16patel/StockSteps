@@ -59,6 +59,11 @@ class IosEarningsClient(baseUrl: () -> String, account: IosAccountClient?) {
     // Earnings Results (Phase 2): server-calculated, saved on the device for offline viewing.
     fun results(reportId: String): EarningsResultsPresenter = owned { s -> EarningsResultsPresenter(reportId, remote, s, accounts?.earningsResultsCache) }
     fun observeResults(presenter: EarningsResultsPresenter, onChange: (EarningsResultsState) -> Unit) = observe(presenter.state, onChange)
+    // Price reaction (Phase 3): server-calculated per window.
+    fun reaction(reportId: String): EarningsPriceReactionPresenter = owned { s -> EarningsPriceReactionPresenter(reportId, remote, s, accounts?.earningsResultsCache) }
+    fun observeReaction(presenter: EarningsPriceReactionPresenter, onChange: (EarningsPriceReactionState) -> Unit) = observe(presenter.state, onChange)
+    fun selectWindow(presenter: EarningsPriceReactionPresenter, name: String) = ReactionWindow.entries.firstOrNull { it.name == name }?.let(presenter::selectWindow)
+    val windows: List<ReactionWindow> get() = ReactionWindow.entries
     fun symbolOf(reportId: String): String = EarningsReportMapper.parse(reportId)?.first ?: reportId.substringBefore(':')
 
     // Earnings Details (results and history for one company).

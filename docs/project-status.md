@@ -1,6 +1,6 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-08 against the repository (`main`, latest commit **"Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"**, pushed). Verify with
+Last reviewed: 2026-10-08 against the repository (`main`, latest commit **"Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"**, pushed). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
@@ -19,7 +19,8 @@ BUILD SUCCEEDED and live MOCK checks passed before the commit (not re-run since)
 was running the committed code at session end.
 
 Next steps:
-0. Earnings Results (Phase 2) is committed and pushed ("Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS").
+0. Price Reaction (Phase 3) is committed and pushed ("Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS").
+   Earnings Results (Phase 2) is committed and pushed ("Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS").
    Earnings Calendar (Phase 1) is committed and pushed ("Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"); Phase 2
    (EPS/revenue vs estimates on the event screen) is the next earnings phase.
 1. Ask the user for the next feature request or which §4 item to take.
@@ -34,6 +35,7 @@ Next steps:
 
 | Feature | Commit (title) | Doc | Notes |
 |---|---|---|---|
+| Post-earnings price reaction — Earnings Intelligence Lite Phase 3 (calendar-aware First/3/5-session windows, chart, explanations) | "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS" | `docs/EARNINGS.md` (Phase 3) | Free; regular-session closes only; no corporate-action feed in REAL. |
 | Earnings Results & beginner explanations — Earnings Intelligence Lite Phase 2 (exact EPS/revenue comparisons, YoY/QoQ, takeaways) | "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS" | `docs/EARNINGS.md` (Phase 2) | Free; classification now exact (MET only when equal); REAL lacks publication/revision metadata. |
 | Earnings Calendar — Earnings Intelligence Lite Phase 1 (calendar, event details, Markets/Company Details/Brief/Watchlist entries) | "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS" | `docs/EARNINGS.md` (Phase 1) | Free; no UI automation; REAL TSX coverage unverified. |
 | Daily Market Brief (Home/Markets previews, reader, personal overlay, Plus AI, notifications) | c92ec89 "Add Daily Market Brief on Android and iOS" | `docs/DAILY_MARKET_BRIEF.md` | Scheduler not deployed. |

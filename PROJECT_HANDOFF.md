@@ -1,8 +1,9 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **"Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"** on `main` (pushed).
-Includes Earnings Intelligence Lite Phase 2 — Earnings Results (next section, `docs/EARNINGS.md` "Phase 2").
-Previous commit: **"Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"** (`b5e2b9e`), Earnings Calendar (Phase 1).
+Last updated: 2026-10-08 (America/Toronto). Current commit: **"Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"** on `main` (pushed).
+Includes Earnings Intelligence Lite Phase 3 — Price Reaction (next section, `docs/EARNINGS.md` "Phase 3").
+Previous commit: **"Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"** (`5219e13`), Earnings Results (Phase 2).
+Earlier commit: **"Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"** (`b5e2b9e`), Earnings Calendar (Phase 1).
 Earlier commit: **c92ec89 "Add Daily Market Brief on Android and iOS"**. Includes the Daily Market Brief (next section, `docs/DAILY_MARKET_BRIEF.md`); see also `CLAUDE.md` and `docs/project-status.md`.
 Previous commit: **Add Practice Portfolio simulator with free tier, 14-day trial and StockSteps+ on Android and iOS** (`a4a4aeb`).
 Includes the Practice Portfolio (`docs/PRACTICE_PORTFOLIO.md`).
@@ -20,6 +21,19 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Earnings Intelligence Lite Phase 3: Price Reaction (2026-10-08) — commit "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"
+
+Committed and pushed on top of `5219e13` (Phase 2). Details: `docs/EARNINGS.md` → "Phase 3".
+- "How Did the Stock React?" section in Earnings Results (Android + iOS) with First/3/5-session windows,
+  chart with earnings marker, Phase 2 context, deterministic explanations; core `EarningsPriceReaction.kt`;
+  server `PriceReactionEngine.kt` (exchange calendars, policy, sources) and `/price-reaction`, `/price-history`.
+- Behaviour change: Earnings Details' reaction now uses the same engine (calendar-aware); the old
+  `EarningsReactionCalculator.compute` was removed and its tests rewritten.
+- Fixtures: `price-scenarios.json` + 3 demo reports (SSHU, SSCA.TO, SSHD); SSRM/SSFC/SSNE timings set.
+- Validation: core JVM 325, core iOS 325, server 278, shared Android host 55, shared iOS 49 — 0 failures;
+  `assembleDebug` OK; iOS xcodebuild BUILD SUCCEEDED; live MOCK checks OK (MOCK restarted on :8081).
+- Not done: UI automation, device walkthrough; production gaps listed in `docs/EARNINGS.md`.
 
 ## Earnings Intelligence Lite Phase 2: Earnings Results (2026-10-08) — commit "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"
 

@@ -10,6 +10,8 @@ import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.example.stocksteps.*
 import org.example.stocksteps.appconfig.DataMode
 import org.example.stocksteps.model.*
@@ -139,6 +141,13 @@ class MockModeTest {
                     path == "earnings/events.json" -> json.decodeFromString(ListSerializer(org.example.stocksteps.earnings.EarningsEvent.serializer()), text).let { events ->
                         assertEquals(events.map { it.id }.distinct().size, events.size, "Event ids are unique")
                         events.forEach { e -> e.actual?.let { assertTrue(it.source == e.estimate?.source || e.estimate == null, "One source per event: ${e.id}") } }
+                    }
+                    // Phase 3 demo price series: exact decimal closes on valid dates, known adjustment bases.
+                    path == "earnings/price-scenarios.json" -> json.parseToJsonElement(text).jsonObject.forEach { (symbol, spec) ->
+                        val o = spec.jsonObject
+                        assertTrue(o.getValue("closes").jsonObject.isNotEmpty(), "Closes for $symbol")
+                        o.getValue("closes").jsonObject.forEach { (d, v) -> java.time.LocalDate.parse(d); org.example.stocksteps.portfolio.Decimal.parse(v.jsonPrimitive.content) }
+                        org.example.stocksteps.earnings.PriceAdjustment.valueOf(o.getValue("adjustment").jsonPrimitive.content)
                     }
                     path.endsWith("/earnings-quarterly.json") -> json.decodeFromString(ListSerializer(org.example.stocksteps.service.QuarterlyEarnings.serializer()), text)
                     else -> fail("Unexpected fixture file: $path")

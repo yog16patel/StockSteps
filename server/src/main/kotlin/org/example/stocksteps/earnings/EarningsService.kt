@@ -427,17 +427,85 @@ class EarningsService(
         )
     }
 
-    /** Cached once the measurement window has completed (it never changes afterwards). */
-    private suspend fun reaction(event: EarningsEvent): PriceReaction =
-        cache.getOrLoad("reaction:${event.id}:${event.date}", 600_000L, resultTtl = { r: PriceReaction -> if (r.available) 7 * 86_400_000L else 600_000L }) {
-            suspend fun closes(symbol: String) = runCatching { charts.getDailyCloses(symbol) }.getOrNull().orEmpty()
-                .mapNotNull { p -> runCatching { LocalDate.parse(p.time.take(10)) }.getOrNull()?.let { it to p.close } }.toMap()
-            val us = !event.exchange.equals("TSX", ignoreCase = true)
-            val market = if (us) closes("SPY").takeIf { it.isNotEmpty() } else null
-            val currency = runCatching { stocks.getProfile(event.symbol)?.currency }.getOrNull()
-            EarningsReactionCalculator.compute(event, closes(event.symbol), market, if (us) "S&P 500 (SPY)" else null, clock.instant(), currency,
-                if (sampleData) "StockSteps sample price history" else "Daily closes from Financial Modeling Prep")
+    // ---------- Phase 3: post-earnings price reaction (free) ----------
+
+    private val reactionPrices: ReactionPriceSource = ChartReactionPriceSource(charts, stocks,
+        if (sampleData) "StockSteps sample price history" else "Daily closes from Financial Modeling Prep (split-adjusted)", clock)
+        .let { if (sampleData) FixtureReactionPriceSource(it, clock) else it }
+    /** The last real series per symbol, served (STALE) only when the price provider fails. */
+    private val lastSeries = ConcurrentHashMap<String, PriceSeries>()
+
+    /** A symbol's price series, or a plain reason when the provider can't supply one. Never sample data in REAL. */
+    private suspend fun reactionSeries(symbol: String, scenario: String?): Pair<PriceSeries?, String?> {
+        val key = symbol.uppercase()
+        if (sampleData) when (scenario) {
+            "price-timeout" -> return null to "The price data provider didn't respond in time. Try again shortly. (Sample scenario)"
+            "price-rate-limit" -> return null to "The price data provider is limiting requests right now. Try again in a minute. (Sample scenario)"
+            "price-stale" -> return reactionPrices.series(symbol).let { it.copy(freshness = DataFreshness.STALE, fetchedAt = clock.instant().minusSeconds(3 * 3600)) } to null
         }
+        return try {
+            reactionPrices.series(symbol).also { lastSeries[key] = it } to null
+        } catch (cause: Exception) {
+            if (cause is CancellationException) throw cause
+            lastSeries[key]?.let { return it.copy(freshness = DataFreshness.STALE) to null }
+            null to when ((cause as? org.example.stocksteps.repository.StockProviderException)?.failure) {
+                org.example.stocksteps.repository.StockProviderException.Failure.RATE_LIMITED -> "The price data provider is limiting requests right now. Try again in a minute."
+                org.example.stocksteps.repository.StockProviderException.Failure.TIMEOUT -> "The price data provider didn't respond in time. Try again shortly."
+                else -> "Price history isn't available right now. Try again shortly."
+            }
+        }
+    }
+
+    /** The calendar event behind a published report (404/400 exactly as Earnings Results). */
+    private suspend fun reportEvent(reportId: String): Pair<EarningsEvent, EarningsResultsResponse> {
+        val results = resultsFor(reportId)
+        val event = history(results.report.symbol).events.first { it.id == results.report.reportId }
+        return enrich(listOf(event)).single() to results
+    }
+
+    /** Reaction for one window plus every window's status, the chart history and Phase 2 context. */
+    suspend fun priceReaction(reportId: String, windowName: String?, includeExtendedHours: Boolean = false, scenario: String? = null): EarningsPriceReactionResponse {
+        val window = windowName?.let { w -> ReactionWindow.entries.firstOrNull { it.name.equals(w, ignoreCase = true) }
+            ?: throw EarningsRequestException(400, "INVALID_WINDOW", "Use window=FIRST_SESSION, THREE_SESSIONS or FIVE_SESSIONS.") } ?: ReactionWindow.FIRST_SESSION
+        val (event, results) = reportEvent(reportId)
+        val calendar = ExchangeCalendars.of(event.exchange, event.symbol)
+        val (series, problem) = if (calendar == null) null to null else reactionSeries(event.symbol, scenario)
+        val now = clock.instant()
+        val all = ReactionWindow.entries.associateWith { PriceReactionEngine.compute(event, reportId, it, series, calendar, now, problem) }
+        var reaction = all.getValue(window)
+        if (includeExtendedHours) reaction = reaction.copy(warnings = reaction.warnings + "Extended-hours prices aren't available from the data source, so only regular-session closes are used.")
+        // Phase 2 classifications are reused, never recalculated here.
+        val eps = results.insights.eps.classification
+        val revenue = results.insights.revenue.classification
+        return EarningsPriceReactionResponse(reaction, PriceReactionEngine.history(event, reportId, series, calendar, now),
+            all.map { (w, r) -> ReactionWindowOption(w, r.status) }, eps, revenue, PriceReactionExplainer.explanation(reaction, eps, revenue),
+            PriceReactionExplainer.mixedNote(eps, revenue), PriceReactionExplainer.learnTopics, sampleData)
+    }
+
+    suspend fun priceHistory(reportId: String, scenario: String? = null): EarningsPriceHistory {
+        val (event, _) = reportEvent(reportId)
+        val calendar = ExchangeCalendars.of(event.exchange, event.symbol)
+        val (series, _) = if (calendar == null) null to null else reactionSeries(event.symbol, scenario)
+        return PriceReactionEngine.history(event, reportId, series, calendar, clock.instant())
+    }
+
+    /** Earnings Details' reaction uses the same engine and policy (first session), plus the SPY comparison it already showed. */
+    private suspend fun reaction(event: EarningsEvent): PriceReaction {
+        val methodology = "Regular-session closing prices around the announcement; ${EarningsEducation.topic("reaction")?.body.orEmpty()}"
+        val calendar = ExchangeCalendars.of(event.exchange, event.symbol)
+        val (series, problem) = if (calendar == null) null to null else reactionSeries(event.symbol, null)
+        val r = PriceReactionEngine.compute(event, event.id, ReactionWindow.FIRST_SESSION, series, calendar, clock.instant(), problem)
+        if (!r.hasChange) return PriceReaction(false, methodology = methodology, reason = r.statusMessage, source = series?.source)
+        val us = calendar !is TsxExchangeCalendar
+        val market = if (us) runCatching { reactionPrices.series("SPY") }.getOrNull()?.let { spy ->
+            val a = spy.bars[LocalDate.parse(r.baseline!!.sessionDate)]?.close; val b = spy.bars[LocalDate.parse(r.endpoint!!.sessionDate)]?.close
+            if (a != null && b != null && a > org.example.stocksteps.portfolio.Decimal.ZERO) (b - a).multiplyDivide(org.example.stocksteps.portfolio.Decimal.parse("100"), a).toString().toDouble() else null
+        } else null
+        val start = r.baseline!!; val end = r.endpoint!!
+        return PriceReaction(true, r.status == ReactionStatus.EVENT_TIME_UNKNOWN, start.sessionDate, start.price.toDouble(), end.sessionDate,
+            end.price.toDouble(), r.percentChange!!.toDouble(), market, if (market != null) "S&P 500 (SPY)" else null, r.currency, r.measurement,
+            methodology, r.sources.firstOrNull(), r.calculatedAt)
+    }
 
     /** StockSteps+ only, checked before any provider is called; fair-use limit per day. */
     suspend fun ask(uid: String, symbol: String, question: String): EarningsAnswer {
@@ -486,6 +554,11 @@ fun Route.earningsRoutes(service: EarningsService, auth: UserAuthenticator, limi
     get("/api/v1/earnings/company/{symbol}/latest") { guarded { service.latestResults(call.parameters["symbol"].orEmpty(), call.request.queryParameters["scenario"]) } }
     get("/api/v1/earnings/company/{symbol}/reports") { guarded { service.reports(call.parameters["symbol"].orEmpty()) } }
     get("/api/v1/earnings/reports/{reportId}") { guarded { service.resultsFor(call.parameters["reportId"].orEmpty(), call.request.queryParameters["scenario"]) } }
+    get("/api/v1/earnings/reports/{reportId}/price-reaction") {
+        guarded { service.priceReaction(call.parameters["reportId"].orEmpty(), call.request.queryParameters["window"],
+            call.request.queryParameters["includeExtendedHours"].toBoolean(), call.request.queryParameters["scenario"]) }
+    }
+    get("/api/v1/earnings/reports/{reportId}/price-history") { guarded { service.priceHistory(call.parameters["reportId"].orEmpty(), call.request.queryParameters["scenario"]) } }
     get("/api/v1/earnings/reports/{reportId}/insights") { guarded { service.resultsFor(call.parameters["reportId"].orEmpty(), call.request.queryParameters["scenario"]).insights } }
     get("/api/v1/earnings/{symbol}") { guarded { service.details(call.parameters["symbol"].orEmpty(), null) } }
     route("/api/v1/me/earnings") {

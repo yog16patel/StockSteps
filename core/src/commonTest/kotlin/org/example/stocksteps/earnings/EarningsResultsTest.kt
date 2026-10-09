@@ -159,6 +159,7 @@ class EarningsResultsTest {
         var calls = 0
         override suspend fun results(reportId: String): EarningsResultsResponse { calls++; failure?.let { throw it }; return response ?: throw StockStepsApiException(404, ApiError("NOT_REPORTED", "Results for this period haven't been published yet.")) }
         override suspend fun latestResults(symbol: String) = results("$symbol:2026-Q3")
+        override suspend fun priceReaction(reportId: String, window: ReactionWindow): EarningsPriceReactionResponse = throw UnsupportedOperationException()
         override suspend fun calendar(query: EarningsCalendarQuery) = throw UnsupportedOperationException()
         override suspend fun following(query: EarningsCalendarQuery) = throw UnsupportedOperationException()
         override suspend fun details(symbol: String, signedIn: Boolean) = throw UnsupportedOperationException()

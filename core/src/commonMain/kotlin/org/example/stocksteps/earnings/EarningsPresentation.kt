@@ -15,7 +15,7 @@ import kotlin.time.Clock
 
 // ---------- Data access ----------
 
-interface EarningsRemote {
+interface EarningsRemote : PriceReactionRemote {
     suspend fun calendar(query: EarningsCalendarQuery): EarningsCalendarPage
     suspend fun following(query: EarningsCalendarQuery): EarningsCalendarPage
     suspend fun details(symbol: String, signedIn: Boolean): EarningsDetails
@@ -40,6 +40,7 @@ class RemoteEarnings(private val api: StockStepsApi, private val user: UserApi?)
     override suspend fun next(symbol: String) = api.nextEarnings(symbol)
     override suspend fun results(reportId: String) = api.earningsResults(reportId)
     override suspend fun latestResults(symbol: String) = api.latestEarningsResults(symbol)
+    override suspend fun priceReaction(reportId: String, window: ReactionWindow) = api.earningsPriceReaction(reportId, window)
 }
 
 // ---------- Formatting (display only) ----------

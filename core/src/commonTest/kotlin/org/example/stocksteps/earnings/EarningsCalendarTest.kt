@@ -119,6 +119,7 @@ class EarningsCalendarTest {
         }
         override suspend fun results(reportId: String): EarningsResultsResponse = throw StockStepsApiException(404, ApiError("NOT_REPORTED", "Not published"))
         override suspend fun latestResults(symbol: String): EarningsResultsResponse = throw StockStepsApiException(404, ApiError("NO_REPORT", "None"))
+        override suspend fun priceReaction(reportId: String, window: ReactionWindow): EarningsPriceReactionResponse = throw UnsupportedOperationException()
     }
 
     private val sample = listOf(

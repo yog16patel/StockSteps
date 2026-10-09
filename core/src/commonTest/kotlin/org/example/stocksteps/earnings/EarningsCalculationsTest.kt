@@ -183,6 +183,7 @@ class EarningsCalculationsTest {
         override suspend fun next(symbol: String): NextEarnings = throw UnsupportedOperationException()
         override suspend fun results(reportId: String): EarningsResultsResponse = throw UnsupportedOperationException()
         override suspend fun latestResults(symbol: String): EarningsResultsResponse = throw UnsupportedOperationException()
+        override suspend fun priceReaction(reportId: String, window: ReactionWindow): EarningsPriceReactionResponse = throw UnsupportedOperationException()
     }
 
     @Test fun aiRequiresSignInAndPlusBeforeAnyRequest(): Unit = runBlocking {

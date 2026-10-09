@@ -671,18 +671,23 @@ private struct ReminderSheet: View {
 @MainActor @Observable
 final class EarningsResultsModel {
     private(set) var state: EarningsResultsState?
+    private(set) var reaction: EarningsPriceReactionState?
     @ObservationIgnored let presenter: EarningsResultsPresenter
+    @ObservationIgnored let reactionPresenter: EarningsPriceReactionPresenter
     @ObservationIgnored let client: IosEarningsClient
-    @ObservationIgnored private var subscription: (any AccountSubscription)?
+    @ObservationIgnored private var subscriptions: [any AccountSubscription] = []
 
     init(reportId: String, client: IosEarningsClient) {
         self.client = client
         presenter = client.results(reportId: reportId)
-        subscription = client.observeResults(presenter: presenter) { [weak self] in self?.state = $0 }
+        reactionPresenter = client.reaction(reportId: reportId)
+        subscriptions = [client.observeResults(presenter: presenter) { [weak self] in self?.state = $0 },
+                         client.observeReaction(presenter: reactionPresenter) { [weak self] in self?.reaction = $0 }]
     }
     deinit {
-        subscription?.cancel()
+        subscriptions.forEach { $0.cancel() }
         client.release(presenter: presenter)
+        client.release(presenter: reactionPresenter)
     }
 }
 
@@ -701,7 +706,9 @@ struct EarningsResultsScene: View {
 
     var body: some View {
         EarningsResultsScreen(state: model.state, onRetry: { model.presenter.refresh() }, onToggle: { model.presenter.toggle(key: $0) },
-                              onCompany: { onCompany(model.client.symbolOf(reportId: reportId)) }, onLearn: onLearn)
+                              onCompany: { onCompany(model.client.symbolOf(reportId: reportId)) }, onLearn: onLearn,
+                              reaction: model.reaction, onWindow: { model.client.selectWindow(presenter: model.reactionPresenter, name: $0) },
+                              onRetryReaction: { model.reactionPresenter.refresh() }, onToggleChart: { model.reactionPresenter.toggleChart() })
             .navigationTitle("Earnings results")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { model.presenter.refresh() }
@@ -715,6 +722,10 @@ struct EarningsResultsScreen: View {
     let onToggle: (String) -> Void
     let onCompany: () -> Void
     let onLearn: () -> Void
+    var reaction: EarningsPriceReactionState? = nil
+    var onWindow: (String) -> Void = { _ in }
+    var onRetryReaction: () -> Void = {}
+    var onToggleChart: () -> Void = {}
     @Environment(\.colorScheme) private var scheme
     @State private var lesson: LearnLink?
 
@@ -771,6 +782,7 @@ struct EarningsResultsScreen: View {
             .padding(CGFloat(space.cardPadding))
             .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
         }
+        if let reaction { PriceReactionSection(state: reaction, onWindow: onWindow, onRetry: onRetryReaction, onToggleChart: onToggleChart, onLesson: { lesson = $0 }) }
         VStack(alignment: .leading, spacing: 2) {
             Text("Learn More").font(.headline).accessibilityAddTraits(.isHeader)
             ForEach(state.learn, id: \.title) { link in
@@ -837,5 +849,130 @@ struct EarningsResultsScreen: View {
                 if let d = line.detail { Text(d).font(.caption2).foregroundStyle(colors.textTertiary) }
             }
         }
+    }
+}
+
+// MARK: - Post-earnings price reaction (Phase 3)
+
+/// "How Did the Stock React?": window choice, closes, change, Phase 2 context, a non-causal explanation
+/// and a daily-close chart. Unavailable (honest status) and failed (retryable) look different.
+struct PriceReactionSection: View {
+    let state: EarningsPriceReactionState
+    let onWindow: (String) -> Void
+    let onRetry: () -> Void
+    let onToggleChart: () -> Void
+    let onLesson: (LearnLink) -> Void
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Text("How Did the Stock React?").font(.headline).accessibilityAddTraits(.isHeader)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack {
+                    ForEach(ReactionWindow.entries, id: \.name) { w in
+                        let pending = state.windows.first { $0.window.name == w.name }?.status.name == "WINDOW_INCOMPLETE"
+                        StockChip(title: w.label + (pending ? " · not yet" : ""), selected: state.window.name == w.name) { onWindow(w.name) }
+                    }
+                }
+            }
+            if state.loading || state.refreshing { ProgressView().accessibilityLabel("Loading price reaction") }
+            if let error = state.error { StockSectionMessage(message: error, actionTitle: "Try again", action: onRetry) }
+            if let context = state.contextLine { Text(context).font(.subheadline.weight(.semibold)).foregroundStyle(colors.textPrimary) }
+            if !state.lines.isEmpty {
+                VStack(spacing: 4) {
+                    ForEach(state.lines, id: \.label) { line in
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(line.label).font(.subheadline).foregroundStyle(colors.textSecondary)
+                            Spacer()
+                            VStack(alignment: .trailing) {
+                                Text(line.value).font(.subheadline.weight(.semibold)).foregroundStyle(colors.textPrimary)
+                                if let d = line.detail { Text(d).font(.caption2).foregroundStyle(colors.textTertiary).multilineTextAlignment(.trailing) }
+                            }
+                        }
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(state.accessibility)
+            }
+            if let status = state.statusText { Text(status).font(.subheadline).foregroundStyle(colors.textSecondary) }
+            if let summary = state.summary { Text(summary).font(.subheadline).foregroundStyle(colors.textBody) }
+            if let chart = state.chart {
+                ReactionChart(chart: chart, height: state.expandedChart ? 240 : 150)
+                Text("Dashed line: \(chart.eventLabel). Rings: baseline and endpoint closes. Daily closes only, so the marker shows the session, not the exact time.")
+                    .font(.caption).foregroundStyle(colors.textSecondary)
+                if let missing = chart.missingNote { Text(missing).font(.caption).foregroundStyle(colors.cautionText) }
+                Button(state.expandedChart ? "Smaller chart" : "Larger chart", action: onToggleChart).frame(minHeight: 48)
+            }
+            if let explanation = state.explanation { Text(explanation).foregroundStyle(colors.textBody) }
+            if let mixed = state.mixedNote { Text(mixed).font(.subheadline).foregroundStyle(colors.textSecondary) }
+            ForEach(state.warnings, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.cautionText) }
+            if state.stale { Text("Showing saved price data; the price provider isn't responding.").font(.caption).foregroundStyle(colors.cautionText) }
+            ForEach(state.learn, id: \.title) { link in Button(link.title, systemImage: "lightbulb") { onLesson(link) }.frame(minHeight: 48) }
+            ForEach(state.sources, id: \.self) { Text("Prices: \($0) · regular-session closes, split-adjusted").font(.caption).foregroundStyle(colors.textTertiary) }
+            Text("Price moves have many causes. This shows what happened, not why, and isn't investment advice.").font(.caption).foregroundStyle(colors.textTertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .stockCard()
+    }
+}
+
+/// Daily closes with gaps (nil slots aren't joined), a dashed earnings marker and rings on the
+/// baseline/endpoint. Drag to read a session's close; VoiceOver reads the summary.
+struct ReactionChart: View {
+    let chart: ReactionChartView
+    var height: CGFloat = 150
+    @Environment(\.colorScheme) private var scheme
+    @State private var selected: Int?
+
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        let values: [Double?] = chart.values.map { ($0 as? NSNumber)?.doubleValue }
+        let valid = values.compactMap { $0 }
+        let high = valid.max() ?? 1, low = valid.min() ?? 0
+        let span = high - low > 0 ? high - low : 1
+        let focus = selected ?? (values.lastIndex { $0 != nil } ?? 0)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(chart.details.indices.contains(focus) ? chart.details[focus] : "").font(.subheadline.weight(.semibold))
+            GeometryReader { proxy in
+                let size = proxy.size
+                let step = values.count > 1 ? size.width / CGFloat(values.count - 1) : 0
+                let y: (Double) -> CGFloat = { 6 + (size.height - 12) * CGFloat(1 - ($0 - low) / span) }
+                ZStack(alignment: .topLeading) {
+                    if chart.eventIndex >= 0 {
+                        Path { p in p.move(to: CGPoint(x: CGFloat(chart.eventIndex) * step, y: 0)); p.addLine(to: CGPoint(x: CGFloat(chart.eventIndex) * step, y: size.height)) }
+                            .stroke(colors.cautionText, style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                    }
+                    Path { p in
+                        var drawing = false
+                        for (i, v) in values.enumerated() {
+                            guard let v else { drawing = false; continue }
+                            let pt = CGPoint(x: CGFloat(i) * step, y: y(v))
+                            if drawing { p.addLine(to: pt) } else { p.move(to: pt); drawing = true }
+                        }
+                    }
+                    .stroke(colors.primary, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    ForEach([Int(chart.baselineIndex), Int(chart.endpointIndex)].filter { $0 >= 0 }, id: \.self) { i in
+                        if let v = values[i] { Circle().stroke(colors.primary, lineWidth: 2).frame(width: 12, height: 12).position(x: CGFloat(i) * step, y: y(v)) }
+                    }
+                    if let v = values.indices.contains(focus) ? values[focus] : nil {
+                        Circle().fill(colors.primary).frame(width: 7, height: 7).position(x: CGFloat(focus) * step, y: y(v))
+                    }
+                }
+                .contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 0).onChanged { g in
+                    guard values.count > 1 else { return }
+                    selected = min(max(Int((g.location.x / size.width * CGFloat(values.count - 1)).rounded()), 0), values.count - 1)
+                })
+            }
+            .frame(height: height)
+            HStack {
+                Text(chart.xLabels.first ?? "").font(.caption2).foregroundStyle(colors.textTertiary)
+                Spacer()
+                Text(chart.xLabels.last ?? "").font(.caption2).foregroundStyle(colors.textTertiary)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(chart.description_)
     }
 }

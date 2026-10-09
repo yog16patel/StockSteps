@@ -95,7 +95,7 @@ DEMO_RESULTS = [
     dict(symbol="SSRM", name="StockSteps Demo Revenue Met Co.", exchange="NASDAQ", quarters=[
         (2026, 1, "2025-09-30", "2025-10-03", 0.38, 0.36, 500e6, 495e6, {}),
         (2026, 4, "2026-06-30", "2026-08-05", 0.35, 0.37, 480e6, 485e6, {}),
-        (2027, 1, "2026-09-30", "2026-10-02", 0.42, 0.40, 500e6, 500e6, {}),
+        (2027, 1, "2026-09-30", "2026-10-02", 0.42, 0.40, 500e6, 500e6, dict(session="BEFORE_OPEN")),
     ]),
     # Losses: smaller than expected (Q2, beat) then larger than expected (Q3, miss); revenue falling.
     dict(symbol="SSLL", name="StockSteps Demo Losses Corp.", exchange="NASDAQ", quarters=[
@@ -106,7 +106,7 @@ DEMO_RESULTS = [
     # No analyst estimates at all; zero revenue a year ago; previous quarter missing.
     dict(symbol="SSNE", name="StockSteps Demo New Revenue Inc.", exchange="NYSE", quarters=[
         (2025, 3, "2025-09-30", "2025-11-05", -0.50, None, 0.0, None, {}),
-        (2026, 3, "2026-09-30", "2026-09-29", -0.30, None, 12e6, None, {}),
+        (2026, 3, "2026-09-30", "2026-09-29", -0.30, None, 12e6, None, dict(session="UNKNOWN")),
     ]),
     # Only a full-year consensus exists: never compared with the quarter. No prior-year quarter.
     dict(symbol="SSAN", name="StockSteps Demo Annual Estimate Co.", exchange="NYSE", quarters=[
@@ -117,9 +117,76 @@ DEMO_RESULTS = [
     dict(symbol="SSFC", name="StockSteps Demo Fiscal Change Ltd.", exchange="NASDAQ", quarters=[
         (2025, 3, "2025-06-30", "2025-07-24", 0.18, 0.17, 300e6, 298e6, {}),
         (2026, 2, "2026-06-30", "2026-07-23", 0.20, 0.19, 310e6, 305e6, {}),
-        (2026, 3, "2026-09-30", "2026-10-05", 0.21, 0.21, 320e6, 325e6, {}),
+        (2026, 3, "2026-09-30", "2026-10-05", 0.21, 0.21, 320e6, 325e6, dict(session="DURING_MARKET", time="11:30")),
+    ]),
+    # Price reaction (Phase 3) calendar cases: US-only holiday (Fri Jul 3), Canada-only holiday (Wed Jul 1), US half day (Dec 24).
+    dict(symbol="SSHU", name="StockSteps Demo Holiday Co.", exchange="NYSE", quarters=[
+        (2026, 2, "2026-06-30", "2026-07-02", 0.55, 0.50, 210e6, 205e6, {}),
+    ]),
+    dict(symbol="SSCA.TO", name="StockSteps Demo Canada Corp.", exchange="TSX", country="CA", currency="CAD", quarters=[
+        (2026, 2, "2026-05-31", "2026-06-30", 0.31, 0.34, 150e6, 146e6, {}),
+    ]),
+    dict(symbol="SSHD", name="StockSteps Demo Half Day Inc.", exchange="NASDAQ", quarters=[
+        (2026, 1, "2025-11-30", "2025-12-24", 0.88, 0.85, 95e6, 94e6, dict(session="BEFORE_OPEN")),
     ]),
 ]
+
+# Phase 3 price scenarios (MOCK only): regular-session closes around demo announcements. Sessions are
+# filled on the exchange calendar (weekends/holidays skipped) with a gentle drift, then the listed
+# closes override them; None removes a session (missing data / trading halt). Never after MOCK today.
+MOCK_TODAY = dt.date(2026, 10, 7)
+US_HOLIDAYS = {"2025-11-27", "2025-12-25", "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07"}
+TSX_HOLIDAYS = {"2025-12-25", "2025-12-26", "2026-01-01", "2026-02-16", "2026-04-03", "2026-05-18", "2026-07-01", "2026-08-03", "2026-09-07", "2026-10-12"}
+PRICE_SCENARIOS = {
+    "SSRV": dict(currency="USD", events=[
+        ("2026-10-06", 150.0, {"2026-10-06": "150.00", "2026-10-07": "157.50"}),          # spec example +5.0%; 3/5 sessions incomplete
+        ("2026-07-21", 140.0, {"2026-07-21": None, "2026-07-16": None}),                   # missing baseline; chart gaps
+        ("2025-10-21", 120.0, {"2025-10-21": "0"}),                                         # invalid (zero) baseline
+    ]),
+    "SSRM": dict(currency="USD", events=[
+        ("2026-10-02", 40.0, {"2026-10-01": "40.00", "2026-10-02": "38.72", "2026-10-06": "39.10"}),  # before open; EPS beat, price −3.2%
+        ("2026-08-05", 20.0, {"2026-08-05": "20.00", "2026-08-06": "20.80"}),             # split during window, split-adjusted series
+    ], actions=[dict(date="2026-08-06", type="SPLIT", description="A 2-for-1 stock split on Aug 6")]),
+    "SSLL": dict(currency="USD", events=[
+        ("2026-10-01", 12.0, {"2026-10-01": "12.00", "2026-10-02": "10.80", "2026-10-06": "11.10"}),  # miss, price −10%
+        ("2026-07-29", 14.0, {}),                                                           # special dividend during window
+    ], actions=[dict(date="2026-07-30", type="SPECIAL_DIVIDEND", description="A special dividend of $1.50 on Jul 30")]),
+    "SSFC": dict(currency="USD", events=[
+        ("2026-10-05", 25.0, {"2026-10-02": "25.00", "2026-10-05": "25.75"}),             # during market hours; miss, price +3%
+        ("2026-07-23", 24.0, {}),                                                           # adjustment-basis mismatch
+        ("2025-07-24", 22.0, {}),                                                           # currency mismatch
+    ], overrides={"2026-07-24": dict(adjustment="UNADJUSTED"), "2025-07-25": dict(currency="CAD")}),
+    "SSNE": dict(currency="USD", events=[("2026-09-29", 5.0, {"2026-09-28": "5.00", "2026-09-30": "5.00"})]),  # unknown time; flat
+    "SSAN": dict(currency="USD", events=[("2026-09-30", 18.0, {"2026-10-01": None})]),    # trading halt on the first session
+    "SSHU": dict(currency="USD", events=[("2026-07-02", 30.0, {"2026-07-02": "30.00", "2026-07-06": "31.20"})]),  # US holiday Jul 3
+    "SSCA.TO": dict(currency="CAD", market="TSX", events=[("2026-06-30", 22.0, {"2026-06-30": "22.00", "2026-07-02": "21.56"})]),  # Canada Day
+    "SSHD": dict(currency="USD", events=[("2025-12-24", 50.0, {"2025-12-23": "50.00", "2025-12-24": "50.50"})]),  # half-day session
+}
+
+
+def price_scenarios():
+    out = {}
+    for symbol, spec in PRICE_SCENARIOS.items():
+        holidays = TSX_HOLIDAYS if spec.get("market") == "TSX" else US_HOLIDAYS
+        closes = {}
+        for date, base, fixed in spec["events"]:
+            d0 = dt.date.fromisoformat(date)
+            day, k = d0 - dt.timedelta(days=16), 0
+            while day <= min(d0 + dt.timedelta(days=16), MOCK_TODAY):
+                if day.weekday() < 5 and day.isoformat() not in holidays:
+                    closes.setdefault(day.isoformat(), f"{base * (1 + 0.003 * ((k % 5) - 2)):.2f}")
+                    k += 1
+                day += dt.timedelta(days=1)
+            for d, v in fixed.items():
+                if v is None:
+                    closes.pop(d, None)
+                else:
+                    closes[d] = v
+        out[symbol] = {"currency": spec["currency"], "adjustment": "SPLIT_ADJUSTED", "closes": dict(sorted(closes.items())),
+                       "overrides": spec.get("overrides", {}), "actions": spec.get("actions", [])}
+    with open(os.path.join(ROOT, "earnings", "price-scenarios.json"), "w") as f:
+        json.dump(out, f, indent=2)
+        f.write("\n")
 
 # Scenario overrides keyed by (symbol, fiscal_year, quarter).
 OVERRIDES = {
@@ -308,13 +375,17 @@ def main():
         events.append(event)
     for d in DEMO_RESULTS:
         for fy, q, end, date, eps, eps_est, rev, rev_est, x in d["quarters"]:
-            event = {"id": f"{d['symbol']}:{fy}-Q{q}", "symbol": d["symbol"], "name": d["name"], "exchange": d["exchange"], "country": "US",
-                     "fiscalYear": fy, "fiscalQuarter": q, "periodEnd": end, "date": date, "session": "AFTER_CLOSE", "dateStatus": "CONFIRMED",
+            event = {"id": f"{d['symbol']}:{fy}-Q{q}", "symbol": d["symbol"], "name": d["name"], "exchange": d["exchange"], "country": d.get("country", "US"),
+                     "fiscalYear": fy, "fiscalQuarter": q, "periodEnd": end, "date": date, "session": x.get("session", "AFTER_CLOSE"), "dateStatus": "CONFIRMED",
                      "source": SOURCE, "updatedAt": UPDATED}
+            if x.get("time"):
+                event["eventTime"] = x["time"]
+                event["timeZone"] = "America/Toronto" if d["exchange"] == "TSX" else "America/New_York"
+            cur = d.get("currency", "USD")
             if eps_est is not None or rev_est is not None:
-                event["estimate"] = {k: v for k, v in {"eps": eps_est, "epsBasis": "GAAP_DILUTED", "revenue": rev_est, "currency": "USD", "analysts": 6,
+                event["estimate"] = {k: v for k, v in {"eps": eps_est, "epsBasis": "GAAP_DILUTED", "revenue": rev_est, "currency": cur, "analysts": 6,
                                      "source": SOURCE, "asOf": UPDATED, "periodType": "ANNUAL" if x.get("annual_estimate") else None}.items() if v is not None}
-            actual = {"eps": eps, "epsBasis": "GAAP_DILUTED", "revenue": rev, "currency": "USD", "source": SOURCE}
+            actual = {"eps": eps, "epsBasis": "GAAP_DILUTED", "revenue": rev, "currency": cur, "source": SOURCE}
             if not x.get("no_published_at"):
                 actual["reportedAt"] = f"{date}T21:00:00Z"
             if x.get("restated"):
@@ -329,6 +400,7 @@ def main():
     with open(os.path.join(ROOT, "earnings", "events.json"), "w") as f:
         json.dump(events, f, indent=2)
         f.write("\n")
+    price_scenarios()
     upcoming = [e for e in events if "actual" not in e and e["date"] >= TODAY.isoformat()]
     print(f"Wrote {len(events)} events ({len(upcoming)} upcoming) for {len(COMPANIES) + len(UPCOMING_ONLY) + len(CALENDAR_DEMO) + len(DEMO_RESULTS)} companies.")
 

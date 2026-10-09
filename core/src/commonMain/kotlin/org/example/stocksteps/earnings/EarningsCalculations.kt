@@ -189,7 +189,10 @@ object EarningsEducation {
         Topic("guidance", "What is forward guidance?", "A company's own forecast for future quarters. StockSteps only shows guidance when a reliable source provides it; it never invents it."),
         Topic("yoy", "What is year-over-year growth?", "Compares a quarter with the same quarter a year earlier. It avoids seasonal swings, such as holiday sales."),
         Topic("qoq", "What is quarter-over-quarter growth?", "Compares a quarter with the one just before it. It can be affected by seasonality, so it's shown only as context."),
-        Topic("reaction", "How is the price reaction measured?", "Before-market announcements: previous close → that day's close. After-market: that day's close → next trading day's close. If the time is unknown, a wider window is shown and labelled approximate. The window shows how the price changed, not why.")
+        Topic("reaction", "How is the price reaction measured?", "StockSteps compares regular-session closing prices on trading days. Before-market announcements: the previous session's close → that day's close. After-market: that day's close → the next session's close. The 3- and 5-session windows end at later closes. If the time is unknown, a broader window is shown and labelled. The window shows how the price changed, not why."),
+        Topic("expectations", "Earnings expectations explained", "Before a report, analysts publish estimates and investors form their own expectations. Prices often move on the difference between what was expected and what was reported, and on what the company says about the future."),
+        Topic("after-hours", "What is after-hours trading?", "Some trading happens before the market opens and after it closes. Fewer people trade then, so prices can jump more and the gap between buy and sell prices is often wider. StockSteps uses regular-session closing prices unless reliable extended-hours data is available."),
+        Topic("volatility", "What is market volatility?", "Volatility describes how much and how quickly prices move. Prices often move more than usual around earnings because new information arrives at once.")
     ) }
 
     fun topic(key: String) = topics.firstOrNull { it.key == key }

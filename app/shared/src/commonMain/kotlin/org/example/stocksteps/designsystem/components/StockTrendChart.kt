@@ -42,7 +42,12 @@ internal fun StockTrendChart(
     seriesLabel: String? = null,
     comparisonLabel: String? = null,
     /** More comparison series (label, values): each has its own color and dash pattern. */
-    additional: List<Pair<String, List<Double?>>> = emptyList()
+    additional: List<Pair<String, List<Double?>>> = emptyList(),
+    /** Slots marked with a dashed vertical line (e.g. an earnings event). */
+    markers: List<Int> = emptyList(),
+    /** Slots drawn as hollow rings (e.g. baseline and endpoint observations). */
+    highlights: List<Int> = emptyList(),
+    height: androidx.compose.ui.unit.Dp = CHART_HEIGHT
 ) {
     val valid = values.filterNotNull() + comparison.orEmpty().filterNotNull() + additional.flatMap { it.second.filterNotNull() }
     if (valid.isEmpty()) return
@@ -68,7 +73,7 @@ internal fun StockTrendChart(
         if (reference != null && referenceLabel != null) {
             Text("- - $referenceLabel", Modifier.padding(top = spacing.xxs).clearAndSetSemantics {}, style = typography.caption, color = colors.textSecondary)
         }
-        Row(Modifier.fillMaxWidth().padding(top = spacing.sm).height(CHART_HEIGHT)) {
+        Row(Modifier.fillMaxWidth().padding(top = spacing.sm).height(height)) {
             Canvas(
                 Modifier.weight(1f).fillMaxHeight().clearAndSetSemantics {}
                     .pointerInput(values) {
@@ -109,7 +114,14 @@ internal fun StockTrendChart(
                     val pattern = when (i % 3) { 0 -> floatArrayOf(6.dp.toPx(), 4.dp.toPx()); 1 -> floatArrayOf(1.dp.toPx(), 4.dp.toPx()); else -> floatArrayOf(8.dp.toPx(), 3.dp.toPx(), 2.dp.toPx(), 3.dp.toPx()) }
                     series(points, extraColors[i % 3], dashed = true, pattern = pattern)
                 }
+                markers.filter { it in values.indices }.forEach { i ->
+                    drawLine(colors.caution, Offset(i * step, 0f), Offset(i * step, size.height), strokeWidth = 1.5.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx())))
+                }
                 series(values, colors.primary, dashed = false)
+                highlights.forEach { i -> values.getOrNull(i)?.let { v ->
+                    drawCircle(colors.primary, 6.dp.toPx(), Offset(i * step, y(v)), style = Stroke(2.dp.toPx()))
+                } }
                 values.getOrNull(focus)?.let { v ->
                     val point = Offset(focus * step, y(v))
                     if (selected != null) drawLine(colors.border, Offset(point.x, 0f), Offset(point.x, size.height), strokeWidth = 1.dp.toPx())

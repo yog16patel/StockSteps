@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.border
 import androidx.compose.foundation.selection.selectable
@@ -513,6 +514,9 @@ internal sealed interface ResultsAction {
     data class Toggle(val key: String) : ResultsAction
     data object Company : ResultsAction
     data object Learn : ResultsAction
+    data class Window(val window: ReactionWindow) : ResultsAction
+    data object RetryReaction : ResultsAction
+    data object ToggleChart : ResultsAction
 }
 
 /**
@@ -520,7 +524,7 @@ internal sealed interface ResultsAction {
  * Every number and sentence comes from the server's calculations via the presenter; this only renders.
  */
 @Composable
-internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifier, onAction: (ResultsAction) -> Unit) {
+internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifier, reaction: EarningsPriceReactionState? = null, onAction: (ResultsAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -537,6 +541,7 @@ internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifi
             state.yearOverYear?.let { item(key = "yoy") { RevenueGrowthCard(it) } }
             state.quarterOverQuarter?.let { item(key = "qoq") { RevenueGrowthCard(it) } }
             state.takeaway?.let { takeaway -> item(key = "takeaway") { EarningsTakeawayCard(takeaway, state.warnings) } }
+            reaction?.let { r -> item(key = "reaction") { PriceReactionSection(r, onAction) { lesson = it } } }
             item(key = "learn") {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                     Text("Learn More", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
@@ -654,4 +659,51 @@ private fun EarningsSourceFooter(lines: List<String>) {
 @Composable
 private fun EarningsUnavailableState(message: String, onCompany: () -> Unit) {
     StockEmptyState(message, actionText = "View Company Details", onAction = onCompany)
+}
+
+// ---------- Post-earnings price reaction (Phase 3) ----------
+
+/**
+ * "How Did the Stock React?": window choice, before/after closes, change, measurement, Phase 2
+ * context, a non-causal explanation and a daily-close chart with the earnings marker. Unavailable
+ * (honest status) and failed (retryable) are shown differently.
+ */
+@Composable
+private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (ResultsAction) -> Unit, onLesson: (LearnLink) -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Text("How Did the Stock React?", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+        Row(Modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            ReactionWindow.entries.forEach { w ->
+                val pending = state.windows.firstOrNull { it.window == w }?.status == ReactionStatus.WINDOW_INCOMPLETE
+                StockChip(w.label + if (pending) " · not yet" else "", state.window == w, onClick = { onAction(ResultsAction.Window(w)) })
+            }
+        }
+        if (state.loading || state.refreshing) LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading price reaction" })
+        state.error?.let { StockErrorState(it, { onAction(ResultsAction.RetryReaction) }) }
+        state.contextLine?.let { Text(it, style = typography.label, color = colors.textPrimary) }
+        if (state.lines.isNotEmpty()) Column(Modifier.semantics(mergeDescendants = true) { contentDescription = state.accessibility }) {
+            state.lines.forEach { Line(it) }
+        }
+        state.statusText?.let { Text(it, style = typography.small, color = colors.textSecondary) }
+        state.summary?.let { Text(it, style = typography.small, color = colors.textBody) }
+        state.chart?.let { chart ->
+            StockTrendChart(chart.values, chart.details, chart.xLabels, chart.yLabels, chart.description,
+                markers = listOf(chart.eventIndex).filter { it >= 0 }, highlights = listOf(chart.baselineIndex, chart.endpointIndex).filter { it >= 0 },
+                height = if (state.expandedChart) 240.dp else 150.dp)
+            Text("Dashed line: ${chart.eventLabel}. Rings: baseline and endpoint closes. Daily closes only, so the marker shows the session, not the exact time.",
+                style = typography.caption, color = colors.textSecondary)
+            chart.missingNote?.let { Text(it, style = typography.caption, color = colors.cautionText) }
+            StockButton(if (state.expandedChart) "Smaller chart" else "Larger chart", onClick = { onAction(ResultsAction.ToggleChart) }, variant = StockButtonVariant.TEXT)
+        }
+        state.explanation?.let { Text(it, style = typography.body, color = colors.textBody) }
+        state.mixedNote?.let { Text(it, style = typography.small, color = colors.textSecondary) }
+        state.warnings.forEach { Text(it, style = typography.caption, color = colors.cautionText) }
+        if (state.stale) Text("Showing saved price data; the price provider isn't responding.", style = typography.caption, color = colors.cautionText)
+        state.learn.forEach { link -> StockButton(link.title, onClick = { onLesson(link) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb) }
+        state.sources.forEach { Text("Prices: $it · regular-session closes, split-adjusted", style = typography.caption, color = colors.textTertiary) }
+        Text("Price moves have many causes. This shows what happened, not why, and isn't investment advice.", style = typography.caption, color = colors.textTertiary)
+    }
 }

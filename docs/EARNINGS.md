@@ -2,9 +2,114 @@
 
 > **Earnings Intelligence Lite — Phase 1 (Earnings Calendar)** was added on top of the earlier
 > Earnings Center (2026-10-08, commit "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS").
-> **Phase 2 (Earnings Results & Beginner Explanations)** follows directly below (2026-10-08, commit "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"). See the Phase 1 section right
+> **Phase 3 (Post-Earnings Price Reaction)** is directly below (2026-10-08, commit "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"), then **Phase 2** (commit "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"). See the Phase 1 section right
 > below; the rest of this document describes the earlier Earnings Details/results work, which is
 > unchanged.
+
+## Phase 3: Post-Earnings Price Reaction
+
+A free **"How Did the Stock React?"** section inside Earnings Results (no new destination or tab).
+Reached from every Results entry point: Calendar → Reported → View Results, Company Details →
+Latest results → View Results, Daily Brief results highlights, Event Details → View Results.
+
+Shows: window chips (First Session · 3 Sessions · 5 Sessions; incomplete ones say "not yet"), Phase 2
+context ("EPS: Beat · Revenue: Miss · Stock reaction: −3.2%"), before/after closes with dates and
+"regular-session close" labels, price change, reaction %, the measurement line, a neutral summary, a
+deterministic explanation, warnings, a daily-close chart (dashed earnings marker, rings on baseline and
+endpoint, drag to inspect, larger-chart toggle, gaps for missing sessions, full text alternative), Learn
+links and the price source.
+
+### Measurement policy (server, `earnings/PriceReactionEngine.kt`)
+Session 1 = the first regular session whose close reflects the announcement ("1 trading day" is the same,
+so it isn't offered separately). Windows end at the close of session 1, 3 or 5 on the exchange calendar.
+| Timing | Baseline | Session 1 |
+| --- | --- | --- |
+| After the close | close of the announcement date's session (last session before, if not a trading day) | next session |
+| Before the open | last session before the announcement date | first session on/after it |
+| During market hours | previous close (no intraday data) | that session — labelled as including pre-announcement trading |
+| Unknown | not guessed: last session before the date | first session after it — status `EVENT_TIME_UNKNOWN`, labelled "broader comparison" |
+- A session counts as closed 15 minutes after its scheduled close (13:00 on US half days). An unfinished
+  window is `WINDOW_INCOMPLETE` ("Not available yet") — never filled.
+- Change = endpoint − baseline; % = change ÷ baseline × 100, exact decimals, rounded only for display.
+- `DATA_NOT_COMPARABLE` when a price isn't positive, currencies differ, adjustment bases differ, or the
+  market has no supported calendar. `BASELINE_/ENDPOINT_UNAVAILABLE` when a scheduled session has no close
+  (missing data or a halt). `CORPORATE_ACTION_AMBIGUITY` for a non-split action inside the window; a split
+  inside a split-adjusted series is allowed with a note. `PROVIDER_UNAVAILABLE` (timeout/rate limit) with a
+  plain reason; a previously fetched series is served as STALE instead when available.
+- Extended hours: not available from the configured provider, so never shown or simulated
+  (`extendedHoursAvailable = false`; `includeExtendedHours=true` only adds that note).
+
+### Market calendars
+`ExchangeCalendar` wraps the existing rule-based `UsMarketCalendar` (NYSE holidays + half days) and
+`TsxMarketCalendar` (TSX holidays; no early closes modelled). US (NYSE, Nasdaq, AMEX, OTC…) and TSX/TSXV
+listings are supported; other markets return `DATA_NOT_COMPARABLE`. Unscheduled closures and halts aren't
+in any rule set — they show up as missing closes.
+
+### Data and caching
+- REAL: daily closes from the existing `PriceChartService` (FMP `historical-price-eod/light`, one cached
+  range request per symbol, split-adjusted, closes only — no open/high/low, intraday or extended hours);
+  currency from the cached profile. No corporate-action source is wired, so a warning says splits and
+  special dividends aren't checked.
+- MOCK: the same history for fixture companies; fictional "StockSteps Demo" companies read
+  `fixtures/earnings/price-scenarios.json` (generated with the earnings fixtures) incl. corporate actions
+  and per-day currency/basis overrides. REAL never reads it.
+- Reactions are recomputed from the cached series on every request (cheap), so revised prices, a moved
+  announcement date or a now-complete window are reflected immediately; incomplete windows are never stored.
+- Device: each window's response is saved (public, per environment) and shown offline, labelled.
+- MOCK scenarios: `?scenario=price-timeout`, `price-rate-limit`, `price-stale`.
+
+### API
+| Endpoint | Notes |
+| --- | --- |
+| `GET /api/v1/earnings/reports/{reportId}/price-reaction?window=FIRST_SESSION\|THREE_SESSIONS\|FIVE_SESSIONS&includeExtendedHours` | Reaction + every window's status + chart history + Phase 2 classifications + explanation. 400 invalid window/id, 404 unreported. |
+| `GET /api/v1/earnings/reports/{reportId}/price-history` | Chart history only (5 sessions before → 5th session after; closed sessions only). |
+Earnings Details' existing reaction now uses the same engine (first session) plus its SPY comparison, so
+the two screens can't disagree. (Its old ">10-day gap" rule and "a missing close means a holiday" rule were
+replaced by the exchange calendar.)
+
+### Explanations (core `PriceReactionExplainer`)
+Deterministic cases A–H from the spec (beat/miss × up/down, mixed, no estimates, no price data, incomplete
+window), plus flat and unknown-time wording. Built from the Phase 2 classifications (reused, not
+recalculated). Tested against advice/causal phrases. Learn links: existing "How is the price reaction
+measured?" and "Why can a stock fall after beating earnings?", plus new topics "Earnings expectations
+explained", "What is after-hours trading?", "What is market volatility?" in `EarningsEducation`.
+
+### MOCK scenarios (Phase 3)
+| Scenario | Fixture |
+| --- | --- |
+| Beat & price up (spec example $150.00 → $157.50, +5.0%), after close, US, complete chart, 3/5 sessions incomplete | SSRV Q3 FY2026 |
+| Beat & price down (−3.2%), before the open | SSRM Q1 FY2027; AAPL Q3 (real fixture) |
+| Miss & price up (+3%), during market hours with a known time (11:30) | SSFC Q3 FY2026 |
+| Miss & price down (−10%) | SSLL Q3 FY2026 |
+| Mixed EPS/revenue, Canadian, Canada-only holiday (Jul 1) | SSCA.TO Q2 FY2026 |
+| Flat price, unknown timing, no estimates | SSNE Q3 FY2026 |
+| US-only holiday (Jul 3) | SSHU Q2 FY2026 |
+| Half-day session (Dec 24) | SSHD Q1 FY2026 |
+| Weekend / holiday announcement | ENB.TO (Sat Aug 1), BB.TO (Dec 25) |
+| Missing baseline + chart gaps · missing endpoint / trading halt · zero baseline | SSRV Q2 · SSAN Q3 · SSRV Q3 FY2025 |
+| Special dividend (ambiguity) · split in a split-adjusted series | SSLL Q2 · SSRM Q4 FY2026 |
+| Adjustment-basis mismatch · currency mismatch | SSFC Q2 · SSFC Q3 FY2025 |
+| Provider timeout / rate limit / stale | MOCK scenarios above |
+| Revised report, no EPS estimate, no revenue estimate, no logo | SSRV, CSU.TO, CNR.TO, SS* |
+
+### Tests
+- Server `EarningsReactionTest` (13, rewritten for the engine): before/after/during/unknown timing,
+  3/5-session counting, weekends, US vs TSX holidays, half days, DST completion, incomplete windows,
+  missing/zero/currency/basis, corporate actions, rescheduled dates, chart history.
+- Server `EarningsPriceReactionServiceTest` (7): spec example, every fixture scenario, same policy as
+  Earnings Details, invalid/missing reports, provider failures (no sample data in REAL), routes, rate limit.
+- Core `EarningsPriceReactionTest` (3): every explanation case and forbidden phrases, formatting/chart/
+  accessibility, presenter window switching, offline copy, retry, window restore.
+- `MockModeTest` validates `price-scenarios.json`.
+- No Compose UI / XCUITest automation (no UI-test setup in the repo).
+
+### Production gaps
+- No intraday, extended-hours or OHLC data from the configured provider; no corporate-action feed; no
+  versioned exchange-calendar source (rule-based calendars; TSX early closes not modelled; unscheduled
+  closures only appear as missing data). Finnhub gives no announcement timestamps beyond bmo/amc/dmh.
+- REAL behaviour verified only through tests with fakes; no paid calls were made.
+
+---
 
 ## Phase 2: Earnings Results & Beginner Explanations
 
@@ -353,7 +458,9 @@ server-enforced; free users get 403 `PLUS_REQUIRED`.
 
 ## Price reaction
 
-`EarningsReactionCalculator` uses regular-session daily closes:
+> Superseded by Phase 3: Earnings Details now uses `PriceReactionEngine` (exchange calendar). The rules below are historical.
+
+`EarningsReactionCalculator` used regular-session daily closes:
 
 - **Trading days and time:** a trading day is any day with a close, so weekends and exchange
   holidays are skipped. Times are exchange-local (`America/New_York`, or `America/Toronto` for

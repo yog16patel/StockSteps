@@ -39,8 +39,10 @@ internal class EarningsDetailsViewModel(symbol: String, remote: EarningsRemote, 
     override fun onCleared() = close()
 }
 
-internal class EarningsResultsViewModel(reportId: String, remote: EarningsRemote, cache: EarningsResultsCache?, private val close: () -> Unit) : ViewModel() {
+internal class EarningsResultsViewModel(reportId: String, remote: EarningsRemote, cache: EarningsResultsCache?, window: ReactionWindow, private val close: () -> Unit) : ViewModel() {
     val presenter = EarningsResultsPresenter(reportId, remote, viewModelScope, cache)
+    /** Phase 3: the price reaction section (server-calculated; the window is restored after process death). */
+    val reaction = EarningsPriceReactionPresenter(reportId, remote, viewModelScope, cache, window)
     override fun onCleared() = close()
 }
 
@@ -55,16 +57,22 @@ internal fun EarningsResultsScene(
     onOpenCompany: (String) -> Unit,
     onLearn: () -> Unit
 ) {
+    var savedWindow by rememberSaveable { mutableStateOf(ReactionWindow.FIRST_SESSION.name) }
     val model = viewModel(key = "earnings-results:${route.reportId}:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
-        EarningsResultsViewModel(route.reportId, data.earningsRemote(accounts), accounts?.earningsResultsCache, data::close)
+        EarningsResultsViewModel(route.reportId, data.earningsRemote(accounts), accounts?.earningsResultsCache, ReactionWindow.valueOf(savedWindow), data::close)
     }
     val state by model.presenter.state.collectAsStateWithLifecycle()
+    val reaction by model.reaction.state.collectAsStateWithLifecycle()
+    LaunchedEffect(reaction.window) { savedWindow = reaction.window.name }
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            EarningsResultsScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize()) { action ->
+            EarningsResultsScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize(), reaction) { action ->
                 when (action) {
                     ResultsAction.Retry -> model.presenter.refresh()
+                    is ResultsAction.Window -> model.reaction.selectWindow(action.window)
+                    ResultsAction.RetryReaction -> model.reaction.refresh()
+                    ResultsAction.ToggleChart -> model.reaction.toggleChart()
                     is ResultsAction.Toggle -> model.presenter.toggle(action.key)
                     ResultsAction.Company -> onOpenCompany(route.symbol)
                     ResultsAction.Learn -> onLearn()
