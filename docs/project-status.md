@@ -1,10 +1,13 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (Company Comparison Phase 3 session) against the repository (`main`, latest commit **"Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS"**). Verify with
+Last reviewed: 2026-10-09 (Company Comparison Phase 3 session) against the repository (`main`, latest commit **"Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS"**). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
+
+**Company Comparison Phase 4 — Guided Research Checklist** (free checklist, notes, 3 sessions, basic summary; StockSteps+ advanced
+checklist, more sessions, snapshots, detailed summary, PDF report; server-enforced) is committed (spec: `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 4"; validation in the root `PROJECT_HANDOFF.md`).
 
 HEAD is **"Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS"** (on top of "Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS").
 **Company Comparison Phase 3 — Historical Financial Comparison** (1Y free; 3Y/5Y + advanced metrics StockSteps+, server-enforced) is
@@ -55,6 +58,12 @@ plus the iOS `xcodebuild` for `9bbf586` and fix any failures; (2) start the MOCK
 ### Implemented but NOT committed (working tree)
 
 None.
+
+### Latest commit (Phase 4)
+
+| Feature | Doc | Notes |
+|---|---|---|
+| Company Comparison Phase 4 — Guided Research Checklist (`/api/v1/me/comparison-research…`; Firestore `users/{uid}/meta/comparisonResearch` + `users/{uid}/comparisonResearch/{id}`) | `docs/SCREENER_AND_COMPARISON.md` (Phase 4) | Free + StockSteps+; zero provider calls for CRUD; summaries/exports reuse the comparison/history caches; `ProviderUsageMeter` + `/internal/metrics/usage`; server-side PDF (no stored files). |
 
 ### Latest commit (Phase 3)
 
@@ -163,7 +172,7 @@ None.
     quarterly coverage, Bank of Canada date in the FX disclosure); consider a lighter REAL metrics path (each compare loads full annual
     fundamentals, ~13 FMP calls per company, cached 6 h). Phase 3 committed: REAL statement coverage (TSX quarterly,
     `netIncome` semantics) unverified; Company Details still exposes raw statements for free (product decision if that should change).
-    Phases 4–5 not started (see `docs/SCREENER_AND_COMPARISON.md`).
+    Phase 4 committed: real-Firestore run, device pass, cross-instance cache decision pending. Phase 5 not started.
 
 ## 5. Known limitations / bugs to watch
 
@@ -201,7 +210,7 @@ None.
 | Guided Research | `learning/*` | `learning/LearningService.kt` | `presentation/research/*`, `presentation/learn/*` | `GuidedResearchScenes.swift`, `IosLearningClient.kt` |
 | Earnings (Phases 1–4) | `earnings/EarningsCalendar.kt`, `EarningsResults.kt`, `EarningsPriceReaction.kt`, `EarningsReminders.kt`, plus `EarningsModels/Calculations/Presentation.kt` | `earnings/EarningsService.kt`, `EarningsSources.kt`, `PriceReactionEngine.kt`, `EarningsReminderService.kt`, `EarningsReaction.kt` | `presentation/earnings/*` (`EarningsRoute`, `EarningsScenes`, `EarningsScreens`, `EarningsReminderUi`, `DeviceZone`) | `EarningsScenes.swift`, `EarningsReminderViews.swift`, `IosEarningsClient.kt` |
 | Earnings fixtures | — | `scripts/generate_earnings_fixtures.py` → `fixtures/earnings/events.json`, `price-scenarios.json` | — | — |
-| Screener/Compare | `screener/*` (Phase 2 engine: `screener/ComparisonInterpretation.kt`; Phase 3: `ComparisonHistory.kt`, `ComparisonHistoryPresentation.kt`) | `screener/*` (`ComparisonHistoryService.kt`) | `presentation/screener/*` (`GuidedMetricExplanation.kt`, `ComparisonHistoryUi.kt`) | `ScreenerScenes.swift`, `ComparisonHistoryViews.swift` |
+| Screener/Compare | `screener/*` (Phase 2: `ComparisonInterpretation.kt`; Phase 3: `ComparisonHistory.kt`, `ComparisonHistoryPresentation.kt`; Phase 4: `ComparisonResearch.kt`, `ComparisonResearchPresentation.kt`) | `screener/*` (`ComparisonHistoryService.kt`, `ComparisonResearchService.kt`, `ResearchPdf.kt`), `service/ProviderUsage.kt` | `presentation/screener/*` (`GuidedMetricExplanation.kt`, `ComparisonHistoryUi.kt`, `ComparisonResearchUi.kt`, `PdfSaver*.kt`) | `ScreenerScenes.swift`, `ComparisonHistoryViews.swift`, `ComparisonResearchViews.swift` |
 | Portfolio (+Insights) | `portfolio/*`, `portfolio/analytics/*` | `userdata/Portfolio*.kt` | `presentation/portfolio/*` | `Portfolio*.swift` |
 | Entitlements | `portfolio/analytics/EntitlementsRepository.kt` | `userdata/PortfolioAnalyticsService.kt` (`EntitlementService`) | Settings simulated plan | `SettingsScreen.swift` |
 | User data store | `data/userdata/*` (client cache, `UserApi`) | `userdata/UserDataStore.kt`, `FirestoreUserDataStore.kt` | — | — |

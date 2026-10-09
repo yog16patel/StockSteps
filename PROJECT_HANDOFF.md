@@ -1,6 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS"** on `main`.
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS"** on `main`.
+Includes Company Comparison Phase 4 — Guided Research Checklist (next section).
+Previous commit: **"Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS"**.
 Includes Company Comparison Phase 3 — Historical Financial Comparison (next section).
 Previous commit: **"Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS"**.
 Includes Company Comparison Phase 2 — Guided Metric Interpretation (next section, `docs/SCREENER_AND_COMPARISON.md` "Company Comparison — Phase 2").
@@ -28,6 +30,25 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Company Comparison Phase 4 — Guided Research Checklist (2026-10-09) — commit "Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS"
+
+On top of "Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS". Spec: `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 4". Free + StockSteps+; no AI.
+- **Completed**: core `screener/ComparisonResearch.kt` (checklist v1: 13 free + 13 advanced questions with stable ids, statuses, models,
+  `ResearchProgress`, `ResearchSummaryEngine` with FACT/CALCULATION/USER_NOTE/EDUCATION/LIMITATION lines, `ResearchHealthEngine`) and
+  `ComparisonResearchPresentation.kt` (`ComparisonResearchPresenter`, `RemoteComparisonResearch`, `ResearchContext`, `ResearchUpsell`); `UserApi`
+  research calls. Server: `UserDataStore.updateComparisonResearch` (in-memory + Firestore transaction over index + session docs),
+  `ComparisonResearchService` + routes (`/api/v1/me/comparison-research…`: CRUD, summary, snapshots, PDF export), `ResearchPdf` (dependency-free
+  PDF), `service/ProviderUsage.kt` (`ProviderFeature`, `ProviderUsageMeter`, `ProviderRequestBudget`, `/internal/metrics/usage`); FMP loader and
+  history statement cache instrumented; history service exposes `data()`/`statements()` for reuse. Android: `ComparisonResearchUi.kt`,
+  `ComparisonResearchScene` + `ComparisonResearchRoute` (reuses the Compare ViewModel), `PdfSaver` expect/actual (Android "Save as"),
+  `activity-compose` added to `:app:shared` androidMain, Compare "Research checklist" card. iOS: `ComparisonResearchViews.swift`
+  (`fileExporter` PDF), `IosScreenerClient` research bridge, Compare navigation.
+- **Tests added**: core `ComparisonResearchTest` (5) + `ComparisonResearchPresenterTest` (5); server `ComparisonResearchRoutesTest` (14).
+- **Validation**: `./gradlew :core:jvmTest :server:test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug :core:iosSimulatorArm64Test --continue`: core JVM 399, server 350, shared Android host 55, shared iOS 49 — 0 failures; `assembleDebug` succeeded; iOS `xcodebuild` (default DerivedData) BUILD SUCCEEDED. **Not verified at commit time:** `:core:iosSimulatorArm64Test` was still running when the commit was requested (its previous run hit a runner EOFException), so the new core tests have run on JVM only. A sample PDF report (RY.TO vs AAPL, 4 pages) was generated and visually checked; no live MOCK server pass, no real Firestore, no device walkthrough, no REAL provider calls.
+- **Limits**: no billing; Firestore path not run against a real project; no cross-instance provider cache/lock (licensing unverified; per-instance
+  single flight only); counters per instance; English only; standard PDF fonts; no device walkthrough or UI automation.
+- **Next**: rerun `:core:iosSimulatorArm64Test`; device pass (checklist, notes, conflict, export on both platforms); real-Firestore check; decide on a shared cache.
 
 ## Company Comparison Phase 3 — Historical Financial Comparison (2026-10-09) — commit "Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS"
 

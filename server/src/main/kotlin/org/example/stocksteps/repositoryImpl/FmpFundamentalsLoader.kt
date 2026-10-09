@@ -20,7 +20,9 @@ internal class FmpFundamentalsLoader(
     private val client: HttpClient,
     private val apiKey: String,
     private val cache: CompanyFinancialCache,
-    private val today: () -> LocalDate
+    private val today: () -> LocalDate,
+    /** Aggregate provider-usage counters (upstream requests, cache hits/misses, errors) by dataset and feature. */
+    private val meter: ProviderUsageMeter = ProviderUsageMeter.shared
 ) {
     private suspend inline fun <reified T> dataset(
         endpoint: String,
@@ -29,13 +31,25 @@ internal class FmpFundamentalsLoader(
         limit: Int = 6,
         ttl: Long = FinancialCachePolicy.STATEMENTS
     ): FinancialDataset<T> {
+        // Exchange-qualified symbol (TD ≠ TD.TO), dataset, period and row count: no collisions between listings or queries.
         val key = "$endpoint:$symbol:$period:$limit"
         val successKey = "success:$key"
+        val feature = meter.feature()
+        var upstream = false
+        return cachedDataset<T>(key, successKey, endpoint, symbol, period, limit, ttl, feature) { upstream = true }.also {
+            meter.record("fmp", endpoint, feature, if (upstream) "cacheMiss" else "cacheHit")
+        }
+    }
+
+    private suspend inline fun <reified T> cachedDataset(key: String, successKey: String, endpoint: String, symbol: String, period: String?, limit: Int, ttl: Long,
+                                                         feature: String, crossinline onUpstream: () -> Unit): FinancialDataset<T> {
         return cache.getOrLoad("cooldown:$key", FinancialCachePolicy.FAILURE, resultTtl = { result: FinancialDataset<T> ->
             if (result.accessDenied) FinancialCachePolicy.ACCESS_COOLDOWN else FinancialCachePolicy.FAILURE
         }) {
             try {
                 cache.getOrLoad(successKey, ttl) {
+                    onUpstream()
+                    meter.record("fmp", endpoint, feature, "upstream")
                     val rows = client.apiCall<List<T>>(
                         url = "https://financialmodelingprep.com/stable/$endpoint",
                         apiKey = apiKey
@@ -54,6 +68,7 @@ internal class FmpFundamentalsLoader(
             } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
                 if (cause !is StockProviderException) throw cause
+                meter.record("fmp", endpoint, feature, if (cause.upstreamStatus == 429) "rateLimited" else "error")
                 FinancialDataset(
                     emptyList(),
                     FinancialAvailability.TEMPORARILY_UNAVAILABLE,

@@ -11,6 +11,7 @@ private let type = StockStepsTheme.typography
 final class ScreenerModel {
     private(set) var screener: ScreenerUiState?
     private(set) var comparison: ComparisonUiState?
+    private(set) var research: ResearchUiState?
     @ObservationIgnored let client: IosScreenerClient
     @ObservationIgnored private var subscriptions: [any AccountSubscription] = []
 
@@ -18,7 +19,8 @@ final class ScreenerModel {
         client = IosScreenerClient(baseUrl: baseURL, account: accounts.client)
         subscriptions = [
             client.observeScreener { [weak self] in self?.screener = $0 },
-            client.observeComparison { [weak self] in self?.comparison = $0 }
+            client.observeComparison { [weak self] in self?.comparison = $0 },
+            client.observeResearch { [weak self] in self?.research = $0 }
         ]
         client.screener.start()
     }
@@ -468,9 +470,12 @@ struct CompareStocksScene: View {
     var onDiscover: () -> Void = {}
     var onUpgrade: () -> Void = {}
     var onSignIn: () -> Void = {}
+    @State private var showingResearch = false
 
     var body: some View {
-        CompareStocksScreen(state: model.comparison, client: model.client, onOpen: onOpenStock, onDiscover: onDiscover, onUpgrade: onUpgrade, onSignIn: onSignIn)
+        CompareStocksScreen(state: model.comparison, client: model.client, onOpen: onOpenStock, onDiscover: onDiscover, onUpgrade: onUpgrade, onSignIn: onSignIn,
+                            onResearch: { showingResearch = true })
+            .navigationDestination(isPresented: $showingResearch) { ComparisonResearchView(model: model, onUpgrade: onUpgrade, onSignIn: onSignIn) }
             .navigationTitle("Compare")
             .navigationBarTitleDisplayMode(.inline)
     }
@@ -488,6 +493,7 @@ struct CompareStocksScreen: View {
     let onDiscover: () -> Void
     var onUpgrade: () -> Void = {}
     var onSignIn: () -> Void = {}
+    var onResearch: () -> Void = {}
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// nil = closed; "" = add; otherwise the symbol being replaced.
@@ -555,6 +561,16 @@ struct CompareStocksScreen: View {
             }
             performance(state, colors)
             if state.historyEnabled { HistoricalComparisonView(state: state, client: client, onUpgrade: onUpgrade, onSignIn: onSignIn) }
+            if state.historyEnabled && !state.columns.isEmpty {
+                // Phase 4 entry point (one card; no repeated banners).
+                VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                    Text("Research checklist").font(.headline).accessibilityAddTraits(.isHeader)
+                    Text("Work through guided questions about these companies, write private notes and track your progress. Free; StockSteps+ adds advanced research and reports.")
+                        .font(.subheadline)
+                    Button("Open research checklist", action: onResearch).buttonStyle(.bordered).frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .stockCard()
+            }
             if !state.observations.isEmpty {
                 VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                     Text("What the numbers show").font(.headline).accessibilityAddTraits(.isHeader)

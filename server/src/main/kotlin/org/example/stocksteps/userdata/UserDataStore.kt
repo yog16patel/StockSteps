@@ -132,6 +132,12 @@ interface UserDataStore {
     /** Saved screener definitions (filters and sort, never results), atomically per user. */
     suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T
 
+    /**
+     * Company Comparison research (Phase 4): the user's session index and, when [sessionId] is given, that
+     * session, read and written in one atomic step (the session limit can't be exceeded by parallel requests).
+     */
+    suspend fun <T> updateComparisonResearch(uid: String, sessionId: String?, block: (org.example.stocksteps.screener.ResearchIndex, org.example.stocksteps.screener.ResearchSession?) -> ResearchWrite<T>): T
+
     // Daily Market Brief: global briefs (shared, never per-user data) and per-user notification preferences.
     suspend fun saveBrief(brief: org.example.stocksteps.brief.DailyBrief)
     suspend fun brief(id: String): org.example.stocksteps.brief.DailyBrief?
@@ -155,6 +161,10 @@ interface UserDataStore {
     suspend fun dueEarningsDeliveries(now: Long, limit: Int): List<EarningsNotificationDelivery>
     suspend fun earningsDeliveries(uid: String, limit: Int): List<EarningsNotificationDelivery>
 }
+
+/** The result of a research update: the new index, the session to store (null = unchanged) or [deleteSession]. */
+data class ResearchWrite<T>(val index: org.example.stocksteps.screener.ResearchIndex, val session: org.example.stocksteps.screener.ResearchSession? = null,
+                            val deleteSession: Boolean = false, val result: T)
 
 /** What the backend stores per user; [EntitlementService] derives tier and status from it. */
 @Serializable
@@ -188,6 +198,15 @@ class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>>
     private val devices = LinkedHashMap<String, DeviceRecord>()
     private val entitlements = HashMap<String, StoredEntitlement>()
     private val savedScreens = HashMap<String, List<org.example.stocksteps.screener.SavedScreen>>()
+    private val researchIndexes = HashMap<String, org.example.stocksteps.screener.ResearchIndex>()
+    private val researchSessions = HashMap<String, org.example.stocksteps.screener.ResearchSession>()
+    override suspend fun <T> updateComparisonResearch(uid: String, sessionId: String?, block: (org.example.stocksteps.screener.ResearchIndex, org.example.stocksteps.screener.ResearchSession?) -> ResearchWrite<T>): T = lock.withLock {
+        val write = block(researchIndexes[uid] ?: org.example.stocksteps.screener.ResearchIndex(), sessionId?.let { researchSessions["$uid/$it"] })
+        researchIndexes[uid] = write.index
+        if (write.deleteSession && sessionId != null) researchSessions.remove("$uid/$sessionId")
+        write.session?.let { researchSessions["$uid/${it.id}"] = it }
+        write.result
+    }
     override suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T = lock.withLock {
         val (next, result) = block(savedScreens[uid].orEmpty())
         savedScreens[uid] = next
@@ -333,6 +352,7 @@ object UnavailableUserDataStore : UserDataStore {
     override suspend fun <T> updatePractice(uid: String, block: (org.example.stocksteps.practice.PracticeAccountData) -> Pair<org.example.stocksteps.practice.PracticeAccountData, T>): T = unavailable()
     override suspend fun <T> updateLearning(uid: String, block: (org.example.stocksteps.learning.LearningProgressDocument) -> Pair<org.example.stocksteps.learning.LearningProgressDocument, T>): T = unavailable()
     override suspend fun <T> updateSavedScreens(uid: String, block: (List<org.example.stocksteps.screener.SavedScreen>) -> Pair<List<org.example.stocksteps.screener.SavedScreen>, T>): T = unavailable()
+    override suspend fun <T> updateComparisonResearch(uid: String, sessionId: String?, block: (org.example.stocksteps.screener.ResearchIndex, org.example.stocksteps.screener.ResearchSession?) -> ResearchWrite<T>): T = unavailable()
     override suspend fun setEntitlement(uid: String, value: StoredEntitlement?) = unavailable()
     override suspend fun <T> updateAlerts(uid: String, block: (List<AlertRule>) -> Pair<List<AlertRule>, T>): T = unavailable()
     override suspend fun activeAlerts(limit: Int): List<OwnedAlert> = unavailable()

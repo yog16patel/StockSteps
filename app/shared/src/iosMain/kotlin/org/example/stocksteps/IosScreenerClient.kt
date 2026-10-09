@@ -1,5 +1,8 @@
 package org.example.stocksteps
 
+import kotlinx.cinterop.addressOf
+import platform.Foundation.create
+import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import org.example.stocksteps.data.account.AccountSubscription
@@ -27,6 +30,26 @@ class IosScreenerClient(baseUrl: () -> String, account: IosAccountClient?) {
         val job = scope.launch { screener.state.collect(onChange) }
         return object : AccountSubscription { override fun cancel() { job.cancel() } }
     }
+    /** Company Comparison Phase 4 research checklist (null when there's no account graph). */
+    val research: ComparisonResearchPresenter? get() = accountGraph?.comparisonResearch
+    fun observeResearch(onChange: (ResearchUiState) -> Unit): AccountSubscription {
+        val presenter = research ?: return object : AccountSubscription { override fun cancel() {} }
+        val job = scope.launch { presenter.state.collect(onChange) }
+        return object : AccountSubscription { override fun cancel() { job.cancel() } }
+    }
+    fun researchStatuses(): List<ResearchStatus> = ResearchStatus.entries
+    fun researchCategories(state: ResearchUiState, comparison: ComparisonUiState?): List<ResearchCategoryView> = state.categories { ResearchContext.lines(it, comparison) }
+    fun createResearchForSelection() { research?.create(SharedComparisonSelection.instance.selected.value.map { it.symbol }) }
+    /** Shows an opened session's companies so the checklist context matches it. */
+    fun selectResearchCompanies(symbols: List<String>) {
+        if (SharedComparisonSelection.instance.selected.value.map { it.symbol } != symbols) SharedComparisonSelection.instance.set(symbols.map { SelectedCompany(it, it) })
+    }
+    @OptIn(kotlinx.cinterop.ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
+    fun exportData(export: ResearchExport): platform.Foundation.NSData = kotlinx.cinterop.memScoped {
+        if (export.bytes.isEmpty()) platform.Foundation.NSData()
+        else export.bytes.usePinned { pinned -> platform.Foundation.NSData.create(bytes = pinned.addressOf(0), length = export.bytes.size.toULong()) }
+    }
+
     fun observeComparison(onChange: (ComparisonUiState) -> Unit): AccountSubscription {
         val job = scope.launch { comparison.state.collect(onChange) }
         return object : AccountSubscription { override fun cancel() { job.cancel() } }

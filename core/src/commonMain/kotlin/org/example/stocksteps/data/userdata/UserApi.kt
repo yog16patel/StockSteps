@@ -33,6 +33,22 @@ class UserApi(
         send(HttpMethod.Get, "portfolio/accounts/${accountId.segment()}/analytics?period=${period.label}" + (benchmark?.let { "&benchmark=${it.name}" } ?: ""), expectedOwner = expectedOwner)
     suspend fun entitlements(): org.example.stocksteps.portfolio.analytics.Entitlements = send(HttpMethod.Get, "entitlements")
     suspend fun savedScreens(): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Get, "screens")
+    // Company Comparison Phase 4: research checklist sessions (owner = the signed-in account; the server checks StockSteps+).
+    suspend fun researchSessions(): org.example.stocksteps.screener.ResearchSessionsResponse = send(HttpMethod.Get, "comparison-research")
+    suspend fun createResearch(request: org.example.stocksteps.screener.CreateResearchRequest): org.example.stocksteps.screener.ResearchSessionResponse = send(HttpMethod.Post, "comparison-research", request)
+    suspend fun research(id: String): org.example.stocksteps.screener.ResearchSessionResponse = send(HttpMethod.Get, "comparison-research/${id.segment()}")
+    suspend fun updateResearch(id: String, request: org.example.stocksteps.screener.UpdateResearchRequest): org.example.stocksteps.screener.ResearchSessionResponse =
+        send(HttpMethod.Patch, "comparison-research/${id.segment()}", request)
+    suspend fun deleteResearch(id: String): org.example.stocksteps.screener.ResearchSessionsResponse = send(HttpMethod.Delete, "comparison-research/${id.segment()}")
+    suspend fun researchSummary(id: String): org.example.stocksteps.screener.ResearchSummary = send(HttpMethod.Get, "comparison-research/${id.segment()}/summary")
+    suspend fun researchSnapshots(id: String): List<org.example.stocksteps.screener.ResearchSnapshot> = send(HttpMethod.Get, "comparison-research/${id.segment()}/snapshots")
+    suspend fun createResearchSnapshot(id: String, label: String?): org.example.stocksteps.screener.ResearchSessionResponse =
+        send(HttpMethod.Post, "comparison-research/${id.segment()}/snapshots", org.example.stocksteps.screener.CreateSnapshotRequest(label))
+    suspend fun deleteResearchSnapshot(id: String, snapshotId: String): org.example.stocksteps.screener.ResearchSessionResponse =
+        send(HttpMethod.Delete, "comparison-research/${id.segment()}/snapshots/${snapshotId.segment()}")
+    /** StockSteps+ PDF report bytes (streamed; never stored on the server). */
+    suspend fun exportResearch(id: String): ByteArray = send(HttpMethod.Post, "comparison-research/${id.segment()}/export")
+
     /** Company Comparison Phase 3 for a signed-in account: the server decides StockSteps+ (3Y/5Y, advanced metrics). */
     suspend fun compareHistory(symbols: List<String>, range: org.example.stocksteps.screener.HistoryRange, expectedOwner: String? = null): org.example.stocksteps.screener.HistoricalComparison {
         require(symbols.all { Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(it) })

@@ -15,6 +15,9 @@ import java.util.concurrent.TimeUnit
  * - `users/{uid}/watchlists/{watchlistId}` — `data`: Watchlist JSON (entries and notes inside).
  * - `users/{uid}/meta/watchlists` — `initialized`: default list / legacy import done.
  * - `users/{uid}/meta/screens` — `data`: JSON list of SavedScreen (filter definitions only).
+ * - `users/{uid}/meta/comparisonResearch` — `data`: ResearchIndex JSON (session list, counted for the plan limit).
+ * - `users/{uid}/comparisonResearch/{sessionId}` — `updatedAt`, `data`: ResearchSession JSON (responses, notes, ≤ 10 snapshots;
+ *   notes ≤ 1,000 characters, so a document stays well below Firestore's 1 MiB limit). Never financial datasets.
  * - `dailyBriefs/{briefId}` — `generatedAt`, `data`: DailyBrief JSON (global, shared by everyone; no user data).
  * - `briefPreferences/{uid}` — `enabled`, `data`: BriefPreferenceRecord JSON (notification settings).
  * - `users/{uid}/practice/account` — `data`: PracticeAccountData JSON (simulated ledger, trial, challenges, idempotency keys).
@@ -51,6 +54,26 @@ class FirestoreUserDataStore(private val db: Firestore) : UserDataStore {
             val (next, result) = block(current)
             if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next)))
             result
+        }.await()
+    }
+
+    override suspend fun <T> updateComparisonResearch(uid: String, sessionId: String?, block: (org.example.stocksteps.screener.ResearchIndex, org.example.stocksteps.screener.ResearchSession?) -> ResearchWrite<T>): T = io {
+        val user = db.collection("users").document(uid)
+        val indexRef = user.collection("meta").document("comparisonResearch")
+        val sessionRef = sessionId?.let { user.collection("comparisonResearch").document(it) }
+        val indexSerializer = org.example.stocksteps.screener.ResearchIndex.serializer()
+        val sessionSerializer = org.example.stocksteps.screener.ResearchSession.serializer()
+        db.runTransaction { tx ->
+            // All reads before any write (Firestore transaction rule).
+            val index = tx.get(indexRef).get().getString("data")?.let { decode(indexSerializer, it) } ?: org.example.stocksteps.screener.ResearchIndex()
+            val session = sessionRef?.let { ref -> tx.get(ref).get().getString("data")?.let { decode(sessionSerializer, it) } }
+            val write = block(index, session)
+            if (write.index != index) tx.set(indexRef, mapOf("data" to encode(indexSerializer, write.index)))
+            if (write.deleteSession && sessionRef != null) tx.delete(sessionRef)
+            write.session?.let { next ->
+                tx.set(user.collection("comparisonResearch").document(next.id), mapOf("updatedAt" to next.updatedAt, "data" to encode(sessionSerializer, next)))
+            }
+            write.result
         }.await()
     }
 

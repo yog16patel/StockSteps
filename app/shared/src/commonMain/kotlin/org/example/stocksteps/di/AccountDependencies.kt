@@ -94,6 +94,11 @@ class AccountDependencies(
     val savedScreens: org.example.stocksteps.screener.SavedScreensRepository = graph.koin.get()
     /** Signed-in API (Firebase token per request), e.g. for tier-aware earnings. */
     val userApi: UserApi = graph.koin.get()
+    /** Company Comparison Phase 4 research checklist (account-owned; resets when the signed-in user changes). */
+    val comparisonResearch: org.example.stocksteps.screener.ComparisonResearchPresenter by lazy {
+        org.example.stocksteps.screener.ComparisonResearchPresenter(org.example.stocksteps.screener.RemoteComparisonResearch(userApi), scope,
+            auth.session.filter { !it.initializing }.map { it.user?.id })
+    }
     /** "uid|tier|status" for Company Comparison history: a sign-in, sign-out or plan change refetches (null = guest). */
     val comparisonAccount: kotlinx.coroutines.flow.Flow<String?> get() = kotlinx.coroutines.flow.combine(
         auth.session.map { it.user?.id }, entitlements.state) { uid, plan -> uid?.let { "$it|${plan?.tier}|${plan?.status}" } }

@@ -127,13 +127,10 @@ internal fun ComparisonScene(
     onDiscover: () -> Unit,
     accounts: AccountDependencies? = null,
     onUpgrade: () -> Unit = {},
-    onSignIn: () -> Unit = {}
+    onSignIn: () -> Unit = {},
+    onResearch: () -> Unit = {}
 ) {
-    val model = viewModel(key = "comparison:$environment") {
-        val data = StockStepsDependencies(backend::currentUrl)
-        ComparisonViewModel(data.screenerData(), data.comparisonHistory(accounts?.userApi) { accounts?.auth?.session?.value?.user?.id },
-            accounts?.comparisonAccount ?: kotlinx.coroutines.flow.flowOf(null), data::close)
-    }
+    val model = comparisonViewModel(null, backend, environment, accounts)
     val state by model.presenter.state.collectAsStateWithLifecycle()
     val search = remember(environment) { StockStepsDependencies(backend::currentUrl) }
     DisposableEffect(search) { onDispose { search.close() } }
@@ -152,6 +149,7 @@ internal fun ComparisonScene(
                 onRetry = model.presenter::retry,
                 onDiscover = onDiscover,
                 onDismissMessage = model.presenter::dismissMessage,
+                onResearch = onResearch,
                 guidance = GuidanceActions(
                     onExplain = model.presenter::toggleExplanation,
                     onDeeper = model.presenter::toggleDeeper,
@@ -168,6 +166,62 @@ internal fun ComparisonScene(
                     onSignIn = { model.presenter.dismissHistoryUpsell(); onSignIn() }
                 )
             )
+        }
+    }
+}
+
+/**
+ * The Compare screen's ViewModel. [owner] = the Compare back-stack entry when another destination (the
+ * research checklist) needs the same comparison data: reusing it means no second comparison request.
+ */
+@Composable
+internal fun comparisonViewModel(owner: androidx.lifecycle.ViewModelStoreOwner?, backend: BackendRouter, environment: BackendEnvironment, accounts: AccountDependencies?): ComparisonViewModel {
+    val initializer = {
+        val data = StockStepsDependencies(backend::currentUrl)
+        ComparisonViewModel(data.screenerData(), data.comparisonHistory(accounts?.userApi) { accounts?.auth?.session?.value?.user?.id },
+            accounts?.comparisonAccount ?: kotlinx.coroutines.flow.flowOf(null), data::close)
+    }
+    return if (owner != null) viewModel(viewModelStoreOwner = owner, key = "comparison:$environment") { initializer() } else viewModel(key = "comparison:$environment") { initializer() }
+}
+
+/** Company Comparison Phase 4: owns the research presenter (account graph) and reads the comparison for context. */
+@Composable
+internal fun ComparisonResearchScene(
+    backend: BackendRouter,
+    environment: BackendEnvironment,
+    accounts: AccountDependencies?,
+    compareEntry: androidx.lifecycle.ViewModelStoreOwner?,
+    hinge: WindowHinge?,
+    onSignIn: () -> Unit,
+    onUpgrade: () -> Unit
+) {
+    val comparison = comparisonViewModel(compareEntry, backend, environment, accounts)
+    val compareState by comparison.presenter.state.collectAsStateWithLifecycle()
+    val presenter = accounts?.comparisonResearch
+    val state = presenter?.state?.collectAsStateWithLifecycle()?.value ?: ResearchUiState()
+    val save = rememberPdfSaver { message -> presenter?.exportHandled(message) }
+    // A finished report is handed to the platform once.
+    LaunchedEffect(state.export) { state.export?.let(save) }
+    // Opening older research shows that session's companies, so "what the data shows" matches its questions.
+    LaunchedEffect(state.open?.session?.id) {
+        val symbols = state.open?.session?.symbols ?: return@LaunchedEffect
+        if (compareState.selected.map { it.symbol } != symbols) SharedComparisonSelection.instance.set(symbols.map { SelectedCompany(it, it) })
+    }
+    LaunchedEffect(presenter) { presenter?.reload() }
+    AdaptiveSinglePane(hinge) { region ->
+        Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            ComparisonResearchScreen(state, compareState, compareState.selected.map { it.symbol },
+                ResearchActions(
+                    onCreate = { presenter?.create(compareState.selected.map { it.symbol }) },
+                    onOpen = { presenter?.open(it) }, onClose = { presenter?.close() }, onDelete = { presenter?.delete(it) },
+                    onStatus = { q, s -> presenter?.setStatus(q, s) }, onEditNote = { q, t -> presenter?.editNote(q, t) },
+                    onSaveNote = { presenter?.saveNote(it) }, onDiscardNote = { presenter?.discardNote(it) },
+                    onSummary = { presenter?.loadSummary() }, onCloseSummary = { presenter?.closeSummary() },
+                    onSnapshot = { presenter?.createSnapshot() }, onDeleteSnapshot = { presenter?.deleteSnapshot(it) },
+                    onExport = { presenter?.export() }, onUpsell = { presenter?.showUpsell() }, onDismissUpsell = { presenter?.dismissUpsell() },
+                    onUpgrade = onUpgrade, onSignIn = onSignIn, onDismissMessage = { presenter?.dismissMessage() }, onRetry = { presenter?.reload() }
+                ),
+                Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize())
         }
     }
 }

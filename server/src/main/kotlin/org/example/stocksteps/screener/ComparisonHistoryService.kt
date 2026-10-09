@@ -39,7 +39,10 @@ class ComparisonHistoryService(
     private val source: String,
     private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256),
     private val ttl: Long = 21_600_000L,
-    private val timeoutMillis: Long = 20_000L
+    private val timeoutMillis: Long = 20_000L,
+    private val meter: org.example.stocksteps.service.ProviderUsageMeter = org.example.stocksteps.service.ProviderUsageMeter.shared,
+    /** Optional hourly caps on statement loads (cache misses) per feature. */
+    private val budget: org.example.stocksteps.service.ProviderRequestBudget = org.example.stocksteps.service.ProviderRequestBudget.UNLIMITED
 ) {
     private val log = LoggerFactory.getLogger("StockSteps.ComparisonHistory")
     private fun today() = clock.instant().atZone(ZoneOffset.UTC).toLocalDate().toString()
@@ -48,7 +51,8 @@ class ComparisonHistoryService(
         ?: throw ScreenerRequestException(400, "INVALID_HISTORY_RANGE", "Choose 1Y, 3Y or 5Y.")
 
     /** Free view for everyone (guests included). 3Y/5Y need a signed-in StockSteps+ account. */
-    suspend fun publicHistory(rawSymbols: String?, rawRange: String?): HistoricalComparison {
+    suspend fun publicHistory(rawSymbols: String?, rawRange: String?): HistoricalComparison = withContext(org.example.stocksteps.service.ProviderFeature("comparison-history")) { publicHistoryIn(rawSymbols, rawRange) }
+    private suspend fun publicHistoryIn(rawSymbols: String?, rawRange: String?): HistoricalComparison {
         val symbols = parseComparisonSymbols(rawSymbols)
         val range = range(rawRange)
         if (range.premium) throw ScreenerRequestException(401, "SIGN_IN_REQUIRED", "Sign in with StockSteps+ to see ${range.label} history. The 1Y view is free.")
@@ -56,7 +60,8 @@ class ComparisonHistoryService(
     }
 
     /** Signed-in view: the plan comes only from the stored entitlement for [uid]. */
-    suspend fun userHistory(uid: String, rawSymbols: String?, rawRange: String?): HistoricalComparison {
+    suspend fun userHistory(uid: String, rawSymbols: String?, rawRange: String?): HistoricalComparison = withContext(org.example.stocksteps.service.ProviderFeature("comparison-history")) { userHistoryIn(uid, rawSymbols, rawRange) }
+    private suspend fun userHistoryIn(uid: String, rawSymbols: String?, rawRange: String?): HistoricalComparison {
         val symbols = parseComparisonSymbols(rawSymbols)
         val range = range(rawRange)
         val plan = try { entitlements.get(uid) } catch (cause: UserDataException) {
@@ -71,6 +76,17 @@ class ComparisonHistoryService(
                 else "StockSteps+ adds 3- and 5-year history, growth, margins and a revenue index.")
         return build(symbols, range, access)
     }
+
+    /**
+     * The same history for internal callers that already decided the tier (Phase 4 research summaries/exports),
+     * reusing this service's statement cache: no separate provider requests for the same data.
+     */
+    suspend fun data(symbols: List<String>, range: HistoryRange, plus: Boolean): HistoricalComparison =
+        build(symbols, range, HistoryAccess(plus, true, if (plus) HistoryRange.entries else listOf(HistoryRange.ONE_YEAR),
+            if (plus) HistoryMetric.entries else HistoryMetric.entries.filter { it.free }))
+
+    /** Cached statements for one company (null when unavailable). */
+    suspend fun statements(symbol: String, period: String): List<org.example.stocksteps.model.FinancialPeriodStatement>? = input(symbol, period).statements
 
     private suspend fun build(symbols: List<String>, range: HistoryRange, access: HistoryAccess): HistoricalComparison = coroutineScope {
         val period = if (range.granularity == HistoryGranularity.QUARTERLY) "quarter" else "annual"
@@ -92,18 +108,32 @@ class ComparisonHistoryService(
             if (cause is CancellationException) throw cause
             null
         } ?: symbol
+        val feature = meter.feature()
         return try {
-            val data = withTimeout(timeoutMillis) { cache.getOrLoad("$symbol|$period", ttl) { fundamentalsOf(symbol, period) } }
+            var loaded = false
+            val data = withTimeout(timeoutMillis) { cache.getOrLoad("$symbol|$period", ttl) {
+                loaded = true
+                if (!budget.tryAcquire(feature)) throw BudgetExceeded()
+                fundamentalsOf(symbol, period)
+            } }
+            meter.record("statements", period, feature, if (loaded) "cacheMiss" else "cacheHit")
             HistoryInput(symbol, name, data.history, retrievedAt = data.retrievedAt)
         } catch (cause: TimeoutCancellationException) {
+            meter.record("statements", period, feature, "error")
             HistoryInput(symbol, name, null, "the financial data provider didn't respond in time")
+        } catch (cause: BudgetExceeded) {
+            meter.record("statements", period, feature, "budgetExceeded")
+            HistoryInput(symbol, name, null, "financial data is temporarily unavailable (request limit reached); try again later")
         } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
+            meter.record("statements", period, feature, "error")
             log.warn("History load failed for {} ({}): {}", symbol, period, cause.javaClass.simpleName)
             HistoryInput(symbol, name, null, "financial history isn't available right now")
         }
     }
 }
+
+private class BudgetExceeded : Exception()
 
 /**
  * `GET /api/v1/compare/history` (public, free view only) and `GET /api/v1/me/compare/history` (signed in;

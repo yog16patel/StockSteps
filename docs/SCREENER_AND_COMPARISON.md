@@ -11,10 +11,120 @@
 | **1. Basic company comparison** | 2–4 companies (2–3 recommended), beginner metrics, price-change chart, deterministic observations | Free | **Implemented** |
 | **2. Guided metric interpretation** | what each metric means, what these companies' values show, caveats, comparability, related metrics, research questions, learning summary | Free | **Implemented** |
 | **3. Historical financial comparison** | latest four quarters (free); 3Y/5Y annual history, growth, margin, EPS growth, revenue index (StockSteps+) | 1Y free; 3Y/5Y StockSteps+ | **Implemented** |
-| 4. Guided comparison checklist | comparison-driven research steps | Free | Not started |
+| **4. Guided research checklist** | basic checklist, notes, progress, 3 sessions, basic summary (free); advanced checklist, more sessions, snapshots, detailed summary, PDF report (StockSteps+) | Free + StockSteps+ | **Implemented** |
 | 5. AI comparison assistant | `ComparisonExplainer` exists as an interface only (`NoComparisonExplainer`) | StockSteps+ | Not started |
 No paywall, entitlement check or upgrade prompt is applied to Phases 1–2. Phase 3's 3Y/5Y and advanced metrics are StockSteps+,
 enforced on the server; its free 1Y view needs no account.
+
+## Company Comparison — Phase 4: Guided Research Checklist (free + StockSteps+)
+
+A research workspace on top of Phases 1–3: guided questions, user-controlled statuses, private notes, saved sessions, summaries,
+snapshots and a report. Charges for deeper research, never for basic education. No AI (Phase 5), no rankings, scores, targets or
+risk scores; user notes are always labelled as the user's.
+
+### Free vs StockSteps+ (enforced by the server)
+| Capability | Free | StockSteps+ |
+|---|---|---|
+| Basic checklist (13 questions, 7 categories) | Yes | Yes |
+| Notes (≤ 1,000 characters), statuses, progress | Yes | Yes |
+| Saved sessions | 3 | 100 (fair use; `RESEARCH_PLUS_SESSION_LIMIT`) |
+| Basic summary | Yes | Yes |
+| Advanced checklist (13 questions, 5 categories: growth quality, profitability quality, financial health in depth, valuation context, research gaps) | No (read-only if answered earlier) | Yes |
+| Detailed summary (all metric observations, 5Y history, financial health in depth, valuation context) | No | Yes |
+| Research snapshots (≤ 10 per session) | No (existing ones stay readable/deletable) | Yes |
+| PDF report | No | Yes |
+Statuses: `NOT_REVIEWED`, `REVIEWED`, `NEEDS_MORE_RESEARCH` — only ever set by the user (opening a metric never marks anything).
+
+### UX (Android `ComparisonResearchUi.kt` / `ComparisonResearchScene`, route `ComparisonResearchRoute`; iOS `ComparisonResearchViews.swift`)
+Compare → **Research checklist** card → research screen (top bar "Research"; no new tab). Guests: "Sign in to save your research".
+Session list (n of limit, reviewed counts, snapshots; Open/Delete with confirmation; "Start research: A vs B" for the current
+selection; the server's limit message). Session: progress bar and counts, **Summary** (all), **Snapshot** and **Export PDF**
+(StockSteps+ only — free accounts don't see them), categories with question cards (question, help, **What the data shows** — lines
+from the comparison already on screen (Phase 2 explanations and Phase 3 history; no requests), status segmented control, note field
+with character count, Save/Discard). Free accounts get **one** upgrade entry: the "Advanced research · StockSteps+" card (plus "Learn
+about StockSteps+" when the session limit is reached). Opening older research switches the comparison to that session's companies.
+Export: Android saves through the system "Save as" picker (`rememberPdfSaver`, no storage permission); iOS through `fileExporter`.
+
+### Architecture and data reuse
+Core: `ComparisonResearch.kt` (`ResearchChecklist` v1 with stable ids, models, `ResearchProgress`, `ResearchSummaryEngine`,
+`ResearchHealthEngine`), `ComparisonResearchPresentation.kt` (`ComparisonResearchPresenter`, `RemoteComparisonResearch`,
+`ResearchContext`). Server: `ComparisonResearchService` + `comparisonResearchRoutes`, `ResearchPdf`, `ProviderUsage.kt`. Summaries and
+exports call the **same** `ScreenerService.compare` (cached annual fundamentals) and `ComparisonHistoryService` (statement cache per
+symbol+frequency) the Compare screen uses; the health section reads annual statements from that cache (`statements()`), so summary +
+export + Compare share one data layer. The app reuses the Compare destination's ViewModel for context (no second comparison request).
+
+### API (`/api/v1/me/comparison-research`, Firebase ID token; owner = verified uid; rate-limited per user; bodies ≤ 128 KB)
+`GET` list (`limit`, `plus`, `canCreate`, message) · `POST` create `{symbols, title?}` · `GET /{id}` · `PATCH /{id}` `{title?, responses:[{questionId,
+status?, note?}] (≤ 50), expectedRevision?}` · `DELETE /{id}` · `GET /{id}/summary` (detailed for StockSteps+, `?detail=basic` forces basic) ·
+`GET /{id}/snapshots` · `POST /{id}/snapshots` `{label?}` · `DELETE /{id}/snapshots/{snapshotId}` · `POST /{id}/export` → `application/pdf`
+(`Cache-Control: no-store, private`, attachment; streamed, never stored). Errors: 400 `INVALID_COMPARISON`/`INVALID_SYMBOL`/`INVALID_TITLE`/
+`UNKNOWN_QUESTION`/`NOTE_TOO_LONG`/`TOO_MANY_UPDATES`, 401 `SIGN_IN_REQUIRED`, 403 `PLUS_REQUIRED`/`RESEARCH_SESSION_LIMIT`/`SNAPSHOT_LIMIT`,
+404 `RESEARCH_NOT_FOUND`/`SNAPSHOT_NOT_FOUND`, 409 `RESEARCH_CONFLICT` (stale `expectedRevision`), 429, 500 `EXPORT_FAILED`, 503
+`ENTITLEMENT_UNAVAILABLE`/`USER_DATA_UNAVAILABLE`.
+
+### Firestore schema (written only by the backend)
+- `users/{uid}/meta/comparisonResearch` — `data`: `ResearchIndex` JSON (session id, title, symbols, timestamps, reviewed count, snapshot count).
+- `users/{uid}/comparisonResearch/{sessionId}` — `updatedAt`, `data`: `ResearchSession` JSON (`checklistVersion`, `responses` keyed by stable
+  question id `{status, note, updatedAt}`, `revision`, ≤ 10 snapshots). Snapshots hold responses, progress and small display-value
+  references (`SnapshotMetric`: symbol, metric, displayed value, period) plus `dataAsOf` — never statement datasets. Worst case (26 notes ×
+  1,000 chars × 11 copies) stays well below Firestore's 1 MiB document limit.
+Index and session are read and written in **one transaction** (`updateComparisonResearch`), so the free limit can't be exceeded by
+parallel creates (tested with 10 concurrent requests). Responses for retired question ids are kept (not counted).
+
+### Entitlements, downgrade and expiry
+Plan from `EntitlementService` on every request (active, canceled-but-paid, grace = StockSteps+; expired, payment-failed = free; debug
+only in MOCK; no StockSteps+ trial exists). Premium checks run before costly work (snapshot, detailed summary, export). Unreadable plan:
+create/export/snapshot → 503; list → "can't be checked", no new sessions; edits to basic questions and the basic summary keep working.
+After a downgrade **nothing is deleted**: all sessions stay listed, readable, editable (basic questions) and deletable; advanced answers
+stay readable (read-only); snapshots stay readable and deletable; a new session needs fewer than 3; snapshots/detailed summary/export
+need StockSteps+ again.
+
+### Summaries and report
+`ResearchSummaryEngine` labels every line `FACT` (reported data), `CALCULATION`, `USER_NOTE` (with "Your note on: <question>"),
+`EDUCATION` or `LIMITATION`. Basic: companies, key differences (Phase 2 summary), latest four quarters (Phase 3 free), your notes
+(basic questions), questions needing more research, data sources and limitations. Detailed adds Growth/Profitability/Financial
+health/Valuation context/Size (every Phase 2 observation with its meaning), 5Y history observations, financial health in depth
+(`ResearchHealthEngine`: debt ÷ equity per fiscal year from `totalDebt`/`equity` (equity > 0; not for financial companies), operating
+cash flow vs `netIncome`, `freeCashFlow` as reported/mapped) and advanced notes. **PDF** (`ResearchPdf`, server-side, no dependency): US
+Letter, Helvetica/WinAnsi (unsupported symbols mapped, e.g. − → -), title, companies, generated date, data as-of ("values are not live"),
+progress, every summary section with line labels, page footers ("Page n of N", education disclaimer), multi-page. Server-side was chosen
+so the entitlement check, data and layout live in one place, nothing is stored and no public URL exists.
+
+### Provider usage, caching and budgets
+- Notes, statuses, titles, list/get/delete and session creation make **zero** provider calls (tested with counting loaders and the meter).
+- `ProviderUsageMeter` counts, per provider/dataset/feature: `upstream` (FMP requests, instrumented in `FmpFundamentalsLoader`),
+  `cacheHit`/`cacheMiss` (FMP dataset cache and the history statement cache), `error`, `rateLimited` (HTTP 429), `budgetExceeded`, plus product
+  events (`research.session.created`, `research.checklist.opened`, `research.summary.basic|detailed`, `research.snapshot.created`,
+  `research.export.generated`, `research.premium.requested`). Aggregates only — never uids, symbols-per-user or notes. `GET
+  /internal/metrics/usage` (scheduler token in REAL, open in MOCK). Evaluate caching by comparing `cacheHit` with `upstream` per feature.
+- `ProviderRequestBudget`: optional hourly caps on statement loads per feature (`PROVIDER_BUDGET_COMPARISON_HISTORY_PER_HOUR`,
+  `PROVIDER_BUDGET_COMPARISON_RESEARCH_PER_HOUR`); when reached, the summary says "temporarily unavailable (request limit reached)" instead
+  of calling the provider. No prices are estimated (plan terms decide cost).
+- Cache keys: FMP `endpoint:SYMBOL:period:limit` (exchange-qualified symbols, so `TD` ≠ `TD.TO`); statements `SYMBOL|quarter|annual`. TTLs
+  unchanged (statements 24 h in the FMP cache, 6 h in the comparison caches; quotes 30 s). Identical concurrent misses coalesce per key
+  (single flight per instance; tested with 8 parallel summaries → one load per dataset).
+- **Not done on purpose:** a cross-instance shared cache/lock (e.g. Firestore or Redis). FMP/Finnhub redistribution and storage terms
+  haven't been verified, so provider payloads stay in process memory; on Cloud Run each instance has its own cache. If needed: keep
+  `min-instances`/`concurrency` high so fewer instances share more traffic, or add a licensed shared cache with a lease-based lock.
+
+### MOCK scenarios (`ComparisonResearchRoutesTest`, 14 tests; `ComparisonResearchTest` + `ComparisonResearchPresenterTest`, 10)
+Free with 0 / 2 / 3 sessions and a 4th refused; parallel creates; premium with many sessions and the fair-use limit; advanced checklist;
+free requesting premium summary (gets basic) and PDF (403); snapshots (limit, user-created only, values-as-of); expiry and downgrade with
+existing sessions; missing data, different fiscal periods and cross-currency in the summary; save failure (store unavailable → 503);
+concurrent edit conflict (409, client keeps the draft); PDF generation failure (500); cache hit / miss; concurrent identical requests;
+budget exhaustion; ownership isolation; entitlement outage; usage report without user data.
+
+### REAL status
+Firestore persistence is implemented (`FirestoreUserDataStore.updateComparisonResearch`, transactions) but **not exercised against a real
+Firestore** in this session (tests use the in-memory store); indexes aren't needed (documents are read by id). Summaries use existing
+FMP-backed services (not live-verified). Billing doesn't exist (StockSteps+ = MOCK debug plans or a server-written record).
+
+### Known limitations
+English only; no shared cross-instance provider cache (see above); counters are per instance; no snapshot diffing; PDF uses standard
+fonts (no embedded Unicode font) and is generated synchronously; no Compose/XCUITest coverage or device walkthrough; guests can't use
+the checklist without signing in (it's an account feature).
+
+Validation: `./gradlew :core:jvmTest :server:test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug :core:iosSimulatorArm64Test --continue`: core JVM 399, server 350, shared Android host 55, shared iOS 49 — 0 failures; `assembleDebug` succeeded; iOS `xcodebuild` (default DerivedData) BUILD SUCCEEDED. **Not verified at commit time:** `:core:iosSimulatorArm64Test` was still running when the commit was requested (its previous run hit a runner EOFException), so the new core tests have run on JVM only. A sample PDF report (RY.TO vs AAPL, 4 pages) was generated and visually checked; no live MOCK server pass, no real Firestore, no device walkthrough, no REAL provider calls.
 
 ## Company Comparison — Phase 3: Historical Financial Comparison (1Y free; 3Y/5Y StockSteps+)
 
