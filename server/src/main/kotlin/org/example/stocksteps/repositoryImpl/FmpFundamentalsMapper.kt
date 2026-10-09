@@ -101,9 +101,11 @@ internal object FmpFundamentalsMapper {
             "equity" to fact(sheet?.totalStockholdersEquity, money = true, report = sheetBasis),
             "netDebt" to fact(sheet?.netDebt ?: if (sheet?.totalDebt != null && sheet.cashAndCashEquivalents != null) sheet.totalDebt - sheet.cashAndCashEquivalents else null,
                 calculated = sheet?.netDebt == null, money = true, report = sheetBasis),
-            "debtEquity" to fact(ratios?.debtToEquityRatioTTM?.takeIf { sheet?.totalStockholdersEquity?.let { e -> e > 0 } != false }
-                ?: Calc.divide(sheet?.totalDebt, sheet?.totalStockholdersEquity), calculated = ratios?.debtToEquityRatioTTM == null,
-                report = if (ratios?.debtToEquityRatioTTM != null) ttmBasis else sheetBasis),
+            // Total debt ÷ total shareholders' equity; not meaningful (never a negative ratio) when equity is zero or negative.
+            "debtEquity" to if (sheet?.totalStockholdersEquity?.let { it <= 0 } == true) fact(null, report = sheetBasis, reason = FinancialAvailability.NON_POSITIVE_DENOMINATOR,
+                note = "Not meaningful: shareholders' equity is zero or negative on the latest balance sheet.")
+                else fact(ratios?.debtToEquityRatioTTM ?: Calc.divide(sheet?.totalDebt, sheet?.totalStockholdersEquity), calculated = ratios?.debtToEquityRatioTTM == null,
+                    report = if (ratios?.debtToEquityRatioTTM != null) ttmBasis else sheetBasis),
             "currentRatio" to fact(ratios?.currentRatioTTM ?: Calc.divide(sheet?.totalCurrentAssets, sheet?.totalCurrentLiabilities),
                 calculated = ratios?.currentRatioTTM == null, report = if (ratios?.currentRatioTTM != null) ttmBasis else sheetBasis),
             "quickRatio" to fact(ratios?.quickRatioTTM, report = ttmBasis),
@@ -150,7 +152,8 @@ internal object FmpFundamentalsMapper {
         val earningsPositive = trailingIncome?.netIncome?.let { it > 0 }
         val valuation = linkedMapOf(
             "pe" to fact(ratios?.priceToEarningsRatioTTM?.takeIf { it > 0 && earningsPositive != false }, report = ttmBasis,
-                note = if (earningsPositive == false) "P/E is not meaningful with non-positive trailing earnings." else null),
+                note = if (earningsPositive == false) "P/E is not meaningful with non-positive trailing earnings." else null,
+                reason = if (earningsPositive == false || ratios?.priceToEarningsRatioTTM?.let { it <= 0 } == true) FinancialAvailability.NON_POSITIVE_DENOMINATOR else FinancialAvailability.MISSING),
             "peg" to fact(ratios?.priceToEarningsGrowthRatioTTM?.takeIf { it > 0 && earningsPositive != false }, report = ttmBasis, note = "Provider PEG; growth assumptions may differ from our historical CAGR."),
             "priceSales" to fact(ratios?.priceToSalesRatioTTM?.takeIf { it > 0 }, report = ttmBasis),
             "priceBook" to fact(ratios?.priceToBookRatioTTM?.takeIf { it > 0 }, report = ttmBasis),

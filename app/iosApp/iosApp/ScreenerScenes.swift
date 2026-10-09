@@ -459,9 +459,9 @@ private struct SavedScreensSheet: View {
     }
 }
 
-// MARK: - Compare Stocks
+// MARK: - Compare Companies
 
-/// Owns Compare Stocks actions; the selection is shared with Discover and Company Details.
+/// Owns Compare Companies actions; the selection is shared with Discover, Company Details and Watchlist.
 struct CompareStocksScene: View {
     let model: ScreenerModel
     let onOpenStock: (String) -> Void
@@ -474,36 +474,30 @@ struct CompareStocksScene: View {
     }
 }
 
+/// Phase 1 (free): beginner metrics in Overview, Growth, Profitability, Financial Health, Valuation and
+/// Shareholder Returns; each metric's label sits above equal-width company columns (no horizontal
+/// scrolling for three companies); extra metrics under "More metrics". Same shared presenter as Android.
 struct CompareStocksScreen: View {
     let state: ComparisonUiState?
     let client: IosScreenerClient
     let onOpen: (String) -> Void
     let onDiscover: () -> Void
     @Environment(\.colorScheme) private var scheme
-    @State private var adding = false
+    /// nil = closed; "" = add; otherwise the symbol being replaced.
+    @State private var picking: String?
     @State private var info: MetricInfo?
-    @State private var collapsed: Set<String> = []
-    private let labelWidth: CGFloat = 132
-    private let columnWidth: CGFloat = 116
+    @State private var showMore = false
+    @State private var why: (String, String)?
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-                VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                    Text("Compare Stocks").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
-                    Text("See companies side by side. Differences describe the numbers; they don't say which is a better investment.")
-                        .font(.caption).foregroundStyle(colors.textSecondary)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
-                            ForEach(state?.selected ?? [], id: \.symbol) { company in
-                                Button { client.comparison.remove(symbol: company.symbol) } label: { Label(company.symbol, systemImage: "xmark") }
-                                    .buttonStyle(.bordered).accessibilityLabel("Remove \(company.name) from comparison")
-                            }
-                            if (state?.selected.count ?? 0) < 4 { Button("+ Add company") { adding = true }.buttonStyle(.bordered) }
-                        }
-                    }
-                    if state?.sampleData == true { Text("Sample data for development, not live markets.").font(.caption).foregroundStyle(colors.textSecondary) }
+            LazyVStack(alignment: .leading, spacing: CGFloat(space.sm), pinnedViews: [.sectionHeaders]) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Compare Companies").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
+                    Text("See companies side by side. The numbers describe each business; they don't say which is a better investment.")
+                        .font(.subheadline).foregroundStyle(colors.textSecondary)
+                    if state?.sampleData == true { Text("Sample data for development, not live markets.").font(.caption).foregroundStyle(colors.cautionText) }
                 }
                 if let state { content(state, colors) }
             }
@@ -511,22 +505,37 @@ struct CompareStocksScreen: View {
             .padding(.vertical, CGFloat(space.md))
         }
         .background(colors.appBackground)
-        .sheet(isPresented: $adding) { AddCompanySheet(state: state, client: client) { adding = false } }
+        .sheet(item: Binding(get: { picking.map { PickTarget(id: $0) } }, set: { picking = $0?.id })) { target in
+            AddCompanySheet(state: state, client: client, replacing: target.id.isEmpty ? nil : target.id) { picking = nil }
+        }
         .sheet(item: Binding(get: { info.map { IdentifiedInfo(info: $0) } }, set: { info = $0?.info })) { MetricInfoView(info: $0.info) }
+        .alert(why?.0 ?? "", isPresented: Binding(get: { why != nil }, set: { if !$0 { why = nil } })) { Button("OK") { why = nil } } message: { Text(why?.1 ?? "") }
         .alert("", isPresented: Binding(get: { state?.message != nil }, set: { if !$0 { client.comparison.dismissMessage() } })) {
             Button("OK") { client.comparison.dismissMessage() }
         } message: { Text(state?.message ?? "") }
     }
 
     @ViewBuilder private func content(_ state: ComparisonUiState, _ colors: StockColors) -> some View {
+        selection(state, colors)
         if state.needsMore {
-            VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-                Text("Choose at least two companies to compare (up to 4). Add them here, from Discover Stocks or from a company's page.")
-                Button("Discover Stocks", action: onDiscover).buttonStyle(.borderedProminent)
-            }
+            examples(state, colors)
         } else {
             if state.loading { ProgressView().accessibilityLabel("Loading comparison") }
-            if let error = state.error { Text(error).foregroundStyle(colors.textSecondary); Button("Try again") { client.comparison.retry() } }
+            if let error = state.error { StockSectionMessage(message: error, actionTitle: "Try again") { client.comparison.retry() } }
+            if !state.columns.isEmpty {
+                Section {
+                    ForEach(state.sections.filter { !$0.advanced }, id: \.title) { section in sectionView(section, state, colors) }
+                    if state.advancedCount > 0 {
+                        Button { showMore.toggle() } label: {
+                            Text(showMore ? "Hide extra metrics" : "More metrics (\(state.advancedCount))").frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityValue(showMore ? "Expanded" : "Collapsed")
+                    }
+                    if showMore { ForEach(state.sections.filter { $0.advanced && !$0.rows.isEmpty }, id: \.title) { section in sectionView(section, state, colors) } }
+                } header: { companyHeader(state, colors) }
+            }
+            performance(state, colors)
             if !state.observations.isEmpty {
                 VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                     Text("What the numbers show").font(.headline).accessibilityAddTraits(.isHeader)
@@ -534,82 +543,125 @@ struct CompareStocksScreen: View {
                         Text("• \(o.text)").font(.subheadline)
                         if let caveat = o.caveat { Text(caveat).font(.caption).foregroundStyle(colors.textSecondary).padding(.leading, 8) }
                     }
-                    Text("Observations compare reported figures only. They aren't rankings or recommendations.").font(.caption2).foregroundStyle(colors.textTertiary)
+                    Text("These describe reported figures. They aren't rankings or recommendations.").font(.caption2).foregroundStyle(colors.textTertiary)
                 }
                 .stockCard()
             }
-            performance(state, colors)
             if !state.columns.isEmpty {
-                // One horizontal scroll for the company header and every row keeps all columns aligned.
-                ScrollView(.horizontal, showsIndicators: true) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        companyHeader(state, colors)
-                        ForEach(state.sections, id: \.title) { section in
-                            if !section.rows.isEmpty {
-                                let open = !collapsed.contains(section.title)
-                                let width = labelWidth + columnWidth * CGFloat(state.columns.count)
-                                Button { if open { collapsed.insert(section.title) } else { collapsed.remove(section.title) } } label: {
-                                    HStack { Text(section.title).font(.headline); Spacer(); Image(systemName: open ? "minus" : "plus") }
-                                        .frame(width: width, alignment: .leading).frame(minHeight: 44)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityAddTraits(.isHeader)
-                                .accessibilityValue(open ? "Expanded" : "Collapsed")
-                                if open {
-                                    if let note = section.note { Text(note).font(.caption).foregroundStyle(colors.textSecondary).frame(width: width, alignment: .leading) }
-                                    ForEach(section.rows, id: \.id) { row in metricRow(row, state, colors) }
-                                }
-                            }
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Sources and notes").font(.caption.weight(.semibold)).foregroundStyle(colors.textSecondary).accessibilityAddTraits(.isHeader)
+                    ForEach(state.notes, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.textSecondary) }
+                    if let asOf = state.asOf { Text("Comparison prepared \(String(asOf.prefix(10))) \(String(asOf.dropFirst(11).prefix(5))) UTC.").font(.caption).foregroundStyle(colors.textSecondary) }
+                    Text("Education, not investment advice. Past results don't indicate future returns.").font(.caption2).foregroundStyle(colors.textTertiary)
                 }
-                ForEach(state.notes, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.textSecondary) }
-                Text("Not investment advice. Past results don't indicate future returns.").font(.caption2).foregroundStyle(colors.textTertiary)
             }
         }
     }
 
+    private func selection(_ state: ComparisonUiState, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Text("Companies (\(state.selected.count) of \(client.maxCompanies()))").font(.headline).accessibilityAddTraits(.isHeader)
+            ForEach(state.selected, id: \.symbol) { company in
+                let column = state.columns.first { $0.symbol.caseInsensitiveCompare(company.symbol) == .orderedSame }
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(column?.name ?? company.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                        Text([company.symbol, column?.listing].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")).font(.caption).foregroundStyle(colors.textSecondary)
+                    }
+                    Spacer()
+                    Button("Replace") { picking = company.symbol }.frame(minHeight: 48).accessibilityLabel("Replace \(company.name)")
+                    Button("Remove") { client.comparison.remove(symbol: company.symbol) }.frame(minHeight: 48).accessibilityLabel("Remove \(company.name)")
+                }
+            }
+            if state.canAdd {
+                Button { picking = "" } label: { Label("Add a company", systemImage: "magnifyingglass").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.bordered)
+            }
+            Text(state.crowdedHint ?? "Two or three companies are easiest to read on a phone.").font(.caption).foregroundStyle(colors.textSecondary)
+        }
+        .stockCard()
+    }
+
+    private func examples(_ state: ComparisonUiState, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Text(state.selected.isEmpty ? "Pick two companies to start" : "Add one more company to compare").font(.headline).accessibilityAddTraits(.isHeader)
+            Text("Search above, use Compare on a company's page or your watchlist, or try an example:").font(.subheadline)
+            ForEach(Array(state.examples.enumerated()), id: \.offset) { i, example in
+                Button { client.useExample(index: Int32(i)) } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(example.title).font(.subheadline.weight(.semibold)).foregroundStyle(colors.textPrimary)
+                        Text(example.description_).font(.caption).foregroundStyle(colors.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(CGFloat(space.sm))
+                    .background(colors.surfaceSecondary, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Compares these companies")
+            }
+            Button("Discover Stocks", action: onDiscover).frame(minHeight: 48)
+        }
+        .stockCard()
+    }
+
+    /// Equal-width columns pinned while scrolling; tap opens the company.
     private func companyHeader(_ state: ComparisonUiState, _ colors: StockColors) -> some View {
-        HStack(alignment: .top, spacing: 0) {
-            Color.clear.frame(width: labelWidth, height: 1)
+        HStack(alignment: .top, spacing: 8) {
             ForEach(state.columns, id: \.symbol) { column in
                 Button { onOpen(column.symbol) } label: {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(column.symbol).font(.subheadline.weight(.semibold))
-                        Text(column.name).font(.caption2).foregroundStyle(colors.textSecondary).lineLimit(2).multilineTextAlignment(.trailing)
-                        Text(column.price).font(.caption)
-                        Text(column.change.text).font(.caption2).foregroundStyle(toneColor(column.change, colors))
-                        if let error = column.error { Text(error).font(.caption2).foregroundStyle(colors.textSecondary).lineLimit(3) }
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(column.symbol).font(.subheadline.weight(.semibold)).foregroundStyle(colors.primaryText).lineLimit(1)
+                        Text(column.price).font(.caption2).foregroundStyle(colors.textSecondary).lineLimit(1)
+                        if column.error != nil { Text("Partial data").font(.caption2).foregroundStyle(colors.cautionText) }
                     }
-                    .frame(width: columnWidth, alignment: .trailing)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Opens company details")
             }
         }
         .padding(.vertical, 4)
+        .background(colors.appBackground)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    @ViewBuilder private func sectionView(_ section: ComparisonSection, _ state: ComparisonUiState, _ colors: StockColors) -> some View {
+        if !section.rows.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(section.title).font(.title3.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                if let note = section.note { Text(note).font(.caption).foregroundStyle(colors.textSecondary) }
+            }
+            .padding(.top, 8)
+            ForEach(section.rows, id: \.id) { row in metricRow(row, state, colors) }
+        }
     }
 
     private func metricRow(_ row: ComparisonRow, _ state: ComparisonUiState, _ colors: StockColors) -> some View {
-        HStack(alignment: .center, spacing: 0) {
-            Button { info = client.education(id: row.id) } label: {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(row.label + " ⓘ").font(.caption).foregroundStyle(colors.textPrimary).lineLimit(2)
-                    if let period = row.period { Text(period).font(.caption2).foregroundStyle(colors.textTertiary).lineLimit(1) }
+                    Text(row.label).font(.subheadline.weight(.medium)).foregroundStyle(colors.textPrimary)
+                    if let period = row.period { Text(period).font(.caption2).foregroundStyle(colors.textTertiary) }
                 }
-                .frame(width: labelWidth, alignment: .leading)
+                Spacer()
+                Button { info = client.education(id: row.id) } label: { Image(systemName: "info.circle").frame(width: 44, height: 44) }
+                    .accessibilityLabel("About \(row.label)")
             }
-            .buttonStyle(.plain)
-            ForEach(Array(row.cells.enumerated()), id: \.offset) { _, cell in
-                Text(cell.text).font(.caption.monospacedDigit()).foregroundStyle(toneColor(cell, colors))
-                    .frame(width: columnWidth, alignment: .trailing)
-                    .lineLimit(2)
+            HStack(alignment: .top, spacing: 8) {
+                ForEach(Array(row.cells.enumerated()), id: \.offset) { i, cell in
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(cell.text + (cell.explanation != nil ? " ⓘ" : "")).font(.subheadline.monospacedDigit())
+                            .foregroundStyle(cell.explanation != nil ? colors.textTertiary : toneColor(cell, colors)).lineLimit(2)
+                        if let detail = cell.detail { Text(detail).font(.caption2).foregroundStyle(colors.textSecondary).lineLimit(2) }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .topLeading)
+                    .contentShape(Rectangle())
+                    .onTapGesture { if let e = cell.explanation { why = ("\(row.label): \(state.columns.indices.contains(i) ? state.columns[i].symbol : "")", e) } }
+                }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(row.accessibility(columns: state.columns))
+            Divider()
         }
-        .frame(minHeight: 44)
-        .overlay(alignment: .bottom) { Divider() }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(row.accessibility(columns: state.columns))
     }
 
     private struct Point: Identifiable {
@@ -621,13 +673,14 @@ struct CompareStocksScreen: View {
 
     @ViewBuilder private func performance(_ state: ComparisonUiState, _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            Text("Price performance").font(.headline).accessibilityAddTraits(.isHeader)
-            Text("Each line starts at 100, so you compare returns, not share prices.").font(.caption).foregroundStyle(colors.textSecondary)
+            Text("Share price change").font(.headline).accessibilityAddTraits(.isHeader)
+            Text("Each line starts at 100 on the same day, so you compare percentage moves, not share prices. This is price only (no dividends) and says nothing about how the businesses performed.")
+                .font(.caption).foregroundStyle(colors.textSecondary)
             Picker("Period", selection: Binding(get: { state.period.label }, set: { client.selectPeriod(label: $0) })) {
                 ForEach(["1M", "3M", "1Y", "3Y", "5Y"], id: \.self) { Text($0).tag($0) }
             }.pickerStyle(.segmented)
-            if state.chartLoading { ProgressView() }
-            else if let error = state.chartError { Text(error).font(.caption) }
+            if state.chartLoading { ProgressView().accessibilityLabel("Loading price history") }
+            else if let error = state.chartError { StockSectionMessage(message: error, actionTitle: "Try again") { client.comparison.retry() } }
             else if let chart = state.chart {
                 let drawable = chart.series.filter { $0.error == nil }
                 let points = drawable.flatMap { series in
@@ -635,18 +688,27 @@ struct CompareStocksScreen: View {
                 }
                 if points.isEmpty { Text("Price history isn't available for this period.").font(.caption) }
                 else {
-                    Chart(points) { point in
-                        LineMark(x: .value("Day", point.index), y: .value("Growth of 100", point.value), series: .value("Company", point.symbol))
-                            .foregroundStyle(by: .value("Company", point.symbol))
-                            .lineStyle(by: .value("Company", point.symbol))
+                    Chart {
+                        RuleMark(y: .value("Start", 100)).foregroundStyle(colors.textTertiary).lineStyle(StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                        ForEach(points) { point in
+                            LineMark(x: .value("Day", point.index), y: .value("Growth of 100", point.value), series: .value("Company", point.symbol))
+                                .foregroundStyle(by: .value("Company", point.symbol))
+                                .lineStyle(by: .value("Company", point.symbol))
+                        }
                     }
                     .chartXAxis(.hidden)
                     .chartYScale(domain: .automatic(includesZero: false))
                     .frame(height: 180)
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Growth of 100 over \(chart.period.label): " + drawable.map { "\($0.symbol) \($0.change.map { String(format: "%.1f%%", $0.doubleValue) } ?? "unavailable")" }.joined(separator: "; "))
+                    .accessibilityLabel("Price change from 100 over \(chart.period.label): " + drawable.map { "\($0.symbol) \($0.change.map { String(format: "%+.1f%%", $0.doubleValue) } ?? "unavailable")" }.joined(separator: "; "))
+                    if let first = chart.dates.first, let last = chart.dates.last {
+                        HStack { Text(first).font(.caption2); Spacer(); Text(last).font(.caption2) }.foregroundStyle(colors.textTertiary)
+                    }
+                    ForEach(drawable, id: \.symbol) { s in
+                        Text("\(s.symbol): \(s.change.map { String(format: "%+.1f%%", $0.doubleValue) } ?? "—")" + (s.note.map { " · \($0)" } ?? "")).font(.caption)
+                    }
                 }
-                ForEach(chart.series.filter { $0.error != nil }, id: \.symbol) { Text("\($0.symbol): \($0.error ?? "")").font(.caption) }
+                ForEach(chart.series.filter { $0.error != nil }, id: \.symbol) { Text("\($0.symbol): \($0.error ?? "")").font(.caption).foregroundStyle(colors.cautionText) }
                 ForEach(chart.notes, id: \.self) { Text($0).font(.caption2).foregroundStyle(colors.textSecondary) }
             }
         }
@@ -654,34 +716,49 @@ struct CompareStocksScreen: View {
     }
 }
 
+private struct PickTarget: Identifiable { let id: String }
+
 private struct AddCompanySheet: View {
     let state: ComparisonUiState?
     let client: IosScreenerClient
+    let replacing: String?
     let onDone: () -> Void
     @State private var query = ""
     @State private var results: [StockSearchResult] = []
     @State private var failed = false
+    @State private var searching = false
 
     var body: some View {
         NavigationStack {
             List {
-                if failed { Text("Search isn't available right now.") }
+                if searching { ProgressView() }
+                if failed { Text("Search isn't available right now. Try again.") }
+                if !searching && !failed && !query.isEmpty && results.isEmpty { Text("No matching companies.") }
                 ForEach(results, id: \.symbol) { stock in
                     let already = state?.selected.contains { $0.symbol.caseInsensitiveCompare(stock.symbol) == .orderedSame } ?? false
-                    Button("\(stock.symbol) · \(stock.name)\(already ? " (added)" : "")") {
-                        client.addToComparison(symbol: stock.symbol, name: stock.name)
+                    Button {
+                        if let replacing { client.replaceInComparison(old: replacing, symbol: stock.symbol, name: stock.name) }
+                        else { client.addToComparison(symbol: stock.symbol, name: stock.name) }
                         onDone()
-                    }.disabled(already)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(stock.name).lineLimit(1)
+                            Text([stock.symbol, stock.exchange, already ? "already added" : nil].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .disabled(already)
                 }
             }
-            .searchable(text: $query, prompt: "Search by name or symbol")
+            .searchable(text: $query, prompt: "Search by name or ticker")
             .task(id: query) {
                 guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { results = []; return }
                 try? await Task.sleep(nanoseconds: 350_000_000) // debounce; a newer query cancels this task
                 if Task.isCancelled { return }
+                searching = true
                 do { results = try await client.searchStocks(query: query); failed = false } catch { failed = true }
+                searching = false
             }
-            .navigationTitle("Add a company")
+            .navigationTitle(replacing.map { "Replace \($0)" } ?? "Add a company")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close", action: onDone) } }
         }

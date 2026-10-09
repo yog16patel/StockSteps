@@ -144,7 +144,7 @@ struct MarketsScene: View {
         VStack(spacing: CGFloat(space.md)) {
             HStack(spacing: CGFloat(space.md)) {
                 tool("Discover Stocks", "Find companies by growth, dividends, strength or valuation", "magnifyingglass", colors, onDiscover)
-                tool("Compare Stocks", "See 2–4 companies side by side", "square.split.2x1", colors, onCompare)
+                tool("Compare Companies", "See two or three companies side by side", "square.split.2x1", colors, onCompare)
             }
             earningsCenter(colors)
         }

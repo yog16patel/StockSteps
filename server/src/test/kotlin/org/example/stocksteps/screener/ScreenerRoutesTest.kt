@@ -31,15 +31,24 @@ class ScreenerRoutesTest {
     private val stocks = StockService(fixture, fixture)
     private val financials = CompanyFinancialService(fixture)
 
+    private val earnings = org.example.stocksteps.earnings.EarningsService(org.example.stocksteps.earnings.FixtureEarningsDataSource(), stocks, PriceChartService(fixture),
+        InMemoryUserDataStore(), EntitlementService(InMemoryUserDataStore(), clock::millis, true), clock, true, null)
+
     private fun mockService(
         loads: AtomicInteger = AtomicInteger(),
         universe: ScreenerUniverseSource = FixtureScreenerUniverse(),
-        fail: Set<String> = emptySet()
+        fail: Set<String> = emptySet(),
+        quarterly: (suspend (String) -> MetricValue)? = { symbol ->
+            try { quarterRevenueGrowth(earnings.latestResults(symbol)) } catch (cause: org.example.stocksteps.earnings.EarningsRequestException) {
+                if (cause.status == 404) MetricValue(note = "No published quarterly results are available for this company.") else throw cause
+            }
+        }
     ) = ScreenerService(universe, stocks, { symbol ->
         loads.incrementAndGet()
         if (symbol in fail) throw IllegalStateException("provider down")
         financials.getFundamentals(symbol, "annual")
-    }, PriceChartService(fixture), { 1 / 1.35 }, clock, sampleData = true, fundamentalsPerHour = 0, fullRecords = true)
+    }, PriceChartService(fixture), { 1 / 1.35 }, clock, sampleData = true, fundamentalsPerHour = 0, fullRecords = true,
+        quarterlyRevenueGrowth = quarterly, provenance = listOf("Sample fixture data for development; not live market data."))
 
     private fun ApplicationTestBuilder.install(service: ScreenerService, limiter: RequestRateLimiter = RequestRateLimiter(1_000), store: UserDataStore = InMemoryUserDataStore()) {
         val entitlements = EntitlementService(store, clock::millis, debugAllowed = true)
@@ -167,7 +176,7 @@ class ScreenerRoutesTest {
         val bank = four.companies.first { it.symbol == "RY.TO" }
         assertNotNull(bank.error) // fundamentals failed: price info only, explained
         assertNotNull(bank.record)
-        assertTrue(four.notes.any { it.contains("reporting currency") })
+        assertTrue(four.notes.any { it.contains("own currency") })
         assertTrue(four.observations.all { o -> !Regex("(?i)\\b(better|best|buy|sell)\\b").containsMatchIn(o.text) })
     }
 
@@ -177,8 +186,59 @@ class ScreenerRoutesTest {
         assertEquals(ReturnKind.PRICE_RETURN, perf.kind)
         assertEquals(100.0, perf.series.first { it.symbol == "AAPL" }.values.first())
         assertNotNull(perf.series.first { it.symbol == "BB.TO" }.error)
-        assertTrue(perf.notes.any { it.contains("dividends aren't included") })
+        assertTrue(perf.notes.any { it.contains("Dividends aren't included") })
         assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/compare/performance?symbols=AAPL,MSFT&period=7Y").status)
+    }
+
+    @Test fun comparisonCoversPhase1MockScenarios() = testApplication {
+        install(mockService())
+        suspend fun compare(symbols: String) = json.decodeFromString(ComparisonResponse.serializer(), client.get("/api/v1/compare?symbols=$symbols").bodyAsText())
+        // Cross-border (CAD listing vs USD listing), different fiscal calendars, provenance and freshness.
+        val cross = compare("RY.TO,AAPL")
+        val ry = cross.companies.first { it.symbol == "RY.TO" }.record!!; val aapl = cross.companies.first { it.symbol == "AAPL" }.record!!
+        assertEquals("CAD", ry.currency); assertEquals("USD", aapl.currency)
+        assertTrue(cross.notes.any { it.contains("own currency") }); assertTrue(cross.notes.any { it.contains("Fiscal years end in different months") })
+        assertTrue(cross.notes.any { it.startsWith("Financial statements retrieved:") }); assertTrue(cross.notes.any { it.startsWith("Sample fixture data") })
+        // Latest-quarter revenue growth comes from Earnings Results (same quarter a year earlier).
+        val q = aapl.metrics.getValue("quarterRevenueGrowth")
+        assertEquals(org.example.stocksteps.model.FinancialAvailability.AVAILABLE, q.availability); assertTrue(q.note!!.matches(Regex("Q\\d FY\\d{4} vs Q\\d FY\\d{4}")))
+        assertEquals(quarterRevenueGrowth(earnings.latestResults("AAPL")).value, q.value)
+        // Negative earnings (no P/E), no dividend, missing metric.
+        val loss = compare("RIVN,KO")
+        val rivn = loss.companies.first { it.symbol == "RIVN" }.record!!
+        assertEquals(org.example.stocksteps.model.FinancialAvailability.NON_POSITIVE_DENOMINATOR, rivn.metrics.getValue("pe").availability)
+        assertEquals(org.example.stocksteps.model.FinancialAvailability.NO_DIVIDEND, rivn.metrics.getValue("dividendYield").availability)
+        assertEquals(org.example.stocksteps.model.FinancialAvailability.AVAILABLE, loss.companies.first { it.symbol == "KO" }.record!!.metrics.getValue("dividendYield").availability)
+        // Missing metrics: unknown dividend history (not "no dividend") and an unreported ratio.
+        val missing = compare("CSU.TO,LONGN")
+        assertEquals(org.example.stocksteps.model.FinancialAvailability.MISSING, missing.companies.first { it.symbol == "CSU.TO" }.record!!.metrics.getValue("dividendYield").availability)
+        assertNull(missing.companies.first { it.symbol == "LONGN" }.record!!.metrics.getValue("priceSales").value)
+        // Company with no quarterly results: explained, not invented.
+        val none = compare("AAPL,GOOGL").companies.first { it.symbol == "GOOGL" }.record
+        none?.let { assertNotEquals(org.example.stocksteps.model.FinancialAvailability.AVAILABLE, it.metrics.getValue("quarterRevenueGrowth").availability) }
+        // Malformed, empty, duplicate (case-insensitive) and too many.
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/compare?symbols=").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/compare?symbols=AAPL,%24%24%24").status)
+        assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/compare?symbols=ry.to,RY.TO").status)
+        // Same ticker on two exchanges are two companies.
+        assertEquals(listOf("TD", "TD.TO"), compare("TD,TD.TO").companies.map { it.symbol })
+    }
+
+    @Test fun quarterlyProviderFailureIsPartialNotFatal() = testApplication {
+        install(mockService(quarterly = { throw IllegalStateException("earnings provider down") }))
+        val r = json.decodeFromString(ComparisonResponse.serializer(), client.get("/api/v1/compare?symbols=AAPL,MSFT").bodyAsText())
+        assertTrue(r.companies.all { it.record != null && it.error == null })
+        assertTrue(r.companies.all { it.record!!.metrics.getValue("quarterRevenueGrowth").availability == org.example.stocksteps.model.FinancialAvailability.TEMPORARILY_UNAVAILABLE })
+    }
+
+    @Test fun performanceSharesOneBaseDateAndExplainsPriceOnly() = testApplication {
+        install(mockService())
+        val perf = json.decodeFromString(PerformanceComparison.serializer(), client.get("/api/v1/compare/performance?symbols=AAPL,RY.TO&period=3M").bodyAsText())
+        assertNotNull(perf.baseDate)
+        assertEquals(perf.baseDate, perf.dates.first()); assertEquals(perf.dates.sorted(), perf.dates)
+        perf.series.filter { it.error == null }.forEach { assertEquals(100.0, it.values.first()) }
+        assertTrue(perf.notes.any { it.contains("not how the businesses performed") }); assertTrue(perf.notes.any { it.contains("isn't total return") })
+        assertTrue(perf.notes.any { it.contains("own trading currency") })
     }
 
     // ---------- Saved screens ----------

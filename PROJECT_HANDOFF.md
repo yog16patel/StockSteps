@@ -1,6 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **"Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS"** on `main`.
+Last updated: 2026-10-08 (America/Toronto). Current commit: **"Improve Company Comparison Phase 1 for beginners on Android and iOS"** on `main`.
+Includes the Company Comparison Phase 1 review and completion (next section, `docs/SCREENER_AND_COMPARISON.md` "Company Comparison — Phase 1").
+Previous commit: **"Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS"** (`b558ba9`).
 Includes Earnings Intelligence Lite Phase 5 — StockSteps+ Premium Earnings Intelligence (next section, `docs/EARNINGS.md` "Phase 5").
 Previous commit: **"Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"** (`87acb1d`), Earnings Reminders (Phase 4).
 Previous commit: **"Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"** (`dc9843d`), Price Reaction (Phase 3).
@@ -23,6 +25,21 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Company Comparison Phase 1 (2026-10-08) — commit "Improve Company Comparison Phase 1 for beginners on Android and iOS"
+
+On top of `b558ba9`. Spec: `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 1". Free; no paywall.
+- **Completed**: beginner groups (Overview, Growth, Profitability, Financial Health, Valuation, Shareholder Returns) with the rest
+  under "More metrics"; equal-width company columns (no horizontal scroll for 3 companies); company cards with name/ticker/listing,
+  Replace and Remove; starter examples; Watchlist "Compare these companies" entry; latest-quarter revenue growth reused from
+  Earnings Results; per-company reporting periods; explicit US$/C$ markers and local-currency market cap (≈USD detail);
+  metric-specific "not meaningful" reasons (FMP adapter: P/E with losses, D/E with equity ≤ 0); chart rebased on one common
+  date, early-ending history measured to its last close with a note, one request per chart period; provenance and retrieval notes.
+- **Validation**: Verified: core screener/comparison tests (`:core:jvmTest --tests org.example.stocksteps.screener.*`, 30 passed); server screener + FMP adapter tests (`:server:test --tests org.example.stocksteps.screener.* --tests org.example.stocksteps.repositoryImpl.*`, all passed); `:app:shared:compileAndroidMain` succeeded; iOS `xcodebuild` BUILD SUCCEEDED. **Not run to completion:** the full suite (core iOS, all server tests, shared Android/iOS host tests) and `:app:androidApp:assembleDebug` were started but stopped before finishing; no live MOCK curl pass; no REAL calls.
+- **Limits**: REAL not live-verified; full annual fundamentals still loaded per company in REAL; no total return; manual UI/
+  accessibility pass pending; selection not persisted.
+- **Next**: run the full test command and `assembleDebug`, restart MOCK and do a device walkthrough; authorized REAL acceptance run;
+  Phase 2 (guided interpretation) when requested.
 
 ## Earnings Intelligence Lite Phase 5: StockSteps+ Premium Earnings Intelligence (2026-10-08) — commit "Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS"
 

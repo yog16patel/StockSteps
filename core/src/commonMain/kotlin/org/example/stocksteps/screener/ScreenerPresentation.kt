@@ -8,6 +8,7 @@ import org.example.stocksteps.data.userdata.UserApi
 import org.example.stocksteps.data.userdata.UserDataCache
 import org.example.stocksteps.domain.AuthRepository
 import org.example.stocksteps.model.FinancialAvailability
+import org.example.stocksteps.model.FinancialBasis
 import org.example.stocksteps.network.StockStepsApi
 import org.example.stocksteps.network.StockStepsApiException
 import kotlin.math.abs
@@ -69,6 +70,24 @@ class ComparisonSelection {
     fun remove(symbol: String) = mutable.update { list -> list.filterNot { it.symbol.equals(symbol, ignoreCase = true) } }
     fun toggle(symbol: String, name: String): SelectionResult =
         if (selected.value.any { it.symbol.equals(symbol, ignoreCase = true) }) { remove(symbol); SelectionResult.ADDED } else add(symbol, name)
+    /** Swaps [old] for another company in the same position (no restart). */
+    fun replace(old: String, symbol: String, name: String): SelectionResult {
+        var result = SelectionResult.ADDED
+        mutable.update { current ->
+            val index = current.indexOfFirst { it.symbol.equals(old, ignoreCase = true) }
+            when {
+                symbol.equals(old, ignoreCase = true) -> current
+                current.any { it.symbol.equals(symbol, ignoreCase = true) } -> { result = SelectionResult.ALREADY_SELECTED; current }
+                index < 0 -> { if (current.size >= MAX_COMPARED_COMPANIES) { result = SelectionResult.FULL; current } else current + SelectedCompany(symbol.uppercase(), name) }
+                else -> current.toMutableList().also { it[index] = SelectedCompany(symbol.uppercase(), name) }
+            }
+        }
+        return result
+    }
+    /** Replaces the whole selection (examples, a watchlist): duplicates dropped, at most [MAX_COMPARED_COMPANIES]. */
+    fun set(companies: List<SelectedCompany>) {
+        mutable.value = companies.distinctBy { it.symbol.uppercase() }.take(MAX_COMPARED_COMPANIES).map { it.copy(symbol = it.symbol.uppercase()) }
+    }
     fun clear() { mutable.value = emptyList() }
     fun contains(symbol: String) = selected.value.any { it.symbol.equals(symbol, ignoreCase = true) }
 }
@@ -80,8 +99,16 @@ object SharedComparisonSelection {
 
 // ---------- Formatting (no calculations) ----------
 
-data class MetricCell(val text: String, val tone: Tone = Tone.NEUTRAL, val explanation: String? = null) {
+data class MetricCell(
+    val text: String,
+    val tone: Tone = Tone.NEUTRAL,
+    /** Why the value isn't shown (tap target); null when it is available. */
+    val explanation: String? = null,
+    /** Small second line: the company's own reporting period or a converted amount (e.g. "FY ended Sep 2025"). */
+    val detail: String? = null
+) {
     val available: Boolean get() = explanation == null
+    val accessibility: String get() = text + (detail?.let { ", $it" } ?: "")
 }
 enum class Tone { NEUTRAL, POSITIVE, NEGATIVE }
 
@@ -89,7 +116,7 @@ object MetricFormatter {
     fun cell(definition: MetricDefinition?, value: MetricValue?, currency: String? = null): MetricCell {
         val v = value?.value?.takeIf { it.isFinite() }
         if (value?.availability == FinancialAvailability.NO_DIVIDEND) return MetricCell("None", explanation = "No dividend in the trailing year.")
-        if (v == null || value.availability != FinancialAvailability.AVAILABLE) return MetricCell("N/A", explanation = reason(value?.availability))
+        if (v == null || value.availability != FinancialAvailability.AVAILABLE) return MetricCell("N/A", explanation = explanation(definition?.id, value))
         val unit = definition?.unit ?: MetricUnit.RATIO
         val growth = definition?.group == MetricGroup.GROWTH
         val text = when (unit) {
@@ -102,6 +129,27 @@ object MetricFormatter {
         }
         val tone = if (growth) (if (v > 0) Tone.POSITIVE else if (v < 0) Tone.NEGATIVE else Tone.NEUTRAL) else Tone.NEUTRAL
         return MetricCell(text, tone)
+    }
+
+    /**
+     * Why a value is missing, specific to the metric: the company's own source note first, then a
+     * metric-aware reason ("not meaningful" is different from "not reported").
+     */
+    fun explanation(metricId: String?, value: MetricValue?): String {
+        value?.note?.takeIf { it.isNotBlank() && value.availability != FinancialAvailability.AVAILABLE }?.let { return it }
+        val a = value?.availability
+        if (a == FinancialAvailability.NON_POSITIVE_DENOMINATOR) when (metricId) {
+            "pe" -> return "Not meaningful: the company had zero or negative earnings (a loss) over the trailing twelve months."
+            "debtEquity", "priceBook" -> return "Not meaningful: shareholders' equity is zero or negative."
+            "payoutRatio" -> return "Not meaningful: earnings were zero or negative."
+            "evEbitda" -> return "Not meaningful: EBITDA was zero or negative."
+            "interestCoverage" -> return "Not shown: the company reported no interest expense."
+        }
+        if (a == null || a == FinancialAvailability.MISSING) when (metricId) {
+            "quarterRevenueGrowth" -> return "No comparable quarterly results are available for this company."
+            "dividendYield" -> return "Dividend history isn't available, so the yield isn't shown (this isn't the same as no dividend)."
+        }
+        return reason(a)
     }
 
     fun reason(availability: FinancialAvailability?): String = when (availability) {
@@ -127,6 +175,11 @@ object MetricFormatter {
     fun price(value: Double, currency: String?) = symbol(currency) + grouped(decimals(abs(value), 2)).let { if (value < 0) "−$it" else it }
 
     fun money(value: Double, currency: String?): String = (if (value < 0) "−" else "") + symbol(currency) + compact(abs(value))
+
+    /** Money with an unambiguous currency marker ("US$", "C$"), used when compared amounts are in different currencies. */
+    fun money(value: Double, currency: String?, explicit: Boolean): String =
+        if (explicit && (currency == null || currency == "USD")) (if (value < 0) "−" else "") + (if (currency == null) "" else "US$") + compact(abs(value)) + (if (currency == null) " (currency not reported)" else "")
+        else money(value, currency)
 
     fun compact(value: Double): String = when {
         value >= 1e12 -> "${decimals(value / 1e12, 2)}T"
@@ -379,13 +432,20 @@ data class CompanyColumn(
     val logoUrl: String?,
     val price: String,
     val change: MetricCell,
-    val error: String?
+    val error: String?,
+    /** "NASDAQ · US · USD": tells same-named or cross-listed companies apart. */
+    val listing: String = listOfNotNull(exchange, currency).joinToString(" · ")
 )
 
 data class ComparisonRow(val id: String, val label: String, val period: String?, val cells: List<MetricCell>) {
-    fun accessibility(columns: List<CompanyColumn>) = "$label: " + columns.zip(cells).joinToString("; ") { (c, cell) -> "${c.symbol} ${cell.text}" }
+    fun accessibility(columns: List<CompanyColumn>) = "$label" + (period?.let { ", $it" } ?: "") + ": " +
+        columns.zip(cells).joinToString("; ") { (c, cell) -> "${c.symbol} " + if (cell.available) cell.accessibility else "not available, ${cell.explanation}" }
 }
-data class ComparisonSection(val title: String, val rows: List<ComparisonRow>, val note: String? = null)
+/** [advanced] sections hold extra metrics shown under "More metrics" (collapsed by default for beginners). */
+data class ComparisonSection(val title: String, val rows: List<ComparisonRow>, val note: String? = null, val advanced: Boolean = false)
+
+/** Ready-made pairs for a first comparison (no selection yet). */
+data class ComparisonExample(val title: String, val description: String, val companies: List<SelectedCompany>)
 
 data class ComparisonUiState(
     val selected: List<SelectedCompany> = emptyList(),
@@ -400,12 +460,23 @@ data class ComparisonUiState(
     val chartLoading: Boolean = false,
     val chartError: String? = null,
     val sampleData: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+    /** When the comparison data was produced (server time). */
+    val asOf: String? = null
 ) {
     val needsMore: Boolean get() = selected.size < 2
+    val canAdd: Boolean get() = selected.size < MAX_COMPARED_COMPANIES
+    val examples: List<ComparisonExample> get() = ComparisonPresenter.EXAMPLES
+    /** Gentle guidance: four columns are tight on a phone. */
+    val crowdedHint: String? get() = if (selected.size >= MAX_COMPARED_COMPANIES) "Four companies fit, but two or three are easier to read on a phone." else null
+    val advancedCount: Int get() = sections.filter { it.advanced }.sumOf { it.rows.size }
 }
 
-/** Compare 2–4 companies: one request for metrics, one per chart period. Never ranks companies. */
+/**
+ * Compare 2–4 companies (2–3 recommended on phones): one request for metrics, one per chart period
+ * (shared between the chart and the price-performance rows, never fetched twice). Beginner metrics
+ * come first; the rest are under "More metrics". Never ranks companies.
+ */
 class ComparisonPresenter(
     private val data: ScreenerDataSource,
     private val selection: ComparisonSelection,
@@ -415,6 +486,48 @@ class ComparisonPresenter(
     val state: StateFlow<ComparisonUiState> = mutable.asStateFlow()
     private val period = MutableStateFlow(PerformancePeriod.ONE_YEAR)
     private val refreshes = MutableStateFlow(0)
+    /** In-flight or finished performance requests by "SYMBOLS|period" (failures are dropped so a retry refetches). */
+    private val performanceRequests = HashMap<String, Deferred<PerformanceComparison>>()
+    private val requestScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
+
+    companion object {
+        val EXAMPLES = listOf(
+            ComparisonExample("Apple and Microsoft", "Two large technology companies whose fiscal years end in different months.",
+                listOf(SelectedCompany("AAPL", "Apple Inc."), SelectedCompany("MSFT", "Microsoft Corporation"))),
+            ComparisonExample("Royal Bank and TD", "Two Canadian banks: one listed in Toronto (CAD), one in New York (USD).",
+                listOf(SelectedCompany("RY.TO", "Royal Bank of Canada"), SelectedCompany("TD", "Toronto-Dominion Bank"))),
+            ComparisonExample("Coca-Cola and Rivian", "A long-time dividend payer and a company that reports losses and pays no dividend.",
+                listOf(SelectedCompany("KO", "Coca-Cola Co"), SelectedCompany("RIVN", "Rivian Automotive Inc")))
+        )
+        /** Beginner rows, in order, under the five core groups. */
+        val CORE_SECTIONS = listOf(
+            "Growth" to listOf("quarterRevenueGrowth", "revenueGrowth"),
+            "Profitability" to listOf("netMargin"),
+            "Financial Health" to listOf("debtEquity"),
+            "Valuation" to listOf("pe", "priceSales"),
+            "Shareholder Returns" to listOf("dividendYield")
+        )
+    }
+
+    private fun key(symbols: List<String>, p: PerformancePeriod) = symbols.joinToString(",") + "|" + p.name
+
+    /** One request per selection and period, shared by the chart and the price-change rows. */
+    private fun performance(symbols: List<String>, p: PerformancePeriod): Deferred<PerformanceComparison> {
+        performanceRequests[key(symbols, p)]?.let { return it }
+        // Only the current selection's requests are kept.
+        performanceRequests.keys.filterNot { it.startsWith(symbols.joinToString(",") + "|") }.forEach { performanceRequests.remove(it) }
+        return requestScope.async { data.performance(symbols, p) }.also { performanceRequests[key(symbols, p)] = it }
+    }
+
+    private suspend fun performanceOrNull(symbols: List<String>, p: PerformancePeriod): PerformanceComparison? {
+        val request = performance(symbols, p)
+        return try { request.await() } catch (cause: Exception) {
+            if (cause is CancellationException && !currentCoroutineContext().isActive) throw cause
+            // A failed request is forgotten so the next attempt fetches again.
+            if (performanceRequests[key(symbols, p)] === request) performanceRequests.remove(key(symbols, p))
+            null
+        }
+    }
 
     init {
         scope.launch {
@@ -423,11 +536,11 @@ class ComparisonPresenter(
                 if (symbols.size < 2) { mutable.update { it.copy(loading = false, columns = emptyList(), sections = emptyList(), observations = emptyList(), notes = emptyList(), error = null) }; return@collectLatest }
                 mutable.update { it.copy(loading = true, error = null) }
                 try {
-                    val (response, oneYear, threeYear) = coroutineScope {
-                        val compare = async { data.compare(symbols) }
-                        val y1 = async { runCatching { data.performance(symbols, PerformancePeriod.ONE_YEAR) }.getOrNull() }
-                        val y3 = async { runCatching { data.performance(symbols, PerformancePeriod.THREE_YEARS) }.getOrNull() }
-                        Triple(compare.await(), y1.await(), y3.await())
+                    val response = data.compare(symbols)
+                    val (oneYear, threeYear) = coroutineScope {
+                        val y1 = async { performanceOrNull(symbols, PerformancePeriod.ONE_YEAR) }
+                        val y3 = async { performanceOrNull(symbols, PerformancePeriod.THREE_YEARS) }
+                        y1.await() to y3.await()
                     }
                     mutable.update { build(it.copy(loading = false), response, oneYear, threeYear) }
                 } catch (cause: Exception) {
@@ -440,73 +553,131 @@ class ComparisonPresenter(
             combine(selection.selected.map { list -> list.map { it.symbol } }.distinctUntilChanged(), period, refreshes) { s, p, r -> Triple(s, p, r) }.collectLatest { (symbols, p, _) ->
                 if (symbols.size < 2) { mutable.update { it.copy(chart = null, chartError = null, chartLoading = false) }; return@collectLatest }
                 mutable.update { it.copy(chartLoading = true, chartError = null, period = p) }
-                try {
-                    val chart = data.performance(symbols, p)
-                    mutable.update { it.copy(chartLoading = false, chart = chart) }
-                } catch (cause: Exception) {
-                    if (cause is CancellationException) throw cause
-                    mutable.update { it.copy(chartLoading = false, chart = null, chartError = "Price history couldn't be loaded.") }
-                }
+                val chart = performanceOrNull(symbols, p)
+                mutable.update { it.copy(chartLoading = false, chart = chart, chartError = if (chart == null) "Price history couldn't be loaded. Try again." else null) }
             }
         }
     }
 
+    private fun periodLabel(b: FinancialBasis?): String? {
+        b ?: return null
+        val month = b.date?.let { d -> MONTHS.getOrNull((d.drop(5).take(2).toIntOrNull() ?: 0) - 1)?.let { "$it ${d.take(4)}" } }
+        return when (b.period.lowercase()) {
+            "ttm" -> "Trailing twelve months"
+            "annual", "fy" -> month?.let { "FY ended $it" } ?: b.fiscalYear?.let { "FY$it" }
+            "latest quote" -> "Latest quote"
+            else -> null
+        }
+    }
+    private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
     private fun build(state: ComparisonUiState, response: ComparisonResponse, oneYear: PerformanceComparison?, threeYear: PerformanceComparison?): ComparisonUiState {
         val companies = response.companies
+        val listingCurrencies = companies.mapNotNull { it.record?.currency }.distinct()
+        val reportingCurrencies = companies.flatMap { c -> c.annual.mapNotNull { it.currency } }.distinct()
+        // Amounts get explicit markers ("US$", "C$") whenever the compared companies use different currencies.
+        val explicit = (listingCurrencies + reportingCurrencies).distinct().size > 1
         val columns = companies.map { c ->
             val r = c.record
             CompanyColumn(c.symbol, r?.name ?: c.symbol, r?.exchange, r?.currency, r?.logoUrl,
                 r?.price?.let { MetricFormatter.price(it, r.currency) } ?: "—", MetricFormatter.change(r?.changePercent), c.error)
         }
-        fun metricRow(id: String): ComparisonRow {
+        fun metricRow(id: String, label: String? = null, alwaysDetail: Boolean = false): ComparisonRow {
             val d = ScreenerDefinitions.metric(id)
-            return ComparisonRow(id, d?.label ?: id, d?.period, companies.map { MetricFormatter.cell(d, it.record?.metrics?.get(id), it.record?.currency) })
+            val values = companies.map { it.record?.metrics?.get(id) }
+            // The period each company's value actually covers (its basis), not just the catalog's default.
+            val periods = values.map { v -> if (v?.availability == FinancialAvailability.AVAILABLE) periodLabel(v.basis) ?: v.note else null }
+            val distinct = periods.filterNotNull().distinct()
+            val rowPeriod = when {
+                distinct.size == 1 && !alwaysDetail -> distinct.single()
+                distinct.size > 1 -> "Periods differ by company"
+                else -> d?.period
+            }
+            val cells = companies.mapIndexed { i, c ->
+                val v = values[i]
+                val cell = if (d?.unit == MetricUnit.MONEY && v?.availability == FinancialAvailability.AVAILABLE && v.value != null)
+                    MetricCell(MetricFormatter.money(v.value, v.basis?.currency ?: c.record?.currency, explicit))
+                else MetricFormatter.cell(d, v, c.record?.currency)
+                if (cell.available && (alwaysDetail || distinct.size > 1)) cell.copy(detail = periods[i]) else cell
+            }
+            return ComparisonRow(id, label ?: d?.label ?: id, rowPeriod, cells)
         }
         fun textRow(id: String, label: String, get: (CompanyRecord) -> String?) = ComparisonRow(id, label, null,
-            companies.map { c -> c.record?.let(get)?.let { MetricCell(it) } ?: MetricCell("N/A", explanation = "Not available for this company.") })
-        fun performanceRow(id: String, label: String, perf: PerformanceComparison?) = ComparisonRow(id, label, "Price return",
+            companies.map { c -> c.record?.let(get)?.takeIf { it.isNotBlank() }?.let { MetricCell(it) } ?: MetricCell("N/A", explanation = if (c.record == null) c.error ?: "Company data isn't available." else "Not reported for this company.") })
+        // Market cap in each listing's own currency; a converted USD amount is shown underneath for non-USD listings.
+        val marketCapRow = ComparisonRow("marketCap", "Market cap", "Latest quote; in each listing's currency", companies.map { c ->
+            val r = c.record
+            val local = r?.marketCap?.takeIf { it > 0 && it.isFinite() }
+            val usd = r?.metrics?.get("marketCap")?.takeIf { it.availability == FinancialAvailability.AVAILABLE }?.value
+            when {
+                local == null -> MetricCell("N/A", explanation = "Market value isn't available right now.")
+                r.currency != null && r.currency != "USD" -> MetricCell(MetricFormatter.money(local, r.currency, explicit), detail = usd?.let { "≈ ${MetricFormatter.money(it, "USD", true)} converted" })
+                else -> MetricCell(MetricFormatter.money(local, r.currency, explicit))
+            }
+        })
+        fun performanceRow(id: String, label: String, perf: PerformanceComparison?) = ComparisonRow(id, label, "Price change only (not total return)",
             companies.map { c ->
                 val series = perf?.series?.firstOrNull { it.symbol == c.symbol }
-                series?.change?.let { MetricFormatter.cell(MetricDefinition(id, label, MetricGroup.GROWTH, MetricUnit.PERCENT, "", ""), MetricValue(it, FinancialAvailability.AVAILABLE)) }
+                series?.change?.let { MetricFormatter.cell(MetricDefinition(id, label, MetricGroup.GROWTH, MetricUnit.PERCENT, "", ""), MetricValue(it, FinancialAvailability.AVAILABLE)).copy(detail = series.note?.let { "To ${series.lastDate}" }) }
                     ?: MetricCell("N/A", explanation = series?.error ?: "Price history unavailable.")
             })
         val years = companies.flatMap { c -> c.annual.map { it.fiscalYear } }.distinct().sortedDescending().take(3)
         fun annualRow(year: Int, label: String, get: (AnnualFigures) -> Double?) = ComparisonRow("annual-$label-$year", "$label FY$year", "Fiscal year; reporting currency",
             companies.map { c ->
                 val figures = c.annual.firstOrNull { it.fiscalYear == year }
-                figures?.let(get)?.let { MetricCell(MetricFormatter.money(it, figures.currency)) } ?: MetricCell("N/A", explanation = "No fiscal-year $year figures.")
+                figures?.let(get)?.let { MetricCell(MetricFormatter.money(it, figures.currency, explicit), detail = periodLabel(FinancialBasis("annual", figures.date, figures.fiscalYear))) }
+                    ?: MetricCell("N/A", explanation = "No fiscal-year $year figures.")
             })
-        val currencies = companies.flatMap { c -> c.annual.mapNotNull { it.currency } }.distinct()
-        val sections = listOf(
-            ComparisonSection("Overview", listOf(metricRow("marketCap"),
-                textRow("sector", "Sector") { it.sector }, textRow("industry", "Industry") { it.industry },
-                textRow("exchange", "Exchange") { it.exchange }, textRow("country", "Country") { it.country })),
-            ComparisonSection("Valuation", listOf("pe", "forwardPe", "priceSales", "priceBook", "evEbitda").map(::metricRow),
-                "Trailing P/E uses reported earnings; forward P/E uses analyst estimates. They're never mixed."),
-            ComparisonSection("Growth", listOf("revenueGrowth", "epsGrowth", "netIncomeGrowth", "fcfGrowth").map(::metricRow)),
-            ComparisonSection("Profitability", listOf("grossMargin", "operatingMargin", "netMargin", "roe", "roic").map(::metricRow)),
-            ComparisonSection("Financial health", listOf("debtEquity", "currentRatio", "interestCoverage", "cash", "debt").map(::metricRow),
-                "Debt measures aren't comparable for banks and insurers."),
-            ComparisonSection("Shareholder returns", listOf(metricRow("dividendYield"), metricRow("payoutRatio"),
-                performanceRow("return1y", "1-year price performance", oneYear), performanceRow("return3y", "3-year price performance", threeYear))),
-            ComparisonSection("Financial growth", years.flatMap { y -> listOf(annualRow(y, "Revenue") { it.revenue }, annualRow(y, "Net income") { it.netIncome }, annualRow(y, "Free cash flow") { it.freeCashFlow }) },
-                if (currentRows(currencies)) "Amounts are in each company's reporting currency (${currencies.joinToString()}) and aren't converted." else null)
+        val labels = mapOf("quarterRevenueGrowth" to "Revenue growth — latest quarter", "revenueGrowth" to "Revenue growth — fiscal year", "netMargin" to "Net profit margin",
+            "debtEquity" to "Debt to equity", "pe" to "P/E ratio (trailing)", "priceSales" to "Price to sales", "dividendYield" to "Dividend yield")
+        val core = listOf(ComparisonSection("Overview", listOf(marketCapRow,
+            textRow("sector", "Sector") { it.sector }, textRow("industry", "Industry") { it.industry },
+            textRow("listing", "Listing") { r -> listOfNotNull(r.exchange, r.country, r.currency).joinToString(" · ").ifBlank { null } }),
+            if (listingCurrencies.size > 1) "Prices and market caps are in each listing's own currency (${listingCurrencies.joinToString(" and ")}). Converted amounts are approximate." else null)) +
+            CORE_SECTIONS.map { (title, ids) ->
+                ComparisonSection(title, ids.map { id -> metricRow(id, labels[id], alwaysDetail = id == "quarterRevenueGrowth") }, when (title) {
+                    "Growth" -> "Latest quarter compares the same fiscal quarter a year earlier; companies' quarters can end in different months."
+                    "Financial Health" -> "Debt to equity isn't comparable for banks and insurers, whose balance sheets work differently."
+                    "Valuation" -> "A loss means there's no meaningful P/E. A lower ratio isn't proof that a stock is undervalued."
+                    "Shareholder Returns" -> "Dividend yield describes the past year's payments. Dividends can change and aren't guaranteed."
+                    else -> null
+                })
+            }
+        val advanced = listOf(
+            ComparisonSection("More valuation measures", listOf("forwardPe", "priceBook", "evEbitda").map { metricRow(it) },
+                "Trailing P/E uses reported earnings; forward P/E uses analyst estimates. They're never mixed.", advanced = true),
+            ComparisonSection("More growth measures", listOf("epsGrowth", "netIncomeGrowth", "fcfGrowth").map { metricRow(it) }, advanced = true),
+            ComparisonSection("More profitability measures", listOf("grossMargin", "operatingMargin", "roe", "roic").map { metricRow(it) }, advanced = true),
+            ComparisonSection("More financial health measures", listOf("currentRatio", "interestCoverage", "cash", "debt").map { metricRow(it) },
+                "Amounts are in each company's reporting currency and aren't converted.".takeIf { explicit }, advanced = true),
+            ComparisonSection("Price performance and payouts", listOf(metricRow("payoutRatio"),
+                performanceRow("return1y", "1-year price change", oneYear), performanceRow("return3y", "3-year price change", threeYear)),
+                "Price change excludes dividends. Past price moves don't predict future returns.", advanced = true),
+            ComparisonSection("Fiscal-year figures", years.flatMap { y -> listOf(annualRow(y, "Revenue") { it.revenue }, annualRow(y, "Net income") { it.netIncome }, annualRow(y, "Free cash flow") { it.freeCashFlow }) },
+                if (reportingCurrencies.size > 1) "Amounts are in each company's reporting currency (${reportingCurrencies.joinToString()}) and aren't converted." else null, advanced = true)
         )
-        return state.copy(columns = columns, sections = sections, observations = response.observations, notes = response.notes, sampleData = response.sampleData)
+        return state.copy(columns = columns, sections = core + advanced, observations = response.observations, notes = response.notes, sampleData = response.sampleData, asOf = response.asOf)
     }
-
-    private fun currentRows(currencies: List<String>) = currencies.size > 1
 
     fun selectPeriod(value: PerformancePeriod) { period.value = value }
     fun remove(symbol: String) = selection.remove(symbol)
     fun add(symbol: String, name: String) {
         when (selection.add(symbol, name)) {
-            SelectionResult.FULL -> mutable.update { it.copy(message = "You can compare up to $MAX_COMPARED_COMPANIES companies.") }
-            SelectionResult.ALREADY_SELECTED -> mutable.update { it.copy(message = "$symbol is already in the comparison.") }
+            SelectionResult.FULL -> mutable.update { it.copy(message = "You can compare up to $MAX_COMPARED_COMPANIES companies. Remove or replace one first.") }
+            SelectionResult.ALREADY_SELECTED -> mutable.update { it.copy(message = "${symbol.uppercase()} is already in the comparison.") }
             SelectionResult.ADDED -> Unit
         }
     }
-    fun retry() { refreshes.value++ }
+    /** Swaps one company for another in place; the rest of the comparison stays. */
+    fun replace(old: String, symbol: String, name: String) {
+        when (selection.replace(old, symbol, name)) {
+            SelectionResult.ALREADY_SELECTED -> mutable.update { it.copy(message = "${symbol.uppercase()} is already in the comparison.") }
+            SelectionResult.FULL -> mutable.update { it.copy(message = "You can compare up to $MAX_COMPARED_COMPANIES companies.") }
+            SelectionResult.ADDED -> Unit
+        }
+    }
+    fun useExample(index: Int) { EXAMPLES.getOrNull(index)?.let { selection.set(it.companies) } }
+    fun retry() { performanceRequests.clear(); refreshes.value++ }
     fun dismissMessage() = mutable.update { it.copy(message = null) }
 }
 

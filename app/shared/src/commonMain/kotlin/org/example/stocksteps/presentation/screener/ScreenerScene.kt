@@ -140,6 +140,8 @@ internal fun ComparisonScene(
                 modifier = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize(),
                 onRemove = model.presenter::remove,
                 onAdd = model.presenter::add,
+                onReplace = model.presenter::replace,
+                onExample = model.presenter::useExample,
                 onSearch = { query -> search.searchStocks()(query) },
                 onPeriod = model.presenter::selectPeriod,
                 onOpen = onOpenStock,

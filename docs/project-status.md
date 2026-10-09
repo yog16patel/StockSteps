@@ -6,14 +6,13 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-HEAD is **"Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS"** (on top of `87acb1d`, Phase 4). Earnings Intelligence Lite Phases 1–5 are done; see
-`docs/EARNINGS.md` (newest phase first). **No feature is in progress.**
+HEAD is **"Improve Company Comparison Phase 1 for beginners on Android and iOS"** (on top of `b558ba9`, Earnings Phase 5). Company Comparison Phase 1 was reviewed and completed; see
+`docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 1". **No feature is in progress.**
 
-Verification after Phase 5: core JVM 341, core iOS 341, server 316, shared Android host 55, shared iOS 49 — 0 failures; `:app:androidApp:assembleDebug` succeeded; iOS `xcodebuild` (default DerivedData) BUILD SUCCEEDED; live MOCK curl checks passed. Real billing, push delivery, Cloud Scheduler, Firestore indexes, REAL Gemini output
-and the REAL deployment are **unverified**.
+Verified: core screener/comparison tests (`:core:jvmTest --tests org.example.stocksteps.screener.*`, 30 passed); server screener + FMP adapter tests (`:server:test --tests org.example.stocksteps.screener.* --tests org.example.stocksteps.repositoryImpl.*`, all passed); `:app:shared:compileAndroidMain` succeeded; iOS `xcodebuild` BUILD SUCCEEDED. **Not run to completion:** the full suite (core iOS, all server tests, shared Android/iOS host tests) and `:app:androidApp:assembleDebug` were started but stopped before finishing; no live MOCK curl pass; no REAL calls.
 
-Next steps (ask the user): device walkthrough of Phases 1–5; StockSteps+ billing; shared quota/cache storage for
-multi-instance; production push/scheduler (§4). Build iOS without `-derivedDataPath`.
+Next steps: run the full test command and Android build; restart the MOCK server (`./gradlew :server:runMock`) and do a live/device
+check of Compare; authorized REAL acceptance run for comparison (TSX coverage, quarterly results); Comparison Phase 2 only when asked.
 
 ## 1. Feature status
 
@@ -21,6 +20,7 @@ multi-instance; production push/scheduler (§4). Build iOS without `-derivedData
 
 | Feature | Commit (title) | Doc | Notes |
 |---|---|---|---|
+| Company Comparison Phase 1 review (beginner groups, no horizontal scroll, replace/examples, Watchlist entry, latest-quarter growth, periods/currencies, chart base date) | "Improve Company Comparison Phase 1 for beginners on Android and iOS" | `docs/SCREENER_AND_COMPARISON.md` | Free; full suite not re-run at commit (see §0). |
 | StockSteps+ Premium Earnings Intelligence — Earnings Intelligence Lite Phase 5 (AI explanations, report-scoped questions, 8-quarter history, personalized weekly digest, fair-use quotas) | "Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS" | `docs/EARNINGS.md` (Phase 5) | StockSteps+; MOCK plans only (no billing); in-memory quotas/caches. |
 | Earnings reminders & smart notifications — Earnings Intelligence Lite Phase 4 (backend scheduling, opt-in watchlist reminders, results/date-change notices, deep links) | "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS" | `docs/EARNINGS.md` (Phase 4) | Free; earnings alerts migrated; real FCM/APNs delivery and Cloud Scheduler not verified. |
 | Post-earnings price reaction — Earnings Intelligence Lite Phase 3 (calendar-aware First/3/5-session windows, chart, explanations) | "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS" | `docs/EARNINGS.md` (Phase 3) | Free; regular-session closes only; no corporate-action feed in REAL. |

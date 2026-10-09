@@ -9,6 +9,7 @@ object ScreenerDefinitions {
     private const val TTM = "Trailing twelve months"
     private const val FY = "Latest fiscal year vs the prior fiscal year"
     private const val LATEST = "Latest reported balance sheet"
+    private const val QUARTER = "Latest reported fiscal quarter vs the same quarter a year earlier"
     private const val EXCLUDED = "Companies without a valid value are left out of results that filter on it."
     private val FINANCIALS = listOf("Financial Services")
 
@@ -28,7 +29,10 @@ object ScreenerDefinitions {
         MetricDefinition("evEbitda", "EV / EBITDA", MetricGroup.VALUATION, MetricUnit.MULTIPLE, TTM, "Not meaningful with zero or negative EBITDA.", 4.0, 30.0),
         MetricDefinition("dividendYield", "Dividend yield", MetricGroup.VALUATION, MetricUnit.PERCENT, TTM,
             "Companies that paid no dividend in the trailing year count as 0%; unknown dividend history is left out.", 0.0, 8.0),
-        MetricDefinition("revenueGrowth", "Revenue growth", MetricGroup.GROWTH, MetricUnit.PERCENT, FY, EXCLUDED, -10.0, 50.0),
+        MetricDefinition("revenueGrowth", "Revenue growth (fiscal year)", MetricGroup.GROWTH, MetricUnit.PERCENT, FY, EXCLUDED, -10.0, 50.0),
+        // Comparison-only: from the latest published quarterly report (the Earnings Results pipeline), never estimated.
+        MetricDefinition("quarterRevenueGrowth", "Revenue growth (latest quarter)", MetricGroup.GROWTH, MetricUnit.PERCENT, QUARTER,
+            "Shown only when the same quarter a year earlier is reported in the same currency on a comparable fiscal calendar.", filterable = false),
         MetricDefinition("epsGrowth", "EPS growth", MetricGroup.GROWTH, MetricUnit.PERCENT, FY,
             "Not calculated when prior EPS was zero or negative (a turnaround isn't a percentage); those companies are left out.", -20.0, 60.0),
         MetricDefinition("netIncomeGrowth", "Net income growth", MetricGroup.GROWTH, MetricUnit.PERCENT, FY,

@@ -34,6 +34,12 @@ class IosScreenerClient(baseUrl: () -> String, account: IosAccountClient?) {
     fun sort(field: String, metric: String?, descending: Boolean) = SortField.entries.firstOrNull { it.name == field }?.let { screener.sort(ScreenerSort(it, metric, descending)) }
     fun selectPeriod(label: String) = PerformancePeriod.parse(label)?.let(comparison::selectPeriod)
     fun addToComparison(symbol: String, name: String) = comparison.add(symbol, name)
+    fun replaceInComparison(old: String, symbol: String, name: String) = comparison.replace(old, symbol, name)
+    fun useExample(index: Int) = comparison.useExample(index)
+    /** Watchlist entry point: compares the first three companies of a list. */
+    fun compareCompanies(symbols: List<String>, names: List<String>) =
+        SharedComparisonSelection.instance.set(symbols.zip(names).map { (s, n) -> SelectedCompany(s, n) }.take(3))
+    fun maxCompanies(): Int = MAX_COMPARED_COMPANIES
     fun education(id: String): MetricInfo = MetricFormatter.education(id, ScreenerDefinitions.metric(id))
     fun rangeText(range: RangeFilter): String = when {
         range.min != null && range.max != null -> "${format(range.metric, range.min!!)}–${format(range.metric, range.max!!)}"

@@ -13,7 +13,7 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-08)
 
-Latest commit: "Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS", after `87acb1d` (Phase 4).
+Latest commit: "Improve Company Comparison Phase 1 for beginners on Android and iOS", after `b558ba9` (Earnings Phase 5). The full test suite was not re-run to completion at that commit (see `docs/project-status.md` §0).
 Earnings Intelligence Lite Phases 1–5 are committed (spec: `docs/EARNINGS.md`, Phase 5 = StockSteps+ premium earnings
 intelligence). No feature in progress. Read `docs/PROJECT_HANDOFF.md` (end-of-session handoff) first; next steps and
 production dependencies are in `docs/project-status.md` §0 and §4. A local MOCK server may still be

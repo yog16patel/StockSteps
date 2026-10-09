@@ -112,7 +112,15 @@ class ScreenerService(
     private val fullRecords: Boolean,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     private val recordTtl: Long = 21_600_000L,
-    private val pageCache: CompanyFinancialCache = CompanyFinancialCache(capacity = 128)
+    private val pageCache: CompanyFinancialCache = CompanyFinancialCache(capacity = 128),
+    /**
+     * Latest-quarter revenue growth from the Earnings Results pipeline (the same calculation and
+     * comparability rules as Earnings Results; one cached earnings-history request per company).
+     * Null: the row shows "not available".
+     */
+    private val quarterlyRevenueGrowth: (suspend (String) -> MetricValue)? = null,
+    /** Where comparison data comes from in this environment (shown with every comparison). */
+    private val provenance: List<String> = emptyList()
 ) {
     private val log = LoggerFactory.getLogger("StockSteps.Screener")
     private val lock = Mutex()
@@ -256,12 +264,16 @@ class ScreenerService(
             try {
                 val quote = async { runCatching { stocks.getStock(symbol) }.getOrNull() }
                 val profile = async { runCatching { stocks.getProfile(symbol) }.getOrNull() }
+                val quarter = async { quarterGrowth(symbol) }
                 val data = cachedFundamentals(symbol) ?: loadFundamentals(symbol)
                 val p = profile.await()
                 if (p == null && quote.await() == null) ComparedCompany(symbol = symbol, error = "Company data isn't available right now.")
-                else ComparedCompany(CompanyRecordBuilder.build(symbol, quote.await(), p, data, rate(p?.currency), today()).copy(hasFundamentals = data != null),
-                    symbol, if (data == null) "Financial data isn't available right now; only price information is shown." else null,
-                    CompanyRecordBuilder.annualFigures(data))
+                else {
+                    val record = CompanyRecordBuilder.build(symbol, quote.await(), p, data, rate(p?.currency), today())
+                    ComparedCompany(record.copy(hasFundamentals = data != null, metrics = record.metrics + ("quarterRevenueGrowth" to quarter.await())),
+                        symbol, if (data == null) "Financial data isn't available right now; only price information is shown." else null,
+                        CompanyRecordBuilder.annualFigures(data))
+                }
             } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
                 ComparedCompany(symbol = symbol, error = "Company data isn't available right now.")
@@ -270,13 +282,23 @@ class ScreenerService(
         val loaded = companies.mapNotNull { it.record }
         val currencies = companies.flatMap { c -> c.annual.mapNotNull { it.currency } + listOfNotNull(c.record?.currency) }.distinct()
         val notes = buildList {
-            if (currencies.size > 1) add("Amounts are in each company's reporting currency (${currencies.joinToString()}) and aren't converted. Percentages and ratios can be compared directly.")
-            if (loaded.mapNotNull { it.metrics["revenue"]?.basis?.date ?: it.metrics["revenueGrowth"]?.basis?.date }.distinct().size > 1)
-                add("Fiscal years end on different dates, so annual figures cover different months.")
+            if (currencies.size > 1) add("Amounts are in each company's own currency (${currencies.joinToString()}) and aren't converted, except the approximate USD market cap shown for comparison. Percentages and ratios can be compared directly.")
+            val fiscalEnds = loaded.mapNotNull { it.metrics["revenueGrowth"]?.basis?.date?.drop(5)?.take(2) }.distinct()
+            if (fiscalEnds.size > 1) add("Fiscal years end in different months, so annual figures cover different periods.")
             add("Trailing (TTM) and estimated forward P/E are shown separately and never mixed.")
             if (loaded.any { it.stale }) add("Some financial statements are more than 18 months old.")
+            loaded.mapNotNull { r -> r.fundamentalsAsOf?.take(10)?.let { "${r.symbol} $it" } }.takeIf { it.isNotEmpty() }
+                ?.let { add("Financial statements retrieved: ${it.joinToString(", ")}.") }
+            addAll(provenance)
         }
         ComparisonResponse(companies, ScreenerDefinitions.metrics, ComparisonEngine.observations(loaded), notes, clock.instant().toString(), sampleData)
+    }
+
+    private suspend fun quarterGrowth(symbol: String): MetricValue = try {
+        quarterlyRevenueGrowth?.invoke(symbol) ?: MetricValue(note = "Quarterly results aren't available in this environment.")
+    } catch (cause: Exception) {
+        if (cause is CancellationException) throw cause
+        MetricValue(availability = FinancialAvailability.TEMPORARILY_UNAVAILABLE, note = "Quarterly results aren't available right now.")
     }
 
     suspend fun performance(rawSymbols: String?, rawPeriod: String?): PerformanceComparison = coroutineScope {
@@ -291,13 +313,15 @@ class ScreenerService(
             }
         } }.awaitAll().toMap()
         val currencies = list.associateWith { symbol -> runCatching { stocks.getProfile(symbol)?.currency }.getOrNull() }
-        val (dates, series) = PerformanceNormalizer.normalize(closes, start.toString(), end.toString(), currencies = currencies)
-        PerformanceComparison(period, ReturnKind.PRICE_RETURN, dates, series, listOfNotNull(
-            "Price return: each line starts at 100 on ${start}; dividends aren't included.",
+        val result = PerformanceNormalizer.compute(closes, start.toString(), end.toString(), currencies = currencies)
+        PerformanceComparison(period, ReturnKind.PRICE_RETURN, result.dates, result.series, listOfNotNull(
+            "Price change only: every line starts at 100 on ${result.baseDate ?: start}. Dividends aren't included, so this isn't total return.",
+            "This shows how share prices moved, not how the businesses performed, and past moves don't predict future returns.",
             "Prices are split-adjusted by the data provider, so a split doesn't appear as a drop.",
-            if (currencies.values.filterNotNull().distinct().size > 1) "Each line is a return in its own trading currency; exchange-rate changes aren't included." else null,
+            "When one market is closed (a holiday), that company's last close is carried for up to ${PerformanceNormalizer.CARRY_DAYS} days; longer gaps are left empty.",
+            if (currencies.values.filterNotNull().distinct().size > 1) "Each line is a change in its own trading currency; exchange-rate moves aren't included." else null,
             if (sampleData) "Sample price history for development, not real prices." else null
-        ))
+        ), result.baseDate)
     }
 }
 
@@ -312,4 +336,22 @@ class RequestRateLimiter(private val perMinute: Int, private val clock: () -> Lo
         if (windows.size > 10_000) windows.remove(windows.keys.first())
         if (window.size >= perMinute) false else { window.addLast(now); true }
     }
+}
+
+/**
+ * Latest-quarter revenue growth from a published Earnings Results report: the same year-over-year
+ * calculation and comparability checks (same fiscal quarter, currency, fiscal calendar, positive base)
+ * that Earnings Results shows. The note names the quarters compared ("Q3 FY2026 vs Q3 FY2025").
+ */
+fun quarterRevenueGrowth(results: org.example.stocksteps.earnings.EarningsResultsResponse): MetricValue {
+    val report = results.report
+    val growth = results.insights.yearOverYear
+    val basis = org.example.stocksteps.model.FinancialBasis("quarter", report.fiscalPeriodEnd ?: report.reportDate, report.fiscalYear, report.reportingCurrency)
+    val percent = growth.percent?.toDoubleOrNull()?.takeIf { it.isFinite() }
+    return if (percent != null) MetricValue(percent, FinancialAvailability.AVAILABLE, basis, "${report.period} vs ${growth.priorLabel ?: "a year earlier"}")
+    else MetricValue(null, when {
+        growth.reason?.contains("currency", ignoreCase = true) == true || growth.reason?.contains("calendar", ignoreCase = true) == true -> FinancialAvailability.PERIOD_MISMATCH
+        growth.reason?.contains("zero", ignoreCase = true) == true || growth.reason?.contains("negative", ignoreCase = true) == true -> FinancialAvailability.UNRELIABLE_COMPARISON
+        else -> FinancialAvailability.INSUFFICIENT_HISTORY
+    }, basis, "${report.period}: ${growth.reason ?: "the same quarter a year earlier isn't available."}")
 }

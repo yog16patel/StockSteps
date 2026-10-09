@@ -1,5 +1,118 @@
 # Smart Stock Screener & Stock Comparison
 
+> **Company Comparison Phase 1 review and completion (2026-10-08, commit "Improve Company Comparison Phase 1 for beginners on Android and iOS")** is documented in the next
+> section. It improves the comparison shipped in `4c65521` in place; the older sections below still describe the Screener and the
+> shared architecture.
+
+## Company Comparison — Phase 1 (free)
+
+### Phases (only Phase 1 is implemented)
+| Phase | Scope | Plan |
+|---|---|---|
+| **1. Basic company comparison** | 2–4 companies (2–3 recommended), beginner metrics, price-change chart, deterministic observations | **Free (implemented)** |
+| 2. Guided metric interpretation | step-by-step explanation of what each difference can mean | Free (not started) |
+| 3. Historical financial comparison | 1Y free; 3Y/5Y | 1Y free, 3Y/5Y StockSteps+ (not started) |
+| 4. Guided research checklist | comparison-driven research steps | Free (not started) |
+| 5. AI comparison assistant | `ComparisonExplainer` exists as an interface only (`NoComparisonExplainer`) | StockSteps+ (not started) |
+No paywall is applied to Phase 1.
+
+### Entry points (no new tab)
+Markets → **Compare Companies** tile; Company Details → **Compare** (adds that company); Discover Stocks (Screener) result
+rows → Compare; **Watchlist → "Compare these companies"** (first three companies of the shown list; new). The selection
+(`SharedComparisonSelection`) is shared by all of them for the app session.
+
+### UI behaviour (Android Compose `ComparisonScreen.kt`, iOS `CompareStocksScreen` in `ScreenerScenes.swift`)
+- Header "Compare Companies" + educational subtitle. **Companies card**: name, ticker and listing (exchange · currency) per
+  company with **Replace** and **Remove** (in place, no restart), **Add a company** (existing stock search, debounced), and the
+  hint "two or three are easiest to read on a phone" (four still supported; a fourth shows a gentler hint).
+- Empty (0–1 companies): three **examples** (Apple vs Microsoft; Royal Bank vs TD, cross-border; Coca-Cola vs Rivian, dividend
+  payer vs loss-making non-payer) plus Discover Stocks.
+- **Table without horizontal scrolling**: each metric's label, period and info button sit above equal-width company columns;
+  the company header is pinned. Three companies fit a 360 dp phone; four are tight but readable (values wrap to two lines).
+- Groups: **Overview** (market cap, sector, industry, listing) → **Growth** → **Profitability** → **Financial Health** →
+  **Valuation** → **Shareholder Returns**. Everything else is under **More metrics (N)** (collapsed): more valuation, growth,
+  profitability and health measures, payout ratio, 1Y/3Y price change, fiscal-year figures.
+- Every unavailable value shows "N/A ⓘ"; tapping it gives the company-specific reason (source note first, then a
+  metric-aware reason: loss → no P/E, zero/negative equity → no debt to equity, unknown dividend history ≠ no dividend).
+- Periods: when companies' values cover different periods (e.g. fiscal years ending Sep vs Oct), the row says "Periods differ
+  by company" and each value shows its own period ("FY ended Sep 2025"). Latest-quarter growth always shows the quarters
+  compared ("Q3 FY2026 vs Q3 FY2025").
+- Currencies: when compared companies use different currencies every amount gets an explicit marker (US$ / C$); market cap is
+  shown in each listing's own currency with an approximate converted USD amount underneath.
+- **Share price change** card (after the table): period chips, normalized chart with a dashed "Start (100)" line, each company's
+  change and any note, and plain notes (price only, not total return, not business performance, past ≠ future).
+- **What the numbers show** (deterministic observations), then **Sources and notes** (provider, retrieval dates, fiscal-year
+  differences, currencies, prepared-at time) and the education disclaimer.
+- Loading, error (retry), partial company failure ("Partial data" in the header, reason in its cells), empty search, search
+  failure and chart failure (retry) states. 48 dp targets, merged accessibility labels per row (includes periods and reasons).
+
+### Metric definitions (Phase 1 core)
+| Metric | Formula | Period | Unavailable when |
+|---|---|---|---|
+| Market cap | latest price × shares outstanding (quote value as fallback) | latest quote; listing currency (≈USD shown, Bank of Canada rate; MOCK 1.35) | no price/shares |
+| Sector / industry | provider profile | — | ETFs or not reported |
+| Revenue growth — latest quarter | (latest reported quarter revenue − same fiscal quarter a year earlier) ÷ that earlier revenue | latest reported fiscal quarter (Earnings Results) | prior-year quarter missing, different currency, fiscal-calendar change, zero/negative base |
+| Revenue growth — fiscal year | (FY revenue − prior FY revenue) ÷ prior FY revenue | latest fiscal year vs prior; same reporting currency | currency changed, missing year |
+| Net profit margin | net income ÷ revenue | provider TTM ratio, else latest fiscal year (each value says which) | missing |
+| Debt to equity | total debt ÷ total shareholders' equity | latest balance sheet (provider TTM ratio when available) | equity ≤ 0 → not meaningful; not comparable for banks/insurers (noted) |
+| P/E (trailing) | price ÷ trailing-twelve-month diluted EPS | TTM | earnings ≤ 0 → not meaningful (never negative/∞) |
+| Price to sales | market cap ÷ TTM revenue | TTM | ratio ≤ 0 or missing |
+| Dividend yield | trailing-year dividends per share ÷ current price | trailing year | "None" = paid nothing; N/A = history unknown. Not guaranteed future income |
+Values are server-calculated; apps only format. Non-finite values are never shown (N/A). Missing ≠ zero.
+
+### Price chart (`PerformanceNormalizer.compute`)
+Common base date = the latest of the companies' first closes in the period; every line = 100 there. Dates sorted and
+deduplicated. A closed market carries its last close for ≤ 5 days (disclosed); longer gaps stay empty; no closes are
+invented. A company whose history starts after the period begins is excluded with a reason; one whose history ends early keeps
+its line but its change is measured to its last close (note + `lastDate`). FMP closes are split-adjusted; dividends are not
+included (price return, never called total return). Each line is in its own trading currency (disclosed). The chart and the
+1Y/3Y price-change rows share one request per period (no duplicate fetch).
+
+### Architecture (MOCK and REAL)
+`ComparisonPresenter` (core, shared by Android and iOS via `IosScreenerClient`) → `RemoteScreenerDataSource` → Ktor
+`GET /api/v1/compare` / `GET /api/v1/compare/performance` (`ScreenerService`) → `StockService` (quote, profile),
+`CompanyFinancialService.getFundamentals(annual)` (cached 6 h), `EarningsService.latestResults` for latest-quarter growth (cached
+6 h; same rules as Earnings Results), `PriceChartService.getDailyCloses`. MOCK: fixtures only (`FixtureMarketDataSource`, earnings
+fixtures; no provider, AI or Firebase calls; values labelled sample). REAL: FMP for quotes, profiles, statements, ratios and
+prices; Finnhub (default earnings source) for quarterly results. The FMP adapter now marks P/E with a loss and debt to equity
+with zero/negative equity as `NON_POSITIVE_DENOMINATOR` with a note (previously "missing").
+
+### API (unchanged paths; additive fields only)
+- `GET /api/v1/compare?symbols=A,B[,C,D]` → `ComparisonResponse`. 2–4 exchange-qualified symbols (`TD` ≠ `TD.TO`); duplicates
+  (case-insensitive), empty or malformed → 400; per-client rate limit → 429. Each company loads independently: a failure gives
+  that column an `error` and the others still load. New: `metrics.quarterRevenueGrowth` per company (with basis and the quarters
+  compared in `note`), provenance and retrieval notes.
+- `GET /api/v1/compare/performance?symbols=…&period=1M|3M|1Y|3Y|5Y` → `PerformanceComparison`. New: `baseDate`, per-series
+  `note` and `lastDate`.
+
+### MOCK scenarios (Phase 1)
+US + Canadian and cross-currency (RY.TO CAD vs AAPL USD; Royal Bank vs TD example); negative earnings (RIVN, BB.TO: no P/E);
+missing metrics (CSU.TO unknown dividend history, LONGN price to sales, TSLA market cap); non-dividend payers (RIVN, SHOP.TO,
+TSLA); different fiscal calendars (AAPL Sep, MSFT Jun, RY.TO Oct, BB.TO Feb); partial price history (BB.TO, 8 months); provider
+errors (fundamentals failure for one company; quarterly-results provider failure → that row "temporarily unavailable").
+
+### Tests
+- core `ScreenerEngineTest.kt`: common base date across calendars, early-ending history, no invented points, replace/set
+  selection (position kept, duplicates, limit, cross-exchange identity); `ComparisonPhase1Test`: metric-specific reasons,
+  NaN/∞ never shown, explicit currencies, presenter groups/periods/currency details/one request per chart period/replace/examples/
+  max count, observations (no ranking words, TTM vs annual skipped, quarterly caveat).
+- server `ScreenerRoutesTest.kt`: Phase 1 MOCK scenarios over fixtures, latest-quarter growth equals Earnings Results,
+  quarterly-provider failure is partial, chart base date and notes, empty/malformed/duplicate/same-ticker-two-exchanges;
+  `repositoryImpl/ComparisonMetricsAdapterTest.kt`: REAL FMP adapter with stubbed provider JSON (negative equity, losses,
+  calculated D/E, missing vs not meaningful).
+- No Compose UI / XCUITest framework exists: layouts, dark/light, large text and screen readers need a manual device pass.
+- Validation at commit time: Verified: core screener/comparison tests (`:core:jvmTest --tests org.example.stocksteps.screener.*`, 30 passed); server screener + FMP adapter tests (`:server:test --tests org.example.stocksteps.screener.* --tests org.example.stocksteps.repositoryImpl.*`, all passed); `:app:shared:compileAndroidMain` succeeded; iOS `xcodebuild` BUILD SUCCEEDED. **Not run to completion:** the full suite (core iOS, all server tests, shared Android/iOS host tests) and `:app:androidApp:assembleDebug` were started but stopped before finishing; no live MOCK curl pass; no REAL calls.
+
+### Known limitations / production verification still needed
+- REAL comparison has not been live-verified in this pass (no paid provider calls were made): FMP fundamentals/ratios for TSX
+  listings, Finnhub quarterly coverage for Canadian companies, and the latest-quarter growth for REAL symbols need an
+  authorized acceptance run.
+- Each comparison loads full annual fundamentals per company in REAL (about 13 FMP calls, cached 6 h) — the existing design;
+  a lighter metrics-only path would reduce cost.
+- Market-cap USD conversion uses the latest rate only; other amounts aren't converted (by design).
+- No total-return series; the chart is price change only. No per-metric industry context (Phase 2).
+- The selection isn't persisted across app restarts; manual UI/accessibility checks pending.
+
 Markets → **Discover Stocks** and **Compare Stocks** (pushed destinations; the bottom bar is
 unchanged: Home | Markets | Portfolio | Watchlist | Learn). Company Details stays the one company
 destination and gains a **Compare** action. Android (Compose) and iOS (SwiftUI) render the same

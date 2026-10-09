@@ -175,7 +175,17 @@ fun Application.module() {
                 clock = sources.marketClock,
                 sampleData = dataMode == DataMode.MOCK,
                 fundamentalsPerHour = System.getenv("SCREENER_FUNDAMENTALS_PER_HOUR")?.toIntOrNull() ?: 25,
-                fullRecords = dataMode == DataMode.MOCK
+                fullRecords = dataMode == DataMode.MOCK,
+                // Company Comparison: latest-quarter revenue growth reuses Earnings Results (no extra statement requests).
+                quarterlyRevenueGrowth = { symbol ->
+                    try { org.example.stocksteps.screener.quarterRevenueGrowth(earnings.latestResults(symbol)) }
+                    catch (cause: org.example.stocksteps.earnings.EarningsRequestException) {
+                        if (cause.status == 404 || cause.status == 400) org.example.stocksteps.screener.MetricValue(note = "No published quarterly results are available for this company.")
+                        else throw cause
+                    }
+                },
+                provenance = if (dataMode == DataMode.MOCK) listOf("Sample fixture data for development (quotes, profiles, financial statements, quarterly results and prices); not live market data.")
+                    else listOf("Quotes, company profiles, financial statements and price history: Financial Modeling Prep. Quarterly results: the earnings data provider (Finnhub by default).")
             )
             screenerRoutes(screener, RequestRateLimiter(System.getenv("SCREENER_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 60))
             savedScreenRoutes(sources.userAuth, SavedScreensService(userData, entitlements, sources.marketClock::millis))

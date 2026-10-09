@@ -126,6 +126,8 @@ struct WatchListScene: View {
     let onOpenAlerts: (String?) -> Void
     var onEarnings: () -> Void = {}
     var onEarningsReminders: () -> Void = {}
+    /// Company Comparison with the first three companies of the shown list (symbols, names).
+    var onCompare: ([String], [String]) -> Void = { _, _ in }
     @State private var portfolioInstrument: InstrumentRef?
     @State private var portfolioModel = PortfolioViewModel()
     @State private var sheet: WatchSheet?
@@ -253,6 +255,12 @@ struct WatchListScene: View {
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                 Text("My Watchlists").font(StockStepsTheme.font(type.screenTitle, relativeTo: .title2)).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
                 Text("Track companies that interest you.").font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSecondary)
+                if let list = model.selected, list.entries.count >= 2 {
+                    let first = list.entries.sorted { $0.order < $1.order }.prefix(3)
+                    Button("Compare these companies", systemImage: "square.split.2x1") {
+                        onCompare(first.map { $0.instrument.symbol }, first.map { $0.instrument.name ?? $0.instrument.symbol })
+                    }.font(.subheadline).frame(minHeight: 44)
+                }
                 if signedIn {
                     Button("Earnings dates for your watchlists", action: onEarnings).font(.subheadline).frame(minHeight: 44)
                     Button("Earnings Reminders", systemImage: "bell", action: onEarningsReminders).font(.subheadline).frame(minHeight: 44)

@@ -110,7 +110,8 @@ struct AppScene: View {
                 WatchListScene(accounts: accounts, model: watchlistsModel, onSignIn: { showingAuth = true }, onSearch: { initialStock = nil; showingSearch = true },
                                onExplore: explore, onOpenAlerts: { alertsTarget = $0 ?? "" },
                                onEarnings: { earningsCalendar = EarningsCalendarTarget(filter: "WATCHLIST") },
-                               onEarningsReminders: { showingEarningsReminders = true })
+                               onEarningsReminders: { showingEarningsReminders = true },
+                               onCompare: { symbols, names in screenerModel.client.compareCompanies(symbols: symbols, names: names); showingCompare = true })
                     .tabItem { Label("Watchlist", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 

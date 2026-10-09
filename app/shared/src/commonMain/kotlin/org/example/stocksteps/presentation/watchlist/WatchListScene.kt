@@ -19,7 +19,8 @@ internal fun WatchListScene(
     onAddPortfolio: (InstrumentRef) -> Unit,
     onOpenAlerts: (String?) -> Unit,
     onEarnings: () -> Unit = {},
-    onEarningsReminders: () -> Unit = {}
+    onEarningsReminders: () -> Unit = {},
+    onCompare: () -> Unit = {}
 ) {
     val model = viewModel(key = "watchlist") {
         WatchListViewModel(accounts.auth, accounts.watchlists, accounts.alerts, accounts.watchData, accounts.watchlist, accounts.environment)
@@ -49,6 +50,7 @@ internal fun WatchListScene(
             WatchListAction.DismissMessage -> model.dismissMessage()
             WatchListAction.Earnings -> onEarnings()
             WatchListAction.EarningsReminders -> onEarningsReminders()
+            is WatchListAction.Compare -> { org.example.stocksteps.screener.SharedComparisonSelection.instance.set(action.companies); onCompare() }
         }
     }
     editor?.let { (instrument, price) ->

@@ -205,7 +205,7 @@ private fun ResearchTools(modifier: Modifier, earnings: org.example.stocksteps.e
     Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
         listOf(
             Triple("Discover Stocks", "Find companies by growth, dividends, strength or valuation", MarketsAction.Discover),
-            Triple("Compare Stocks", "See 2–4 companies side by side", MarketsAction.Compare)
+            Triple("Compare Companies", "See two or three companies side by side", MarketsAction.Compare)
         ).forEach { (title, subtitle, action) ->
             StockCard(Modifier.weight(1f).fillMaxHeight(), onClick = { onAction(action) }, onClickLabel = "Open $title") {
                 Icon(if (action == MarketsAction.Discover) StockIcons.Search else StockIcons.PieChart, contentDescription = null, tint = colors.primary)

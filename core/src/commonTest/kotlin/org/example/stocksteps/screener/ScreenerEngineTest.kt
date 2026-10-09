@@ -209,7 +209,46 @@ class ScreenerEngineTest {
         assertTrue(series.single().values.all { it == null })
     }
 
+    @Test fun linesShareOneBaseDateAcrossDifferentTradingCalendars() {
+        // B's market was closed on Jan 2 (first trading day Jan 5): every line starts at 100 on Jan 5.
+        val r = PerformanceNormalizer.compute(mapOf(
+            "A" to listOf("2026-01-05" to 55.0, "2026-01-02" to 50.0, "2026-01-06" to 60.0, "2026-01-06" to 61.0),
+            "B" to listOf("2026-01-05" to 400.0, "2026-01-06" to 380.0)
+        ), "2026-01-01", "2026-01-06")
+        assertEquals("2026-01-05", r.baseDate)
+        assertEquals(listOf("2026-01-05", "2026-01-06"), r.dates)                                      // sorted, deduplicated, from the base date
+        assertEquals(100.0, r.series[0].values.first()); assertEquals(100.0, r.series[1].values.first())
+        assertEquals(60.0 / 55.0 * 100 - 100, r.series[0].change!!, 1e-9)                               // first close for a date wins; base = Jan 5
+    }
+
+    @Test fun historyEndingEarlyIsMeasuredToItsLastCloseAndGapsArentInvented() {
+        val r = PerformanceNormalizer.compute(mapOf(
+            "A" to listOf("2026-01-02" to 10.0, "2026-01-05" to 11.0, "2026-01-20" to 12.0, "2026-02-27" to 13.0),
+            "B" to listOf("2026-01-02" to 20.0, "2026-01-05" to 22.0)
+        ), "2026-01-01", "2026-02-27")
+        val b = r.series.first { it.symbol == "B" }
+        assertEquals("2026-01-05", b.lastDate); assertEquals(10.0, b.change!!, 1e-9); assertTrue(b.note!!.contains("2026-01-05"))
+        val a = r.series.first { it.symbol == "A" }
+        assertNull(a.note)
+        assertEquals(130.0, a.values[r.dates.indexOf("2026-02-27")]!!, 1e-9)                             // a real close, rebased to the shared Jan 2 base
+        assertTrue(b.values.drop(2).all { it == null })                                                 // no closes after Jan 5 + 5 days are drawn
+        assertTrue(r.series.all { s -> s.values.filterNotNull().all { it.isFinite() } })
+    }
+
     // ---------- Selection ----------
+
+    @Test fun replaceKeepsPositionAndSetDeduplicatesAndLimits() {
+        val selection = ComparisonSelection()
+        selection.add("AAPL", "Apple"); selection.add("MSFT", "Microsoft"); selection.add("KO", "Coca-Cola")
+        assertEquals(SelectionResult.ADDED, selection.replace("MSFT", "td", "TD Bank"))
+        assertEquals(listOf("AAPL", "TD", "KO"), selection.selected.value.map { it.symbol })
+        assertEquals(SelectionResult.ALREADY_SELECTED, selection.replace("TD", "aapl", "Apple"))
+        assertEquals(listOf("AAPL", "TD", "KO"), selection.selected.value.map { it.symbol })
+        // Same ticker on different exchanges are different companies.
+        assertEquals(SelectionResult.ADDED, selection.replace("TD", "TD.TO", "TD Bank (TSX)"))
+        selection.set(listOf(SelectedCompany("a", "A"), SelectedCompany("A", "A again"), SelectedCompany("B", "B"), SelectedCompany("C", "C"), SelectedCompany("D", "D"), SelectedCompany("E", "E")))
+        assertEquals(listOf("A", "B", "C", "D"), selection.selected.value.map { it.symbol })
+    }
 
     @Test fun selectionPreventsDuplicatesAndEnforcesTheMaximum() {
         val selection = ComparisonSelection()
@@ -257,8 +296,11 @@ class ScreenerPresenterTest {
         }
         override suspend fun compare(symbols: List<String>) = ComparisonResponse(symbols.map { s -> ComparedCompany(records.firstOrNull { it.symbol == s }, s, if (records.none { it.symbol == s }) "Company data isn't available right now." else null) },
             observations = ComparisonEngine.observations(records.filter { it.symbol in symbols }), asOf = "now")
-        override suspend fun performance(symbols: List<String>, period: PerformancePeriod) =
-            PerformanceComparison(period, ReturnKind.PRICE_RETURN, listOf("d1", "d2"), symbols.map { PerformanceSeries(it, listOf(100.0, 110.0), 10.0) })
+        val performanceCalls = mutableListOf<PerformancePeriod>()
+        override suspend fun performance(symbols: List<String>, period: PerformancePeriod): PerformanceComparison {
+            performanceCalls += period
+            return PerformanceComparison(period, ReturnKind.PRICE_RETURN, listOf("d1", "d2"), symbols.map { PerformanceSeries(it, listOf(100.0, 110.0), 10.0) })
+        }
     }
 
     private fun run(block: suspend CoroutineScope.(FakeData, ScreenerPresenter, ComparisonSelection) -> Unit) = runBlocking {
@@ -323,11 +365,112 @@ class ScreenerPresenterTest {
             state.sections.flatMap { it.rows }.forEach { assertEquals(3, it.cells.size, it.id) }
             assertNotNull(state.columns.last().error)
             assertEquals("N/A", state.sections.first { it.title == "Valuation" }.rows.first { it.id == "pe" }.cells.first().text)
-            assertEquals("+10.0%", state.sections.first { it.title == "Shareholder returns" }.rows.first { it.id == "return1y" }.cells.first().text)
+            assertEquals("+10.0%", state.sections.first { it.title == "Price performance and payouts" }.rows.first { it.id == "return1y" }.cells.first().text)
             presenter.remove("MISSING")
             withTimeout(5_000) { presenter.state.first { it.columns.size == 2 } }
             presenter.selectPeriod(PerformancePeriod.FIVE_YEARS)
             assertEquals(PerformancePeriod.FIVE_YEARS, withTimeout(5_000) { presenter.state.first { it.chart?.period == PerformancePeriod.FIVE_YEARS } }.chart?.period)
         } finally { scope.cancel() }
+    }
+}
+
+/** Company Comparison Phase 1: explanations, currencies, periods and presenter behaviour. */
+class ComparisonPhase1Test {
+    private fun basis(period: String, date: String?, currency: String? = null) = FinancialBasis(period, date, currency = currency)
+
+    @Test fun unavailableValuesSayWhySpecificToTheMetric() {
+        assertTrue(MetricFormatter.explanation("pe", MetricValue(availability = FinancialAvailability.NON_POSITIVE_DENOMINATOR)).contains("loss"))
+        assertTrue(MetricFormatter.explanation("debtEquity", MetricValue(availability = FinancialAvailability.NON_POSITIVE_DENOMINATOR)).contains("equity is zero or negative"))
+        assertEquals("Source note.", MetricFormatter.explanation("pe", MetricValue(availability = FinancialAvailability.MISSING, note = "Source note.")))
+        assertTrue(MetricFormatter.explanation("dividendYield", MetricValue()).contains("isn't the same as no dividend"))
+        val none = MetricFormatter.cell(ScreenerDefinitions.metric("dividendYield"), MetricValue(0.0, FinancialAvailability.NO_DIVIDEND))
+        assertEquals("None", none.text)
+        val nan = MetricFormatter.cell(ScreenerDefinitions.metric("pe"), MetricValue(Double.NaN, FinancialAvailability.AVAILABLE))
+        assertEquals("N/A", nan.text)                                                                  // never "NaN" or "Infinity"
+        assertEquals("N/A", MetricFormatter.cell(ScreenerDefinitions.metric("pe"), MetricValue(Double.POSITIVE_INFINITY, FinancialAvailability.AVAILABLE)).text)
+    }
+
+    @Test fun mixedCurrenciesGetExplicitMarkers() {
+        assertEquals("US$1.2B", MetricFormatter.money(1.2e9, "USD", explicit = true))
+        assertEquals("C$1.2B", MetricFormatter.money(1.2e9, "CAD", explicit = true))
+        assertEquals("$1.2B", MetricFormatter.money(1.2e9, "USD", explicit = false))
+        assertEquals("−US$3.0M", MetricFormatter.money(-3e6, "USD", explicit = true))
+    }
+
+    private class Data(val records: Map<String, CompanyRecord>) : ScreenerDataSource {
+        val performanceCalls = mutableListOf<PerformancePeriod>()
+        override suspend fun catalog() = error("unused")
+        override suspend fun search(query: ScreenerQuery) = error("unused")
+        override suspend fun compare(symbols: List<String>) = ComparisonResponse(symbols.map { ComparedCompany(records[it], it, if (records[it] == null) "Company data isn't available right now." else null) },
+            observations = ComparisonEngine.observations(symbols.mapNotNull { records[it] }), asOf = "2026-10-07T21:15:00Z")
+        override suspend fun performance(symbols: List<String>, period: PerformancePeriod): PerformanceComparison {
+            performanceCalls += period
+            return PerformanceComparison(period, ReturnKind.PRICE_RETURN, listOf("d1", "d2"), symbols.map { PerformanceSeries(it, listOf(100.0, 105.0), 5.0) })
+        }
+    }
+
+    private val usd = CompanyRecord("AAPL", "Apple Inc.", "NASDAQ", "US", "USD", "Technology", "Consumer Electronics", marketCap = 3.4e12, price = 230.0,
+        metrics = mapOf("marketCap" to MetricValue(3.4e12, FinancialAvailability.AVAILABLE, basis("Latest quote", null, "USD")),
+            "netMargin" to MetricValue(24.0, FinancialAvailability.AVAILABLE, basis("annual", "2025-09-30")),
+            "pe" to MetricValue(27.8, FinancialAvailability.AVAILABLE, basis("TTM", null)),
+            "quarterRevenueGrowth" to MetricValue(8.0, FinancialAvailability.AVAILABLE, basis("quarter", "2026-06-27"), "Q3 FY2026 vs Q3 FY2025"),
+            "debtEquity" to MetricValue(1.34, FinancialAvailability.AVAILABLE, basis("annual", "2025-09-30"))))
+    private val cad = CompanyRecord("RY.TO", "Royal Bank of Canada", "TSX", "CA", "CAD", "Financial Services", "Banks", marketCap = 245e9, price = 180.0,
+        metrics = mapOf("marketCap" to MetricValue(181e9, FinancialAvailability.AVAILABLE, basis("Latest quote", null, "USD")),
+            "netMargin" to MetricValue(26.1, FinancialAvailability.AVAILABLE, basis("annual", "2025-10-31")),
+            "pe" to MetricValue(null, FinancialAvailability.NON_POSITIVE_DENOMINATOR, basis("TTM", null)),
+            "quarterRevenueGrowth" to MetricValue(null, FinancialAvailability.MISSING, note = "No published quarterly results are available for this company."),
+            "debtEquity" to MetricValue(null, FinancialAvailability.NON_POSITIVE_DENOMINATOR)))
+
+    @Test fun presenterShowsBeginnerGroupsPeriodsCurrenciesAndOneRequestPerChartPeriod() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val data = Data(mapOf("AAPL" to usd, "RY.TO" to cad))
+            val selection = ComparisonSelection()
+            val presenter = ComparisonPresenter(data, selection, scope)
+            assertEquals(3, presenter.state.value.examples.size)
+            selection.add("AAPL", "Apple Inc."); selection.add("RY.TO", "Royal Bank of Canada")
+            val state = withTimeout(5_000) { presenter.state.first { it.columns.size == 2 && !it.loading && !it.chartLoading && it.chart != null } }
+            assertEquals(listOf("Overview", "Growth", "Profitability", "Financial Health", "Valuation", "Shareholder Returns"), state.sections.filterNot { it.advanced }.map { it.title })
+            assertTrue(state.advancedCount > 10)
+            fun row(id: String) = state.sections.flatMap { it.rows }.first { it.id == id }
+            // Market cap: each listing's own currency, explicit markers, converted USD as a labelled detail.
+            assertEquals(listOf("US$3.40T", "C$245.0B"), row("marketCap").cells.map { it.text })
+            assertEquals("≈ US$181.0B converted", row("marketCap").cells[1].detail)
+            // Periods differ (Sep vs Oct fiscal year ends): each value says which period it covers.
+            assertEquals("Periods differ by company", row("netMargin").period)
+            assertEquals(listOf("FY ended Sep 2025", "FY ended Oct 2025"), row("netMargin").cells.map { it.detail })
+            assertEquals("Q3 FY2026 vs Q3 FY2025", row("quarterRevenueGrowth").cells[0].detail)
+            assertTrue(row("quarterRevenueGrowth").cells[1].explanation!!.contains("No published quarterly results"))
+            assertTrue(row("pe").cells[1].explanation!!.contains("loss"))
+            assertTrue(row("debtEquity").cells[1].explanation!!.contains("equity"))
+            assertEquals("TSX · CAD", state.columns[1].listing)
+            // The 1Y history is fetched once and shared by the chart and the price-change row.
+            assertEquals(1, data.performanceCalls.count { it == PerformancePeriod.ONE_YEAR })
+            assertEquals(1, data.performanceCalls.count { it == PerformancePeriod.THREE_YEARS })
+            // Replace keeps the comparison going; examples replace the selection.
+            presenter.replace("RY.TO", "KO", "Coca-Cola")
+            assertEquals(listOf("AAPL", "KO"), selection.selected.value.map { it.symbol })
+            presenter.replace("KO", "AAPL", "Apple Inc.")
+            assertTrue(withTimeout(5_000) { presenter.state.first { it.message != null } }.message!!.contains("already"))
+            presenter.useExample(1)
+            assertEquals(listOf("RY.TO", "TD"), selection.selected.value.map { it.symbol })
+            selection.set(listOf(SelectedCompany("A", "A"), SelectedCompany("B", "B"), SelectedCompany("C", "C"), SelectedCompany("D", "D")))
+            assertNotNull(withTimeout(5_000) { presenter.state.first { it.selected.size == 4 } }.crowdedHint)
+            presenter.add("E", "E")
+            assertTrue(withTimeout(5_000) { presenter.state.first { it.message?.contains("up to 4") == true } }.message!!.contains("Remove or replace"))
+        } finally { scope.cancel() }
+    }
+
+    @Test fun observationsNeverRankAndSkipIncomparablePeriods() {
+        val other = usd.copy(symbol = "MSFT", name = "Microsoft", metrics = usd.metrics + ("quarterRevenueGrowth" to MetricValue(15.0, FinancialAvailability.AVAILABLE, basis("quarter", "2026-06-30"))))
+        val o = ComparisonEngine.observations(listOf(usd, other))
+        val q = o.first { it.metric == "quarterRevenueGrowth" }
+        assertEquals("Microsoft has faster revenue growth in its latest quarter than Apple Inc. (15.0% vs 8.0%).", q.text)
+        assertTrue(q.caveat!!.contains("different months"))
+        assertTrue(o.none { Regex("(?i)\\b(better|best|winner|buy|sell|undervalued)\\b").containsMatchIn(it.text) })
+        // TTM vs annual for the same metric isn't compared.
+        val ttm = other.copy(metrics = other.metrics + ("netMargin" to MetricValue(30.0, FinancialAvailability.AVAILABLE, basis("TTM", null))))
+        assertTrue(ComparisonEngine.observations(listOf(usd, ttm)).none { it.metric == "netMargin" })
     }
 }

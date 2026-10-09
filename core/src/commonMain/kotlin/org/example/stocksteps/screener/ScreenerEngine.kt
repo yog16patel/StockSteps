@@ -207,6 +207,8 @@ object ComparisonEngine {
     private val rules = listOf(
         Rule("operatingMargin", "a higher operating margin", "a lower operating margin", noun = "operating margin"),
         Rule("netMargin", "a higher net margin", "a lower net margin", noun = "net margin"),
+        Rule("quarterRevenueGrowth", "faster revenue growth in its latest quarter", "slower revenue growth in its latest quarter",
+            "Each company's latest quarter can cover different months. Past growth doesn't indicate future growth.", "latest-quarter revenue growth"),
         Rule("revenueGrowth", "faster revenue growth", "slower revenue growth", "Past growth doesn't indicate future growth.", "revenue growth"),
         Rule("pe", "a higher trailing P/E", "a lower trailing P/E", "A lower P/E isn't proof that a stock is undervalued.", "trailing P/E"),
         Rule("debtEquity", "higher debt relative to equity", "lower debt relative to equity", noun = "debt / equity"),
@@ -270,13 +272,22 @@ object ComparisonEngine {
 data class Split(val date: String, val ratio: Double)
 
 /**
- * Normalized price performance: each company's closes rebased to 100 at the period start, on a
+ * Normalized price performance: each company's closes rebased to 100 on one common base date, on a
  * shared date axis. Prices are compared as returns, never as raw share prices.
+ *
+ * - Base date = the latest of the companies' first closes in the period (so every line starts at 100
+ *   on the same day, even when exchanges have different holidays). Earlier dates are dropped.
+ * - A day one market is closed carries that company's last close forward for up to [CARRY_DAYS]
+ *   (its price didn't change); longer gaps stay empty. No close is ever invented.
+ * - A company whose history doesn't reach back to the period start is excluded with a reason; one whose
+ *   history stops early keeps its line but its change is measured to its last close, with a note.
  */
 object PerformanceNormalizer {
     const val CARRY_DAYS = 5
     /** The first close must be within this many days of the period start, else history doesn't cover it. */
     const val START_TOLERANCE_DAYS = 7
+
+    data class Result(val dates: List<String>, val series: List<PerformanceSeries>, val baseDate: String?)
 
     /**
      * [closes] are (date, close) per symbol. When a series is not split-adjusted, pass its
@@ -288,32 +299,46 @@ object PerformanceNormalizer {
         end: String,
         splits: Map<String, List<Split>> = emptyMap(),
         currencies: Map<String, String?> = emptyMap()
-    ): Pair<List<String>, List<PerformanceSeries>> {
+    ): Pair<List<String>, List<PerformanceSeries>> = compute(closes, start, end, splits, currencies).let { it.dates to it.series }
+
+    fun compute(
+        closes: Map<String, List<Pair<String, Double>>>,
+        start: String,
+        end: String,
+        splits: Map<String, List<Split>> = emptyMap(),
+        currencies: Map<String, String?> = emptyMap()
+    ): Result {
         val day = { d: String -> MarketsPresenter.dayNumber(d.take(10)) ?: 0 }
         val adjusted = closes.mapValues { (symbol, points) ->
             val symbolSplits = splits[symbol].orEmpty()
             points.filter { it.second.isFinite() && it.second > 0 && it.first.take(10) >= start && it.first.take(10) <= end }
-                .sortedBy { it.first }
-                .map { (date, close) -> date.take(10) to symbolSplits.filter { date.take(10) < it.date && it.ratio > 0 }.fold(close) { c, s -> c / s.ratio } }
+                .map { it.first.take(10) to it.second }.distinctBy { it.first }.sortedBy { it.first }
+                .map { (date, close) -> date to symbolSplits.filter { date < it.date && it.ratio > 0 }.fold(close) { c, s -> c / s.ratio } }
         }
-        val dates = adjusted.values.flatten().map { it.first }.distinct().sorted()
+        val covered = adjusted.filterValues { points -> points.firstOrNull()?.let { day(it.first) - day(start) <= START_TOLERANCE_DAYS } == true }
+        val base = covered.values.maxOfOrNull { it.first().first }
+        val dates = if (base == null) emptyList() else covered.values.flatten().map { it.first }.filter { it >= base }.distinct().sorted()
         val series = closes.keys.map { symbol ->
-            val points = adjusted.getValue(symbol)
-            val first = points.firstOrNull()
-            if (first == null || day(first.first) - day(start) > START_TOLERANCE_DAYS) {
-                PerformanceSeries(symbol, dates.map { null }, null, currencies[symbol], "Price history doesn't cover this period.")
+            val points = covered[symbol]
+            if (points == null || base == null) {
+                val first = adjusted.getValue(symbol).firstOrNull()?.first
+                PerformanceSeries(symbol, dates.map { null }, null, currencies[symbol],
+                    if (first == null) "No price history for this period." else "Price history starts on $first, after this period begins, so it isn't compared.")
             } else {
-                val base = first.second
+                // The base close is the last real close on or before the common base date.
+                val baseClose = points.last { it.first <= base }.second
                 var cursor = 0
                 var last: Pair<String, Double>? = null
                 val values = dates.map { date ->
                     while (cursor < points.size && points[cursor].first <= date) { last = points[cursor]; cursor++ }
-                    last?.takeIf { day(date) - day(it.first) <= CARRY_DAYS }?.let { it.second / base * 100 }
+                    last?.takeIf { day(date) - day(it.first) <= CARRY_DAYS }?.let { it.second / baseClose * 100 }
                 }
-                val endValue = points.last().second
-                PerformanceSeries(symbol, values, (endValue / base - 1) * 100, currencies[symbol])
+                val final = points.last()
+                val early = day(end) - day(final.first) > CARRY_DAYS
+                PerformanceSeries(symbol, values, (final.second / baseClose - 1) * 100, currencies[symbol],
+                    note = if (early) "Price history ends on ${final.first}, so the change is measured to that date." else null, lastDate = final.first)
             }
         }
-        return dates to series
+        return Result(dates, series, base)
     }
 }

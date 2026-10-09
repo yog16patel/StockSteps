@@ -245,7 +245,11 @@ data class PerformanceSeries(
     /** Percent change over the period, or null when history doesn't cover it. */
     val change: Double? = null,
     val currency: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    /** A caveat that doesn't prevent drawing (e.g. history ends before the period does). */
+    val note: String? = null,
+    /** Date of the last real close used for [change]. */
+    val lastDate: String? = null
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -255,7 +259,9 @@ data class PerformanceComparison(
     val kind: ReturnKind,
     @EncodeDefault val dates: List<String> = emptyList(),
     @EncodeDefault val series: List<PerformanceSeries> = emptyList(),
-    @EncodeDefault val notes: List<String> = emptyList()
+    @EncodeDefault val notes: List<String> = emptyList(),
+    /** The common start date every line is rebased to 100 on (the latest first trading day among the companies). */
+    val baseDate: String? = null
 )
 
 const val MAX_COMPARED_COMPANIES = 4

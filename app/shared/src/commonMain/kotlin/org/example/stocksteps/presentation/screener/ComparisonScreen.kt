@@ -1,34 +1,31 @@
 package org.example.stocksteps.presentation.screener
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import org.example.stocksteps.designsystem.components.*
+import org.example.stocksteps.designsystem.icons.StockIcons
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.model.StockSearchResult
 import org.example.stocksteps.screener.*
 
-private val LABEL_WIDTH = 132.dp
-private val COLUMN_WIDTH = 116.dp
-
 /**
- * Compare Stocks: a fixed metric-name column and company columns that scroll horizontally together
- * (header included), so four companies stay readable on a phone. N/A cells explain themselves.
+ * Compare Companies (Phase 1, free): pick 2–4 companies, then read beginner metrics grouped as
+ * Overview, Growth, Profitability, Financial Health, Valuation and Shareholder Returns. Each metric's
+ * label sits above equal-width company columns, so three companies fit a phone without horizontal
+ * scrolling. Extra metrics are under "More metrics". Everything is calculated on the server and
+ * formatted by the shared presenter; this screen only renders.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -37,6 +34,8 @@ internal fun ComparisonScreen(
     modifier: Modifier,
     onRemove: (String) -> Unit,
     onAdd: (String, String) -> Unit,
+    onReplace: (String, String, String) -> Unit,
+    onExample: (Int) -> Unit,
     onSearch: suspend (String) -> List<StockSearchResult>,
     onPeriod: (PerformancePeriod) -> Unit,
     onOpen: (String) -> Unit,
@@ -47,115 +46,158 @@ internal fun ComparisonScreen(
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    val scroll = rememberScrollState()
-    var adding by rememberSaveable { mutableStateOf(false) }
+    /** null = closed; "" = add; otherwise the symbol being replaced. */
+    var picking by rememberSaveable { mutableStateOf<String?>(null) }
     var info by remember { mutableStateOf<MetricInfo?>(null) }
-    var collapsed by rememberSaveable { mutableStateOf(setOf<String>()) }
+    var showMore by rememberSaveable { mutableStateOf(false) }
     LazyColumn(modifier.background(colors.appBackground), contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, top = spacing.md, bottom = spacing.xxl),
         verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         item(key = "header") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Text("Compare Stocks", Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
-                Text("See companies side by side. Differences describe the numbers; they don't say which is a better investment.", style = typography.small, color = colors.textSecondary)
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(spacing.xs), verticalAlignment = Alignment.CenterVertically) {
-                    state.selected.forEach { company ->
-                        InputChip(selected = true, onClick = { onRemove(company.symbol) }, label = { Text(company.symbol) }, trailingIcon = { Text("✕") },
-                            modifier = Modifier.semantics { contentDescription = "Remove ${company.name} from comparison" })
-                    }
-                    if (state.selected.size < MAX_COMPARED_COMPANIES) AssistChip(onClick = { adding = true }, label = { Text("+ Add company") })
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text("Compare Companies", Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
+                Text("See companies side by side. The numbers describe each business; they don't say which is a better investment.", style = typography.small, color = colors.textSecondary)
                 if (state.sampleData) StockSampleDataBanner("Sample data for development, not live markets.")
             }
         }
+        item(key = "selection") { SelectionCard(state, onAdd = { picking = "" }, onReplace = { picking = it }, onRemove = onRemove) }
         if (state.needsMore) {
-            item(key = "empty") {
-                StockEmptyState("Choose at least two companies to compare (up to $MAX_COMPARED_COMPANIES). Add them here, from Discover Stocks or from a company's page.",
-                    actionText = "Discover Stocks", onAction = onDiscover)
-            }
+            item(key = "examples") { ExamplesCard(state, onExample, onDiscover) }
             return@LazyColumn
         }
         if (state.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading comparison" }) }
         state.error?.let { item(key = "error") { StockErrorState(it, onRetry) } }
+        if (state.columns.isNotEmpty()) {
+            stickyHeader(key = "companies") { CompanyHeader(state.columns, onOpen) }
+            val onInfo: (ComparisonRow) -> Unit = { row -> info = MetricFormatter.education(row.id, ScreenerDefinitions.metric(row.id)).let { if (row.id == "marketCap") it.copy(title = "Market cap") else it } }
+            state.sections.filterNot { it.advanced }.forEach { section -> sectionItems(section, state.columns, onInfo) }
+            if (state.advancedCount > 0) item(key = "more") {
+                StockButton(if (showMore) "Hide extra metrics" else "More metrics (${state.advancedCount})", onClick = { showMore = !showMore },
+                    variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth().semantics { stateDescription = if (showMore) "Expanded" else "Collapsed" })
+            }
+            if (showMore) state.sections.filter { it.advanced && it.rows.isNotEmpty() }.forEach { section -> sectionItems(section, state.columns, onInfo) }
+        }
+        item(key = "chart") { PerformanceCard(state, onPeriod, onRetry) }
         if (state.observations.isNotEmpty()) item(key = "observations") {
-            StockCard {
-                Text("What the numbers show", Modifier.semantics { heading() }, style = typography.cardTitle)
+            StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text("What the numbers show", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
                 state.observations.forEach { o ->
                     Text("• ${o.text}", style = typography.small, color = colors.textBody)
                     o.caveat?.let { Text(it, Modifier.padding(start = spacing.sm), style = typography.caption, color = colors.textSecondary) }
                 }
-                Text("Observations compare reported figures only. They aren't rankings or recommendations.", style = typography.caption, color = colors.textTertiary)
+                Text("These describe reported figures. They aren't rankings or recommendations.", style = typography.caption, color = colors.textTertiary)
             }
         }
-        item(key = "chart") { PerformanceCard(state, onPeriod) }
-        if (state.columns.isNotEmpty()) {
-            stickyHeader(key = "companies") {
-                Row(Modifier.fillMaxWidth().background(colors.appBackground).padding(vertical = spacing.xs)) {
-                    Spacer(Modifier.width(LABEL_WIDTH))
-                    Row(Modifier.horizontalScroll(scroll)) {
-                        state.columns.forEach { column ->
-                            Column(Modifier.width(COLUMN_WIDTH).clickable(onClickLabel = "Open ${column.name}") { onOpen(column.symbol) }.padding(horizontal = spacing.xxs),
-                                horizontalAlignment = Alignment.End) {
-                                StockTickerAvatar(symbol = column.symbol, logoUrl = column.logoUrl, size = StockStepsTheme.dimensions.logoCompact)
-                                Text(column.symbol, style = typography.bodySemiBold, maxLines = 1)
-                                Text(column.name, style = typography.tiny, color = colors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End)
-                                Text(column.price, style = typography.numberLabel, maxLines = 1)
-                                Text(column.change.text, style = typography.tiny, maxLines = 1,
-                                    color = when (column.change.tone) { Tone.POSITIVE -> colors.positiveText; Tone.NEGATIVE -> colors.negativeText; else -> colors.textSecondary })
-                                column.error?.let { Text(it, style = typography.tiny, color = colors.textSecondary, maxLines = 3, textAlign = TextAlign.End) }
-                            }
-                        }
-                    }
-                }
-            }
-            state.sections.forEach { section ->
-                if (section.rows.isEmpty()) return@forEach
-                val open = section.title !in collapsed
-                item(key = "section-${section.title}") {
-                    Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
-                        .clickable(onClickLabel = if (open) "Collapse ${section.title}" else "Expand ${section.title}") { collapsed = if (open) collapsed + section.title else collapsed - section.title }
-                        .semantics { heading(); stateDescription = if (open) "Expanded" else "Collapsed" },
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Text(section.title, Modifier.weight(1f), style = typography.sectionTitle, color = colors.textPrimary)
-                        Text(if (open) "−" else "+", style = typography.sectionTitle, color = colors.primary)
-                    }
-                    if (open) section.note?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
-                }
-                if (open) section.rows.forEach { row ->
-                    item(key = "row-${row.id}") { MetricRowView(row, state.columns, scroll) { info = MetricFormatter.education(row.id, ScreenerDefinitions.metric(row.id)) } }
-                }
-            }
-            item(key = "notes") {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                    state.notes.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
-                    Text("Not investment advice. Past results don't indicate future returns.", style = typography.caption, color = colors.textTertiary)
-                }
+        if (state.columns.isNotEmpty()) item(key = "notes") {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text("Sources and notes", Modifier.semantics { heading() }, style = typography.label, color = colors.textSecondary)
+                state.notes.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
+                state.asOf?.let { Text("Comparison prepared ${it.take(10)} ${it.drop(11).take(5)} UTC.", style = typography.caption, color = colors.textSecondary) }
+                Text("Education, not investment advice. Past results don't indicate future returns.", style = typography.caption, color = colors.textTertiary)
             }
         }
     }
-    if (adding) AddCompanyDialog(state, onSearch, onAdd = { symbol, name -> onAdd(symbol, name); adding = false }, onDismiss = { adding = false })
+    picking?.let { replacing ->
+        AddCompanyDialog(state, replacing.ifEmpty { null }, onSearch,
+            onPick = { symbol, name -> if (replacing.isEmpty()) onAdd(symbol, name) else onReplace(replacing, symbol, name); picking = null }, onDismiss = { picking = null })
+    }
     info?.let { MetricInfoSheet(it) { info = null } }
     state.message?.let { message ->
         AlertDialog(onDismissRequest = onDismissMessage, text = { Text(message) }, confirmButton = { TextButton(onClick = onDismissMessage) { Text("OK") } })
     }
 }
 
+/** The chosen companies with name, ticker and listing; each can be replaced or removed in place. */
 @Composable
-private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, scroll: ScrollState, onInfo: () -> Unit) {
+private fun SelectionCard(state: ComparisonUiState, onAdd: () -> Unit, onReplace: (String) -> Unit, onRemove: (String) -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Text("Companies (${state.selected.size} of $MAX_COMPARED_COMPANIES)", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+        state.selected.forEach { company ->
+            val column = state.columns.firstOrNull { it.symbol.equals(company.symbol, ignoreCase = true) }
+            Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget), verticalAlignment = Alignment.CenterVertically) {
+                StockTickerAvatar(symbol = company.symbol, logoUrl = column?.logoUrl, size = StockStepsTheme.dimensions.logoCompact)
+                Column(Modifier.weight(1f).padding(start = spacing.sm)) {
+                    Text(column?.name ?: company.name, style = typography.bodySemiBold, color = colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(listOf(company.symbol, column?.listing?.ifBlank { null }).filterNotNull().joinToString(" · "), style = typography.caption, color = colors.textSecondary)
+                }
+                TextButton(onClick = { onReplace(company.symbol) }, Modifier.semantics { contentDescription = "Replace ${company.name}" }) { Text("Replace") }
+                TextButton(onClick = { onRemove(company.symbol) }, Modifier.semantics { contentDescription = "Remove ${company.name}" }) { Text("Remove") }
+            }
+        }
+        if (state.canAdd) StockButton("Add a company", onClick = onAdd, variant = StockButtonVariant.OUTLINED, icon = StockIcons.Search, modifier = Modifier.fillMaxWidth())
+        Text(state.crowdedHint ?: "Two or three companies are easiest to read on a phone.", style = typography.caption, color = colors.textSecondary)
+    }
+}
+
+@Composable
+private fun ExamplesCard(state: ComparisonUiState, onExample: (Int) -> Unit, onDiscover: () -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val typography = StockStepsTheme.typography
+    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Text(if (state.selected.isEmpty()) "Pick two companies to start" else "Add one more company to compare", Modifier.semantics { heading() }, style = typography.cardTitle)
+        Text("Search above, use Compare on a company's page or your watchlist, or try an example:", style = typography.small, color = StockStepsTheme.colors.textBody)
+        state.examples.forEachIndexed { i, example ->
+            StockCard(Modifier.fillMaxWidth(), onClick = { onExample(i) }, onClickLabel = "Compare ${example.title}", containerColor = StockStepsTheme.colors.surfaceSecondary, bordered = false) {
+                Text(example.title, style = typography.bodySemiBold, color = StockStepsTheme.colors.textPrimary)
+                Text(example.description, style = typography.caption, color = StockStepsTheme.colors.textSecondary)
+            }
+        }
+        StockButton("Discover Stocks", onClick = onDiscover, variant = StockButtonVariant.TEXT)
+    }
+}
+
+/** Equal-width company columns, kept visible while scrolling; tap opens the company. */
+@Composable
+private fun CompanyHeader(columns: List<CompanyColumn>, onOpen: (String) -> Unit) {
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    Row(Modifier.fillMaxWidth().background(colors.appBackground).padding(vertical = StockStepsTheme.spacing.xs), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        columns.forEach { column ->
+            Column(Modifier.weight(1f).heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(onClickLabel = "Open ${column.name}") { onOpen(column.symbol) }) {
+                Text(column.symbol, style = typography.bodySemiBold, color = colors.primaryText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(column.price, style = typography.tiny, color = colors.textSecondary, maxLines = 1)
+                column.error?.let { Text("Partial data", style = typography.tiny, color = colors.cautionText, maxLines = 1) }
+            }
+        }
+    }
+    HorizontalDivider(color = colors.border)
+}
+
+private fun LazyListScope.sectionItems(section: ComparisonSection, columns: List<CompanyColumn>, onInfo: (ComparisonRow) -> Unit) {
+    if (section.rows.isEmpty()) return
+    item(key = "section-${section.title}") {
+        Column(Modifier.padding(top = StockStepsTheme.spacing.sm), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+            Text(section.title, Modifier.semantics { heading() }, style = StockStepsTheme.typography.sectionTitle, color = StockStepsTheme.colors.textPrimary)
+            section.note?.let { Text(it, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary) }
+        }
+    }
+    section.rows.forEach { row -> item(key = "row-${section.title}-${row.id}") { MetricRowView(row, columns) { onInfo(row) } } }
+}
+
+/** One metric: its name (with an info button) and period above one value per company. N/A explains itself. */
+@Composable
+private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, onInfo: () -> Unit) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     var why by remember { mutableStateOf<String?>(null) }
-    Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).semantics(mergeDescendants = true) { contentDescription = row.accessibility(columns) },
-        verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.width(LABEL_WIDTH).clickable(onClickLabel = "About ${row.label}", onClick = onInfo)) {
-            Text(row.label + " ⓘ", style = typography.small, color = colors.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            row.period?.let { Text(it, style = typography.tiny, color = colors.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    Column(Modifier.fillMaxWidth().padding(vertical = StockStepsTheme.spacing.xxs)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(row.label, style = typography.label, color = colors.textPrimary)
+                row.period?.let { Text(it, style = typography.tiny, color = colors.textTertiary) }
+            }
+            IconButton(onClick = onInfo) { Icon(StockIcons.Info, contentDescription = "About ${row.label}", tint = colors.primary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall)) }
         }
-        Row(Modifier.horizontalScroll(scroll)) {
-            row.cells.forEach { cell ->
-                Text(cell.text, Modifier.width(COLUMN_WIDTH).padding(horizontal = StockStepsTheme.spacing.xxs)
-                    .then(if (cell.explanation != null) Modifier.clickable(onClickLabel = "Why unavailable") { why = cell.explanation } else Modifier),
-                    style = typography.numberLabel, textAlign = TextAlign.End, maxLines = 2,
-                    color = when { cell.explanation != null -> colors.textTertiary; cell.tone == Tone.POSITIVE -> colors.positiveText; cell.tone == Tone.NEGATIVE -> colors.negativeText; else -> colors.textPrimary })
+        Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = row.accessibility(columns) }, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+            row.cells.forEachIndexed { i, cell ->
+                Column(Modifier.weight(1f).heightIn(min = StockStepsTheme.dimensions.touchTarget)
+                    .then(if (cell.explanation != null) Modifier.clickable(onClickLabel = "Why ${columns.getOrNull(i)?.symbol ?: ""} is unavailable") { why = cell.explanation } else Modifier)) {
+                    Text(cell.text + if (cell.explanation != null) " ⓘ" else "", style = typography.numberLabel, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        color = when { cell.explanation != null -> colors.textTertiary; cell.tone == Tone.POSITIVE -> colors.positiveText; cell.tone == Tone.NEGATIVE -> colors.negativeText; else -> colors.textPrimary })
+                    cell.detail?.let { Text(it, style = typography.tiny, color = colors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                }
             }
         }
     }
@@ -164,15 +206,17 @@ private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, scro
 }
 
 @Composable
-private fun PerformanceCard(state: ComparisonUiState, onPeriod: (PerformancePeriod) -> Unit) {
+private fun PerformanceCard(state: ComparisonUiState, onPeriod: (PerformancePeriod) -> Unit, onRetry: () -> Unit) {
     val typography = StockStepsTheme.typography
-    StockCard {
-        Text("Price performance", Modifier.semantics { heading() }, style = typography.cardTitle)
-        Text("Each line starts at 100, so you compare returns, not share prices.", style = typography.caption, color = StockStepsTheme.colors.textSecondary)
+    val colors = StockStepsTheme.colors
+    StockCard(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        Text("Share price change", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+        Text("Each line starts at 100 on the same day, so you compare percentage moves, not share prices. This is price only (no dividends) and says nothing about how the businesses performed.",
+            style = typography.caption, color = colors.textSecondary)
         StockPillSelector(PerformancePeriod.entries, state.period, { it.label }, onPeriod)
         when {
-            state.chartLoading -> LinearProgressIndicator(Modifier.fillMaxWidth())
-            state.chartError != null -> Text(state.chartError.orEmpty(), style = typography.small)
+            state.chartLoading -> LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading price history" })
+            state.chartError != null -> StockErrorState(state.chartError.orEmpty(), onRetry)
             else -> state.chart?.let { chart ->
                 val drawable = chart.series.filter { it.error == null }
                 if (drawable.isEmpty() || chart.dates.size < 2) Text("Price history isn't available for this period.", style = typography.small)
@@ -182,41 +226,51 @@ private fun PerformanceCard(state: ComparisonUiState, onPeriod: (PerformancePeri
                         values = first.values,
                         details = chart.dates.indices.map { i -> chart.dates[i] + " · " + drawable.joinToString(" · ") { s -> "${s.symbol} ${s.values.getOrNull(i)?.let { MetricFormatter.decimals(it, 1) } ?: "—"}" } },
                         xLabels = listOf(chart.dates.first(), chart.dates.last()), yLabels = emptyList(),
-                        description = "Growth of 100 over ${chart.period.label}: " + drawable.joinToString("; ") { s -> "${s.symbol} ${s.change?.let { MetricFormatter.decimals(it, 1) + "%" } ?: "unavailable"}" },
-                        reference = 100.0, seriesLabel = first.symbol,
+                        description = "Price change from 100 over ${chart.period.label}: " + drawable.joinToString("; ") { s ->
+                            "${s.symbol} ${s.change?.let { (if (it > 0) "up " else if (it < 0) "down " else "") + MetricFormatter.decimals(kotlin.math.abs(it), 1) + "%" } ?: "unavailable"}" },
+                        reference = 100.0, referenceLabel = "Start (100)", seriesLabel = first.symbol,
                         additional = drawable.drop(1).map { it.symbol to it.values }
                     )
+                    drawable.forEach { s -> Text("${s.symbol}: " + (s.change?.let { MetricFormatter.change(it).text } ?: "—") + (s.note?.let { " · $it" } ?: ""), style = typography.caption, color = colors.textBody) }
                 }
-                chart.series.filter { it.error != null }.forEach { Text("${it.symbol}: ${it.error}", style = typography.caption) }
-                chart.notes.forEach { Text(it, style = typography.caption, color = StockStepsTheme.colors.textSecondary) }
+                chart.series.filter { it.error != null }.forEach { Text("${it.symbol}: ${it.error}", style = typography.caption, color = colors.cautionText) }
+                chart.notes.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
             }
         }
     }
 }
 
 @Composable
-private fun AddCompanyDialog(state: ComparisonUiState, onSearch: suspend (String) -> List<StockSearchResult>, onAdd: (String, String) -> Unit, onDismiss: () -> Unit) {
+private fun AddCompanyDialog(state: ComparisonUiState, replacing: String?, onSearch: suspend (String) -> List<StockSearchResult>, onPick: (String, String) -> Unit, onDismiss: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var results by remember { mutableStateOf<List<StockSearchResult>>(emptyList()) }
     var failed by remember { mutableStateOf(false) }
+    var searching by remember { mutableStateOf(false) }
     LaunchedEffect(query) {
         if (query.isBlank()) { results = emptyList(); return@LaunchedEffect }
         delay(350) // debounce: search after typing pauses; a newer query cancels this one
-        failed = false
+        failed = false; searching = true
         results = try { onSearch(query).take(8) } catch (cause: Exception) {
             if (cause is kotlinx.coroutines.CancellationException) throw cause
             failed = true; emptyList()
         }
+        searching = false
     }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Add a company") }, confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }, text = {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(replacing?.let { "Replace $it" } ?: "Add a company") }, confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-            OutlinedTextField(query, { query = it }, label = { Text("Search by name or symbol") }, singleLine = true)
-            if (failed) Text("Search isn't available right now.", style = StockStepsTheme.typography.caption)
+            StockTextField(query, { query = it }, "Search by name or ticker", Modifier.fillMaxWidth(), placeholder = "e.g. Apple or RY.TO")
+            if (searching) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (failed) Text("Search isn't available right now. Try again.", style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.cautionText)
+            if (!searching && !failed && query.isNotBlank() && results.isEmpty()) Text("No matching companies.", style = StockStepsTheme.typography.caption)
             results.forEach { stock ->
                 val already = state.selected.any { it.symbol.equals(stock.symbol, ignoreCase = true) }
-                Text("${stock.symbol} · ${stock.name}${if (already) " (added)" else ""}",
-                    Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(enabled = !already) { onAdd(stock.symbol, stock.name) }.padding(vertical = StockStepsTheme.spacing.xs),
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Column(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(enabled = !already) { onPick(stock.symbol, stock.name) }
+                    .padding(vertical = StockStepsTheme.spacing.xxs)) {
+                    Text(stock.name, style = StockStepsTheme.typography.bodySemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = if (already) StockStepsTheme.colors.textTertiary else StockStepsTheme.colors.textPrimary)
+                    Text(listOfNotNull(stock.symbol, stock.exchange, if (already) "already added" else null).joinToString(" · "), style = StockStepsTheme.typography.caption,
+                        color = StockStepsTheme.colors.textSecondary)
+                }
             }
         }
     })

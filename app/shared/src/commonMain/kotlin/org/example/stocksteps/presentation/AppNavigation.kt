@@ -400,7 +400,8 @@ internal fun AppNavigation(
                     onAddPortfolio = addPortfolio,
                     onOpenAlerts = { symbol -> navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(symbol)) },
                     onEarnings = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(filter = "WATCHLIST")) },
-                    onEarningsReminders = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsRemindersRoute) }
+                    onEarningsReminders = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsRemindersRoute) },
+                    onCompare = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute) }
                 )
             }
             composable<org.example.stocksteps.presentation.watchlist.AlertsRoute> { entry ->
