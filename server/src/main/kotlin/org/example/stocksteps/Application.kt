@@ -58,9 +58,15 @@ import org.example.stocksteps.repositoryImpl.FinnhubNewsProviderRepositoryImpl
 import org.example.stocksteps.service.StockService
 
 fun main() {
-    // PORT lets a mock server run beside the real one locally; Cloud Run also sets it.
-    val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
-    embeddedServer(Netty, port = port, host = "0.0.0.0", module = Application::module)
+    // PORT lets a mock server run beside the real one locally; Cloud Run also sets it. A malformed value fails instead of using 8080.
+    val port = org.example.stocksteps.appconfig.StartupConfiguration.port()
+    embeddedServer(Netty, configure = {
+        connector { this.port = port; host = "0.0.0.0" }
+        // Phase 5A: SIGTERM (Cloud Run scale-in/redeploy) runs Ktor's shutdown hook: /health/ready turns 503, in-flight requests get up to
+        // 8 s to finish — inside Cloud Run's 10 s window before SIGKILL.
+        shutdownGracePeriod = 2_000
+        shutdownTimeout = 8_000
+    }, module = Application::module)
         .start(wait = true)
 }
 
@@ -77,6 +83,13 @@ fun Application.module() {
 
     val dataMode = DataMode.fromEnvironment()
     log.info("StockSteps data mode: {}", dataMode.name.lowercase(Locale.ROOT))
+    // Phase 5A: malformed or (on Cloud Run) missing settings stop startup before any data source is built; messages name settings, never values.
+    org.example.stocksteps.appconfig.StartupConfiguration.check(dataMode).let { report ->
+        report.warnings.forEach { log.warn(it) }
+        report.errors.forEach { log.error("Configuration error: {}", it) }
+        check(report.errors.isEmpty()) { "Invalid configuration: ${report.errors.joinToString("; ")}" }
+    }
+    healthRoutes()
     val sources = when (dataMode) {
         DataMode.REAL -> realDataSources()
         DataMode.MOCK -> mockDataSources()

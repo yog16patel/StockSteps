@@ -1,0 +1,134 @@
+# StockSteps backend — Cloud Run STAGING service template (Phase 5A).
+#
+# ⚠️ NOT DEPLOYABLE AS CHECKED IN. Every value in angle brackets (<…>) is a placeholder that must be replaced, and the provider
+# limits are deliberately non-numeric: the server's startup validation refuses to start until verified plan values are entered.
+# Review with docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md before use. Nothing in this repository deploys it automatically.
+#
+# Intended use (Phase 5B, after review; not run in Phase 5A):
+#   gcloud run services replace deploy/cloud-run-staging.yaml --region=<REGION> --project=<STAGING_PROJECT_ID>
+#
+# Authentication is NOT expressed in this file: Cloud Run requires IAM for invocation unless someone grants `roles/run.invoker`
+# to `allUsers`. Never grant it to allUsers/allAuthenticatedUsers for staging. Grant it only to named operators and the scheduler SA.
+# Ingress (below) and IAM authentication are separate controls; staging uses both.
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: stocksteps-api-staging
+  labels:
+    app: stocksteps
+    environment: staging
+  annotations:
+    # Restricted ingress: only internal sources (same-project VPC, Cloud Scheduler on the run.app URL, internal load balancers).
+    # A laptop on the internet cannot reach the service with this setting, even with IAM credentials — see the checklist (§5B smoke tests).
+    run.googleapis.com/ingress: internal
+spec:
+  template:
+    metadata:
+      labels:
+        app: stocksteps
+        environment: staging
+      annotations:
+        # Scale to zero when idle (lowest cost); one instance at most, matching CLOUD_RUN_MAX_INSTANCES below.
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "1"
+        # CPU only while handling requests (request-based billing). Background work (screener warm-up started by a request, usage summaries)
+        # is throttled between requests; that is accepted for staging. Do not switch to always-allocated CPU without a cost decision.
+        run.googleapis.com/cpu-throttling: "true"
+        # Extra CPU during JVM startup shortens cold starts at min instances 0.
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      # Dedicated runtime identity with least privilege (docs/CLOUD_RUN_SECRETS.md §3). Never the default compute service account.
+      serviceAccountName: stocksteps-api-staging@<STAGING_PROJECT_ID>.iam.gserviceaccount.com
+      containerConcurrency: 20
+      # AI routes allow up to 20 s for the provider; 60 s bounds slow requests well below Cloud Run's maximum.
+      timeoutSeconds: 60
+      containers:
+        # Deploy by digest (immutable), never by a moving tag.
+        - image: <REGION>-docker.pkg.dev/<STAGING_PROJECT_ID>/stocksteps/stocksteps-server@sha256:<IMAGE_DIGEST>
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi   # provisional: validate heap/RSS under the staging smoke test before changing
+          env:
+            # --- Application (docs/CLOUD_RUN_ENVIRONMENT.md §1). PORT and K_SERVICE are set by Cloud Run; don't set them here.
+            - name: STOCKSTEPS_DATA_MODE
+              value: real          # MOCK is refused on Cloud Run by the server
+            - name: LOG_FORMAT
+              value: json
+            - name: FIREBASE_PROJECT_ID
+              value: <STAGING_FIREBASE_PROJECT_ID>
+            - name: NEWS_FIRESTORE_PROJECT_ID
+              value: <STAGING_PROJECT_ID>
+            - name: NEWS_FIRESTORE_DATABASE_ID
+              value: "(default)"
+            - name: NEWS_STORE
+              value: firestore
+            # --- Phase 4C provider budgets: per-minute plan limits ÷ instances × safety margin are computed by the server.
+            # Must equal autoscaling.knative.dev/maxScale above.
+            - name: CLOUD_RUN_MAX_INSTANCES
+              value: "1"
+            - name: PROVIDER_SAFETY_MARGIN
+              value: "0.8"
+            - name: PROVIDER_FMP_PER_MINUTE
+              value: <VERIFIED_FMP_PLAN_REQUESTS_PER_MINUTE>
+            - name: PROVIDER_FINNHUB_PER_MINUTE
+              value: <VERIFIED_FINNHUB_PLAN_REQUESTS_PER_MINUTE>
+            - name: PROVIDER_GEMINI_PER_MINUTE
+              value: <VERIFIED_GEMINI_PROJECT_REQUESTS_PER_MINUTE>
+            - name: PROVIDER_BOC_PER_MINUTE
+              value: "10"
+            - name: PROVIDER_FMP_DAILY_TARGET
+              value: <FMP_DAILY_REQUEST_TARGET_FOR_STAGING>
+            # --- Staging cost containment (docs/CLOUD_RUN_COST_AND_SCALING.md §5).
+            - name: SCREENER_FUNDAMENTALS_PER_HOUR
+              value: "10"
+            - name: USAGE_SUMMARY_SECONDS
+              value: "60"
+            # --- Phase 4 security. TRUSTED_PROXY_HOPS stays UNSET until the ingress topology is verified with a forged
+            # X-Forwarded-For (checklist §6). App Check runs in monitor mode only.
+            - name: APP_CHECK_ENFORCE
+              value: "false"
+            # - name: FIREBASE_PROJECT_NUMBER          # enable App Check monitoring once the apps send tokens
+            #   value: <STAGING_FIREBASE_PROJECT_NUMBER>
+            # - name: APP_CHECK_APP_IDS
+            #   value: <ANDROID_APP_ID>,<IOS_APP_ID>
+            # --- Internal jobs (docs/CLOUD_RUN_SECRETS.md §5). Leave unset until Phase 5B decides the scheduler design: the /internal/…
+            # routes are then not registered at all (fail closed).
+            # - name: INTERNAL_OIDC_AUDIENCE
+            #   value: <SERVICE_URL>
+            # - name: INTERNAL_OIDC_SERVICE_ACCOUNT
+            #   value: stocksteps-scheduler-staging@<STAGING_PROJECT_ID>.iam.gserviceaccount.com
+            # --- Secrets from Secret Manager, pinned to explicit versions (rotate by adding a version and redeploying).
+            - name: FMP_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stocksteps-staging-fmp-api-key
+                  key: "<SECRET_VERSION_NUMBER>"
+            - name: FINNHUB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stocksteps-staging-finnhub-api-key
+                  key: "<SECRET_VERSION_NUMBER>"
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stocksteps-staging-gemini-api-key
+                  key: "<SECRET_VERSION_NUMBER>"
+          # Probes never call providers, Firestore or Firebase (/health/* answer from process state).
+          startupProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            periodSeconds: 2
+            timeoutSeconds: 1
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            periodSeconds: 30
+            timeoutSeconds: 2
+            failureThreshold: 3

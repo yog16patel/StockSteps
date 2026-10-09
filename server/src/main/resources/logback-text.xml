@@ -1,0 +1,8 @@
+<included>
+    <!-- LOG_FORMAT=text (default): human-readable lines for local runs. -->
+    <appender name="OUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+</included>

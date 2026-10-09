@@ -1,12 +1,12 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (end of the Phase 4 session) against the repository (`main`, HEAD **"Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"**, one commit ahead of `origin/main` (not pushed)). Verify with
+Last reviewed: 2026-10-09 (Phase 5A session) against the repository (`main`, HEAD **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** on top of `4586889` "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring", both pushed to `origin/main`). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-HEAD: **"Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** (Phase 4: admission/identity, existence gate, watch-data cap, per-job internal auth, App Check monitor mode, durable AI quotas,
+Phase 4: **`4586889` "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** — pushed (Phase 4: admission/identity, existence gate, watch-data cap, per-job internal auth, App Check monitor mode, durable AI quotas,
 provider budgets, usage summaries, audit and implementation docs), on top of `6a70d0e` "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage".
 
 **Current objective**: financial API cost and safety program. Phases 1–3 are done, committed and verified. **Phase 4 (production security,
@@ -15,7 +15,13 @@ durable AI quotas, provider budgets, cost monitoring) is implemented, verified a
 Phase 4 code: server 473/0 (3 skipped), core JVM 416/0, core iOS 416/0, shared Android host 55/0, shared iOS 49/0, `assembleDebug` OK, iOS
 `xcodebuild` BUILD SUCCEEDED. Verdict: READY WITH CONDITIONS. Full session handoff: `docs/PROJECT_HANDOFF.md` (top section).
 
-**Next task**: push when asked; then the deployment-side conditions in `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` §8/§9d — verify
+**Phase 5A (committed: "Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs")**: Google Cloud Run deployment preparation — `Dockerfile`, `.dockerignore`, `deploy/cloud-run-staging.yaml`,
+`/health/live` + `/health/ready`, startup configuration validation, JSON logging, server-only Gradle build flag, and `docs/CLOUD_RUN_*.md`;
+report `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`. Server tests 481/0 (3 skipped). Image built for `linux/amd64` and container-verified on the owner's Ubuntu server
+(report §6a: non-root, no secrets, fail-fast config, JSON logs, probes, SIGTERM, `--network none`; 203 MB compressed). Verdict: READY WITH CONDITIONS for Phase 5B (staging deploy). Next: image vulnerability scan;
+owner inputs in `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1; then Phase 5B only on explicit request.
+
+**Earlier next task (still open)**: push when asked; then the deployment-side conditions in `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` §8/§9d — verify
 ingress and set `TRUSTED_PROXY_HOPS` (D1), set provider plan limits and `CLOUD_RUN_MAX_INSTANCES` (D4/D5), reconfigure Cloud Scheduler with OIDC or
 per-job secrets, confirm the deployed logging config (rotate the FMP key if TRACE was ever deployed), add the App Check SDKs (monitor mode), create
 the logs-based metrics, dashboard, alerts and billing budgets. Owner decisions: `docs/FINANCIAL_API_PHASE4_DECISIONS.md`.

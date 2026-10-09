@@ -5,11 +5,9 @@
       Application loggers (`StockSteps.*`) log only sanitized facts (provider host/path/status, exception class names) — never keys,
       Authorization or App Check tokens, prompts, notes or portfolio data.
     -->
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
+    <!-- Phase 5A: LOG_FORMAT selects the root appender `OUT`: logback-text.xml (default, local runs) or logback-json.xml (Cloud Run; one Cloud
+         Logging entry per line with `severity`). Startup validation rejects any other value. -->
+    <include resource="logback-${LOG_FORMAT:-text}.xml"/>
     <!-- Phase 4D: per-instance usage summaries are single JSON lines (Cloud Logging jsonPayload → logs-based metrics). -->
     <appender name="USAGE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -20,7 +18,7 @@
         <appender-ref ref="USAGE"/>
     </logger>
     <root level="INFO">
-        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="OUT"/>
     </root>
     <logger name="io.ktor" level="WARN"/>
     <logger name="io.ktor.client" level="WARN"/>

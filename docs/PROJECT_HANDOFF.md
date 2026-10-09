@@ -1,16 +1,33 @@
-# StockSteps — session handoff (2026-10-09, end of the financial API Phase 3 implementation + Phase 4 security/quota/budget session)
+# StockSteps — session handoff (2026-10-09: Phase 5A Cloud Run deployment preparation, on top of the Phase 3/4 sessions)
 
-Read order for a new session: `CLAUDE.md` → **this section** → `docs/project-status.md` §0 → the root `PROJECT_HANDOFF.md` top sections
-(canonical milestone log) → `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` (Phase 4 report, §8–§9 blockers and validation) → the code.
+Read order for a new session: `CLAUDE.md` → **§0 below** → `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md` → `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md`
+→ the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → the root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## 0. Phase 5A — where the latest session stopped
+
+- HEAD: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** on top of `4586889` (Phase 4); both pushed to `origin/main`. The commit also contains the earlier doc-only handoff edits. Nothing was deployed or created in Google Cloud; no real provider calls.
+- Done: `Dockerfile` + `.dockerignore` (allow-list), `settings.gradle.kts` `-Pstocksteps.serverOnly=true`, `HealthRoutes.kt` (`/health/live`,
+  `/health/ready`), `appconfig/StartupConfiguration.kt` (fail-fast validation, Cloud Run requirements), explicit shutdown grace/timeout in `main()`,
+  `logging/CloudLoggingJsonLayout.kt` + `logback-{text,json}.xml` (`LOG_FORMAT`), `CloudRunReadinessTest` (8), `deploy/cloud-run-staging.yaml`,
+  `docs/CLOUD_RUN_{ENVIRONMENT,SECRETS,COST_AND_SCALING,DEPLOYMENT_CHECKLIST}.md`, `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`.
+- Verified: `./gradlew :server:test --continue` → 481 passed, 0 failed, 3 skipped (Firestore emulator). Image built (`linux/amd64`) and
+  container-verified on the owner's LAN Ubuntu server (report §6a; Docker is not installed on the Mac). Server changes made with the
+  owner's approval: `docker-buildx` installed, the SSH user added to the `docker` group. Left there: a `/tmp/stocksteps-phase5a-verify.*` directory, image
+  `stocksteps-phase5a-verify:local`, 2.59 GB build cache (removal pending the owner's decision).
+- Verdict: **READY WITH CONDITIONS** for Phase 5B. Next:
+  scan the image for vulnerabilities; owner inputs (checklist §1); verify scheduler OIDC behind
+  IAM-required invocation before enabling jobs. **Do not deploy (Phase 5B) without an explicit request.**
 
 ## 1. Repository state at handoff (verified)
 
-- Branch `main`, **one commit ahead of `origin/main`** (Phase 4 committed, not pushed).
-- HEAD: **"Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** (Phase 4), on top of `6a70d0e` "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage".
-- Commits made in this session (all pushed): `517a46b` "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective
-  statements, market- and earnings-aware freshness, stale fallback"; `6a70d0e` (above).
-- Phase 4 = that HEAD commit: 31 modified files and 20 new files — see §5. Nothing was deployed. No MOCK server running.
+- (Phase 3/4 session state below is historical: Phase 4 `4586889` has since been pushed together with the Phase 5A commit.)
+- Branch `main`, then one commit ahead of `origin/main` (Phase 4 committed, not pushed).
+- HEAD: **`4586889` "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** (Phase 4), on top of `6a70d0e` "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage".
+- Commits made in this session: `517a46b` "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective
+  statements, market- and earnings-aware freshness, stale fallback" (pushed); `6a70d0e` (above, pushed); **`4586889` Phase 4 (NOT pushed)**.
+- Phase 4 = `4586889`: 51 files (31 modified, 20 added; +3,053/−138) — see §5. Working tree clean apart from this handoff's doc edits.
+  Nothing was deployed; no cloud infrastructure or production Firestore was touched; no REAL provider calls. No MOCK server running.
 - Shareable results document (Claude Docs, private until shared from its Share menu):
   https://claude.ai/code/artifact/c4ca8cbb-855c-4aa2-a43a-feecd79b4da9 ("StockSteps Financial API Phase 4 Results").
 
@@ -25,8 +42,15 @@ not launchable until the deployment-side settings in §8 are made and verified.
 
 Phase 4F verification was completed (full matrix green, provider-path audit, anonymous-pool audit and fix, older-client compatibility, §9 of the
 implementation report), a shareable results doc was produced, the Phase 4 diff was reviewed (no secrets, debug output or unrelated changes; only
-docs changed after the final test run) and Phase 4 was committed (not pushed). The next task is to **push when the user asks**, then work through
-the production configuration blockers (§8) or continue with the next product feature the user chooses.
+docs changed after the final test run) and Phase 4 was committed as `4586889` (not pushed). This handoff was then refreshed (docs only,
+uncommitted). The next task is to **push `4586889` (and these doc edits, after committing them) only when the user asks**, then work through the
+production configuration blockers (§8). Phase 5 has not been started and must not be started without an explicit request.
+
+### Start-of-session checklist for the next session
+1. `git status -sb` → expect `main...origin/main [ahead 1]` (or `[ahead 2]` if these doc edits were committed) and only doc changes.
+2. `git log --oneline -3` → `4586889` on top of `6a70d0e`.
+3. Read `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` §4 (configuration), §8–§9 (blockers, validation) before touching deployment settings.
+4. Re-run tests only if code changes: `./gradlew :server:test` (fast), full matrix in §9 below.
 
 ## 4. Work completed in this session
 

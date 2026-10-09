@@ -1,0 +1,8 @@
+<included>
+    <!-- LOG_FORMAT=json (Cloud Run): one JSON object per line with `severity` and `message` (CloudLoggingJsonLayout). -->
+    <appender name="OUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="org.example.stocksteps.logging.CloudLoggingJsonLayout"/>
+        </encoder>
+    </appender>
+</included>

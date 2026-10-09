@@ -1,6 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** on `main` (not pushed).
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** on `main` (pushed).
+Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (next section; `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
+Previous commit: **"Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** (pushed with this one).
 Includes the Financial API Phase 4 audit and implementation (next section; `docs/FINANCIAL_API_PHASE4_*.md`).
 Previous commit: **"Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"**.
 Includes the Phase 3 verification (next section, "Phase 3 verification"): benchmark A–H, earnings coverage fix, tests, docs.
@@ -42,6 +44,33 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Phase 5A — Google Cloud Run deployment preparation (2026-10-09) — commit "Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"
+
+Preparation only: no deploy, no cloud resources/secrets/service accounts/scheduler jobs, no production Firestore, no paid provider calls.
+Report: `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`. Verdict: **READY WITH CONDITIONS** for Phase 5B.
+
+- Container: `Dockerfile` (Zulu 21 JDK build stage matching the Gradle daemon criteria → `-Pstocksteps.serverOnly=true :server:installDist`;
+  Temurin 21 JRE noble runtime; images pinned by version + digest; user 10001; `LOG_FORMAT=json`; start script execs java so SIGTERM reaches the
+  JVM), allow-list `.dockerignore`, `settings.gradle.kts` opt-in `stocksteps.serverOnly` (skips the app modules; default builds unchanged).
+- Server: `GET /health/live`, `GET /health/ready` (`HealthRoutes.kt`; process state only, outside admission; ready → 503 `stopping` on SIGTERM);
+  `main()` uses explicit shutdown grace 2 s / timeout 8 s and rejects a malformed `PORT`; `appconfig/StartupConfiguration.kt` validates
+  configuration before any data source is built (malformed security/budget settings fail instead of silently defaulting; on Cloud Run
+  `FIREBASE_PROJECT_ID`, the Firestore project, `CLOUD_RUN_MAX_INSTANCES` and `PROVIDER_*_PER_MINUTE` are required); JSON logs with Cloud Logging
+  severities (`logging/CloudLoggingJsonLayout.kt`, `logback-{text,json}.xml` selected by `LOG_FORMAT`).
+- Deployment prep: `deploy/cloud-run-staging.yaml` (non-deployable template: min 0, max 1, concurrency 20, 1 vCPU, 1 GiB, ingress internal,
+  dedicated SA, secrets via `secretKeyRef`, probes), `docs/CLOUD_RUN_ENVIRONMENT.md`, `docs/CLOUD_RUN_SECRETS.md`,
+  `docs/CLOUD_RUN_COST_AND_SCALING.md`, `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md`.
+- Validation: `./gradlew :server:test --continue` → **481 passed, 0 failed, 3 skipped** (Firestore emulator); new `CloudRunReadinessTest` 8/8.
+  Docker image: built for `linux/amd64` on the owner's Ubuntu server and verified with `--network none`, 1 vCPU / 1 GiB, test-only values —
+  non-root (uid 10001, `/app` read-only), no secrets in layers/filesystem, bad config exit 1, MOCK refused on Cloud Run, ready 5.6 s incl.
+  container start, all logs JSON with severity, SIGTERM exit 143, read-only root filesystem OK, 203 MB compressed (report §6a). Earlier
+  host-equivalent checks on the Mac: allow-listed build context built with the Dockerfile's Gradle command and no
+  Android SDK; REAL on simulated Cloud Run with placeholder keys started in 0.36 s with zero outbound connections, probes 200, no key text in
+  logs, SIGTERM stop in ~2 s; bad configuration exits 1 with named errors. `:core`/mobile code unchanged (suites not re-run).
+- Open: image vulnerability scan; owner inputs (project, plan limits, budgets); scheduler OIDC behaviour behind
+  IAM-required invocation (Cloud Run strips signatures for `X-Serverless-Authorization`; verify before relying on in-app OIDC); two Firestore
+  composite indexes on `earningsDeliveries`; `TRUSTED_PROXY_HOPS` verification; mobile apps can't reach an IAM-protected staging service.
 
 ## Financial API — Phase 4 audit and implementation (2026-10-09) — commit "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"
 

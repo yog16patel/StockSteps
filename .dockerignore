@@ -1,0 +1,34 @@
+# Phase 5A: allow-list. Only what `:server:installDist` needs enters the Docker build context; everything else (apps, docs, local
+# data, IDE files, credentials) is never sent to the builder or baked into a layer.
+*
+!gradlew
+!gradle/
+!settings.gradle.kts
+!build.gradle.kts
+!gradle.properties
+!core/
+!server/
+
+# Even inside the allowed folders: no build outputs, caches, local data or anything credential-like.
+**/build/
+**/.gradle/
+**/.kotlin/
+server/data/
+**/local.properties
+**/.env
+**/.env.*
+**/*.env
+**/*service-account*.json
+**/*serviceAccount*.json
+**/*credentials*.json
+**/*-key.json
+**/google-services.json
+**/GoogleService-Info.plist
+**/*.p12
+**/*.pem
+**/*.key
+**/*.jks
+**/*.keystore
+**/*.log
+**/.DS_Store
+**/*.iml
