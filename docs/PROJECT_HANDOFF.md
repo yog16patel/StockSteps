@@ -1,44 +1,111 @@
-# StockSteps — session handoff (2026-10-09, end of session: Phase 5C.1 verification closure, after Phase 5C, 5A/5B and the Phase 3/4 sessions)
+# StockSteps — session handoff (2026-10-09, end of session: Phase 5C.1 closed — PASS WITH CONDITIONS; LAN redeploy and UI plan approval pending)
 
 Read order for a new session: `CLAUDE.md` → **§0000 below** → §000 → `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md`
 → §00 (Phase 5B Local) → §0 (Phase 5A) → the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## 0000. Phase 5C.1 — verification closure (read first)
+## 0000. Phase 5C.1 — where the latest session stopped (read first)
 
-### Repository state
-- Branch `main`. Phase 5C committed as "Fix Phase 5C mobile integration bugs and add end-to-end verification report" (`a50a2e3`) on top of the pushed
-  Phase 5B Local commit; pushed. **Phase 5C.1 is committed and pushed** as "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs" (list below). The final test matrix was interrupted — see report §15.
-- LAN backend runs `stocksteps-local:a50a2e3cc833` (= the 5C commit). The 5C.1 server change (`BriefWording.recentNews` used by `DailyBriefService`)
-  is **not deployed** yet: after committing, `deploy/local/deploy.sh deploy` + `smoke` (needs the user's approval).
+### Repository state (verified at handoff, 2026-10-09 ~17:15 EDT)
+- Branch `main`. Current commit: "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan" (doc-only, pushed) on top of
+  `fc3961e` "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs" (pushed), `a50a2e3` Phase 5C (pushed),
+  `1c1b073` Phase 5B Local (pushed).
+- Commit/push only when the user explicitly asks; every commit updates the root `PROJECT_HANDOFF.md`.
 
-### What 5C.1 did (details: `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §9–§16)
-- iOS walkthroughs A–G (Company Details, Screener, Comparison, Portfolio, Practice, Daily Brief, Earnings) on the spare iPhone 16 Simulator
-  against the LAN MOCK backend through a counting proxy; results in report §10.
-- Fixed: **critical iOS hang** opening Earnings history / price-move breakdown from Company Details (`@Environment(\.openURL)` render loop →
-  `ExternalURLOpener`); stuck iOS search after fast typing; search field focus; launch requests 19–21 → 13; duplicate earnings/comparison/practice
-  requests from presenters created in SwiftUI `init`s (lazy creation + `.task` activation); shared repository loading race (watchlists/alerts 2×,
-  Android too); minor #1 (portfolio grouping), #2 (source link a11y labels), #3 (brief card at 1.3× font), #4 (stale iOS auth error),
-  #6 (brief grammar); comparison chart axis "1.5E11". Deferred: #7/#8 MOCK fixture artefacts and the observations in report §14.
-- New tests: `PortfolioFormatTest`, `WhyMovingSourceTest`, `BriefWordingTest`, `UserDataRepositoriesTest.repositoryIsLoadingFromTheMomentTheAccountIsKnown`.
+### Current development objective
+Close Phase 5C/5C.1 (mobile end-to-end integration against the LAN MOCK backend) cleanly, then start the **global UI refinement** phase
+(design tokens → components → screens). Cloud Run staging stays deferred; Phase 5D (Firebase persistence) has not started.
 
-### Files changed (in commit "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs")
-- Core: `data/userdata/UserDataRepositories.kt`, `portfolio/Decimal.kt` (`PortfolioFormat`), `model/CompanyDetails.kt`, `brief/DailyBriefModels.kt`;
-  tests above. Server: `brief/DailyBriefService.kt`. Shared: `presentation/brief/DailyBriefScreens.kt`, `presentation/companydetails/CompanyDetailsScreen.kt`,
-  `iosMain/IosEarningsClient.kt`, `iosMain/IosPracticeClient.kt`.
-- iOS: new `ExternalURLOpener.swift`; `AccountViewModel`, `AuthScene`, `CompanyDetailsScene`, `CompanyDetailsScreen`, `CompanyNewsViews`,
-  `ComparisonHistoryViews`, `EarningsPremiumViews`, `EarningsScenes`, `MarketsScene`, `PracticeScenes`, `ScreenerScenes`, `StockSearchScene`,
-  `StockSearchScreen`, `StockSearchViewModel`.
-- Docs: report (§9–§16), this file, `docs/project-status.md`, root `PROJECT_HANDOFF.md`, `CLAUDE.md`.
+### Exact task at the end of the session ("Finalize Phase 5C.1 and prepare for Global UI Refinement")
+The user's last task list (Tasks 1–5) — status:
+1. **Git review** — done: 5C.1 is already committed and pushed; `git diff --check` clean; no debug instrumentation (`P5C1-DIAG`, `_printChanges`,
+   `NSLog`), credentials or LAN address in the commit (the only key-like string in the tree is the public Firebase client config in
+   `GoogleService-Info.plist`, which predates 5C.1).
+2. **Final verification** — done: full matrix + iOS `xcodebuild` green on the final code (results below; report §15). Hang regression strategy and
+   missing UI-test coverage documented (report §13a).
+3. **Backend alignment** — inspected read-only (user-requested): container healthy, image `stocksteps-local:a50a2e3cc833` (Phase 5C), `dataMode` mock,
+   health/meta 200, `upstream` 0, only the MOCK AI template counted. The 5C.1 server change (`BriefWording.recentNews` used by
+   `server/.../brief/DailyBriefService.kt`; server/core diff to HEAD 5 files) is **not deployed** — redeploy + smoke **awaiting the user's approval**.
+4. **Close the report** — done: report §13 (closure note), §13a (regression strategy), §15 (final results), §16 (closure verdict PASS WITH CONDITIONS).
+5. **`docs/GLOBAL_UI_REFINEMENT_PLAN.md`** — written (read-only proposal: token/component inventory, findings by issue with code evidence,
+   the 7-step order); **awaiting the user's approval**, no UI implemented.
 
-### Rules learned (keep)
-- SwiftUI evaluates `navigationDestination` builders and re-runs scene `init`s on parent updates: **never start presenters/clients in a model `init`**
-  that a scene creates for `@State` — create on first use and subscribe from `.task` (pattern: `EarningsDetailsModel`, `ScreenerModel.client`).
-- Scenes that own `navigationDestination`s must not declare `@Environment(\.openURL)` (render loop) — use `ExternalURLOpener`.
-- Drive iOS searches from the model property (`didSet`), not a view `onChange`.
+### Work completed in this session (all committed and pushed)
+- Phase 5C commit (`a50a2e3`) after a diff review; LAN backend redeployed from it (`a50a2e3cc833`, cached build, ~13 s swap), smoke 23/23,
+  learning sync regression ("now" → 200, "+2 days" → 400), `upstream` = 0.
+- Phase 5C.1 (`fc3961e`), details in `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §9–§16:
+  - iOS walkthroughs A–G on the spare iPhone 16 Simulator (iOS 18.3, ad-hoc signed, `--firebase-emulators`, Auth emulator accounts
+    `p5c1-a/b@example.test` created via the emulator REST API) through a counting reverse proxy on the Mac (`127.0.0.1:8091` → LAN).
+  - Fixed (#9–#22 in the report): **critical iOS hang** (Company Details → Earnings history / See full breakdown froze at 100 % CPU:
+    `@Environment(\.openURL)` in scenes that own `navigationDestination`s → `ExternalURLOpener`); stuck search after fast typing (query `didSet`);
+    search auto-focus; launch 19–21 → 13 requests; duplicate requests from presenters created in SwiftUI `init`s (earnings details/calendar/
+    event/results/premium/digest, comparison `IosScreenerClient`, practice order with per-order scope + `release`); shared
+    `ServerBackedRepository` loading race (watchlists/alerts 2×, Android too); portfolio digit grouping; source-link a11y labels; Android brief card
+    at ≥1.3× font; stale iOS auth error; brief "1 of the 1 companies" grammar; compact comparison axis.
 
-### Next steps
-1. Re-run the interrupted matrix (core iOS, assembleDebug) and the iOS xcodebuild; verify #17–#20/#22 in the apps. 2. Redeploy LAN backend + smoke (approval). 3. Physical devices, VoiceOver/TalkBack, real Firebase. 4. #7/#8 fixture refresh.
+### Files created or modified this session
+- `a50a2e3`: see §000 below.
+- `fc3961e`: core `data/userdata/UserDataRepositories.kt`, `portfolio/Decimal.kt` (`PortfolioFormat`), `model/CompanyDetails.kt`
+  (`WhyMovingSource.accessibilityLabel`), `brief/DailyBriefModels.kt` (`BriefWording.recentNews`); new tests `core/src/commonTest/.../portfolio/PortfolioFormatTest.kt`,
+  `.../model/WhyMovingSourceTest.kt`, `.../brief/BriefWordingTest.kt`, +1 in `.../data/UserDataRepositoriesTest.kt`; server `brief/DailyBriefService.kt`;
+  shared `presentation/brief/DailyBriefScreens.kt`, `presentation/companydetails/CompanyDetailsScreen.kt`, `iosMain/IosEarningsClient.kt`,
+  `iosMain/IosPracticeClient.kt`; iOS new `ExternalURLOpener.swift` and `AccountViewModel`, `AuthScene`, `CompanyDetailsScene`, `CompanyDetailsScreen`,
+  `CompanyNewsViews`, `ComparisonHistoryViews`, `EarningsPremiumViews`, `EarningsScenes`, `MarketsScene`, `PracticeScenes`, `ScreenerScenes`,
+  `StockSearchScene`, `StockSearchScreen`, `StockSearchViewModel`; docs (report, handoffs, status, `CLAUDE.md`).
+- Closure commit "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan": report §13/§13a/§15/§16, new `docs/GLOBAL_UI_REFINEMENT_PLAN.md`, `docs/PROJECT_HANDOFF.md`, `docs/project-status.md`,
+  root `PROJECT_HANDOFF.md`.
+
+### Build and test results
+Verified:
+- Phase 5C code (before 5C.1): full matrix BUILD SUCCESSFUL — server 482/0 (3 skipped), core JVM 421/0, core iOS 421/0, shared Android 55/0, shared iOS 51/0,
+  `assembleDebug` OK; iOS `xcodebuild` OK.
+- Final 5C.1 code (HEAD `fc3961e`), closure re-run: server **482/0, 3 skipped** (Firestore emulator — skipped is not passed); core JVM **429/0**;
+  **core iOS 429/0** (clean re-run 8 min 13 s after deleting the leftover `core/build/test-results/iosSimulatorArm64Test`; the earlier killed run,
+  an `EOFException` run and a `NoSuchFileException` run were two sessions' Gradle builds colliding, not test failures); shared Android host **55/0**;
+  shared iOS **51/0**; `:app:androidApp:assembleDebug` **OK**; iOS `xcodebuild` (generic simulator, ad-hoc signed) **BUILD SUCCEEDED**.
+- Simulator: fixes #9–#16 exercised through the real UI with request counts from the proxy; LAN `upstream` counter 0 throughout.
+Unverified:
+- In the apps: #17 portfolio grouping, #18 a11y labels (no VoiceOver), #19 Android brief card at 1.3× (not seen on an emulator), #20 iOS auth error
+  clearing, #22 comparison axis.
+- Phase 5C.1 regression coverage for the hang/search/duplicate-request fixes is **simulator evidence only — there is no iOS UI test target**.
+  Kotlin tests cover the shared repository race and the formatters only.
+
+### Important decisions and reasons
+- Lazy presenter creation + `.task` activation instead of restructuring `AppScene`/scenes (smallest change; SwiftUI keeps the first `@State`
+  value but re-runs `init` and evaluates `navigationDestination` builders on every parent update).
+- `ExternalURLOpener` (UIApplication) only in scenes that own destinations; other views keep `@Environment(\.openURL)`.
+- Practice's two `me/practice` loads on first open kept (start + intentional `onAppear` refresh for freshness on re-entry).
+- #7 (MOCK filler market cap from random shares in `SampleMarketData.fillQuote`) and #8 (MOCK quarter growth = annual from generated earnings
+  history) deferred: MOCK-only, many fixture expectations depend on them; REAL unaffected.
+- Accounts created via the Auth emulator REST API because simulator text injection drops characters in secure/numeric fields.
+
+### Known bugs, blockers and risks
+- LAN backend one commit behind for the server (5C.1 brief wording) — needs approved redeploy + smoke.
+- No iOS UI-test target: the navigation-hang regression is guarded by the `CLAUDE.md` rule, a static check and manual walkthroughs only (report §13a).
+- Minor UI issues (report §14): misleading chart error copy when offline; raw enum labels ("PERSONAL", "OPENING POSITION"); "SIMULAT-ED" badge wrap;
+  truncated "+14.9 % (Y…"; P/E 39.0× (screener) vs 39.2 (details); no Done on iOS decimal keypads; Back from an event opened from the calendar
+  returns to Markets; $0.01 practice "loss" from half-cent cost basis; MOCK brief stories stamped Oct 9; fixed-size captions/pills/banner under
+  Dynamic Type; a Portfolio allocation row possibly not rendered in one screenshot (unconfirmed).
+- Not run: physical Android/iPhone, VoiceOver/TalkBack, real Firebase/Google sign-in, push delivery, process-death restoration; Firestore
+  persistence tests (3 skipped) / Phase 5D pending; Cloud Run staging deferred.
+- Environment: spare iPhone 16 Simulator (`A04A9C8B-…`) left booted with throwaway account A signed in (text size restored); the user's booted
+  iPhone 15 Pro / 16 Pro simulators untouched. Android `emulator-5554` still has the Phase 5C LAN/auth-emulator debug build and the user's real
+  account signed out — reinstall the normal debug build and sign in (user). Firebase Auth emulator and counting proxy stopped;
+  `app/iosApp/Configuration/Local.xcconfig` restored to the LAN URL. The 16:34 matrix + xcodebuild run finished at 16:44 (results above).
+
+### Exact next steps
+1. `git status` / `git log -3 --oneline` (expect HEAD "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan", pushed, clean tree).
+2. Ask before any LAN host access. With approval: `deploy/local/deploy.sh deploy` (builds `stocksteps-local:<HEAD short SHA>`; downtime ~10–30 s for
+   the container swap; all MOCK in-memory data reset; rollback `deploy/local/deploy.sh rollback a50a2e3cc833`), then `deploy/local/deploy.sh smoke`
+   (23/23) and `curl …/internal/metrics/usage` (`upstream` 0). Record the result in report §16 and both handoffs.
+3. Optionally verify #17–#20/#22 in the apps (simulator/emulator actions need approval).
+4. Get the user's review/approval of `docs/GLOBAL_UI_REFINEMENT_PLAN.md`; then UI refinement step 1 (global design tokens). **No UI implementation**
+   until the plan is approved.
+5. Run only one Gradle/xcodebuild matrix at a time (two concurrent sessions collided on `:core:iosSimulatorArm64Test` results this session).
+
+### Requirements discussed but not implemented
+- Global UI refinement (plan doc first, then implementation); Phase 5D Firebase persistence; physical-device, screen-reader and real-auth testing;
+  iOS UI-test target for navigation-loop regressions; #7/#8 fixture refresh; Cloud Run staging.
 
 ## 000. Phase 5C — where the latest session stopped (read first)
 

@@ -1,6 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
+Last updated: 2026-10-09 (America/Toronto). Current commit: **Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan** on `main` (doc-only, pushed).
+Previous commit: **"Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs"** (pushed); before it **"Fix Phase 5C mobile integration bugs and add end-to-end verification report"** (pushed).
+Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
 **Current commit includes Phase 5B Local — LAN Docker MOCK backend and mobile integration** (next section; `docs/FINANCIAL_API_PHASE5B_LOCAL_IMPLEMENTATION.md`). Phase 5B Local = local integration milestone. Cloud Run staging deployment remains deferred and unverified.
@@ -46,6 +48,17 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Phase 5C.1 closure (2026-10-09) — commit "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan"
+
+Doc-only. Final verification on the 5C.1 code (`fc3961e`): server 482/0 (3 skipped — Firestore emulator, Phase 5D), core JVM 429/0, core iOS 429/0,
+shared Android host 55/0, shared iOS 51/0, `:app:androidApp:assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED (earlier core iOS failures were an
+interrupted run and two concurrent sessions' Gradle builds colliding, not test failures). Critical iOS navigation-hang regression strategy and the
+missing iOS UI-test coverage documented (report §13a). LAN MOCK backend inspected read-only: healthy, `stocksteps-local:a50a2e3cc833` (Phase 5C),
+`upstream` 0 — the 5C.1 brief-wording server change is **not deployed** (redeploy + 23-test smoke awaiting approval). Report §13/§13a/§15/§16 closed
+with **PASS WITH CONDITIONS** (open: LAN redeploy, in-app checks #17–#20/#22, physical devices, VoiceOver/TalkBack, real Firebase, Firestore
+persistence tests, minor UI issues §14, MOCK #7/#8). New read-only `docs/GLOBAL_UI_REFINEMENT_PLAN.md` (token/component inventory, findings by
+issue, 7-step order) — awaiting approval; no UI implemented. Handoff `docs/PROJECT_HANDOFF.md` §0000; status `docs/project-status.md` §0.
 
 ## Phase 5C.1 — verification closure (2026-10-09) — commit "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs"
 

@@ -155,8 +155,36 @@ provider calls, no production Firebase, no real push, credentials only for throw
   use the shared formatter), #18 labels (unit-tested; no VoiceOver run), #19 Android brief card at 1.3× (compiles; not seen on the emulator),
   #20 iOS auth error clearing, #22 comparison axis. The final iOS `xcodebuild` with these last Swift changes was **not run** in this session
   (the previous build, which included everything up to #16, succeeded).
+- Closure session (same day, after commit `fc3961e`): the final iOS `xcodebuild` **succeeded** (§15), so #17–#22 compile on both platforms; they were
+  still **not exercised in the running apps** (no simulator/emulator actions in the closure session).
 
-## 15. Automated tests (final matrix, interrupted)
+### 13a. Regression strategy for the critical iOS navigation hang (#9)
+- **No automated UI coverage**: the project has no iOS UI-test (XCUITest) target, and no Kotlin test can observe a SwiftUI render loop. The fix is
+  protected by (1) the documented rule in `CLAUDE.md` (scenes owning `navigationDestination`s must not declare `@Environment(\.openURL)`; use
+  `ExternalURLOpener`) and the KDoc on `ExternalURLOpener.swift`, (2) a static check re-run at closure: every scene that owns a destination
+  (`AppScene`, `CompanyDetailsScene`, `CompanyNewsScene`, `ComparisonResearchViews`, `EarningsPremiumViews`, `EarningsScenes`, `MarketsScene`,
+  `PortfolioScene`, `ScreenerScenes`) has no `@Environment(\.openURL)`; the five remaining users (`NewsInsightScene`, `StockMovementScene`,
+  `DailyBriefScreen`, `HomeScene`, `AlertsScene`) own no destination, and (3) the manual Simulator walkthrough (§10 A, Company Details → Earnings history /
+  See full breakdown → Back, CPU back to 0 %).
+- **Recommended follow-up** (not implemented): an XCUITest target with one smoke test per destination-owning scene (push, assert the pushed title
+  appears within a timeout, go Back) run against the MOCK backend, plus a CI script that fails when a file containing `navigationDestination`
+  also declares `@Environment(\.openURL)`.
+
+## 15. Automated tests (final matrix)
+
+**Closure re-run (2026-10-09, evening, HEAD `fc3961e`, working tree = docs only)**: `./gradlew :server:test :core:jvmTest :core:iosSimulatorArm64Test
+:app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue`:
+- server **482 passed / 0 failed / 3 skipped** (Firestore-emulator persistence tests; skipped ≠ passed — Phase 5D); core JVM **429 / 0**; shared
+  Android host **55 / 0**; shared iOS **51 / 0**; `:app:androidApp:assembleDebug` **OK**. These tasks were Gradle UP-TO-DATE, i.e. their inputs are
+  identical to the final code and the recorded results (from the interrupted run) apply to it.
+- core iOS: the first attempt failed with a Gradle infrastructure error (`NoSuchFileException … in-progress-results-generic.bin`, left over from
+  the killed run — not a test failure); after deleting `core/build/test-results/iosSimulatorArm64Test` the re-run passed **429 / 0 / 0 skipped**
+  (8 min 13 s), including `PortfolioAnalyticsEngineTest.everyFixtureIsInternallyConsistent`.
+- iOS `xcodebuild … CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES build`: **BUILD SUCCEEDED**.
+
+Earlier, interrupted run (kept for history):
+`./gradlew :server:test :core:jvmTest :core:iosSimulatorArm64Test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue`
+was started on the final code and **stopped by the user** before it finished:
 
 `./gradlew :server:test :core:jvmTest :core:iosSimulatorArm64Test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue`
 was started on the final code and **stopped by the user** before it finished:
@@ -173,6 +201,19 @@ was started on the final code and **stopped by the user** before it finished:
 navigation hang and a stuck-search bug were found and fixed; startup requests dropped 19–21 → 13 and duplicated screen requests were removed; zero
 provider calls. Conditions: re-run the interrupted matrix (core iOS, `assembleDebug`) and the iOS `xcodebuild`; verify #17–#20/#22 in the apps;
 redeploy the LAN backend (5C.1 brief wording) and re-run smoke; physical devices, VoiceOver/TalkBack, real Firebase; #7/#8 fixture refresh.
+
+**Closure update (same day): PASS WITH CONDITIONS — automated conditions met.** The full matrix and the iOS `xcodebuild` pass on the final code
+(§15). Read-only LAN check: container `stocksteps-local-api-1` healthy, image `stocksteps-local:a50a2e3cc833` (Phase 5C), `dataMode` mock,
+`/health/live` / `/health/ready` / `/api/v1/meta` 200, `upstream` counter absent (= 0); the only AI counter is the MOCK template
+(`ai.comparison.model.template`), no live model. Remaining conditions:
+- LAN backend is **one commit behind** for the server (5C.1 `BriefWording.recentNews`; image built from `a50a2e3`, server/core diff to HEAD: 5 files) —
+  redeploy + 23-test smoke **awaiting approval**;
+- #17–#20/#22 not seen in the running apps; no iOS UI-test target (§13a);
+- not run: physical Android/iPhone, VoiceOver/TalkBack, Dynamic Type/font-scale sweep, real Firebase/Google sign-in, push delivery,
+  process-death restoration; Firestore persistence tests (3 skipped) pending Phase 5D;
+- simulator limits: text injection drops characters in secure/numeric fields (accounts made through the Auth-emulator REST API), no real push,
+  Simulator performance ≠ device;
+- minor UI issues in §14 (to be handled by `docs/GLOBAL_UI_REFINEMENT_PLAN.md`) and MOCK fixture artefacts #7/#8.
 
 Environment left behind: Firebase Auth emulator and counting proxy stopped; `Local.xcconfig` restored to the LAN URL; spare iPhone 16 Simulator
 booted with the throwaway account signed in (text size restored to default); Android emulator untouched in 5C.1 (still has the 5C LAN/auth-emulator build).

@@ -1,6 +1,6 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (Phase 5C.1 session) against the repository (`main`; Phase 5C committed as "Fix Phase 5C mobile integration bugs and add end-to-end verification report" on top of "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks", which is pushed). Verify with
+Last reviewed: 2026-10-09 (end of session) against the repository (`main`, HEAD "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan" (doc-only) on top of `fc3961e` "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs", in sync with `origin/main`; Phase 5C `a50a2e3` below it, both pushed). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
@@ -21,10 +21,14 @@ report `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`. Server tests 481/0 (3 ski
 (report §6a: non-root, no secrets, fail-fast config, JSON logs, probes, SIGTERM, `--network none`; 203 MB compressed). Verdict: READY WITH CONDITIONS for Phase 5B (staging deploy). Next: image vulnerability scan;
 owner inputs in `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1; then Phase 5B only on explicit request.
 
-**Phase 5C.1 (committed: "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs") — current state**: verification closure on top of the 5C commit: iOS walkthroughs A–G done, critical iOS
-navigation hang and stuck search fixed, launch requests 19–21 → 13, duplicate screen requests removed, minor findings #1–#4/#6 fixed, #7/#8 deferred
-(MOCK fixtures). Report `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §9–§16; handoff `docs/PROJECT_HANDOFF.md` §0000. **Next**: re-run the interrupted matrix
-(core iOS, assembleDebug, xcodebuild) → redeploy LAN backend (brief wording) → physical devices / screen readers.
+**Phase 5C.1 (committed and pushed: "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs"; closure docs committed and pushed as "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan") — current state**: iOS walkthroughs A–G done; critical iOS navigation hang and stuck search fixed;
+launch requests 19–21 → 13; duplicate screen requests removed; minor #1–#4/#6 fixed; #7/#8 deferred (MOCK fixtures). **Final matrix on the final
+code, all green**: server 482/0 (3 skipped, Firestore emulator), core JVM 429/0, core iOS 429/0, shared Android 55/0, shared iOS 51/0, `assembleDebug`
+OK, iOS `xcodebuild` BUILD SUCCEEDED. Not confirmed: in-app checks of #17–#20/#22; no iOS UI-test target for the navigation-hang regression
+(report §13a). LAN backend checked read-only: healthy, MOCK, `upstream` 0, still on Phase 5C (`a50a2e3cc833`) — 5C.1 brief wording not deployed
+(redeploy + smoke awaiting approval). Verdict **PASS WITH CONDITIONS** (report `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §9–§16).
+UI plan: `docs/GLOBAL_UI_REFINEMENT_PLAN.md` (read-only proposal, awaiting approval). **Next**: approved LAN redeploy + smoke → plan approval →
+UI refinement step 1 (global design tokens). Full handoff: `docs/PROJECT_HANDOFF.md` §0000.
 
 **Phase 5C (committed: "Fix Phase 5C mobile integration bugs and add end-to-end verification report") — current state**: Android & iOS end-to-end tests against the LAN MOCK backend; report
 `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md`, verdict PASS WITH CONDITIONS. 8 bugs fixed (MOCK learning sync, iOS search recursion, iOS banner over
