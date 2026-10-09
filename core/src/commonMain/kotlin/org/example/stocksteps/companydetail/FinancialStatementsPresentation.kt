@@ -62,7 +62,9 @@ data class FinancialStatementsModel(
     val table: FinancialTable?,
     val advanced: List<InfoRow>,
     /** Screen-level message when there is no statement history at all. */
-    val emptyMessage: String?
+    val emptyMessage: String?,
+    /** Shown when some figures are an earlier copy because the data provider couldn't be reached (with their date). */
+    val staleNotice: String? = null
 )
 
 /** Deterministic financial math shared by every platform. Null in → null out; never a fake zero. */
@@ -361,8 +363,16 @@ object FinancialStatementsPresenter {
             summaryLimitations = missing.takeIf { it.isNotEmpty() }?.let { "Not enough data to describe ${it.joinToString(", ")}." },
             table = table,
             advanced = advanced,
-            emptyMessage = null
+            emptyMessage = null,
+            staleNotice = staleNotice(fundamentals)
         )
+    }
+
+    /** Financial API Phase 3E: calm, dated wording only when the server labels the figures STALE (never for historical periods). */
+    fun staleNotice(fundamentals: CompanyFundamentals?): String? {
+        if (fundamentals?.freshness != org.example.stocksteps.earnings.DataFreshness.STALE) return null
+        val date = fundamentals.retrievedAt?.take(10)?.let { org.example.stocksteps.earnings.EarningsFormatter.date(it) }
+        return "Some figures couldn't be updated right now, so earlier figures" + (date?.let { " retrieved $it" } ?: "") + " are shown."
     }
 
     /** "FY2025" or "Q3 FY2025". */

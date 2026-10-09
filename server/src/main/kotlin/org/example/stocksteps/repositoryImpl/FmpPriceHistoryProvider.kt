@@ -20,7 +20,9 @@ import org.example.stocksteps.model.PricePoint
 class FmpPriceHistoryProvider(
     private val client: HttpClient,
     private val apiKey: String,
-    private val bars: org.example.stocksteps.service.CompanyFinancialCache = org.example.stocksteps.service.CompanyFinancialCache(capacity = 256, name = "fmp-intraday")
+    private val bars: org.example.stocksteps.service.CompanyFinancialCache = org.example.stocksteps.service.CompanyFinancialCache(capacity = 256, name = "fmp-intraday"),
+    /** Phase 3C: bars live until the listing's market is active again when it's closed (fixed 5 min by default). */
+    private val freshness: org.example.stocksteps.service.MarketFreshnessPolicy = org.example.stocksteps.service.MarketFreshnessPolicy.FIXED
 ) : PriceHistoryProvider {
     private val baseUrl = "https://financialmodelingprep.com/stable"
     override suspend fun getIntradaySparkline(symbol: String): Sparkline = intradayBars(symbol).toSparkline(symbol)
@@ -34,7 +36,7 @@ class FmpPriceHistoryProvider(
         }.toDailyPoints()
 
     private suspend fun intradayBars(symbol: String): List<FmpIntradayBar> =
-        bars.getOrLoad("5min:$symbol", org.example.stocksteps.service.FinancialCachePolicy.INTRADAY) {
+        bars.getOrLoad("5min:$symbol", freshness.ttl(org.example.stocksteps.service.SessionData.INTRADAY_BARS, symbol)) {
             client.apiCall<List<FmpIntradayBar>>("$baseUrl/historical-chart/5min", apiKey) {
                 parameter("symbol", symbol)
             }

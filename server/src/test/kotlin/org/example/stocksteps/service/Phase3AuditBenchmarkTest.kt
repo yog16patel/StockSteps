@@ -162,9 +162,9 @@ class Phase3AuditBenchmarkTest {
                 val ms = AtomicLong(0)
                 val loader = FmpFundamentalsLoader(up.client, "k", CompanyFinancialCache(now = { ms.get() }), { java.time.LocalDate.parse("2026-10-10") })
                 val quote: suspend () -> Pair<StockQuote?, CompanyProfile?> = { null to null }
-                loader.load("AAPL", "annual", quote); val first = up.total
-                ms.addAndGet(10 * 60_000); loader.load("AAPL", "annual", quote)
-                ms.addAndGet(10 * 60_000); loader.load("AAPL", "annual", quote)
+                loader.load("AAPL", "annual", quote = quote); val first = up.total
+                ms.addAndGet(10 * 60_000); loader.load("AAPL", "annual", quote = quote)
+                ms.addAndGet(10 * 60_000); loader.load("AAPL", "annual", quote = quote)
                 out.append(line("F Market closed: fundamentals at t, t+10 min, t+20 min", up, " (first load $first; repeats ${up.total - first})")) }
 
             // G — Earnings: statement published 2 h after a first load, then corrected; 24 h statement TTL.
@@ -173,13 +173,13 @@ class Phase3AuditBenchmarkTest {
                 val loader = FmpFundamentalsLoader(up.client, "k", CompanyFinancialCache(now = { ms.get() }), { java.time.LocalDate.parse("2026-10-31") })
                 val quote: suspend () -> Pair<StockQuote?, CompanyProfile?> = { null to null }
                 fun latest(f: org.example.stocksteps.model.CompanyFundamentals) = f.history.maxByOrNull { it.date.orEmpty() }?.let { "${it.date} revenue ${it.revenue}" }
-                val r0 = latest(loader.load("AAPL", "quarter", quote))
+                val r0 = latest(loader.load("AAPL", "quarter", quote = quote))
                 up.published = true; ms.addAndGet(2 * 3_600_000)
-                val r1 = latest(loader.load("AAPL", "quarter", quote))
+                val r1 = latest(loader.load("AAPL", "quarter", quote = quote))
                 ms.addAndGet(23 * 3_600_000)
-                val r2 = latest(loader.load("AAPL", "quarter", quote))
+                val r2 = latest(loader.load("AAPL", "quarter", quote = quote))
                 up.corrected = true; ms.addAndGet(3_600_000)
-                val r3 = latest(loader.load("AAPL", "quarter", quote))
+                val r3 = latest(loader.load("AAPL", "quarter", quote = quote))
                 out.append(line("G Earnings publication and correction (quarterly)", up,
                     "\n  before: $r0 | +2 h after publication: $r1 | +25 h: $r2 | +1 h after correction: $r3"))
             }

@@ -72,7 +72,9 @@ class EarningsService(
     private val aiDailyLimit: Int = 20,
     private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 512, name = "earnings"),
     /** Phase 5: the shared earnings AI quota (questions here and on Earnings Results count together). */
-    var aiQuota: EarningsAiQuotaLedger? = null
+    var aiQuota: EarningsAiQuotaLedger? = null,
+    /** Financial API Phase 3D: reported events seen here shorten that company's statement cache lifetime (no extra requests). */
+    private val statementSignals: org.example.stocksteps.service.EarningsStatementSignals? = null
 ) {
     private val log = LoggerFactory.getLogger("StockSteps.Earnings")
     private val permits = Semaphore(4)
@@ -105,7 +107,7 @@ class EarningsService(
         val ttl = if (to < today().minusDays(7)) 43_200_000L else 3_600_000L
         val key = "calendar:$from:$to"
         return try {
-            val w = cache.getOrLoad(key, ttl) { Window(source.calendar(from, to), clock.instant()) }
+            val w = cache.getOrLoad(key, ttl) { Window(source.calendar(from, to), clock.instant()).also { statementSignals?.observe(it.events) } }
             lastGood[key] = w
             if (lastGood.size > 256) lastGood.keys.take(64).forEach(lastGood::remove)
             Loaded(w.events, if (w.fetchedAt.isAfter(clock.instant().minusSeconds(5))) DataFreshness.FRESH else DataFreshness.CACHED, w.fetchedAt)
@@ -361,7 +363,7 @@ class EarningsService(
     private suspend fun history(symbol: String): Loaded {
         val key = "history:${symbol.uppercase()}"
         return try {
-            val w = cache.getOrLoad("$key:w", 21_600_000L) { Window(retrying { source.history(symbol) }, clock.instant()) }
+            val w = cache.getOrLoad("$key:w", 21_600_000L) { Window(retrying { source.history(symbol) }, clock.instant()).also { statementSignals?.observe(it.events) } }
             lastGood[key] = w
             Loaded(w.events, if (w.fetchedAt.isAfter(clock.instant().minusSeconds(5))) DataFreshness.FRESH else DataFreshness.CACHED, w.fetchedAt)
         } catch (cause: Exception) {

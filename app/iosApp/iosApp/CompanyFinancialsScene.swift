@@ -107,6 +107,9 @@ struct CompanyFinancialsScene: View {
                 if let note = content?.rangeNote {
                     Text(note).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary).padding(.top, CGFloat(space.xs))
                 }
+                if let notice = content?.staleNotice {
+                    Text(verbatim: notice).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.cautionText).padding(.top, CGFloat(space.xs))
+                }
                 if let content {
                     if let empty = content.emptyMessage {
                         StockSectionMessage(message: empty, actionTitle: "Try again", action: model.load).stockCard(bordered: false).padding(.top, CGFloat(space.xl))

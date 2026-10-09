@@ -7,6 +7,9 @@ import io.ktor.server.routing.*
 import kotlinx.coroutines.*
 import org.example.stocksteps.model.ApiError
 import org.example.stocksteps.model.CompanyFundamentals
+import org.example.stocksteps.model.FinancialAvailability
+import org.example.stocksteps.repository.Statement
+import org.example.stocksteps.repository.StatementHistory
 import org.example.stocksteps.service.CompanyFinancialCache
 import org.example.stocksteps.service.StockService
 import org.example.stocksteps.userdata.EntitlementService
@@ -42,7 +45,14 @@ class ComparisonHistoryService(
     private val timeoutMillis: Long = 20_000L,
     private val meter: org.example.stocksteps.service.ProviderUsageMeter = org.example.stocksteps.service.ProviderUsageMeter.shared,
     /** Optional hourly caps on statement loads (cache misses) per feature. */
-    private val budget: org.example.stocksteps.service.ProviderRequestBudget = org.example.stocksteps.service.ProviderRequestBudget.UNLIMITED
+    private val budget: org.example.stocksteps.service.ProviderRequestBudget = org.example.stocksteps.service.ProviderRequestBudget.UNLIMITED,
+    /**
+     * Phase 3A: only the statements a view needs (history charts: income; detailed research: income, balance sheet
+     * and cash flow), sharing the provider's dataset cache. Default: derived from [fundamentalsOf].
+     */
+    private val statementsOf: suspend (String, String, Set<Statement>) -> StatementHistory = { symbol, period, _ -> StatementHistory.from(fundamentalsOf(symbol, period), period) },
+    /** Phase 3D: after a report, history entries live as briefly as the provider statements until the new period appears. */
+    private val statementSignals: org.example.stocksteps.service.EarningsStatementSignals? = null
 ) {
     private val log = LoggerFactory.getLogger("StockSteps.ComparisonHistory")
     private fun today() = clock.instant().atZone(ZoneOffset.UTC).toLocalDate().toString()
@@ -81,16 +91,17 @@ class ComparisonHistoryService(
      * The same history for internal callers that already decided the tier (Phase 4 research summaries/exports),
      * reusing this service's statement cache: no separate provider requests for the same data.
      */
-    suspend fun data(symbols: List<String>, range: HistoryRange, plus: Boolean): HistoricalComparison =
+    suspend fun data(symbols: List<String>, range: HistoryRange, plus: Boolean, withBalanceAndCashFlow: Boolean = false): HistoricalComparison =
         build(symbols, range, HistoryAccess(plus, true, if (plus) HistoryRange.entries else listOf(HistoryRange.ONE_YEAR),
-            if (plus) HistoryMetric.entries else HistoryMetric.entries.filter { it.free }))
+            if (plus) HistoryMetric.entries else HistoryMetric.entries.filter { it.free }), if (withBalanceAndCashFlow) ALL_STATEMENTS else INCOME_ONLY)
 
-    /** Cached statements for one company (null when unavailable). */
-    suspend fun statements(symbol: String, period: String): List<org.example.stocksteps.model.FinancialPeriodStatement>? = input(symbol, period).statements
+    /** Cached statements for one company with balance-sheet and cash-flow figures (detailed research; null when unavailable). */
+    suspend fun statements(symbol: String, period: String): List<org.example.stocksteps.model.FinancialPeriodStatement>? = load(symbol, period, ALL_STATEMENTS).first.statements
 
-    private suspend fun build(symbols: List<String>, range: HistoryRange, access: HistoryAccess): HistoricalComparison = coroutineScope {
+    private suspend fun build(symbols: List<String>, range: HistoryRange, access: HistoryAccess, statements: Set<Statement> = INCOME_ONLY): HistoricalComparison = coroutineScope {
         val period = if (range.granularity == HistoryGranularity.QUARTERLY) "quarter" else "annual"
-        val inputs = symbols.map { symbol -> async { input(symbol, period) } }.awaitAll()
+        val loaded = symbols.map { symbol -> async { load(symbol, period, statements) } }.awaitAll()
+        val inputs = loaded.map { it.first }
         if (inputs.all { it.statements == null }) throw ScreenerRequestException(503, "HISTORICAL_DATA_UNAVAILABLE", "Financial history isn't available right now. Try again shortly.")
         val result = HistoricalComparisonEngine.compute(inputs, range, access.plus, today())
         HistoricalComparison(range, range.granularity, result.companies, result.metrics, result.periods, result.insights,
@@ -98,12 +109,15 @@ class ComparisonHistoryService(
                 add("${range.description}. ${if (range.granularity == HistoryGranularity.QUARTERLY) "Each company's own fiscal quarters" else "Each company's own fiscal years"} are shown; fiscal calendars can differ.")
                 add("Reported figures only: missing periods stay empty and nothing is estimated, interpolated or converted between currencies.")
                 result.companies.mapNotNull { c -> c.retrievedAt?.take(10)?.let { "${c.symbol} $it" } }.takeIf { it.isNotEmpty() }?.let { add("Financial statements retrieved: ${it.joinToString(", ")}.") }
+                loaded.filter { it.second }.map { it.first.symbol }.takeIf { it.isNotEmpty() }?.let { add("${it.joinToString(", ")}: the data provider couldn't be reached, so earlier statements are shown (retrieved on the date above).") }
                 if (sampleData) add("Sample fixture data for development; not live financial data.")
                 add("Education, not investment advice. Past financial results don't predict future results.")
             }, access, source, clock.instant().toString(), sampleData)
     }
 
-    private suspend fun input(symbol: String, period: String): HistoryInput {
+    /** History charts read income-statement fields only (revenue, net income, diluted EPS), so they load nothing else. */
+    /** The company's statements (and whether they're a stale copy served during a provider failure). */
+    private suspend fun load(symbol: String, period: String, statements: Set<Statement> = INCOME_ONLY): Pair<HistoryInput, Boolean> {
         val name = try { stocks.getProfile(symbol)?.companyName ?: stocks.getStock(symbol)?.companyName } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
             null
@@ -111,29 +125,37 @@ class ComparisonHistoryService(
         val feature = meter.feature()
         return try {
             var loaded = false
-            val data = withTimeout(timeoutMillis) { cache.getOrLoad("$symbol|$period", ttl) {
+            // Annual and quarterly, and each statement set, are separate entries.
+            val data = withTimeout(timeoutMillis) { cache.getOrLoad("$symbol|$period|${statements.sorted().joinToString("+")}", ttl,
+                { h: StatementHistory -> if (h.stale) STALE_RETRY else statementSignals?.statementTtl(symbol, period, h.rows.firstOrNull()?.date, ttl) ?: ttl }) {
                 loaded = true
                 if (!budget.tryAcquire(feature)) throw BudgetExceeded()
-                fundamentalsOf(symbol, period)
+                // A provider failure isn't cached as an empty history: the next request tries again (after the provider cooldown).
+                statementsOf(symbol, period, statements).also { if (it.availability[Statement.INCOME] == FinancialAvailability.TEMPORARILY_UNAVAILABLE) throw StatementsUnavailable() }
             } }
             meter.record("statements", period, feature, if (loaded) "cacheMiss" else "cacheHit")
-            HistoryInput(symbol, name, data.history, retrievedAt = data.retrievedAt)
+            HistoryInput(symbol, name, data.rows, retrievedAt = data.retrievedAt) to data.stale
         } catch (cause: TimeoutCancellationException) {
             meter.record("statements", period, feature, "error")
-            HistoryInput(symbol, name, null, "the financial data provider didn't respond in time")
+            HistoryInput(symbol, name, null, "the financial data provider didn't respond in time") to false
         } catch (cause: BudgetExceeded) {
             meter.record("statements", period, feature, "budgetExceeded")
-            HistoryInput(symbol, name, null, "financial data is temporarily unavailable (request limit reached); try again later")
+            HistoryInput(symbol, name, null, "financial data is temporarily unavailable (request limit reached); try again later") to false
         } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
             meter.record("statements", period, feature, "error")
             log.warn("History load failed for {} ({}): {}", symbol, period, cause.javaClass.simpleName)
-            HistoryInput(symbol, name, null, "financial history isn't available right now")
+            HistoryInput(symbol, name, null, "financial history isn't available right now") to false
         }
     }
 }
 
 private class BudgetExceeded : Exception()
+private class StatementsUnavailable : Exception()
+private val INCOME_ONLY = setOf(Statement.INCOME)
+private val ALL_STATEMENTS = Statement.entries.toSet()
+/** A stale copy (provider failing) is kept briefly so recovery shows up soon. */
+private const val STALE_RETRY = 300_000L
 
 /**
  * `GET /api/v1/compare/history` (public, free view only) and `GET /api/v1/me/compare/history` (signed in;

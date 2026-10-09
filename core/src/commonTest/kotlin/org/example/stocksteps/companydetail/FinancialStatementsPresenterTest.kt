@@ -109,4 +109,15 @@ class FinancialStatementsPresenterTest {
         assertEquals(FinancialRange.THREE_YEARS, FinancialStatementsPresenter.defaultRange(FinancialPeriod.ANNUAL, 4))
         assertEquals(FinancialRange.THREE_YEARS, FinancialStatementsPresenter.defaultRange(FinancialPeriod.QUARTERLY, 8))
     }
+
+    @Test fun staleFiguresGetACalmDatedNoticeAndOtherStatesDont() {
+        val rows = arrayOf(fy(2025, 245.0), fy(2024, 212.5))
+        val stale = fundamentals(*rows).copy(freshness = org.example.stocksteps.earnings.DataFreshness.STALE, retrievedAt = "2026-10-07T18:00:00Z", staleDatasets = listOf("income"))
+        assertEquals("Some figures couldn't be updated right now, so earlier figures retrieved Wed, Oct 7 are shown.", build(stale).staleNotice)
+        assertEquals("Couldn't refresh these figures. Showing previously loaded data.", FinancialsPresenter.build(stale, loading = false, failed = true).refreshMessage)
+        assertEquals(build(stale).staleNotice, FinancialsPresenter.build(stale, loading = false, failed = false).refreshMessage)
+        for (freshness in listOf(null, org.example.stocksteps.earnings.DataFreshness.FRESH, org.example.stocksteps.earnings.DataFreshness.CACHED)) {
+            assertNull(build(fundamentals(*rows).copy(freshness = freshness)).staleNotice, "historical periods alone aren't 'stale': $freshness")
+        }
+    }
 }

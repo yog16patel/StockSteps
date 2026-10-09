@@ -111,6 +111,7 @@ internal fun CompanyFinancialsScreen(
                             LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = spacing.xs), color = colors.primary, trackColor = colors.borderSubtle)
                         }
                         model?.rangeNote?.let { Text(it, Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
+                        model?.staleNotice?.let { Text(it, Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.caption, color = colors.cautionText) }
                     }
                 }
                 when {

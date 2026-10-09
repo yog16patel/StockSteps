@@ -123,7 +123,8 @@ fun Application.module() {
             stocks = stockService, charts = charts, store = userData, entitlements = entitlements, clock = sources.marketClock,
             sampleData = dataMode == DataMode.MOCK,
             research = if (dataMode == DataMode.MOCK) org.example.stocksteps.earnings.TemplateEarningsResearch else null,
-            aiDailyLimit = System.getenv("EARNINGS_AI_DAILY_LIMIT")?.toIntOrNull() ?: 20
+            aiDailyLimit = System.getenv("EARNINGS_AI_DAILY_LIMIT")?.toIntOrNull() ?: 20,
+            statementSignals = sources.statementSignals
         )
         val earningsCalendar = object : org.example.stocksteps.userdata.EarningsCalendarSource {
             override suspend fun upcoming(symbol: String) = earnings.next(symbol)
@@ -178,10 +179,14 @@ fun Application.module() {
             val screener = org.example.stocksteps.screener.ScreenerService(
                 universe = sources.screenerUniverse ?: org.example.stocksteps.screener.FmpScreenerUniverse(HttpClientProvider.client, AppConfig.fmpApiKey,
                     exchanges = (System.getenv("SCREENER_EXCHANGES") ?: "NASDAQ,NYSE,TSX").split(',').map { it.trim() }.filter { it.isNotEmpty() },
-                    limit = System.getenv("SCREENER_UNIVERSE_LIMIT")?.toIntOrNull() ?: 100,
+                    // Owner decision (Phase 3): 50 per exchange → 150 companies by default.
+                    limit = System.getenv("SCREENER_UNIVERSE_LIMIT")?.toIntOrNull() ?: 50,
                     minMarketCap = System.getenv("SCREENER_MIN_MARKET_CAP")?.toLongOrNull() ?: 2_000_000_000L),
                 stocks = stockService,
                 fundamentalsOf = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider).let { service -> { symbol: String -> service.getFundamentals(symbol, "annual") } },
+                // Phase 3B-1: background warm-up uses the screener's dataset set (no historical ratios or profile request).
+                screenerFundamentalsOf = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider).let { service ->
+                    { symbol: String, currency: String? -> service.screenerFundamentals(symbol, currency) } },
                 charts = charts,
                 usdPerCad = { latestUsdPerCad()?.rate },
                 // Phase 2 explanations disclose the rate behind converted market caps (same source, cached 6 h in REAL).
@@ -207,11 +212,15 @@ fun Application.module() {
             val comparisonHistory = org.example.stocksteps.screener.ComparisonHistoryService(
                 stocks = stockService,
                 fundamentalsOf = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider).let { service -> { symbol: String, period: String -> service.getFundamentals(symbol, period) } },
+                // Phase 3A: history charts load only income statements; detailed research adds balance sheet and cash flow.
+                statementsOf = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider).let { service ->
+                    { symbol: String, period: String, statements: Set<org.example.stocksteps.repository.Statement> -> service.statementHistory(symbol, period, statements) } },
                 entitlements = entitlements,
                 clock = sources.marketClock,
                 sampleData = dataMode == DataMode.MOCK,
                 source = if (dataMode == DataMode.MOCK) "Sample fixture financial statements (MOCK)" else "Financial Modeling Prep income statements (reported, as filed with regulators)",
-                budget = org.example.stocksteps.service.ProviderRequestBudget.fromEnvironment(listOf("comparison-history", "comparison-research"))
+                budget = org.example.stocksteps.service.ProviderRequestBudget.fromEnvironment(listOf("comparison-history", "comparison-research")),
+                statementSignals = sources.statementSignals
             )
             comparisonHistoryRoutes(comparisonHistory, sources.userAuth, RequestRateLimiter(System.getenv("SCREENER_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 60))
             // Company Comparison Phase 4: research checklist sessions (Firestore in REAL); summaries/exports reuse the comparison and history caches.
@@ -428,6 +437,8 @@ internal class DataSources(
     val movementVersion: String = "movement-template-v1",
     /** Earnings events: fixtures in MOCK; null in REAL, where Finnhub's earnings calendar is used. */
     val earningsData: org.example.stocksteps.earnings.EarningsDataSource? = null,
+    /** Phase 3D: earnings evidence shared by the earnings service and the FMP statement cache (REAL only). */
+    val statementSignals: org.example.stocksteps.service.EarningsStatementSignals? = null,
     /** The screener universe: fixture symbols in MOCK; null in REAL, where FMP's company screener defines it. */
     val screenerUniverse: org.example.stocksteps.screener.ScreenerUniverseSource? = null,
     /** Index levels; null in REAL, where the module builds one from the stock provider and charts. */
@@ -450,9 +461,17 @@ internal class DataSources(
 )
 
 private fun Application.realDataSources(): DataSources {
+    // Phase 3C: quote, TTM-ratio and intraday-bar cache lifetimes follow each listing's market session (US or TSX calendar).
+    // MARKET_AWARE_TTL=false restores the fixed pre-Phase 3 lifetimes.
+    val marketFreshness = org.example.stocksteps.service.MarketFreshnessPolicy(enabled = System.getenv("MARKET_AWARE_TTL")?.lowercase(Locale.ROOT) != "false")
+    // Phase 3D: recently reported quarters shorten that company's statement lifetime (EARNINGS_AWARE_STATEMENTS=false disables).
+    val statementSignals = org.example.stocksteps.service.EarningsStatementSignals().takeIf { System.getenv("EARNINGS_AWARE_STATEMENTS")?.lowercase(Locale.ROOT) != "false" }
     val fmpRepository = FmpStockProviderRepositoryImpl(
         client = HttpClientProvider.client,
-        apiKey = AppConfig.fmpApiKey
+        apiKey = AppConfig.fmpApiKey,
+        datasetCacheEntries = System.getenv("FMP_DATASET_CACHE_ENTRIES")?.toIntOrNull()?.takeIf { it > 0 } ?: FmpStockProviderRepositoryImpl.DEFAULT_DATASET_CACHE_ENTRIES,
+        freshness = marketFreshness,
+        statementSignals = statementSignals
     )
     val quoteProvider = when (System.getenv("QUOTE_PROVIDER")?.lowercase(Locale.ROOT) ?: "fmp") {
         "fmp" -> fmpRepository
@@ -470,9 +489,10 @@ private fun Application.realDataSources(): DataSources {
             AppConfig.fmpApiKey,
             FinnhubStockProviderRepositoryImpl(HttpClientProvider.client, AppConfig.finnhubApiKey)
         ),
-        priceHistory = org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(HttpClientProvider.client, AppConfig.fmpApiKey),
+        priceHistory = org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(HttpClientProvider.client, AppConfig.fmpApiKey, freshness = marketFreshness),
         news = createNewsService(HttpClientProvider.client),
         earnings = fmpRepository,
+        statementSignals = statementSignals,
         insights = AppConfig.geminiApiKey?.let { org.example.stocksteps.news.GeminiArticleInsightGenerator(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
         insightVersion = "${AppConfig.geminiNewsModel}:${org.example.stocksteps.news.GeminiArticleInsightGenerator.PROMPT_VERSION}",
         narrator = AppConfig.geminiApiKey?.let { org.example.stocksteps.news.GeminiMovementNarrator(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },

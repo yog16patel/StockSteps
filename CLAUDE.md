@@ -11,16 +11,12 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-09)
+## Current task (as of 2026-10-09, end of session)
 
-Latest commit: "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark" (`docs/FINANCIAL_API_PHASE3_*.md`; next step Phase 3 milestone 3B-0, the screener re-warm fix). Previous: "Add financial API cost audit and Phase 2 shared provider cache with request reuse" (Phase 1 audit docs `docs/FINANCIAL_API_*.md` + Phase 2 server cache work, `docs/FINANCIAL_API_CACHE_IMPLEMENTATION.md`). Previous: "Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS", which adds **Company Comparison
-Phase 5 (AI Comparison Assistant, StockSteps+)** — core
-`screener/ComparisonAi*.kt` (evidence registry, grounding, validator, presenter), server `screener/ComparisonAiService.kt` (Gemini/
-template providers, durable `ComparisonAiQuota` via `UserDataStore.updateAiUsage`, routes `/api/v1/me/compare/ai/…`), Android
-`ComparisonAiUi.kt`/`ComparisonAiScene`, iOS `ComparisonAiViews.swift`; spec `docs/SCREENER_AND_COMPARISON.md` → "Company
-Comparison — Phase 5" — and rebuilds the sign-in/create-account screens on StockStepsTheme (`presentation/account/Auth*.kt`,
-iOS `Auth*.swift`). Read the root `PROJECT_HANDOFF.md` top section and `docs/project-status.md` §0 first. A local MOCK server may
-still be running on :8081 (restart after server changes; stop with `./gradlew :server:stopMock`).
+HEAD: "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback". Phase 3 of the financial API cost program is implemented (3B-0, 3A, 3B-1, 3C, 3D, 3E; see
+`docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`). **Next**: produce the Phase 3 before/after benchmark (extend `Phase3AuditBenchmarkTest`),
+run the iOS build and shared/iOS test suites (shared `CompanyFundamentals` and Financials UI changed), then Phase 4. Read the root
+`PROJECT_HANDOFF.md` top section first. No local MOCK server is running (start with `./gradlew :server:runMock`; stop with `./gradlew :server:stopMock`).
 
 ## Repository layout
 
@@ -71,6 +67,16 @@ Core feature packages: `brief` (Daily Market Brief), `practice` (Practice Portfo
     digest is a `WEEKLY_DIGEST` delivery in the same pipeline);
   - Phase 5 AI: StockSteps+ verified server-side (fail closed), one `EarningsAiQuotaLedger` for every earnings AI feature,
     context only from `EarningsGrounding`, every output through `EarningsAiValidator`; history via `HistoricalEarningsEngine`.
+- **Provider calls and caching** (since the cost program, Phase 2):
+  - all FMP/Finnhub requests go through `apiCall` (`httpclient/NetworkUtils.kt`); `ProviderCalls.record` there is the **only** place
+    that counts `upstream` requests — don't add parallel `upstream` counters; BoC/Gemini call `ProviderCalls.record` themselves;
+  - cache provider data with the existing `CompanyFinancialCache` at the lowest shared owner (adapter or the single service instance);
+    keys must include endpoint, exchange-qualified symbol, period/frequency and row limit; don't add a second layer over an effective one;
+  - failures are shared with concurrent callers and never stored as data; cooldowns only via `resultTtl`/`providerCooldown`;
+    never retry 429/402/403;
+  - measure provider-call changes with MockEngine benchmarks (`server/src/test/.../service/*Benchmark*Test.kt`), never REAL calls.
+- **Sign-in/create-account screens use `StockStepsTheme`** (colours/typography); `theme/AuthTokens.kt` holds sizes only — never a
+  separate hard-coded palette (it hides the screens from theme changes and dark mode).
 - Match existing code style (dense Kotlin, KDoc on intent, theme tokens: `StockStepsTheme.spacing/
   colors/typography/dimensions/shapes`, `StockCard`, `StockButton`, 48dp touch targets, gain/loss in
   words not colour alone). Don't add a sixth bottom tab (Home | Markets | Portfolio | Watchlist | Learn).
@@ -98,3 +104,7 @@ Restart the mock server after changing server code or fixtures. Test results: `*
 - Name clashes get a `_` suffix (e.g. two `AllocationSlice` types) — prefer unique names (`PracticeAllocationSlice`).
 - Kotlin/Native: avoid JVM-only APIs (`toSortedSet`, `sortedMapOf`); cross-module properties can't be smart-cast (use locals).
 - JUnit tests returning `runBlocking` need `: Unit`.
+- Kotlin methods starting with `new…`/`copy…` (and `alloc`/`init`) are renamed `do…` in Swift (`doNewConversation`) — name them otherwise
+  (`startOver`, `addAiAnswerToNote`).
+- SwiftUI `Text("you@example.com")` (a string literal) is parsed as Markdown and auto-links emails/URLs — use `Text(verbatim:)` for
+  placeholders and data.

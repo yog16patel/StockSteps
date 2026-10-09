@@ -146,6 +146,7 @@ object FinancialsPresenter {
                 title == "Cash flow" && listOf("operatingCashFlow", "capex", "freeCashFlow").all { numeric(it) != null && sameBasis("operatingCashFlow", it) } &&
                     abs(numeric("operatingCashFlow")!! - numeric("capex")!! - numeric("freeCashFlow")!!) <= 2.0
             )
-        }, refreshMessage = if (failed && fundamentals != null) "Couldn't refresh these figures. Showing previously loaded data." else null)
+        }, refreshMessage = if (failed && fundamentals != null) "Couldn't refresh these figures. Showing previously loaded data."
+            else FinancialStatementsPresenter.staleNotice(fundamentals))
     }
 }

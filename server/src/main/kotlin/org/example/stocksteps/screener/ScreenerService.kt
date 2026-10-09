@@ -13,6 +13,8 @@ import org.example.stocksteps.httpclient.apiCall
 import org.example.stocksteps.model.*
 import org.example.stocksteps.service.CompanyFinancialCache
 import org.example.stocksteps.service.PriceChartService
+import org.example.stocksteps.service.ProviderFeature
+import org.example.stocksteps.service.ProviderUsageMeter
 import org.example.stocksteps.service.StockService
 import org.slf4j.LoggerFactory
 import java.time.Clock
@@ -51,8 +53,9 @@ class FixtureScreenerUniverse : ScreenerUniverseSource {
 }
 
 /**
- * REAL: FMP `company-screener` (one request, cached 24 h) defines the universe: actively trading
- * stocks on the configured exchanges above a minimum market cap, largest first, up to [limit].
+ * REAL: FMP `company-screener` (one request per exchange, cached 24 h) defines the universe: actively trading
+ * stocks on the configured exchanges above a minimum market cap, at most [limit] per exchange (default 50:
+ * NASDAQ + NYSE + TSX = 150, the Phase 3 owner decision).
  * It also supplies price, market cap, volume, sector and industry, so basic filters need no
  * per-company requests.
  */
@@ -70,17 +73,19 @@ class FmpScreenerUniverse(
         val exchange: String? = null, val country: String? = null, val isEtf: Boolean? = null, val isFund: Boolean? = null
     )
     override suspend fun universe(): UniverseDefinition = cache.getOrLoad("universe", 86_400_000L) {
+        // At most [limit] rows per exchange, in the provider's order (its ordering isn't documented as "largest first",
+        // so it isn't described that way). Symbols stay exchange-qualified (TD.TO ≠ TD).
         val rows = exchanges.flatMap { exchange ->
             client.apiCall<List<Row>>("https://financialmodelingprep.com/stable/company-screener", apiKey) {
                 parameter("exchange", exchange)
                 parameter("marketCapMoreThan", minMarketCap)
                 parameter("isEtf", false); parameter("isFund", false); parameter("isActivelyTrading", true)
                 parameter("limit", limit)
-            }
+            }.filter { it.isEtf != true && it.isFund != true }.take(limit)
         }
         UniverseDefinition(
-            "Actively traded stocks on ${exchanges.joinToString()} with market cap over $${minMarketCap / 1_000_000_000}B (largest ${limit} per exchange, from Financial Modeling Prep).",
-            rows.filter { it.isEtf != true && it.isFund != true }.distinctBy { it.symbol }.map {
+            "Up to $limit actively traded stocks per exchange (${exchanges.joinToString()}) with market cap over $${minMarketCap / 1_000_000_000}B, as selected by Financial Modeling Prep's company screener. Not every listed company is included.",
+            rows.distinctBy { it.symbol }.map {
                 UniverseEntry(it.symbol, it.companyName, it.exchangeShortName ?: it.exchange, it.country, it.sector, it.industry, it.price, it.marketCap, it.volume, false)
             }
         )
@@ -131,16 +136,34 @@ class ScreenerService(
     /** Where comparison data comes from in this environment (shown with every comparison). */
     private val provenance: List<String> = emptyList(),
     /** The CAD→USD rate behind converted market caps, with its date and source (disclosed by Phase 2 explanations). */
-    private val usdPerCadQuote: (suspend () -> FxConversion?)? = null
+    private val usdPerCadQuote: (suspend () -> FxConversion?)? = null,
+    /**
+     * Phase 3B-1: the lighter screener dataset set (symbol, listing currency) — everything screener metrics use,
+     * without historical annual ratios or a profile request. Null: [fundamentalsOf] (MOCK and tests).
+     */
+    private val screenerFundamentalsOf: (suspend (String, String?) -> CompanyFundamentals)? = null,
+    /** A symbol whose background load failed isn't tried again for this long (no retry storms; the hourly budget still applies). */
+    private val retryAfterFailure: Long = 1_800_000L,
+    /** Fundamentals with a temporarily unavailable dataset may be reloaded after this long instead of [recordTtl]. */
+    private val partialRefreshAfter: Long = 3_600_000L,
+    private val meter: ProviderUsageMeter = ProviderUsageMeter.shared
 ) {
     private val log = LoggerFactory.getLogger("StockSteps.Screener")
     private val lock = Mutex()
+    /** A built record; [at] is when its fundamentals were loaded (so it expires with them), or when it was built. */
     private data class Cached(val record: CompanyRecord, val at: Long)
+    /** Fundamentals held for one company: loaded at [at], usable until `at + recordTtl`, eligible for a background reload from [refreshAt]. */
+    private data class Held(val data: CompanyFundamentals, val at: Long, val refreshAt: Long)
     private val records = HashMap<String, Cached>()
-    private val fundamentals = HashMap<String, Pair<CompanyFundamentals, Long>>()
+    private val fundamentals = HashMap<String, Held>()
+    private val failedAt = HashMap<String, Long>()
     private val loading = HashSet<String>()
     private val loadTimes = ArrayDeque<Long>()
     private val permits = Semaphore(4)
+    private companion object {
+        /** Upper bound on held fundamentals (universe plus companies opened in Comparison). */
+        const val MAX_HELD = 2_000
+    }
 
     private fun today(): String = clock.instant().atZone(ZoneOffset.UTC).toLocalDate().toString()
     private fun now() = clock.millis()
@@ -151,50 +174,101 @@ class ScreenerService(
         else -> null
     }
 
+    /** The listing's trading currency as the universe defines it (TSX → CAD; the US exchanges → USD). */
+    private fun listingCurrency(entry: UniverseEntry) = if (entry.exchange == "TSX") "CAD" else "USD"
+
     /** Builds (or reuses) one record; [loadFundamentals] decides whether provider fundamentals may be fetched now. */
     private suspend fun record(entry: UniverseEntry, loadFundamentals: Boolean): CompanyRecord {
         lock.withLock { records[entry.symbol]?.takeIf { now() - it.at < recordTtl }?.let { return it.record } }
-        val fundamentals = cachedFundamentals(entry.symbol) ?: if (loadFundamentals) loadFundamentals(entry.symbol) else null
+        if (loadFundamentals && held(entry.symbol) == null) loadFundamentals(entry.symbol, listingCurrency(entry), screenerSet = true)
+        val held = held(entry.symbol)
+        val fundamentals = held?.data
         val record = if (fullRecords) {
             val quote = runCatching { stocks.getStock(entry.symbol) }.getOrNull()
             val profile = runCatching { stocks.getProfile(entry.symbol) }.getOrNull()
             CompanyRecordBuilder.build(entry.symbol, quote, profile, fundamentals, rate(profile?.currency), today())
         } else {
             val profile = CompanyProfile(entry.symbol, entry.name, sector = entry.sector, industry = entry.industry, country = entry.country,
-                exchange = entry.exchange, currency = if (entry.exchange == "TSX") "CAD" else "USD",
+                exchange = entry.exchange, currency = listingCurrency(entry),
                 logoUrl = "https://images.financialmodelingprep.com/symbol/${entry.symbol}.png", isEtf = entry.isEtf)
             val quote = StockQuote(entry.symbol, entry.name, entry.price, null, null, null, null, volume = entry.volume?.toLong(), marketCap = entry.marketCap?.toLong())
             CompanyRecordBuilder.build(entry.symbol, quote, profile, fundamentals, rate(profile.currency), today())
         }.copy(hasFundamentals = fundamentals != null)
-        if (fundamentals != null || fullRecords) lock.withLock { records[entry.symbol] = Cached(record, now()) }
+        // A record with fundamentals expires when they do; without them it isn't kept (REAL), so it's rebuilt once they load.
+        if (held != null || fullRecords) lock.withLock { records[entry.symbol] = Cached(record, held?.at ?: now()) }
         return record
     }
 
-    private suspend fun cachedFundamentals(symbol: String) = lock.withLock { fundamentals[symbol]?.takeIf { now() - it.second < recordTtl }?.first }
+    /** Fundamentals younger than [recordTtl]; expired ones are never used for screening (the company counts as not evaluated). */
+    private suspend fun held(symbol: String): Held? = lock.withLock { fundamentals[symbol]?.takeIf { now() - it.at < recordTtl } }
+    private suspend fun cachedFundamentals(symbol: String) = held(symbol)?.data
 
-    private suspend fun loadFundamentals(symbol: String): CompanyFundamentals? = permits.withPermit {
+    /** At least one dataset arrived (fixtures without dataset metadata count as usable). */
+    private fun usable(data: CompanyFundamentals) = data.datasets.isEmpty() || data.datasets.values.any { it == FinancialAvailability.AVAILABLE }
+
+    /**
+     * Loads fundamentals and records them for screening when usable. A load where every dataset failed is
+     * returned to the caller (Comparison shows per-metric availability) but never held, so the company stays
+     * "not evaluated" instead of matching nothing; it's retried after [retryAfterFailure].
+     */
+    private suspend fun loadFundamentals(symbol: String, listingCurrency: String? = null, screenerSet: Boolean = false): CompanyFundamentals? = permits.withPermit {
         try {
-            fundamentalsOf(symbol).also { lock.withLock { fundamentals[symbol] = it to now() } }
+            val data = screenerFundamentalsOf?.takeIf { screenerSet }?.invoke(symbol, listingCurrency) ?: fundamentalsOf(symbol)
+            val t = now()
+            lock.withLock {
+                if (usable(data)) {
+                    val partial = data.datasets.values.any { it == FinancialAvailability.TEMPORARILY_UNAVAILABLE } ||
+                        data.freshness == org.example.stocksteps.earnings.DataFreshness.STALE
+                    fundamentals[symbol] = Held(data, t, t + if (partial) minOf(recordTtl, partialRefreshAfter) else recordTtl)
+                    failedAt.remove(symbol)
+                } else failedAt[symbol] = t
+            }
+            data
         } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
             log.warn("Screener fundamentals unavailable for {}", symbol)
+            lock.withLock { failedAt[symbol] = now() }
             null
         }
     }
 
-    /** REAL: schedules background fundamentals loads within the hourly budget (never blocks a search). */
+    /** Must hold [lock]. Bounds the maps: long-expired fundamentals, expired records and old failure marks are dropped. */
+    private fun prune(t: Long) {
+        fundamentals.entries.removeAll { (symbol, held) -> symbol !in loading && t - held.at >= 2 * recordTtl }
+        records.entries.removeAll { t - it.value.at >= recordTtl }
+        failedAt.entries.removeAll { t - it.value >= retryAfterFailure }
+        if (fundamentals.size > MAX_HELD) fundamentals.entries.sortedBy { it.value.at }.take(fundamentals.size - MAX_HELD)
+            .map { it.key }.filter { it !in loading }.forEach(fundamentals::remove)
+    }
+
+    /**
+     * REAL: schedules background fundamentals loads within the hourly budget (never blocks a search).
+     * Due: never loaded, or held past its refresh time (expired after [recordTtl], or sooner when partial), and
+     * not failed within [retryAfterFailure]. Never-loaded companies go first (universe order), then the oldest loads.
+     * One load per symbol at a time ([loading]); the provider cache's single flight also merges overlapping callers.
+     */
     private suspend fun warm(entries: List<UniverseEntry>) {
         if (fullRecords || fundamentalsPerHour <= 0) return
         val chosen = lock.withLock {
-            while (loadTimes.isNotEmpty() && now() - loadTimes.first() > 3_600_000L) loadTimes.removeFirst()
-            val room = fundamentalsPerHour - loadTimes.size
-            entries.filter { fundamentals[it.symbol] == null && it.symbol !in loading }.take(room.coerceAtLeast(0)).onEach {
-                loading += it.symbol; loadTimes.addLast(now())
+            val t = now()
+            prune(t)
+            while (loadTimes.isNotEmpty() && t - loadTimes.first() >= 3_600_000L) loadTimes.removeFirst()
+            val room = (fundamentalsPerHour - loadTimes.size).coerceAtLeast(0)
+            val due = entries.filter { e ->
+                e.symbol !in loading && failedAt[e.symbol].let { it == null || t - it >= retryAfterFailure } &&
+                    fundamentals[e.symbol].let { it == null || t >= it.refreshAt }
+            }
+            if (due.size > room) meter.event("screener.warm.budgetReached")
+            due.sortedBy { fundamentals[it.symbol]?.at ?: Long.MIN_VALUE }.take(room).onEach {
+                loading += it.symbol; loadTimes.addLast(t)
             }
         }
-        for (entry in chosen) scope.launch {
-            try { loadFundamentals(entry.symbol); lock.withLock { records.remove(entry.symbol) } }
-            finally { lock.withLock { loading -= entry.symbol } }
+        for (entry in chosen) scope.launch(ProviderFeature("screener-warmup")) {
+            try {
+                meter.event(if (lock.withLock { entry.symbol in fundamentals }) "screener.warm.refresh" else "screener.warm.initial")
+                loadFundamentals(entry.symbol, listingCurrency(entry), screenerSet = true)
+                lock.withLock { if (entry.symbol in failedAt) meter.event("screener.warm.failed") else records.remove(entry.symbol) }
+            } finally { lock.withLock { loading -= entry.symbol } }
         }
     }
 
@@ -265,12 +339,14 @@ class ScreenerService(
 
     suspend fun compare(rawSymbols: String?): ComparisonResponse = coroutineScope {
         val list = symbols(rawSymbols)
+        val staleSymbols = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
         val companies = list.map { symbol -> async {
             try {
                 val quote = async { runCatching { stocks.getStock(symbol) }.getOrNull() }
                 val profile = async { runCatching { stocks.getProfile(symbol) }.getOrNull() }
                 val quarter = async { quarterGrowth(symbol) }
                 val data = cachedFundamentals(symbol) ?: loadFundamentals(symbol)
+                if (data?.freshness == org.example.stocksteps.earnings.DataFreshness.STALE) staleSymbols += symbol
                 val p = profile.await()
                 if (p == null && quote.await() == null) ComparedCompany(symbol = symbol, error = "Company data isn't available right now.")
                 else {
@@ -294,6 +370,8 @@ class ScreenerService(
             if (loaded.any { it.stale }) add("Some financial statements are more than 18 months old.")
             loaded.mapNotNull { r -> r.fundamentalsAsOf?.take(10)?.let { "${r.symbol} $it" } }.takeIf { it.isNotEmpty() }
                 ?.let { add("Financial statements retrieved: ${it.joinToString(", ")}.") }
+            list.filter { it in staleSymbols }.takeIf { it.isNotEmpty() }
+                ?.let { add("${it.joinToString(", ")}: the data provider couldn't be reached, so some earlier financial data is shown (retrieved on the date above).") }
             addAll(provenance)
         }
         val fx = if (loaded.any { it.currency == "CAD" }) listOfNotNull(try { usdPerCadQuote?.invoke() } catch (cause: Exception) {

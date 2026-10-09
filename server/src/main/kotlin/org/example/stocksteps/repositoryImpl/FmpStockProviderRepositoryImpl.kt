@@ -24,10 +24,26 @@ import org.example.stocksteps.repository.models.toStockQuote
 class FmpStockProviderRepositoryImpl(
     private val client: HttpClient,
     private val apiKey: String,
+    /**
+     * Capacity of the shared FMP dataset cache (Phase 3B-1: sized for the 150-company screener plus other screens;
+     * env `FMP_DATASET_CACHE_ENTRIES`). See `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md` §8 for the estimate.
+     */
+    datasetCacheEntries: Int = DEFAULT_DATASET_CACHE_ENTRIES,
+    /** Monotonic milliseconds for cache expiry (tests use a fake clock). */
+    cacheNow: () -> Long = { System.nanoTime() / 1_000_000 },
+    /** Phase 3C: quote and TTM-ratio lifetimes by the listing's market session (production passes a real-clock policy). */
+    private val freshness: org.example.stocksteps.service.MarketFreshnessPolicy = org.example.stocksteps.service.MarketFreshnessPolicy.FIXED,
+    /** Phase 3D: earnings evidence that shortens statement lifetimes after a report (null: fixed lifetimes). */
+    statementSignals: org.example.stocksteps.service.EarningsStatementSignals? = null,
     private val today: () -> java.time.LocalDate = { java.time.LocalDate.now(java.time.ZoneOffset.UTC) }
 ) : StockProviderRepository, org.example.stocksteps.service.QuarterlyEarningsSource {
-    private val financialCache = org.example.stocksteps.service.CompanyFinancialCache(name = "fmp")
-    private val fundamentalsLoader = FmpFundamentalsLoader(client, apiKey, financialCache, today)
+    companion object {
+        const val DEFAULT_DATASET_CACHE_ENTRIES = 4_096
+    }
+    private val financialCache = org.example.stocksteps.service.CompanyFinancialCache(capacity = datasetCacheEntries, now = cacheNow, name = "fmp")
+    /** Entries currently held by the dataset cache (diagnostics and tests). */
+    val datasetCacheSize: Int get() = financialCache.size
+    private val fundamentalsLoader = FmpFundamentalsLoader(client, apiKey, financialCache, today, freshness = freshness, signals = statementSignals)
 
     override suspend fun getFundamentals(symbol: String, period: String) =
         fundamentalsLoader.load(symbol, period) {
@@ -37,6 +53,24 @@ class FmpStockProviderRepositoryImpl(
                 quote.await() to profile.await()
             }
         }
+
+    /**
+     * Phase 3B-1 screener set: 10 datasets (no historical annual ratios) + the quote. The listing currency from the
+     * screener universe (TSX → CAD, US exchanges → USD) replaces the profile request; it is only used to check that
+     * forward P/E compares a price and an estimate in the same currency (a mismatch leaves it unavailable, never wrong).
+     * The quote is kept: the universe price is up to 24 h old and has no timestamp.
+     */
+    override suspend fun screenerFundamentals(symbol: String, listingCurrency: String?) =
+        fundamentalsLoader.load(symbol, "annual", historicalRatios = false) {
+            coroutineScope {
+                val quote = async { getQuote(symbol) }
+                val profile = listingCurrency?.let { CompanyProfile(symbol, currency = it) } ?: getProfile(symbol)
+                quote.await() to profile
+            }
+        }
+
+    override suspend fun statementHistory(symbol: String, period: String, statements: Set<org.example.stocksteps.repository.Statement>) =
+        fundamentalsLoader.statementHistory(symbol, period, statements)
 
     override suspend fun quarterlyEarnings(symbol: String) = fundamentalsLoader.quarterlyEarnings(symbol)
 
@@ -97,7 +131,7 @@ class FmpStockProviderRepositoryImpl(
 
     override suspend fun getQuote(symbol: String): StockQuote? = financialCache.getOrLoad(
         "quote:$symbol",
-        org.example.stocksteps.service.FinancialCachePolicy.QUOTE
+        freshness.ttl(org.example.stocksteps.service.SessionData.QUOTE, symbol)
     ) { loadQuote(symbol).let { listOfNotNull(it) } }.firstOrNull()
 
     private suspend fun loadQuote(symbol: String): StockQuote? {

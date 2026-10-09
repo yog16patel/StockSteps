@@ -1,4 +1,208 @@
-# StockSteps — session handoff (2026-10-08, end of the Earnings Phase 5 + Company Comparison session)
+# StockSteps — session handoff (2026-10-09, end of the Comparison Phase 5 / sign-in redesign / financial API cost session)
+
+Read order for a new session: `CLAUDE.md` → **this section** → `docs/project-status.md` §0 → the root `PROJECT_HANDOFF.md` top sections
+(canonical per-commit milestone log) → the feature docs named below → the code. Always start with `git status` and `git log -5 --oneline`;
+the repository is authoritative when docs disagree.
+
+## 1. Repository state at handoff (verified)
+
+- Branch `main`, in sync with `origin/main`, working tree clean except this documentation update (uncommitted).
+- HEAD: **`e4ba2be` "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"**.
+- Commits made in this session (oldest → newest; all pushed):
+
+  | Commit | Title | Size |
+  |---|---|---|
+  | `e27991d` | Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS | 34 files, +3,804/−312 |
+  | `75760ab` | Add financial API cost audit and Phase 2 shared provider cache with request reuse | 33 files, +1,555/−71 |
+  | `e4ba2be` | Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark | 8 files, +680/−3 |
+
+  (The session started at `423f44a`, "Add Company Comparison Phase 4 guided research checklist …".)
+- A local MOCK server is **not** running (a temporary one on port 8091 was started for a smoke test and stopped).
+
+## 2. Current development objective
+
+**Reduce paid financial-provider usage (FMP, Finnhub, Gemini, Bank of Canada) without losing financial correctness or freshness.**
+This is a phased program: Phase 1 audit (done) → Phase 2 shared cache & request reuse (done) → Phase 3 audit (done) → **Phase 3
+implementation (next; nothing started)** → Phase 4 budgets/observability/durable quotas → Phase 5 verification.
+
+**Exact task to pick up**: Phase 3 milestone **3B-0 — fix the screener re-warm bug and size the FMP dataset cache**
+(`docs/FINANCIAL_API_PHASE3_IMPLEMENTATION_PLAN.md` §2). It is first because it is a correctness defect, not an optimisation.
+
+## 3. Work completed in this session
+
+### 3.1 Company Comparison Phase 5 — AI Comparison Assistant (StockSteps+) — in `e27991d`
+Spec: `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 5".
+- Core `screener/ComparisonAi.kt`: `FinancialEvidence` registry (stable ids like `AAPL.pe`, `MSFT.h.revenue.FY2025`, `I.netMargin`,
+  `L.pe`), `ComparisonGrounding.build` (compact context from the cached Phase 1 comparison, Phase 2 interpretation and Phase 3 history),
+  `ComparisonAiFocus` (keyword routing so a P/E question only ships P/E/P/S evidence), `ComparisonAiValidator` (evidence ids must exist,
+  numbers must come from cited evidence, rejects advice/rankings/predictions/unhedged causes/links/leaks; removes unverifiable
+  statements, regenerates once, then falls back to deterministic readings), `ComparisonQuestionScreen` (advice/injection answered without
+  AI), `ComparisonAiSuggestions`, request/response/usage models. `ComparisonAiPresentation.kt`: `ComparisonAiPresenter` (one conversation
+  per account + company selection, idempotency key reused on retry, double-tap guard, explicit note consent), `RemoteComparisonAi`;
+  `UserApi.compareAiSummary/Ask/Usage`.
+- Server `screener/ComparisonAiService.kt`: `ComparisonAiExplainer` (`TemplateComparisonAi` in MOCK, `GeminiComparisonAi` in REAL),
+  durable `ComparisonAiQuota` (10/day, 50/rolling 30 days; env `COMPARISON_AI_DAILY_LIMIT`, `COMPARISON_AI_30_DAY_LIMIT`,
+  `COMPARISON_AI_GLOBAL_DAILY_BUDGET`) via new `UserDataStore.updateAiUsage` (Firestore transaction at `users/{uid}/meta/aiUsage`),
+  routes `POST /api/v1/me/compare/ai/summary`, `POST /api/v1/me/compare/ai/ask`, `GET /api/v1/me/compare/ai/usage`; shared cache for
+  public summaries only; notes read server-side only with consent and never shared; token metering (`GeminiJsonCall.generateWithUsage`).
+- Android `presentation/screener/ComparisonAiUi.kt`, `ComparisonAiScene` + `ComparisonAiRoute` (reuses the Compare ViewModel), Compare
+  entry card, research-checklist "Ask StockSteps AI about this"; iOS `ComparisonAiViews.swift`, `IosScreenerClient` AI bridge.
+- Removed the unused client-side `ComparisonExplainer`/`NoComparisonExplainer` no-op.
+
+### 3.2 Sign-in / create-account UI redesign (Android + iOS) — in `e27991d`
+- Root cause of "changes not visible": the auth screens were styled by a separate hard-coded `AuthTokens` palette, not
+  `StockStepsTheme`, so theme/design-system edits never reached them and they ignored dark mode.
+- Rebuilt `presentation/account/AuthScreen.kt` + `AuthComponents.kt` (Compose) and `AuthScreen.swift` + `AuthComponents.swift`
+  (SwiftUI) on `StockStepsTheme` (dark `#07111C/#0D1B2A`, primary `#1683FF`, light `#F7FAFD`): header (blue "S" tile, wordmark,
+  tagline), hero "Build your **investing skills**" with a decorative Canvas/Path chart, 24-dp auth card, white Google button with Google's
+  "G", icon fields with visibility toggle, blue Sign in button with spinner, outlined guest action, "Create account" strip, inline error.
+  `theme/AuthTokens.kt` now holds sizes only; new `StockIcons` Mail, Lock, Visibility, VisibilityOff, GoogleLogo.
+- Auth behaviour unchanged (`AuthScene` untouched). There is **no password-reset feature**; "Forgot password?" keeps its existing
+  "not available in the app yet" notice (no fake flow was built).
+- Verified visually in the running apps: Android emulator (dark, light, 720×1280 compact, create-account mode) and iOS Simulator iPhone 16
+  Pro (dark, scrolled, light). Screenshots were reviewed and then deleted at the user's request (not in the repo).
+
+### 3.3 Financial API Phase 1 audit (read-only) — docs in `75760ab`
+`docs/FINANCIAL_API_AUDIT_SUMMARY.md`, `…_ARCHITECTURE_AUDIT.md` (provider inventory, call graphs, cache inventory, security),
+`…_COST_ANALYSIS.md` (scenario counts, variable cost model), `…_OPTIMIZATION_ROADMAP.md` (target architecture, P0–P2 backlog,
+decisions D1–D7). One later correction: the Finnhub company-name map was already bounded.
+
+### 3.4 Financial API Phase 2 — shared cache & request reuse (server only) — in `75760ab`
+Spec/results: `docs/FINANCIAL_API_CACHE_IMPLEMENTATION.md`.
+- `service/CompanyFinancialCache.kt` rewritten in place (same API): per-key single flight via an in-flight `CompletableDeferred`;
+  **failures shared with joined callers and never stored**; cancelled loader hands over to waiters; expired-first then LRU trimming
+  (trim runs after the new entry is marked loading — a bug the tests caught); `invalidate`, `purgeExpired`, `stats`, optional
+  `cache.<name>.*` metrics. `FinancialCachePolicy` gained `SEARCH` (6 h) and `INTRADAY` (5 min).
+- Duplicates removed: one Finnhub earnings history per symbol (`EarningsService.events` reads `history:SYM:w`); one 24-quarter income
+  request for Financials (newest 8) and Valuation (`FmpFundamentalsLoader.load`); raw 5-min bars cached once in `FmpPriceHistoryProvider`
+  for chart + sparkline; one `BankOfCanadaPortfolioFx` instance in `Application`.
+- Company Details market status from `UsMarketCalendar.marketStatusAt` (no FMP `exchange-market-hours`); search cache in `StockService`;
+  `EarningsService.retrying` never retries 429/402/403.
+- Metering: `ProviderCalls.record` in `httpclient/NetworkUtils.kt` (`apiCall`) is the **only** place counting `upstream` requests
+  (provider, endpoint without query, feature, outcome, latency); BoC and both Gemini paths record too; Gemini tokens for every caller;
+  `FmpFundamentalsLoader` no longer double-counts.
+- `MovementService(narrationsPerHour = 300)` cost cap on the public narration; Brief/Learning/Earnings-ask AI usage maps pruned.
+- Not done in Phase 2 (deliberately): per-client rate limiting of public routes — on Cloud Run `remoteHost` is most likely the proxy
+  (no forwarded-headers handling), so an IP limiter would throttle everyone together.
+
+### 3.5 Financial API Phase 3 audit (read-only) — in `e4ba2be`
+`docs/FINANCIAL_API_PHASE3_AUDIT.md`, `…_PHASE3_COST_MODEL.md`, `…_PHASE3_IMPLEMENTATION_PLAN.md`, `…_PHASE3_DECISIONS.md` and
+`server/src/test/.../service/Phase3AuditBenchmarkTest.kt` (MockEngine, measures only, writes `server/build/phase3-audit-benchmark.txt`).
+Measured findings (REAL adapters on a MockEngine, one instance):
+- Screener warm-up: **328** upstream requests in the first hour per instance (3 universe + 25 symbols × 13).
+- **Bug**: expired screener fundamentals are never re-warmed → financial filters evaluate **15 → 0** companies after 7 h.
+- Comparison 1Y history: 12 requests for 4 companies (4 would do). 3Y/5Y, detailed research summary and an AI question add 0 after a comparison.
+- TTM ratios/key metrics refetch every 5 min even on a Saturday; a new quarterly statement stays invisible up to 24 h.
+- 50 users × 10 overlapping symbols → exactly 15 requests per symbol (single flight works per instance).
+- Details/Financials need all 11 fundamentals datasets; screener and Comparison P1 need 10 of 11 (not historical annual `ratios`).
+
+## 4. Files created or modified this session (by commit)
+
+- `e27991d`: core `screener/ComparisonAi.kt` (new), `ComparisonAiPresentation.kt` (new), `ScreenerPresentation.kt`,
+  `data/userdata/UserApi.kt`; core test `screener/ComparisonAiTest.kt` (new); server `screener/ComparisonAiService.kt` (new),
+  `Application.kt`, `news/GeminiInsights.kt`, `service/ProviderUsage.kt`, `userdata/UserDataStore.kt`, `userdata/FirestoreUserDataStore.kt`;
+  server test `screener/ComparisonAiRoutesTest.kt` (new); shared `presentation/screener/ComparisonAiUi.kt` (new), `ComparisonScreen.kt`,
+  `ComparisonResearchUi.kt`, `ScreenerRoute.kt`, `ScreenerScene.kt`, `presentation/AppNavigation.kt`, `di/AccountDependencies.kt`,
+  `presentation/account/AuthScreen.kt`, `AuthComponents.kt`, `theme/AuthTokens.kt`, `designsystem/icons/StockIcons.kt`, iosMain
+  `IosScreenerClient.kt`; iOS `ComparisonAiViews.swift` (new), `ScreenerScenes.swift`, `ComparisonResearchViews.swift`, `AuthScreen.swift`,
+  `AuthComponents.swift`; docs.
+- `75760ab`: server `service/CompanyFinancialCache.kt`, `httpclient/NetworkUtils.kt`, `repositoryImpl/FmpFundamentalsLoader.kt`,
+  `FmpPriceHistoryProvider.kt`, `FmpStockProviderRepositoryImpl.kt`, `earnings/EarningsService.kt`, `service/StockService.kt`,
+  `CompanyDetailsService.kt`, `MovementService.kt`, `PriceChartService.kt`, `SparklineService.kt`, `MarketsService.kt`, `NewsService.kt`,
+  `ValuationService.kt`, `screener/ComparisonHistoryService.kt`, `userdata/AlertEvaluator.kt`, `userdata/PortfolioMarketService.kt`,
+  `news/GeminiInsights.kt`, `news/GeminiNewsSimplifier.kt`, `brief/DailyBriefService.kt`, `learning/LearningService.kt`, `Application.kt`;
+  server tests `service/FinancialCacheTest.kt` (new, 17), `service/ProviderRequestBenchmarkTest.kt` (new); docs (5 new `FINANCIAL_API_*`,
+  `COMPANY_DETAIL.md`, status/handoff/CLAUDE).
+- `e4ba2be`: 4 new `docs/FINANCIAL_API_PHASE3_*.md`, `server/src/test/.../service/Phase3AuditBenchmarkTest.kt` (new), status/handoff/CLAUDE.
+- This handoff (uncommitted): `docs/PROJECT_HANDOFF.md`, `docs/project-status.md`, `CLAUDE.md`.
+
+## 5. Important decisions and reasons
+
+- **Phase 5 AI runs only on the server**, grounded in already-validated data with typed evidence; numbers in an answer must come from the
+  evidence it cites. Reason: no fabricated figures, no client keys, auditable citations.
+- **Durable AI quota for Comparison AI only** (Firestore transaction); 10/day + 50/30 days are proposals, configurable by env. Earnings/Brief
+  quotas remain in memory (Phase 4 / D8).
+- **Cache hits, declined questions, fallbacks and provider failures are not charged** to the user's AI allowance.
+- **Auth screens must use `StockStepsTheme`**, never a separate palette (otherwise theme changes don't reach them).
+- **No fake password-reset flow**: none exists in the backend.
+- **Extend `CompanyFinancialCache` instead of adding a new cache layer**; failures are shared, never cached as data; cooldowns stay explicit via `resultTtl`.
+- **One upstream counter** (`ProviderCalls` in `apiCall`) to avoid double counting.
+- **No public-route IP limiting** until client identity behind Cloud Run is decided (proxy IP risk).
+- **No new infrastructure** (no Redis/Firestore L2) until licensing (D3) and instance-count evidence (D4) exist.
+- **Phase 3 order changed**: 3B-0 (re-warm bug) first because fixing it is correctness-critical — and it will *raise* screener cost relative
+  to today, whose low steady state is a symptom of the bug.
+- **Benchmarks use the REAL adapters on a Ktor MockEngine**; the Phase 2 "before" numbers came from running the same benchmark on an
+  untouched worktree of the prior commit.
+
+## 6. Known bugs, blockers and risks
+
+1. **Screener re-warm bug (open, P0 correctness)**: `ScreenerService.warm()` (`server/.../screener/ScreenerService.kt` ≈ line 186) selects
+   `fundamentals[it.symbol] == null`; expired entries stay in the `fundamentals` map (line 140) so they're never reloaded;
+   `cachedFundamentals()` (line 173) treats them as absent → financial filters match nothing ≈ 12–18 h after first use per instance.
+2. **FMP dataset cache too small for a warmed universe**: `FmpStockProviderRepositoryImpl.financialCache` (line 29) has 512 entries
+   (≈ 46 symbols × 11 datasets) vs ≈ 3,300 needed for 300 symbols → LRU churn would force full re-loads (inferred).
+3. **Public provider/AI routes have no per-client limits** (`/api/v1/stocks/*`, `/news`, `/news/{id}/insight` (Gemini), `/movement`
+   (Gemini, now budgeted 300/h/instance), `/markets/overview`, `/stocks/watch-data`). Existing route limiters key on `remoteHost`, likely
+   the Cloud Run proxy (unverified on a deployment).
+4. **All caches, single flight and most budgets are per instance**; Cloud Run instance counts are unknown (no deploy config in repo).
+5. **In-memory AI quotas** for Daily Brief, Earnings Phase 5 and article insights (multiply with instances).
+6. **Flaky test**: `PracticeServiceTest.concurrentOrdersCannotOverspendOrBypassTheLimit` failed once under the full parallel suite and
+   passed 3/3 alone; not touched this session.
+7. **Licensing** of shared/persistent reuse of FMP/Finnhub data is unconfirmed (D3).
+8. **REAL Gemini (Comparison P5) is not live-verified**; Firestore `aiUsage` path not run against a real project.
+9. Disk space on the dev machine is tight (~30 GB free during the session); use default DerivedData for iOS.
+
+## 7. Build and test results
+
+Verified (run this session):
+- Full suite after Phase 5 (`./gradlew :core:jvmTest :server:test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test
+  :app:androidApp:assembleDebug :core:iosSimulatorArm64Test --continue`): core JVM 413/0, **core iOS simulator 413/0** (this run also
+  covered the Phase 3/4 core tests that earlier sessions couldn't run on iOS), shared Android host 55/0, shared iOS 49/0, `assembleDebug`
+  OK; server 366 with 1 failure (the flaky Practice test above).
+- iOS `xcodebuild … CODE_SIGNING_ALLOWED=NO build`: BUILD SUCCEEDED (after Phase 5 and after the auth redesign).
+- Auth redesign: `:app:shared:compileAndroidMain`, `:app:shared:testAndroidHostTest`, `:app:androidApp:installDebug` OK; real-app screenshots on emulator and simulator.
+- Phase 2: `./gradlew :server:test` → 384 tests, 0 failures, 3 skipped; `FinancialCacheTest` 3/3 reruns green; MOCK server smoke test
+  (details/search/sparkline/compare 200, market status `AFTER_HOURS`, zero upstream counters).
+- Phase 3 audit: `./gradlew :server:test` → **385 tests, 0 failures, 3 skipped** (latest).
+Not verified:
+- Core/Android/iOS suites were not re-run after Phase 2 or the Phase 3 audit (no changes there).
+- No REAL FMP/Finnhub/Gemini calls; no device walkthrough of the Phase 5 AI screens; no TalkBack/VoiceOver/large-font checks; no live
+  MOCK curl pass of the AI endpoints (covered by route tests only); Firestore paths untested against a real project.
+
+## 8. Exact next implementation steps
+
+1. **3B-0 (start here)** — in `ScreenerService.warm()`: choose symbols whose cached fundamentals are missing **or expired**
+   (`now() - at >= recordTtl`), oldest first, respecting `fundamentalsPerHour`; remove/replace expired map entries; make sure `records`
+   built without fundamentals are refreshed once fundamentals return. Raise `FmpStockProviderRepositoryImpl.financialCache` capacity
+   (configurable, e.g. env `FMP_DATASET_CACHE_ENTRIES`, default ≈ 3,500) and document memory.
+   Tests: turn the "re-warm" scenario in `Phase3AuditBenchmarkTest` into an assertion test (fake `MutableClock`, universe 3 × 5,
+   budget 25: coverage after 7 h must return to 15/15; budget never exceeded; oldest first). Run `./gradlew :server:test`.
+2. **3A** — add `statementHistory(symbol, period, statements)` (proposed interface in the plan) on `StockProviderRepository` /
+   `FmpFundamentalsLoader` (same dataset keys) and use it in `ComparisonHistoryService` (1Y → quarterly income only; 3Y/5Y → annual
+   income) and the Phase 4 detailed summary. Assert 1Y = 1 request per cold company; outputs identical in MOCK.
+3. **3C** — central `FreshnessPolicy` using `UsMarketCalendar` and the existing `TsxMarketCalendar` (`brief/BriefSessions.kt`; per-symbol
+   choice like `earnings/PriceReactionEngine.kt`) for TTM ratios, quotes, intraday and daily closes.
+4. **3B-1** (screener dataset set 13 → 10, budget sizing), **3D** (earnings-aware statement TTL), **3E** (labelled stale fallback).
+5. Owner decisions needed before the security track: `docs/FINANCIAL_API_PHASE3_DECISIONS.md` D1–D8.
+Each commit must update the root `PROJECT_HANDOFF.md` (per `CLAUDE.md`).
+
+## 9. Requirements discussed but not implemented
+
+- Per-client rate limiting of public routes; Firebase App Check; sign-in for AI explanation routes (D1/D2).
+- Durable AI quotas for Brief/Earnings/article insights; one shared StockSteps+ AI allowance (D8).
+- Global/per-provider request budgets; dashboards and alerts with configured prices (Phase 4).
+- Shared cross-instance cache / screener snapshot / FMP bulk endpoints (gated by D3, D4, D7).
+- Market-aware and earnings-aware freshness; stale-while-revalidate with UI labels (Phase 3C–3E).
+- Phase 5 AI: authorized REAL Gemini acceptance run, device walkthrough, Firestore `aiUsage` check, streaming (not planned).
+- Password reset / forgot-password flow (no backend support exists).
+- Billing (Play Billing / StoreKit 2 + server verification) — still not implemented; upgrade buttons open Settings.
+- Earlier-phase follow-ups listed in `docs/project-status.md` §4 (deploy, Cloud Scheduler, push verification, device passes).
+
+---
+
+## Earlier handoff (2026-10-08) — kept for history
+
+#### StockSteps — session handoff (2026-10-08, end of the Earnings Phase 5 + Company Comparison session)
 
 > **Update (2026-10-09, Phase 5 session):** Company Comparison Phase 5 — AI Comparison Assistant (StockSteps+) and the authentication UI
 > redesign are committed as **"Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"** (on top of the Phase 4 commit). See the root `PROJECT_HANDOFF.md` (top section),

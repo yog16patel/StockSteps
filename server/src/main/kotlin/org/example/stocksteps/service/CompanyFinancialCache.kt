@@ -30,6 +30,7 @@ class CompanyFinancialCache(
     private class Entry {
         var value: Any? = null
         var expiresAt = 0L
+        var storedAt = 0L
         var loading: CompletableDeferred<Any>? = null
     }
     /** Tells joined callers that the loading caller was cancelled, so one of them loads instead. */
@@ -79,7 +80,8 @@ class CompanyFinancialCache(
             }
             synchronized(entries) {
                 entry.value = value
-                entry.expiresAt = now() + ttl
+                entry.storedAt = now()
+                entry.expiresAt = entry.storedAt + ttl
                 if (entry.loading === flight) entry.loading = null
             }
             flight.complete(value)
@@ -87,10 +89,23 @@ class CompanyFinancialCache(
         }
     }
 
-    /** Drops one key (e.g. after a provider correction); an in-flight load still completes for its callers. */
+    /**
+     * Expires one key now (e.g. after an earnings report) so the next request reloads it; an in-flight load still
+     * completes for its callers. The old value stays available to [lastValue] until it is trimmed.
+     */
     fun invalidate(key: String) = synchronized(entries) {
-        val entry = entries[key] ?: return@synchronized
-        if (entry.loading == null) entries.remove(key) else entry.expiresAt = 0
+        entries[key]?.expiresAt = 0
+    }
+
+    /**
+     * Phase 3E: the last value stored for [key] even after it expired, when it was stored at most [maxAgeMillis] ago —
+     * for a labelled stale fallback while the provider fails. Null when absent, never loaded, older, or already trimmed
+     * (expired entries are the first to go when the cache is full).
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> lastValue(key: String, maxAgeMillis: Long): T? = synchronized(entries) {
+        val entry = entries[key] ?: return@synchronized null
+        (entry.value as T?)?.takeIf { now() - entry.storedAt <= maxAgeMillis }
     }
 
     /** Removes expired entries that aren't loading. Called automatically when the cache is full. */
@@ -120,7 +135,9 @@ class CompanyFinancialCache(
 
 /**
  * Freshness for FMP datasets (centralized; each can be overridden where a feature needs otherwise).
- * Session-aware and earnings-aware TTLs are planned for Phase 3 (`docs/FINANCIAL_API_OPTIMIZATION_ROADMAP.md`).
+ * Phase 3: session-aware lifetimes for quotes, TTM ratios and intraday bars come from [MarketFreshnessPolicy];
+ * earnings-aware statement lifetimes from [EarningsStatementSignals]; stale fallback limits are [STALE_STATEMENTS]
+ * and [STALE_ESTIMATES].
  */
 object FinancialCachePolicy {
     const val QUOTE = 30_000L
@@ -134,4 +151,8 @@ object FinancialCachePolicy {
     const val SEARCH = 6 * 3_600_000L
     /** Raw 5-minute bars shared by the 1D chart and sparklines. */
     const val INTRADAY = 300_000L
+    /** Phase 3E: reported statements, TTM statements, dividends and shares may be shown (labelled) up to 7 days old while the provider fails. */
+    const val STALE_STATEMENTS = 7 * 86_400_000L
+    /** Phase 3E: analyst estimates may be shown (labelled) up to 2 days old while the provider fails. */
+    const val STALE_ESTIMATES = 2 * 86_400_000L
 }

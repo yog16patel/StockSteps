@@ -51,7 +51,8 @@ class FinancialCacheTest {
         time.addAndGet(29_999); assertEquals(1, get())
         time.addAndGet(1); assertEquals(2, get())                                     // expired → one reload
         c.invalidate("quote:AAPL"); assertEquals(3, get())
-        assertEquals(mapOf("miss" to 3L, "hit" to 2L, "expired" to 1L), c.stats().filterKeys { it != "join" })
+        // Invalidation expires the entry in place (Phase 3E keeps the old value for a bounded stale fallback).
+        assertEquals(mapOf("miss" to 3L, "hit" to 2L, "expired" to 2L), c.stats().filterKeys { it != "join" })
     }
 
     @Test fun resultTtlAndDistinctKeys() = runBlocking {

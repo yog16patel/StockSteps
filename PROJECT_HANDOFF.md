@@ -1,7 +1,9 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"** on `main`.
-Includes the Phase 3 financial API audit documents and benchmark test (next section).
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback"** on `main`.
+Includes the Phase 3 financial API implementation (next section, `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`).
+Previous commit: **"Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"**.
+Includes the Phase 3 financial API audit documents and benchmark test.
 Previous commit: **"Add financial API cost audit and Phase 2 shared provider cache with request reuse"**.
 Includes the Phase 1 financial API audit documents and Phase 2 shared provider cache (next sections).
 Previous commit: **"Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"**.
@@ -36,6 +38,28 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Financial API — Phase 3 implementation (2026-10-09) — commit "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback"
+
+Details: `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`. Owner decision: default screener universe 50 NASDAQ + 50 NYSE + 50 TSX.
+- **3B-0** `ScreenerService`: missing or expired fundamentals re-warmed (never-loaded first, then oldest) within `SCREENER_FUNDAMENTALS_PER_HOUR`;
+  30-min failure backoff; all-failed loads not held; partial/stale refresh after 1 h; records expire with fundamentals; bounded maps; meter events `screener.warm.*`.
+- **3A** `StockProviderRepository.statementHistory` + `FmpFundamentalsLoader.statementHistory` (same dataset keys); Comparison history income-only;
+  detailed research income + balance + cash flow (`ComparisonHistoryService.data(withBalanceAndCashFlow)`); failures not cached as empty history.
+- **3B-1** `FmpScreenerUniverse` ≤ limit per exchange (default 50, honest description); `screenerFundamentals` (10 datasets + quote, listing currency);
+  `FmpStockProviderRepositoryImpl(datasetCacheEntries = 4096, env FMP_DATASET_CACHE_ENTRIES)`.
+- **3C** `service/MarketFreshness.kt` `MarketFreshnessPolicy` (US / TSX calendars) for quotes, TTM ratios, intraday bars; wired in REAL (`MARKET_AWARE_TTL=false` rollback).
+- **3D** `service/EarningsStatementSignals.kt` fed by `EarningsService` fetches; statements 2 h after a report until the period appears (10 days).
+- **3E** stale fallback in `FmpFundamentalsLoader` (statements ≤ 7 d, estimates ≤ 2 d; never for 402/403, TTM ratios, quotes); `CompanyFundamentals.freshness`/`staleDatasets`
+  (additive); `retrievedAt` = oldest retrieval; Financials stale notice (`FinancialStatementsModel.staleNotice`) on Android (`CompanyFinancialsScene.kt`) and iOS
+  (`CompanyFinancialsScene.swift`); comparison/history notes. `CompanyFinancialCache.invalidate` now expires in place; new `lastValue`.
+- Tests: new `ScreenerWarmupTest`, `ScreenerUniverseOptimizationTest`, `SelectiveStatementsTest`, `MarketFreshnessTest`, `EarningsAwareStatementsTest`,
+  `StaleFallbackTest`, shared `FmpMock`; core `FinancialStatementsPresenterTest` stale case.
+
+Validation: `./gradlew :server:test` → **431 tests, 0 failures, 3 skipped**; `:core:jvmTest` and `:app:shared:compileAndroidMain` pass.
+Not run: iOS `xcodebuild`, `:core:iosSimulatorArm64Test`, `:app:shared` host/iOS tests, `assembleDebug`, device/simulator checks; no REAL provider calls.
+Not done (next): Phase 3 before/after benchmark table (scenarios A–H, extend `Phase3AuditBenchmarkTest`); iOS build + shared tests; stale fallback for
+profiles/daily closes; `docs/project-status.md` feature rows for this commit; then Phase 4 (durable quotas, global provider budgets, public-route protection D1/D2, cost monitoring).
 
 ## Financial API — Phase 3 audit (2026-10-09, read-only) — commit "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"
 

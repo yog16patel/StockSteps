@@ -192,11 +192,11 @@ class ComparisonResearchService(
             if (cause is CancellationException) throw cause
             null
         }
-        val hist = try { history.data(session.symbols, if (detailed) HistoryRange.FIVE_YEARS else HistoryRange.ONE_YEAR, detailed) } catch (cause: Exception) {
+        val hist = try { history.data(session.symbols, if (detailed) HistoryRange.FIVE_YEARS else HistoryRange.ONE_YEAR, detailed, withBalanceAndCashFlow = detailed) } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
             null
         }
-        // Annual statements come from the history service's cache (just loaded for 5Y): no extra requests.
+        // Annual statements with balance sheet and cash flow come from the history service's cache (just loaded for 5Y): no extra requests.
         val statements = if (detailed) session.symbols.mapNotNull { s -> history.statements(s, "annual")?.let { s to it } }.toMap() else emptyMap()
         ResearchSummaryEngine.build(ResearchSummaryEngine.Inputs(session, data, hist, statements, detailed, clock.instant().toString()))
     }

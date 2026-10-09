@@ -80,9 +80,16 @@ data class CompanyFundamentals(
     val valuation: CompanyValuation = CompanyValuation(),
     val datasets: Map<String, FinancialAvailability> = emptyMap(),
     val warnings: List<String> = emptyList(),
+    /** When the oldest figures here were retrieved from the provider (cache hits don't change it). */
     val retrievedAt: String? = null,
     /** Reported periods of the requested frequency, newest first; empty when statements are unavailable. */
-    val history: List<FinancialPeriodStatement> = emptyList()
+    val history: List<FinancialPeriodStatement> = emptyList(),
+    /**
+     * FRESH / CACHED, or STALE when some datasets are older copies shown because the provider couldn't be reached
+     * ([staleDatasets]; [retrievedAt] gives their date). Null from servers before Financial API Phase 3E.
+     */
+    val freshness: org.example.stocksteps.earnings.DataFreshness? = null,
+    val staleDatasets: List<String> = emptyList()
 )
 
 /**
