@@ -18,6 +18,7 @@ import org.example.stocksteps.service.marketStatusAt
 import org.example.stocksteps.service.usageMetricsRoutes
 import org.example.stocksteps.service.ProviderUsageMeter
 import org.example.stocksteps.screener.RequestRateLimiter
+import org.example.stocksteps.security.installAdmission
 import org.example.stocksteps.screener.SavedScreensService
 import org.example.stocksteps.screener.savedScreenRoutes
 import org.example.stocksteps.screener.screenerRoutes
@@ -81,6 +82,33 @@ fun Application.module() {
         DataMode.MOCK -> mockDataSources()
     }
 
+    // Financial API Phase 4C: provider-wide budgets (rate, burst, concurrency, circuit breaker) for FMP, Finnhub, Gemini and Bank of Canada.
+    // REAL always installs them; without verified plan limits and CLOUD_RUN_MAX_INSTANCES the finite development defaults apply.
+    if (dataMode == DataMode.REAL) {
+        val budgets = org.example.stocksteps.service.ProviderBudgetConfig.fromEnvironment()
+        org.example.stocksteps.service.ProviderGuard.installed = org.example.stocksteps.service.ProviderGuard(budgets)
+        if (!budgets.verified) log.warn("Provider budgets use development defaults (PROVIDER_*_PER_MINUTE / CLOUD_RUN_MAX_INSTANCES not set): not production-ready.")
+        // Phase 4D: one structured usage summary per instance per interval (logs-based metrics aggregate them across instances).
+        (System.getenv("USAGE_SUMMARY_SECONDS")?.toLongOrNull() ?: 60L).takeIf { it > 0 }?.let { seconds ->
+            org.example.stocksteps.service.UsageSummaryReporter().start(this, seconds * 1_000)
+        }
+    }
+    // Financial API Phase 4A: identity (verified uid, else a trusted client IP only when TRUSTED_PROXY_HOPS is configured and verified),
+    // request-size guards, App Check (monitor mode unless APP_CHECK_ENFORCE=true) and cost-weighted admission for every provider-backed route.
+    val internalSecrets = org.example.stocksteps.security.InternalJob.secrets()
+    org.example.stocksteps.security.InternalCallers.configureFromEnvironment()
+    installAdmission(
+        org.example.stocksteps.security.ClientIdentityResolver(sources.userAuth, System.getenv("TRUSTED_PROXY_HOPS")?.toIntOrNull()),
+        org.example.stocksteps.security.AdmissionController(org.example.stocksteps.security.AdmissionPolicy.fromEnvironment()),
+        org.example.stocksteps.security.AppCheckGuard(
+            System.getenv("FIREBASE_PROJECT_NUMBER")?.takeIf { it.isNotBlank() }?.let { number ->
+                org.example.stocksteps.security.FirebaseAppCheckVerifier(number,
+                    System.getenv("APP_CHECK_APP_IDS")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet().orEmpty())
+            },
+            enforce = System.getenv("APP_CHECK_ENFORCE")?.lowercase(Locale.ROOT) == "true"
+        )
+    )
+
     routing {
         get("/health") {
             call.respondText("StockSteps API is running")
@@ -102,10 +130,12 @@ fun Application.module() {
         stocks = stockService, charts = charts, news = sources.news,
         narrator = sources.narrator, version = sources.movementVersion
     )
+    // Phase 4A: unknown symbols are answered from a cached existence check instead of 13–17 provider requests.
+    val symbolGate = org.example.stocksteps.service.SymbolExistence(stockService)
     routing {
         stockRoutes(stockService)
-        valuationRoutes(valuation)
-        companyFinancialRoutes(org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider))
+        valuationRoutes(valuation, symbolGate)
+        companyFinancialRoutes(org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider), symbolGate)
         marketRoutes(stockService)
         marketSnapshotRoutes(org.example.stocksteps.service.MarketSnapshotService(sources.marketData))
         newsRoutes(sources.news)
@@ -113,7 +143,7 @@ fun Application.module() {
             sources.news, sources.insights, sources.insightVersion,
             timeoutMillis = if (dataMode == DataMode.MOCK) 2_000 else 10_000
         ))
-        movementRoutes(movement)
+        movementRoutes(movement, symbolGate)
         val userData = sources.userData()
         val portfolioClock = if (dataMode == DataMode.MOCK) java.time.Clock.systemUTC() else sources.marketClock
         val entitlements = org.example.stocksteps.userdata.EntitlementService(userData, portfolioClock::millis, debugAllowed = dataMode == DataMode.MOCK)
@@ -131,12 +161,19 @@ fun Application.module() {
             override suspend fun recentResult(symbol: String) = earnings.recentResult(symbol)
         }
         earningsRoutes(earnings, sources.userAuth, RequestRateLimiter(System.getenv("EARNINGS_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 120))
+        // Phase 4B: an optional combined StockSteps+ daily AI cap across Brief and Earnings AI (decision D6). Disabled unless configured.
+        val combinedAiCap = System.getenv("STOCKSTEPS_PLUS_AI_DAILY_CAP")?.toIntOrNull()?.takeIf { it > 0 }?.let { cap ->
+            org.example.stocksteps.service.CombinedAiCap(setOf("brief-ai") + org.example.stocksteps.earnings.EarningsAiCategory.entries.map {
+                org.example.stocksteps.earnings.EarningsAiQuotaLedger.feature(it) }, cap)
+        }
         // Phase 5: StockSteps+ premium earnings. One fair-use quota for every earnings AI feature; MOCK never calls an AI service.
         val earningsAiQuota = org.example.stocksteps.earnings.EarningsAiQuotaLedger(mapOf(
             org.example.stocksteps.earnings.EarningsAiCategory.EXPLANATION to (System.getenv("EARNINGS_AI_EXPLANATIONS_PER_DAY")?.toIntOrNull() ?: 10),
             org.example.stocksteps.earnings.EarningsAiCategory.QUESTION to (System.getenv("EARNINGS_AI_QUESTIONS_PER_DAY")?.toIntOrNull() ?: System.getenv("EARNINGS_AI_DAILY_LIMIT")?.toIntOrNull() ?: 20),
             org.example.stocksteps.earnings.EarningsAiCategory.DIGEST to (System.getenv("EARNINGS_AI_DIGESTS_PER_DAY")?.toIntOrNull() ?: 3)),
-            globalDailyBudget = System.getenv("EARNINGS_AI_GLOBAL_DAILY_BUDGET")?.toIntOrNull() ?: 5_000, clock = java.time.Clock.systemUTC())
+            globalDailyBudget = System.getenv("EARNINGS_AI_GLOBAL_DAILY_BUDGET")?.toIntOrNull() ?: 5_000, clock = java.time.Clock.systemUTC(),
+            // Phase 4B: durable per-user counts on users/{uid}/meta/aiUsage (Firestore in REAL); combined StockSteps+ cap only if the owner sets one.
+            store = userData, combined = combinedAiCap)
         earnings.aiQuota = earningsAiQuota
         val earningsPremium = org.example.stocksteps.earnings.EarningsPremiumService(earnings, entitlements,
             provider = if (dataMode == DataMode.MOCK) org.example.stocksteps.earnings.TemplateEarningsAi()
@@ -156,7 +193,9 @@ fun Application.module() {
             // One USD/CAD source (and one 6 h cache) for Portfolio, Practice and Comparison instead of three.
             val fx = if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client)
             watchDataRoutes(WatchDataService(watchMarket, alertRules, org.example.stocksteps.service.UsMarketCalendar(), sources.marketClock,
-                if (dataMode == DataMode.MOCK) "Sample data, not live prices." else "Quotes may be delayed. Times show when each price was last updated."))
+                if (dataMode == DataMode.MOCK) "Sample data, not live prices." else "Quotes may be delayed. Times show when each price was last updated."),
+                // Phase 4A: callers without a verified uid send ≤ 30 symbols per request (the shared client splits larger watchlists).
+                anonymousMaxSymbols = System.getenv("WATCH_DATA_ANONYMOUS_MAX_SYMBOLS")?.toIntOrNull()?.coerceIn(1, org.example.stocksteps.userdata.WatchDataService.MAX_SYMBOLS) ?: 30)
             val portfolios = org.example.stocksteps.userdata.PortfolioService(userData, portfolioClock::millis)
             val portfolioMarket = org.example.stocksteps.userdata.PortfolioMarketService(
                 portfolios, sources.priceHistory, watchMarket,
@@ -245,7 +284,7 @@ fun Application.module() {
                 timeoutMillis = if (dataMode == DataMode.MOCK) 3_000 else 20_000,
                 pricing = org.example.stocksteps.screener.AiPricing.fromEnvironment()
             ), sources.userAuth, RequestRateLimiter(System.getenv("COMPARISON_AI_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 20))
-            usageMetricsRoutes(ProviderUsageMeter.shared, System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
+            usageMetricsRoutes(ProviderUsageMeter.shared, internalSecrets[org.example.stocksteps.security.InternalJob.USAGE_METRICS], mock = dataMode == DataMode.MOCK)
             userRoutes(sources.userAuth, WatchlistsService(userData, now = sources.marketClock::millis),
                 AlertsService(userData, watchMarket, alertRules, sources.alertsDeliveryNote, now = sources.marketClock::millis, isPlus = { entitlements.get(it).plus }), userData, now = sources.marketClock::millis)
             // Practice Portfolio: a separate simulated ledger (never mixed with the real portfolio).
@@ -257,10 +296,10 @@ fun Application.module() {
                 corporateActions = if (dataMode == DataMode.MOCK) org.example.stocksteps.practice.MockCorporateActions else null,
                 sampleData = dataMode == DataMode.MOCK
             ), mock = dataMode == DataMode.MOCK)
-            alertEvaluationRoutes(evaluator, System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
+            alertEvaluationRoutes(evaluator, internalSecrets[org.example.stocksteps.security.InternalJob.ALERTS], mock = dataMode == DataMode.MOCK)
             earningsReminderRoutes(earningsReminders, sources.userAuth,
                 RequestRateLimiter(System.getenv("REMINDER_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 60),
-                System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
+                internalSecrets[org.example.stocksteps.security.InternalJob.EARNINGS_REMINDERS], mock = dataMode == DataMode.MOCK)
         }
         if (dataMode == DataMode.MOCK) startMockAlertLoop(evaluator, earningsReminders)
         val marketsService = org.example.stocksteps.service.MarketsService(
@@ -282,9 +321,10 @@ fun Application.module() {
             ai = if (dataMode == DataMode.MOCK) org.example.stocksteps.brief.TemplateBriefAi
                 else AppConfig.geminiApiKey?.let { org.example.stocksteps.brief.GeminiBriefAi(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
             marketClock = sources.marketClock, clock = java.time.Clock.systemUTC(), sampleData = dataMode == DataMode.MOCK,
-            aiDailyLimit = System.getenv("BRIEF_AI_DAILY_LIMIT")?.toIntOrNull() ?: 15
+            aiDailyLimit = System.getenv("BRIEF_AI_DAILY_LIMIT")?.toIntOrNull() ?: 15,
+            combinedAiCap = combinedAiCap
         ), sources.userAuth, RequestRateLimiter(System.getenv("BRIEF_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 120), sources.pushSender(),
-            System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
+            internalSecrets[org.example.stocksteps.security.InternalJob.DAILY_BRIEF], mock = dataMode == DataMode.MOCK)
         sparklineRoutes(org.example.stocksteps.service.SparklineService(sources.priceHistory))
         val companyDetails = org.example.stocksteps.service.CompanyDetailsService(
             stocks = stockService,
@@ -305,7 +345,8 @@ fun Application.module() {
             details = companyDetails,
             charts = charts,
             // The Company Details card previews today's computed movement (same pipeline in both modes).
-            whyMoving = org.example.stocksteps.service.WhyMovingService { movement.preview(it) }
+            whyMoving = org.example.stocksteps.service.WhyMovingService { movement.preview(it) },
+            gate = symbolGate
         )
     }
 
@@ -544,9 +585,10 @@ internal fun mockDataSources(): DataSources {
 }
 
 /** `GET /api/v1/stocks/{symbol}/valuation`: the full P/E history; ranges are sliced by the apps. */
-fun Route.valuationRoutes(valuation: org.example.stocksteps.service.ValuationService) {
+fun Route.valuationRoutes(valuation: org.example.stocksteps.service.ValuationService, gate: org.example.stocksteps.service.SymbolExistence? = null) {
     get("/api/v1/stocks/{symbol}/valuation") {
         val symbol = call.validSymbol() ?: return@get
+        if (!call.knownSymbol(gate, symbol)) return@get
         call.respond(valuation.history(symbol))
     }
 }
@@ -554,11 +596,13 @@ fun Route.valuationRoutes(valuation: org.example.stocksteps.service.ValuationSer
 fun Route.companyDetailsRoutes(
     details: org.example.stocksteps.service.CompanyDetailsService,
     charts: org.example.stocksteps.service.PriceChartService,
-    whyMoving: org.example.stocksteps.service.WhyMovingService
+    whyMoving: org.example.stocksteps.service.WhyMovingService,
+    gate: org.example.stocksteps.service.SymbolExistence? = null
 ) {
     route("/api/v1/stocks/{symbol}") {
         get("/details") {
             val symbol = call.validSymbol() ?: return@get
+            if (!call.knownSymbol(gate, symbol)) return@get
             call.respond(details.getDetails(symbol))
         }
         get("/chart") {
@@ -585,6 +629,16 @@ fun Route.companyDetailsRoutes(
             call.respond(explanation)
         }
     }
+}
+
+/**
+ * Phase 4A existence gate for expensive per-symbol routes: 404 `SYMBOL_NOT_FOUND` only when the provider confirmed the symbol is unknown;
+ * a provider outage (UNKNOWN) lets the request continue to its own cached/stale/unavailable handling.
+ */
+private suspend fun io.ktor.server.application.ApplicationCall.knownSymbol(gate: org.example.stocksteps.service.SymbolExistence?, symbol: String): Boolean {
+    if (gate?.check(symbol) != org.example.stocksteps.service.SymbolExistence.Status.NOT_FOUND) return true
+    respond(HttpStatusCode.NotFound, ApiError("SYMBOL_NOT_FOUND", "We couldn't find a company with this symbol."))
+    return false
 }
 
 /** Same symbol rule as the other stock routes; responds 400 and returns null when invalid. */
@@ -618,9 +672,10 @@ fun Route.newsInsightRoutes(insights: org.example.stocksteps.news.ArticleInsight
 }
 
 /** `GET /api/v1/stocks/{symbol}/movement?period=1D|1W|1M`: computed move, benchmarks and time-aligned news. */
-fun Route.movementRoutes(movement: org.example.stocksteps.service.MovementService) {
+fun Route.movementRoutes(movement: org.example.stocksteps.service.MovementService, gate: org.example.stocksteps.service.SymbolExistence? = null) {
     get("/api/v1/stocks/{symbol}/movement") {
         val symbol = call.validSymbol() ?: return@get
+        if (!call.knownSymbol(gate, symbol)) return@get
         val period = org.example.stocksteps.model.MovementPeriod.parse(call.request.queryParameters["period"] ?: "1D")
         if (period == null) {
             call.respond(HttpStatusCode.BadRequest, ApiError("INVALID_PERIOD", "Period must be 1D, 1W or 1M."))

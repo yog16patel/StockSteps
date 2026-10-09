@@ -1,24 +1,28 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (Phase 3 verification) against the repository (`main`, HEAD **"Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"**). Verify with
+Last reviewed: 2026-10-09 (end of the Phase 4 session) against the repository (`main`, HEAD **"Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"**, one commit ahead of `origin/main` (not pushed)). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-HEAD: **"Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"** (Phase 3 verification: benchmark A–H, earnings-aware coverage fix, extra tests, docs), on top of
-`517a46b` "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback".
+HEAD: **"Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** (Phase 4: admission/identity, existence gate, watch-data cap, per-job internal auth, App Check monitor mode, durable AI quotas,
+provider budgets, usage summaries, audit and implementation docs), on top of `6a70d0e` "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage".
 
-**Current objective**: financial API cost optimization. Phase 1 audit, Phase 2 shared cache, Phase 3 audit and Phase 3 implementation are
-done; Phase 3 verification results are in `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md` (§3 benchmark table, §7 validation, §8 limits).
+**Current objective**: financial API cost and safety program. Phases 1–3 are done, committed and verified. **Phase 4 (production security,
+durable AI quotas, provider budgets, cost monitoring) is implemented, verified and committed** ("Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"): audit docs
+`docs/FINANCIAL_API_PHASE4_*.md` and the report `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` (§8–§9 blockers and validation). Final matrix on the
+Phase 4 code: server 473/0 (3 skipped), core JVM 416/0, core iOS 416/0, shared Android host 55/0, shared iOS 49/0, `assembleDebug` OK, iOS
+`xcodebuild` BUILD SUCCEEDED. Verdict: READY WITH CONDITIONS. Full session handoff: `docs/PROJECT_HANDOFF.md` (top section).
 
-**Next task**: **Phase 4** — durable AI quotas (Brief/Earnings/article insights), per-provider
-global budgets, public-route protection (needs owner decisions D1/D2), production cost monitoring. Owner decisions D1–D8:
-`docs/FINANCIAL_API_PHASE3_DECISIONS.md`.
+**Next task**: push when asked; then the deployment-side conditions in `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` §8/§9d — verify
+ingress and set `TRUSTED_PROXY_HOPS` (D1), set provider plan limits and `CLOUD_RUN_MAX_INSTANCES` (D4/D5), reconfigure Cloud Scheduler with OIDC or
+per-job secrets, confirm the deployed logging config (rotate the FMP key if TRACE was ever deployed), add the App Check SDKs (monitor mode), create
+the logs-based metrics, dashboard, alerts and billing budgets. Owner decisions: `docs/FINANCIAL_API_PHASE4_DECISIONS.md`.
 
 Other open follow-ups (unchanged by this session's cost work): Comparison Phase 5 AI device walkthrough and authorized REAL Gemini run;
-real-Firestore check of `users/{uid}/meta/aiUsage` and the Phase 4 research paths; billing; deploy + Cloud Scheduler; push verification;
-per-client rate limiting once client identity behind Cloud Run is decided.
+real-Firestore check of `users/{uid}/meta/aiUsage` (now also used by Brief and Earnings AI) and the research paths; billing; deploy + Cloud
+Scheduler (OIDC or the new per-job secrets); push verification; per-IP limits once `TRUSTED_PROXY_HOPS` is verified on the deployment.
 
 ## 1. Feature status
 
@@ -157,10 +161,10 @@ None.
     walkthrough, authorized REAL Gemini run and real-Firestore `aiUsage` check pending.
 15. **Financial API Phase 3**: implemented (`517a46b`) and verified ("Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"). Remaining: stale fallback for profiles/daily closes,
     market-aware watch-data quotes, weekend/multi-instance cost measurement in production metrics (`docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md` §8).
-16. **Security track** (needs owner decisions D1/D2): client identity behind Cloud Run (trusted proxy hops / App Check), per-client and
-    per-route limits on public provider routes, sign-in for AI explanation routes.
-17. **Phase 4 of the cost program**: durable AI quotas for Brief/Earnings/article insights (reuse `ComparisonAiQuota`), per-provider global
-    budgets, logs-based usage dashboards; optional shared cache only after licensing (D3) and instance evidence (D4).
+16. **Financial API Phase 4** (implemented and committed; deployment configuration pending): admission control and identity, existence gate, watch-data cap, per-job internal auth,
+    App Check (monitor mode, client SDKs pending), durable Brief/Earnings AI quotas, provider budgets with circuit breaker, usage summaries.
+    Deployment conditions: `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` §8. Deferred: Phase 4E shared caching (licensing D3).
+17. App Check client integration (Android Play Integrity, iOS App Attest/DeviceCheck) and later enforcement (`APP_CHECK_ENFORCE`).
 18. Password reset / forgot-password flow (no backend support; the sign-in screen shows a "not available yet" notice).
 
 ## 5. Known limitations / bugs to watch
@@ -193,8 +197,10 @@ None.
   (U / T exactly); a smaller budget or failures show partial coverage ("X of 150"). Re-warm bug fixed in `517a46b`.
 - Earnings-aware statement refresh without a source `periodEnd` uses a baseline rule (worst case: 2 h polling for one company for ≤ 10 days).
 - All provider caches, single flight and most budgets are per Cloud Run instance; Cloud Run instance counts are unknown (no deploy config
-  in the repo). Route limiters keyed on `remoteHost` likely see the proxy on Cloud Run (unverified).
-- Public provider-backed routes (stocks, news, article insight, movement, markets, watch-data) have no per-client rate limits.
+  in the repo). Phase 4: route limiters key on the verified uid or a trusted client IP (only once `TRUSTED_PROXY_HOPS` is verified);
+  until then anonymous callers share a large per-instance pool per route group. Per-instance limits are not global: the provider budgets
+  (`ProviderGuard`) are the deployment-wide backstop once `CLOUD_RUN_MAX_INSTANCES` and plan limits are configured.
+- Phase 4: every provider-backed public route has a cost-weighted admission policy; unknown symbols are answered by a cached existence check.
 - Flaky: `PracticeServiceTest.concurrentOrdersCannotOverspendOrBypassTheLimit` failed once in a full parallel run, passed 3/3 alone.
 - Company Details market status now follows the NYSE calendar (may show pre-market/after-hours); TSX listings still use NYSE status there.
 

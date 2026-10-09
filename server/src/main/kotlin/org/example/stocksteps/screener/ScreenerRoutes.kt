@@ -1,5 +1,6 @@
 package org.example.stocksteps.screener
 
+import org.example.stocksteps.security.limiterKey
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.plugins.origin
 import io.ktor.server.request.receive
@@ -15,7 +16,7 @@ import org.example.stocksteps.userdata.user
  */
 fun Route.screenerRoutes(service: ScreenerService, limiter: RequestRateLimiter) {
     suspend fun RoutingContext.guarded(block: suspend () -> Any) {
-        if (!limiter.allow(call.request.origin.remoteHost)) {
+        if (!limiter.allow(call.limiterKey())) {
             call.respond(HttpStatusCode.TooManyRequests, ApiError("RATE_LIMITED", "Too many requests. Wait a moment and try again."))
             return
         }

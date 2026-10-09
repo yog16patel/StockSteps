@@ -31,6 +31,9 @@ internal class GeminiJsonCall(private val client: HttpClient, private val apiKey
             }
         }
         val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent"
+        // Phase 4C: the shared Gemini budget and circuit breaker admit every attempt first.
+        val guard = org.example.stocksteps.service.ProviderGuard.current()
+        val permit = guard?.acquire("gemini", org.example.stocksteps.httpclient.ProviderCalls.endpoint(url))
         val started = System.nanoTime()
         val response = try {
             client.post(url) {
@@ -40,9 +43,12 @@ internal class GeminiJsonCall(private val client: HttpClient, private val apiKey
                 timeout { requestTimeoutMillis = timeoutMillis }
             }
         } catch (cause: Exception) {
-            org.example.stocksteps.httpclient.ProviderCalls.record(url, if (cause is kotlinx.coroutines.CancellationException) "cancelled" else if (cause is io.ktor.client.plugins.HttpRequestTimeoutException) "timeout" else "error", started)
+            val cancelled = cause is kotlinx.coroutines.CancellationException; val timedOut = cause is io.ktor.client.plugins.HttpRequestTimeoutException
+            permit?.let { guard.complete(it, null, timedOut = timedOut, cancelled = cancelled) }
+            org.example.stocksteps.httpclient.ProviderCalls.record(url, if (cancelled) "cancelled" else if (timedOut) "timeout" else "error", started)
             throw cause
         }
+        permit?.let { guard.complete(it, response.status.value, retryAfterSeconds = response.headers[io.ktor.http.HttpHeaders.RetryAfter]?.trim()?.toLongOrNull()) }
         org.example.stocksteps.httpclient.ProviderCalls.record(url, if (response.status.isSuccess()) "ok" else if (response.status.value == 429) "rateLimited" else "error", started)
         check(response.status.isSuccess()) { "AI provider unavailable (${response.status.value})" }
         val envelope = Json.parseToJsonElement(response.bodyAsText()).jsonObject

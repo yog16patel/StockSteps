@@ -114,7 +114,9 @@ data class EarningsAiExplanation(
 @Serializable data class EarningsAiExplainRequest(val refresh: Boolean = false)
 
 /** A follow-up question about one report. [previousContextId] is the sourceDataVersion the client last saw. */
-@Serializable data class EarningsAiQuestion(val question: String, val conversationId: String? = null, val previousContextId: String? = null)
+@Serializable data class EarningsAiQuestion(val question: String, val conversationId: String? = null, val previousContextId: String? = null,
+    /** Optional client retry key (8–64 of A–Z, a–z, 0–9, '-', '_'): a retry with the same key isn't charged twice (Phase 4B). */
+    val idempotencyKey: String? = null)
 
 @Serializable enum class AnswerScope {
     /** Answered from the report's verified data. */ REPORT,

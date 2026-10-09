@@ -13,10 +13,10 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-09, end of session)
 
-HEAD: "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage". Phase 3 of the financial API cost program is implemented and verified (benchmark A–H in `Phase3AuditBenchmarkTest`;
-results and readiness in `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`). **Next: Phase 4** — durable AI quotas (Brief/Earnings/article
-insights), per-provider global budgets, public-route protection (owner decisions D1/D2), production cost monitoring. Read the root
-`PROJECT_HANDOFF.md` top section first. No local MOCK server is running.
+HEAD: "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring" (not pushed). Financial API Phase 4 is implemented, verified and committed (security/admission, durable AI quotas,
+provider budgets, usage summaries): `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md`.
+Next: push when asked, then the deployment conditions in its §8/§9d (hop count, plan limits, max instances, scheduler OIDC/per-job secrets, App Check SDKs,
+dashboards). Read `docs/PROJECT_HANDOFF.md` (top section) and the root `PROJECT_HANDOFF.md` first. No local MOCK server is running.
 
 ## Repository layout
 
@@ -75,6 +75,11 @@ Core feature packages: `brief` (Daily Market Brief), `practice` (Practice Portfo
   - failures are shared with concurrent callers and never stored as data; cooldowns only via `resultTtl`/`providerCooldown`;
     never retry 429/402/403;
   - measure provider-call changes with MockEngine benchmarks (`server/src/test/.../service/*Benchmark*Test.kt`), never REAL calls.
+- **Phase 4 guards** (keep them in the path of new code): every provider-backed route belongs to an admission `RouteGroup`
+  (`security/Admission.kt`); never key limits on `remoteHost` or the first `X-Forwarded-For` value (use `ClientIdentity`/`limiterKey()`); every new
+  upstream call path must acquire a `ProviderGuard` permit and `complete` it (as `apiCall` does); new signed-in AI features use `DurableAiQuota`
+  (reserve before the provider call; release only failures that produced nothing); per-symbol bundles go behind `SymbolExistence`; logs never contain
+  provider URLs, keys or tokens (`io.ktor` stays at WARN).
 - **Sign-in/create-account screens use `StockStepsTheme`** (colours/typography); `theme/AuthTokens.kt` holds sizes only — never a
   separate hard-coded palette (it hides the screens from theme changes and dark mode).
 - Match existing code style (dense Kotlin, KDoc on intent, theme tokens: `StockStepsTheme.spacing/

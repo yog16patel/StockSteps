@@ -36,6 +36,11 @@ internal class FmpMock(private val universeSize: Int = 30, private val latency: 
     val failSymbols: MutableSet<String> = ConcurrentHashMap.newKeySet()
     /** Requests answered with an error status. */
     val failed = AtomicInteger()
+    /** When set, only these symbols exist: profile/quote/statements answer `[]` for every other symbol. */
+    @Volatile var knownSymbols: Set<String>? = null
+    private val inFlight = AtomicInteger()
+    /** Highest number of concurrent requests seen. */
+    val peakConcurrency = AtomicInteger()
     /** Finnhub earnings-calendar rows (JSON objects) returned for AAPL. */
     @Volatile var finnhubEvents = ""
 
@@ -77,7 +82,10 @@ internal class FmpMock(private val universeSize: Int = 30, private val latency: 
         counts.getOrPut(path) { AtomicInteger() }.incrementAndGet()
         period?.let { counts.getOrPut("$path?period=$it") { AtomicInteger() }.incrementAndGet() }
         log += "$path|$symbol|${period.orEmpty()}"
-        if (latency > 0) delay(latency)
+        val now = inFlight.incrementAndGet(); peakConcurrency.accumulateAndGet(now) { a, b -> maxOf(a, b) }
+        try { if (latency > 0) delay(latency) } finally { inFlight.decrementAndGet() }
+        if (knownSymbols?.let { request.url.parameters["symbol"] != null && symbol !in it } == true && path != "company-screener" && !path.startsWith("calendar"))
+            return@MockEngine respond("[]", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()))
         (status[path] ?: 503.takeIf { request.url.parameters["symbol"]?.let { it in failSymbols } == true })?.let { failed.incrementAndGet(); return@MockEngine respond("""{"error":"x"}""", HttpStatusCode.fromValue(it), headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())) }
         val body = when (path) {
             "quote" -> """[{"symbol":"$symbol","price":100.0,"previousClose":99.0,"timestamp":1791396000}]"""

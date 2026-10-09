@@ -59,6 +59,11 @@ class GeminiNewsSimplifier(
             }
         }
         val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent"
+        // Phase 4C: background simplification is LOW priority on the shared Gemini budget (it never uses the interactive reserve).
+        val guard = org.example.stocksteps.service.ProviderGuard.current()
+        val permit = kotlinx.coroutines.withContext(org.example.stocksteps.service.ProviderPriorityElement(org.example.stocksteps.service.ProviderPriority.LOW)) {
+            guard?.acquire("gemini", org.example.stocksteps.httpclient.ProviderCalls.endpoint(url))
+        }
         val started = System.nanoTime()
         val response = try {
             client.post(url) {
@@ -68,8 +73,11 @@ class GeminiNewsSimplifier(
                 timeout { requestTimeoutMillis = 8_000 }
             }
         } catch (cause: Exception) {
-            org.example.stocksteps.httpclient.ProviderCalls.record(url, if (cause is kotlinx.coroutines.CancellationException) "cancelled" else "error", started); throw cause
+            val cancelled = cause is kotlinx.coroutines.CancellationException
+            permit?.let { guard?.complete(it, null, timedOut = cause is io.ktor.client.plugins.HttpRequestTimeoutException, cancelled = cancelled) }
+            org.example.stocksteps.httpclient.ProviderCalls.record(url, if (cancelled) "cancelled" else "error", started); throw cause
         }
+        permit?.let { guard?.complete(it, response.status.value, retryAfterSeconds = response.headers[io.ktor.http.HttpHeaders.RetryAfter]?.trim()?.toLongOrNull()) }
         org.example.stocksteps.httpclient.ProviderCalls.record(url, if (response.status.isSuccess()) "ok" else if (response.status.value == 429) "rateLimited" else "error", started)
         check(response.status.isSuccess()) { "AI provider unavailable" }
         val envelope = Json.parseToJsonElement(response.bodyAsText()).jsonObject

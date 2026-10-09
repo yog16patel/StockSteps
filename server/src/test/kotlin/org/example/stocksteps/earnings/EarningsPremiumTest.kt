@@ -152,7 +152,7 @@ class EarningsAiExplanationTest {
         assertEquals(1, premium.metrics.generated.get()); assertEquals(2, premium.metrics.coalesced.get() + premium.metrics.cacheHits.get())
     }
 
-    @Test fun failuresTimeoutsAndRejectedOutputsAreNeverChargedOrShown(): Unit = runBlocking {
+    @Test fun failuresAndRejectedOutputsAreNeverChargedAndNothingIsShown(): Unit = runBlocking {
         val h = PremiumHarness()
         h.plus("p")
         val cases = listOf("ai-failure" to "AI_UNAVAILABLE", "ai-timeout" to "AI_TIMEOUT", "ai-rate-limit" to "AI_RATE_LIMITED", "ai-malformed" to "AI_INVALID_OUTPUT",
@@ -160,7 +160,9 @@ class EarningsAiExplanationTest {
         for ((scenario, code) in cases) assertEquals(code, assertFailsWith<EarningsRequestException>(scenario) { h.premium.explain("p", "SSRV:2026-Q3", scenario) }.code, scenario)
         // A transient failure is retried once (two provider calls), never more.
         assertEquals(2, h.ai.calls.get() - cases.size + 1)
-        assertEquals(3, h.premium.usage("p").quota(EarningsAiCategory.EXPLANATION)!!.remaining)    // nothing charged
+        // Financial API Phase 4B: failures that produced nothing aren't charged; a timeout keeps its unit, because the provider may already
+        // have produced (and billed) a result.
+        assertEquals(2, h.premium.usage("p").quota(EarningsAiCategory.EXPLANATION)!!.remaining)
         assertTrue(h.premium.metrics.rejected.get() >= 4); assertTrue(h.premium.metrics.timeouts.get() >= 1)
     }
 
@@ -430,7 +432,8 @@ class EarningsPremiumRoutesTest {
         assertEquals(HttpStatusCode.NotFound, client.get("/api/v1/me/earnings/reports/AAPL%3A2026-Q4/premium") { bearerAuth("mock-user:alice") }.status)
         assertEquals(HttpStatusCode.BadRequest, client.get("/api/v1/me/earnings/reports/garbage/premium") { bearerAuth("mock-user:alice") }.status)
         val usage = json.decodeFromString(EarningsAiUsage.serializer(), client.get("/api/v1/me/earnings/ai/usage") { bearerAuth("mock-user:alice") }.bodyAsText())
-        assertEquals(1, usage.quota(EarningsAiCategory.EXPLANATION)!!.used); assertEquals(1, usage.quota(EarningsAiCategory.QUESTION)!!.used)
+        // One successful explanation plus the timed-out one (Phase 4B keeps timeouts charged); one question.
+        assertEquals(2, usage.quota(EarningsAiCategory.EXPLANATION)!!.used); assertEquals(1, usage.quota(EarningsAiCategory.QUESTION)!!.used)
         assertEquals(HttpStatusCode.OK, client.get("/api/v1/me/earnings/digest/preferences") { bearerAuth("mock-user:bob") }.status)
         assertEquals(HttpStatusCode.Forbidden, client.put("/api/v1/me/earnings/digest/preferences") { bearerAuth("mock-user:bob"); contentType(ContentType.Application.Json); setBody("""{"cadence":"WEEKLY"}""") }.status)
         assertEquals(HttpStatusCode.Forbidden, client.get("/api/v1/me/earnings/digest/latest") { bearerAuth("mock-user:bob") }.status)

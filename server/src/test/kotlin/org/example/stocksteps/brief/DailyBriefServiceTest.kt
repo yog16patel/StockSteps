@@ -193,6 +193,27 @@ class DailyBriefServiceTest {
         assertEquals("INVALID_ID", code { service.byId("../etc", BriefAccess.PLUS) })
     }
 
+    @Test fun briefAiAllowanceIsSharedAcrossInstancesAndDeniedRequestsNeverReachTheProvider(): Unit = runBlocking {
+        // Two Cloud Run instances = two services over one store (Firestore in REAL).
+        val calls = java.util.concurrent.atomic.AtomicInteger()
+        val counting = BriefAiProvider { c -> calls.incrementAndGet(); TemplateBriefAi.answer(c) }
+        val a = DailyBriefService(source, store, entitlements, null, null, counting, market, clock, sampleData = true, aiDailyLimit = 2)
+        val b = DailyBriefService(source, store, entitlements, null, null, counting, market, clock, sampleData = true, aiDailyLimit = 2)
+        val id = a.latest().id
+        val story = a.latest().stories.first().id
+        plus("multi")
+        a.ai("multi", id, BriefAiRequest(storyId = story))
+        b.ai("multi", id, BriefAiRequest(storyId = story))
+        assertEquals("AI_LIMIT", code { a.ai("multi", id, BriefAiRequest(storyId = story)) })
+        assertEquals("AI_LIMIT", code { b.ai("multi", id, BriefAiRequest(storyId = story)) }, "another instance doesn't grant more")
+        assertEquals(2, calls.get(), "no provider call after a denial")
+        // A retry with the same idempotency key isn't charged twice.
+        plus("retry")
+        a.ai("retry", id, BriefAiRequest(storyId = story, idempotencyKey = "retry-key-0001"))
+        b.ai("retry", id, BriefAiRequest(storyId = story, idempotencyKey = "retry-key-0001"))
+        assertEquals(0, a.ai("retry", id, BriefAiRequest(storyId = story)).remainingToday, "the retried request counted once; a new one used the last unit")
+    }
+
     @Test fun aiIsPlusOnlyGroundedAndQuotaLimited(): Unit = runBlocking {
         val id = service.latest().id
         val story = service.latest().stories.first().id

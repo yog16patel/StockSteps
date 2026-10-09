@@ -187,7 +187,7 @@ class EarningsPremiumService(
         val plan = requirePlus(uid, scenario, "AI earnings explanations")
         val p = (provider ?: throw EarningsRequestException(503, "AI_UNAVAILABLE", "AI explanations aren't available right now. Basic results are still available.")).forScenario(scenarioOf(scenario))
         val ctx = context(reportId, scenario)
-        fun usage() = quota.usage(uid, plan.plus, plan.status)
+        suspend fun usage() = quota.usage(uid, plan.plus, plan.status)
         // Identical data → identical explanation: a current cached copy is reused (no AI call, no quota).
         explanations[reportId]?.takeIf { current(it, ctx, p) }?.let { metrics.cacheHits.incrementAndGet(); return it.copy(cached = true, usage = usage()) }
         val key = "$reportId|${ctx.sourceDataVersion}|${p.promptVersion}|${p.model}"
@@ -214,7 +214,7 @@ class EarningsPremiumService(
             deferred.complete(e)
             return e.copy(usage = usage())
         } catch (cause: Throwable) {
-            quota.release(reservation)
+            quota.settle(reservation, cause)
             if (cause !is CancellationException) metrics.failures.incrementAndGet()
             deferred.completeExceptionally(cause)
             throw cause
@@ -250,14 +250,14 @@ class EarningsPremiumService(
             reset && prior != null -> "This conversation is about ${ctx.companyName}'s ${ctx.period} results."
             else -> null
         }
-        fun usage() = quota.usage(uid, plan.plus, plan.status)
-        fun answer(text: String, points: List<String>, sourceIds: List<String>, scope: AnswerScope, sample: Boolean) = EarningsAiAnswer(newId(), conversation.id, reportId, question, text.trim(),
+        suspend fun usage() = quota.usage(uid, plan.plus, plan.status)
+        suspend fun answer(text: String, points: List<String>, sourceIds: List<String>, scope: AnswerScope, sample: Boolean) = EarningsAiAnswer(newId(), conversation.id, reportId, question, text.trim(),
             points, ctx.citations.filter { it.sourceId in sourceIds }, clock.instant().toString(), scope, ctx.sourceDataVersion, reset, note, usage(), sample)
         // Advice, predictions and prompt injection are declined before any provider call (not charged).
         EarningsQuestionScreen.decline(question)?.let { metrics.declined.incrementAndGet(); return answer(it, emptyList(), emptyList(), AnswerScope.UNSUPPORTED, false) }
         val p = (provider ?: throw EarningsRequestException(503, "AI_UNAVAILABLE", "AI answers aren't available right now.")).forScenario(scenarioOf(scenario))
         if (scenarioOf(scenario) == "ai-quota") quota.exhaust(uid, EarningsAiCategory.QUESTION)
-        val reservation = quota.reserve(uid, EarningsAiCategory.QUESTION)
+        val reservation = quota.reserve(uid, EarningsAiCategory.QUESTION, request.idempotencyKey)
         try {
             val history = synchronized(conversation) { conversation.exchanges.takeLast(3) }
             val draft = call { p.answer(ctx, question, history) }
@@ -270,7 +270,7 @@ class EarningsPremiumService(
             val scope = when (valid.scope) { "education" -> AnswerScope.EDUCATION; "insufficient" -> AnswerScope.INSUFFICIENT_DATA; else -> AnswerScope.REPORT }
             return answer(valid.answer, valid.points, valid.sourceIds, scope, !p.usesAi)
         } catch (cause: Throwable) {
-            quota.release(reservation)
+            quota.settle(reservation, cause)
             if (cause !is CancellationException) metrics.failures.incrementAndGet()
             throw cause
         }
@@ -287,7 +287,7 @@ class EarningsPremiumService(
             metrics.generated.incrementAndGet()
             return DigestAiSummary(valid.summary.trim(), valid.points, valid.sourceIds.distinct(), clock.instant().toString(), !p.usesAi)
         } catch (cause: Throwable) {
-            quota.release(reservation)
+            quota.settle(reservation, cause)
             throw cause
         }
     }

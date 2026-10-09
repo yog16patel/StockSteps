@@ -151,32 +151,40 @@ class Phase3AuditBenchmarkTest {
             // D24 — 150 companies over 24 simulated hours: 10 concurrent users each hour, 20 companies failing in hours 12–13
             // (their second re-warm), the default cache and a 512-entry cache (eviction), and a budget too small for full coverage.
             var failedResponses = 0
-        suspend fun day(capacity: Int?, perHour: Int, failures: Boolean): Triple<List<Int>, List<Int>, Long> {
+        var denied = 0L
+        suspend fun day(capacity: Int?, perHour: Int, failures: Boolean, budget: Boolean = false): Triple<List<Int>, List<Int>, Long> {
                 val up = FmpMock(universeSize = 50); val clock = MutableClock(wednesday)
-                val w = World(up, clock, scope, perHour = perHour, capacity = capacity)
+                // Phase 4C: the REAL development-default provider budget (FMP 600/min, burst 600 per instance) on the simulated clock.
+                val meter = ProviderUsageMeter()
+                val guard = if (budget) ProviderGuard(ProviderBudgetConfig(ProviderBudgetConfig.DEVELOPMENT), { clock.millis() }, meter) { clock.instant = clock.instant.plusMillis(it) } else null
+                val dayScope = if (guard != null) CoroutineScope(SupervisorJob() + Dispatchers.Default + guard) else scope
+                val w = World(up, clock, dayScope, perHour = perHour, capacity = capacity)
                 val evictions = ProviderUsageMeter.shared.eventCount("cache.fmp.evict")
                 val coverage = mutableListOf<Int>(); val requests = mutableListOf<Int>()
                 for (hour in 0 until 24) {
                     if (failures) { if (hour == 12) (0 until 20).forEach { up.failSymbols += "NASDAQ$it" }; if (hour == 14) up.failSymbols.clear() }
                     val before = up.total
-                    coroutineScope { repeat(10) { launch(Dispatchers.Default) { quiet { w.screener.catalog() } } } }
+                    coroutineScope { repeat(10) { launch(Dispatchers.Default + (guard ?: kotlin.coroutines.EmptyCoroutineContext)) { quiet { w.screener.catalog() } } } }
                     w.settle()
                     coverage += w.screener.catalog().universe.evaluated; w.settle()
                     requests += up.total - before
                     clock.advance(3_600)
                 }
                 if (failures) failedResponses = up.failed.get()
+                if (budget) { denied = meter.snapshot().second.filterKeys { it.startsWith("provider.fmp.budget.denied.") }.values.sum(); dayScope.cancel() }
                 return Triple(coverage, requests, ProviderUsageMeter.shared.eventCount("cache.fmp.evict") - evictions)
             }
             val normal = day(null, 25, failures = false)
             val failing = day(null, 25, failures = true)
             val small = day(512, 25, failures = false)
             val tight = day(null, 10, failures = false)
+            val budgeted = day(null, 25, failures = false, budget = true)
             fun line(name: String, r: Triple<List<Int>, List<Int>, Long>) =
                 "  $name: coverage by hour ${r.first}\n    requests by hour ${r.second}; 24 h total ${r.second.sum()}; max/hour ${r.second.max()}; FMP cache evictions ${r.third}\n"
             out.append("## D24 Screener 150 companies over 24 h (10 concurrent users per hour)\n")
                 .append(line("default (4,096 entries, 25/h)", normal)).append(line("20 companies failing in hours 12–13 (during their re-warm; $failedResponses failed responses, statements still cached or served stale, so they stay evaluated with partial data and retry after 1 h)", failing))
                 .append(line("512-entry cache (pre-Phase 3 size)", small)).append(line("budget 10/h (incomplete coverage)", tight))
+                .append(line("Phase 4C development provider budget (FMP 600/min, burst 600; warm-up is LOW priority; $denied requests denied)", budgeted))
                 .append("  pre-Phase 3 (e4ba2be, measured separately): coverage peaks at 75, falls to 0 from hour 16; 1,953 requests in 24 h\n")
             assertTrue(normal.first.drop(6).all { it >= 125 } && normal.second.drop(1).all { it <= 25 * 11 + 3 })
             assertTrue(tight.first.all { it <= 60 }, "a small budget is reported as incomplete coverage, never as full")

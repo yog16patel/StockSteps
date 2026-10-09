@@ -1,5 +1,6 @@
 package org.example.stocksteps.earnings
 
+import org.example.stocksteps.security.limiterKey
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.plugins.origin
 import io.ktor.server.request.receive
@@ -524,7 +525,7 @@ class EarningsService(
             try {
                 val answer = provider.answer(trimmed, details(symbol, uid))
                 return answer.copy(remainingToday = quota.usage(uid, true, entitlements.get(uid).status).quota(EarningsAiCategory.QUESTION)?.remaining)
-            } catch (cause: Throwable) { quota.release(reservation); throw cause }
+            } catch (cause: Throwable) { quota.settle(reservation, cause); throw cause }
         }
         val key = "$uid:${today()}"
         if (aiUsage.size > 5_000) aiUsage.keys.removeIf { !it.endsWith(":${today()}") } // earlier days only
@@ -539,7 +540,7 @@ class EarningsService(
 /** Public calendar and details (free tier) plus signed-in following, tier-aware details and AI. */
 fun Route.earningsRoutes(service: EarningsService, auth: UserAuthenticator, limiter: RequestRateLimiter) {
     suspend fun RoutingContext.guarded(block: suspend () -> Any) {
-        if (!limiter.allow(call.request.origin.remoteHost)) {
+        if (!limiter.allow(call.limiterKey())) {
             call.respond(HttpStatusCode.TooManyRequests, ApiError("RATE_LIMITED", "Too many requests. Wait a moment and try again.")); return
         }
         try { call.respond(block()) } catch (cause: EarningsRequestException) {

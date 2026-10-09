@@ -26,11 +26,14 @@ class BankOfCanadaPortfolioFx(private val client: HttpClient) : PortfolioFxSourc
     private val cache = CompanyFinancialCache(capacity = 64, name = "fx")
     override suspend fun rates(from: String, through: String): Map<String, String> = cache.getOrLoad("$from:$through", 21_600_000) {
         val url = "https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json"
+        val guard = org.example.stocksteps.service.ProviderGuard.current()
+        val permit = guard?.acquire("boc", org.example.stocksteps.httpclient.ProviderCalls.endpoint(url))
         val started = System.nanoTime()
         val body = try {
             client.get(url) { parameter("start_date", from); parameter("end_date", through) }.body<JsonObject>()
-                .also { org.example.stocksteps.httpclient.ProviderCalls.record(url, "ok", started) }
+                .also { permit?.let { p -> guard.complete(p, 200) }; org.example.stocksteps.httpclient.ProviderCalls.record(url, "ok", started) }
         } catch (cause: Exception) {
+            permit?.let { guard.complete(it, null, cancelled = cause is kotlinx.coroutines.CancellationException) }
             org.example.stocksteps.httpclient.ProviderCalls.record(url, if (cause is kotlinx.coroutines.CancellationException) "cancelled" else "error", started); throw cause
         }
         body["observations"]?.jsonArray.orEmpty().mapNotNull { element ->

@@ -44,6 +44,8 @@ object ProviderCalls {
         val endpoint = endpoint(url)
         meter.record(provider, endpoint, feature, "upstream")
         meter.record(provider, endpoint, feature, outcome)
+        // Phase 4A: the request that caused this upstream call is charged for it by admission control.
+        org.example.stocksteps.security.RequestCost.add(provider)
         meter.event("provider.$provider.latencyMs", (System.nanoTime() - startedNanos) / 1_000_000)
     }
 }
@@ -52,8 +54,13 @@ suspend inline fun<reified T> HttpClient.apiCall(
     url: String, apiKey: String? = null,
     crossinline configurationBlock: HttpRequestBuilder.() -> Unit,
 ): T {
+    // Phase 4C: every upstream attempt (retries included) passes the provider-wide budget first; a denial throws before any request.
+    val guard = org.example.stocksteps.service.ProviderGuard.current()
+    val permit = guard?.acquire(ProviderCalls.provider(url), ProviderCalls.endpoint(url))
     val started = System.nanoTime()
     var outcome = "error"
+    var status: Int? = null
+    var retryAfter: Long? = null
     try {
         val response = this.get(url) {
             // Classify statuses ourselves without exceptions containing provider bodies.
@@ -61,6 +68,8 @@ suspend inline fun<reified T> HttpClient.apiCall(
             configurationBlock()
             if (apiKey != null) parameter("apikey", apiKey)
         }
+        status = response.status.value
+        retryAfter = response.headers[io.ktor.http.HttpHeaders.RetryAfter]?.trim()?.toLongOrNull()
         if (response.status.value !in 200..299) {
             LoggerFactory.getLogger("StockSteps.Provider").warn(
                 "Provider HTTP failure: host={}, path={}, status={}",
@@ -94,6 +103,7 @@ suspend inline fun<reified T> HttpClient.apiCall(
         LoggerFactory.getLogger("StockSteps.Provider").warn("Provider request failed: {}", failure.name)
         throw StockProviderException(failure)
     } finally {
+        if (permit != null) guard.complete(permit, status, timedOut = outcome == "timeout", retryAfterSeconds = retryAfter, cancelled = outcome == "cancelled")
         ProviderCalls.record(url, outcome, started)
     }
 }

@@ -1,5 +1,6 @@
 package org.example.stocksteps.screener
 
+import org.example.stocksteps.security.limiterKey
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.plugins.origin
 import io.ktor.server.response.respond
@@ -162,7 +163,7 @@ private const val STALE_RETRY = 300_000L
  * 3Y/5Y and advanced metrics for StockSteps+). Same errors as the other comparison routes.
  */
 fun Route.comparisonHistoryRoutes(service: ComparisonHistoryService, auth: UserAuthenticator, limiter: RequestRateLimiter) {
-    suspend fun RoutingContext.guarded(client: String, block: suspend () -> Any) {
+    suspend fun RoutingContext.guarded(client: String?, block: suspend () -> Any) {
         if (!limiter.allow(client)) { call.respond(HttpStatusCode.TooManyRequests, ApiError("RATE_LIMITED", "Too many requests. Wait a moment and try again.")); return }
         try { call.respond(block()) } catch (cause: ScreenerRequestException) {
             call.respond(HttpStatusCode.fromValue(cause.status), ApiError(cause.code, cause.message ?: "Request failed."))
@@ -171,7 +172,7 @@ fun Route.comparisonHistoryRoutes(service: ComparisonHistoryService, auth: UserA
         }
     }
     get("/api/v1/compare/history") {
-        guarded(call.request.origin.remoteHost) { service.publicHistory(call.request.queryParameters["symbols"], call.request.queryParameters["range"]) }
+        guarded(call.limiterKey()) { service.publicHistory(call.request.queryParameters["symbols"], call.request.queryParameters["range"]) }
     }
     get("/api/v1/me/compare/history") {
         user(auth) { uid -> guarded("history:$uid") { service.userHistory(uid, call.request.queryParameters["symbols"], call.request.queryParameters["range"]) } }

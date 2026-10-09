@@ -263,7 +263,8 @@ class ScreenerService(
                 loading += it.symbol; loadTimes.addLast(t)
             }
         }
-        for (entry in chosen) scope.launch(ProviderFeature("screener-warmup")) {
+        // Phase 4C: warm-up is LOW priority — it never uses the interactive share of a provider budget and is deferred when it's low.
+        for (entry in chosen) scope.launch(ProviderFeature("screener-warmup") + org.example.stocksteps.service.ProviderPriorityElement(org.example.stocksteps.service.ProviderPriority.LOW)) {
             try {
                 meter.event(if (lock.withLock { entry.symbol in fundamentals }) "screener.warm.refresh" else "screener.warm.initial")
                 loadFundamentals(entry.symbol, listingCurrency(entry), screenerSet = true)
@@ -284,6 +285,9 @@ class ScreenerService(
 
     private fun universeInfo(definition: UniverseDefinition, records: List<CompanyRecord>, needsFundamentals: Boolean): UniverseInfo {
         val evaluated = if (needsFundamentals) records.count { it.hasFundamentals } else records.size
+        if (needsFundamentals) {   // Phase 4D: coverage gauges for the usage summaries
+            meter.gauge("screener.coverage.evaluated", evaluated.toLong()); meter.gauge("screener.coverage.size", records.size.toLong())
+        }
         return UniverseInfo(definition.description, records.size, evaluated, evaluated == records.size)
     }
 
@@ -345,11 +349,12 @@ class ScreenerService(
                 val quote = async { runCatching { stocks.getStock(symbol) }.getOrNull() }
                 val profile = async { runCatching { stocks.getProfile(symbol) }.getOrNull() }
                 val quarter = async { quarterGrowth(symbol) }
-                val data = cachedFundamentals(symbol) ?: loadFundamentals(symbol)
-                if (data?.freshness == org.example.stocksteps.earnings.DataFreshness.STALE) staleSymbols += symbol
                 val p = profile.await()
+                // Phase 4A: no profile and no quote → unknown or unavailable company: never load its fundamentals bundle.
                 if (p == null && quote.await() == null) ComparedCompany(symbol = symbol, error = "Company data isn't available right now.")
                 else {
+                    val data = cachedFundamentals(symbol) ?: loadFundamentals(symbol)
+                    if (data?.freshness == org.example.stocksteps.earnings.DataFreshness.STALE) staleSymbols += symbol
                     val record = CompanyRecordBuilder.build(symbol, quote.await(), p, data, rate(p?.currency), today())
                     ComparedCompany(record.copy(hasFundamentals = data != null, metrics = record.metrics + ("quarterRevenueGrowth" to quarter.await())),
                         symbol, if (data == null) "Financial data isn't available right now; only price information is shown." else null,
@@ -412,11 +417,15 @@ class ScreenerService(
     }
 }
 
-/** Simple per-client token bucket for public screener/compare routes. */
+/**
+ * Simple per-client sliding-minute limiter for route groups. [client] is a uid, a trusted client IP or (route tests only) the remote host;
+ * null — an unverified anonymous caller (Phase 4A) — isn't limited here, because a shared key would throttle every guest together; those
+ * callers are bounded by the admission plugin's anonymous pool and the provider budgets.
+ */
 class RequestRateLimiter(private val perMinute: Int, private val clock: () -> Long = System::currentTimeMillis) {
     private val lock = Any()
     private val windows = LinkedHashMap<String, ArrayDeque<Long>>()
-    fun allow(client: String): Boolean = synchronized(lock) {
+    fun allow(client: String?): Boolean = if (client == null) true else synchronized(lock) {
         val now = clock()
         val window = windows.getOrPut(client) { ArrayDeque() }
         while (window.isNotEmpty() && now - window.first() >= 60_000) window.removeFirst()

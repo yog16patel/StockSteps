@@ -1,12 +1,33 @@
 <configuration>
+    <!--
+      Financial API Phase 4A-0: production logging is INFO. Ktor client/server internals log full request URLs at DEBUG/TRACE,
+      and FMP's API key is a query parameter, so `io.ktor` stays at WARN: never lower these levels in a deployed configuration.
+      Application loggers (`StockSteps.*`) log only sanitized facts (provider host/path/status, exception class names) — never keys,
+      Authorization or App Check tokens, prompts, notes or portfolio data.
+    -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{YYYY-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
-    <root level="trace">
+    <!-- Phase 4D: per-instance usage summaries are single JSON lines (Cloud Logging jsonPayload → logs-based metrics). -->
+    <appender name="USAGE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+    <logger name="StockSteps.Usage" level="INFO" additivity="false">
+        <appender-ref ref="USAGE"/>
+    </logger>
+    <root level="INFO">
         <appender-ref ref="STDOUT"/>
     </root>
-    <logger name="org.eclipse.jetty" level="INFO"/>
-    <logger name="io.netty" level="INFO"/>
+    <logger name="io.ktor" level="WARN"/>
+    <logger name="io.ktor.client" level="WARN"/>
+    <!-- Application lifecycle messages only (data mode, port); no request URLs. -->
+    <logger name="io.ktor.server.Application" level="INFO"/>
+    <logger name="io.netty" level="WARN"/>
+    <logger name="org.eclipse.jetty" level="WARN"/>
+    <logger name="com.google" level="WARN"/>
+    <logger name="io.grpc" level="WARN"/>
 </configuration>

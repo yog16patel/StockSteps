@@ -1,5 +1,6 @@
 package org.example.stocksteps.brief
 
+import org.example.stocksteps.security.limiterKey
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.plugins.origin
 import io.ktor.server.request.receive
@@ -17,7 +18,7 @@ import org.example.stocksteps.userdata.requireUser
  */
 fun Route.dailyBriefRoutes(service: DailyBriefService, auth: UserAuthenticator, limiter: RequestRateLimiter, push: PushSender, schedulerSecret: String?, mock: Boolean) {
     suspend fun RoutingContext.guarded(block: suspend () -> Any) {
-        if (!limiter.allow(call.request.origin.remoteHost)) {
+        if (!limiter.allow(call.limiterKey())) {
             call.respond(HttpStatusCode.TooManyRequests, ApiError("RATE_LIMITED", "Too many requests. Wait a moment and try again.")); return
         }
         try { call.respond(block()) } catch (cause: BriefRequestException) {
@@ -47,11 +48,11 @@ fun Route.dailyBriefRoutes(service: DailyBriefService, auth: UserAuthenticator, 
         post("/{id}/ai/explain") { signedIn { uid -> service.ai(uid, call.parameters["id"].orEmpty(), call.receive<BriefAiRequest>().copy(question = null), scenario()) } }
         post("/{id}/ai/ask") { signedIn { uid -> service.ai(uid, call.parameters["id"].orEmpty(), call.receive<BriefAiRequest>(), scenario()) } }
     }
-    // Scheduler (Cloud Scheduler with a shared token in REAL; open in MOCK, where pushes are simulated).
-    if (schedulerSecret != null || mock) post("/internal/daily-brief/dispatch") {
-        if (!mock && call.request.headers["X-StockSteps-Scheduler-Token"] != schedulerSecret) {
+    // Scheduler (Cloud Scheduler OIDC or this job's own secret in REAL, Phase 4A; open in MOCK, where pushes are simulated).
+    if (org.example.stocksteps.security.InternalCallers.available(schedulerSecret) || mock) post("/internal/daily-brief/dispatch") {
+        if (!mock && !org.example.stocksteps.security.InternalCallers.authorized(call, schedulerSecret)) {
             call.respond(HttpStatusCode.Forbidden, ApiError("FORBIDDEN", "Not allowed.")); return@post
         }
-        call.respond(service.dispatch(push))
+        call.respond(kotlinx.coroutines.withContext(org.example.stocksteps.service.ProviderPriorityElement(org.example.stocksteps.service.ProviderPriority.NORMAL)) { service.dispatch(push) })
     }
 }

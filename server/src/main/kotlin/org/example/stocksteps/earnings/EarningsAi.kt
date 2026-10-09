@@ -18,66 +18,92 @@ import java.util.concurrent.atomic.AtomicLong
 // ---------- Fair-use quotas ----------
 
 /**
- * Per-user daily allowances by category plus a global daily budget (cost safeguard). A unit is
- * reserved before a provider call and released if the call fails, so failures are never charged;
- * cache hits and coalesced requests don't use quota. Days are UTC; the reset time shown is real.
- *
- * Production note: counters are in process memory (one instance). A multi-instance deployment needs a
- * shared counter (Firestore or Redis) behind this class.
+ * Per-user daily allowances by category plus a global daily budget (cost safeguard). Phase 4B: the per-user counts are durable
+ * ([DurableAiQuota] on `users/{uid}/meta/aiUsage`, a Firestore transaction in REAL), so restarts, other instances, concurrent requests
+ * and other devices share one allowance. A unit is reserved before a provider call; failures that produced nothing are released
+ * ([settle]); timeouts and cancellations keep the unit (the provider may have produced a billed result); cache hits and coalesced
+ * requests don't use quota. Days are UTC; the reset time shown is real. The global budget stays per instance (size it as target ÷ max
+ * instances). A store failure fails closed (503, no provider call).
  */
 class EarningsAiQuotaLedger(
     private val limits: Map<EarningsAiCategory, Int>,
     private val globalDailyBudget: Int,
-    private val clock: Clock
+    private val clock: Clock,
+    store: org.example.stocksteps.userdata.UserDataStore = org.example.stocksteps.userdata.InMemoryUserDataStore(),
+    combined: org.example.stocksteps.service.CombinedAiCap? = null
 ) {
+    private val quota = org.example.stocksteps.service.DurableAiQuota(store, clock, combined)
     private val lock = Any()
-    private val used = HashMap<String, Int>()
     private var day: LocalDate? = null
     private var global = 0
 
-    class Reservation internal constructor(val uid: String, val category: EarningsAiCategory, internal val day: LocalDate) {
+    class Reservation internal constructor(val uid: String, val category: EarningsAiCategory, internal val day: LocalDate,
+                                           internal val durable: org.example.stocksteps.service.DurableAiQuota.Reservation) {
         internal var released = false
     }
 
     fun limit(category: EarningsAiCategory) = limits[category] ?: 0
+    fun policy(category: EarningsAiCategory) = org.example.stocksteps.service.AiQuotaPolicy(feature(category), limit(category))
     private fun today(): LocalDate = clock.instant().atZone(ZoneOffset.UTC).toLocalDate()
     fun resetAt(): String = today().plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toString()
 
     private fun roll() {
         val t = today()
-        if (day != t) { day = t; used.clear(); global = 0 }
+        if (day != t) { day = t; global = 0 }
     }
 
-    fun reserve(uid: String, category: EarningsAiCategory): Reservation = synchronized(lock) {
-        roll()
-        val key = "$uid|$category"
-        val n = used[key] ?: 0
+    suspend fun reserve(uid: String, category: EarningsAiCategory, key: String? = null): Reservation {
         val limit = limit(category)
-        if (n >= limit) throw EarningsRequestException(429, "AI_QUOTA_EXCEEDED",
-            "You've used all $limit ${category.unit} for today. Your allowance resets at 00:00 UTC (${resetAt().take(10)}).")
-        if (global >= globalDailyBudget) throw EarningsRequestException(503, "AI_BUDGET", "AI features are busy right now. Basic earnings results are still available; try again later.")
-        used[key] = n + 1; global++
-        Reservation(uid, category, day!!)
+        val durable = try {
+            quota.reserve(uid, policy(category), org.example.stocksteps.service.DurableAiQuota.clientKey(key) ?: ("e" + java.util.UUID.randomUUID().toString().replace("-", "").take(24)))
+        } catch (denied: org.example.stocksteps.service.AiQuotaDenied) {
+            throw EarningsRequestException(429, "AI_QUOTA_EXCEEDED", if (denied.combined) "You've used today's ${denied.limit} StockSteps AI requests. Your allowance resets at 00:00 UTC (${resetAt().take(10)})."
+                else "You've used all $limit ${category.unit} for today. Your allowance resets at 00:00 UTC (${resetAt().take(10)}).")
+        } catch (cause: org.example.stocksteps.service.AiQuotaUnavailable) {
+            throw EarningsRequestException(503, "AI_QUOTA_UNAVAILABLE", "AI features are unavailable right now. Basic earnings results are still available; try again later.")
+        }
+        val admitted = durable.duplicate || synchronized(lock) {
+            roll()
+            if (global >= globalDailyBudget) false else { global++; true }
+        }
+        if (!admitted) {
+            quota.release(durable)
+            throw EarningsRequestException(503, "AI_BUDGET", "AI features are busy right now. Basic earnings results are still available; try again later.")
+        }
+        return Reservation(uid, category, today(), durable)
     }
 
-    /** A failed request is not charged. */
-    fun release(r: Reservation) = synchronized(lock) {
-        if (r.released || r.day != day) return@synchronized
+    /** Releases the unit (a cached or coalesced answer, or a failure that produced nothing). */
+    suspend fun release(r: Reservation) {
+        if (r.released) return
         r.released = true
-        val key = "${r.uid}|${r.category}"
-        used[key] = ((used[key] ?: 1) - 1).coerceAtLeast(0); global = (global - 1).coerceAtLeast(0)
+        synchronized(lock) { if (r.day == day && !r.durable.duplicate) global = (global - 1).coerceAtLeast(0) }
+        quota.release(r.durable)
+    }
+
+    /** Failure policy: timeouts and cancellations keep the unit; other failures are released. */
+    suspend fun settle(r: Reservation, cause: Throwable) {
+        val timeout = cause is EarningsRequestException && cause.code == "AI_TIMEOUT"
+        if (timeout || cause is kotlinx.coroutines.CancellationException) { r.released = true; quota.settleFailure(r.durable, cause) { false }; return }
+        release(r)
     }
 
     /** MOCK scenario: uses the rest of a category's allowance. */
-    fun exhaust(uid: String, category: EarningsAiCategory) = synchronized(lock) { roll(); used["$uid|$category"] = limit(category) }
+    suspend fun exhaust(uid: String, category: EarningsAiCategory) = quota.exhaust(uid, policy(category))
 
-    fun usage(uid: String, plus: Boolean, status: org.example.stocksteps.portfolio.analytics.EntitlementStatus, note: String? = null): EarningsAiUsage = synchronized(lock) {
-        roll()
-        EarningsAiUsage(plus, status, EarningsAiCategory.entries.map { c ->
-            val n = used["$uid|$c"] ?: 0
+    suspend fun usage(uid: String, plus: Boolean, status: org.example.stocksteps.portfolio.analytics.EntitlementStatus, note: String? = null): EarningsAiUsage {
+        val counts = try { quota.usage(uid, EarningsAiCategory.entries.map(::policy)) } catch (cause: org.example.stocksteps.service.AiQuotaUnavailable) {
+            throw EarningsRequestException(503, "AI_QUOTA_UNAVAILABLE", "AI usage can't be checked right now. Try again later.")
+        }
+        return EarningsAiUsage(plus, status, EarningsAiCategory.entries.map { c ->
+            val n = counts[feature(c)]?.first ?: 0
             val limit = if (plus) limit(c) else 0
             EarningsAiQuota(c, limit, n, (limit - n).coerceAtLeast(0), resetAt())
         }, clock.instant().toString(), note)
+    }
+
+    companion object {
+        fun feature(category: EarningsAiCategory) = "earnings-ai-" + category.name.lowercase()
     }
 }
 

@@ -204,7 +204,9 @@ data class BriefPreferences(
     val quietEndHour: Int? = null
 )
 
-@Serializable data class BriefAiRequest(val storyId: String? = null, val question: String? = null)
+@Serializable data class BriefAiRequest(val storyId: String? = null, val question: String? = null,
+    /** Optional client retry key: a retry with the same key isn't charged twice (Financial API Phase 4B). */
+    val idempotencyKey: String? = null)
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable

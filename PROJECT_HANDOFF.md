@@ -1,6 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"** on `main`.
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** on `main` (not pushed).
+Includes the Financial API Phase 4 audit and implementation (next section; `docs/FINANCIAL_API_PHASE4_*.md`).
+Previous commit: **"Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"**.
 Includes the Phase 3 verification (next section, "Phase 3 verification"): benchmark A–H, earnings coverage fix, tests, docs.
 Previous commit: **"Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback"**.
 Includes the Phase 3 financial API implementation (`docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`).
@@ -40,6 +42,33 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Financial API — Phase 4 audit and implementation (2026-10-09) — commit "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"
+
+Audit (read-only): `docs/FINANCIAL_API_PHASE4_SECURITY_AUDIT.md`, `…_QUOTA_ARCHITECTURE.md`, `…_COST_MODEL.md`, `…_OBSERVABILITY.md`, `…_DECISIONS.md`,
+`…_IMPLEMENTATION_PLAN.md`. Implementation and results: `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md`.
+- **4A-0**: `logback.xml` root INFO, `io.ktor` WARN (TRACE had logged provider URLs with FMP's `apikey`); JSON appender for usage summaries.
+- **4A**: `security/ClientIdentity.kt` (uid, trusted XFF only with `TRUSTED_PROXY_HOPS`, else unverified pool), `security/Admission.kt` (cost-weighted
+  per-group admission charged by actual upstream calls, 429 + Retry-After, body/query limits), `security/AppCheck.kt` (monitor mode; enforce flag),
+  `security/InternalAuth.kt` (Cloud Scheduler OIDC or one secret per job, constant time), `service/SymbolExistence.kt` (unknown symbols ≤ 2 lookups,
+  negative-cached; outages never cached), watch-data ≤ 30 symbols without a verified uid, ≤ 8 at once; shared client chunks watch-data by 30.
+- **4B**: `service/AiQuota.kt` `DurableAiQuota` on `users/{uid}/meta/aiUsage` for Brief AI and Earnings AI (explanation/question/digest); idempotency
+  keys; timeouts/cancellations keep the charge (earnings tests updated); store outage fails closed; combined StockSteps+ cap available but disabled.
+- **4C**: `service/ProviderBudget.kt` `ProviderGuard` in `apiCall`, Gemini clients and Bank of Canada: token bucket, concurrency, priorities (warm-up
+  LOW, scheduled jobs NORMAL), circuit breaker (429 Retry-After; 5xx per endpoint; half-open); development defaults until plan limits are set.
+- **4D**: `service/UsageSummary.kt` per-minute JSON usage summary per instance (bounded labels), screener coverage gauges.
+- Benchmarks: Phase 3 numbers unchanged (A 17, B 64, B′ 8, D 278, D24 4,353, F 16, G 253, H 15→15); 24 h screener under the development budget
+  4,353 with 0 denials (after raising the FMP default burst to 600 and letting background work wait for concurrency slots); 1,000 unknown symbols ≤ 2,000
+  requests (was ≈ 13,000 modeled); 429 storm 100 → 1 upstream; five instances never exceed the plan.
+- Verification (final code): `./gradlew :core:jvmTest :core:iosSimulatorArm64Test :server:test :app:shared:testAndroidHostTest
+  :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue` BUILD SUCCESSFUL — server 473/0 (3 skipped), core JVM 416/0, core iOS
+  416/0, shared Android host 55/0, shared iOS 49/0, assembleDebug OK; iOS `xcodebuild` BUILD SUCCEEDED. 1,409 tests, 0 failures.
+- Fixed during verification: the anonymous pool now charges only upstream work (cheap floods can't lock guests out); `MarketSnapshotTest` collected
+  concurrent requests in an unsafe list (test-only fix). Provider path audit: every FMP/Finnhub/Gemini/BoC call passes `ProviderGuard` (FCM push isn't budgeted).
+- Older apps: watchlists over 30 stocks get `TOO_MANY_SYMBOLS` (set `WATCH_DATA_ANONYMOUS_MAX_SYMBOLS=100` if old builds exist); everything else compatible.
+- Production-only blockers (implementation doc §9d): logging check / FMP key rotation, `TRUSTED_PROXY_HOPS`, `CLOUD_RUN_MAX_INSTANCES`, `PROVIDER_*` plan
+  limits, Cloud Scheduler OIDC or per-job secrets, old-build watch-data setting (these six block launch); App Check SDKs, dashboards/alerts/billing
+  budgets, AI policy. Verdict: READY WITH CONDITIONS. Shareable summary doc: https://claude.ai/code/artifact/c4ca8cbb-855c-4aa2-a43a-feecd79b4da9
 
 ## Financial API — Phase 3 implementation (2026-10-09) — commit "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback"
 

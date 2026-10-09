@@ -91,13 +91,16 @@ class DailyBriefService(
     private val clock: Clock,
     val sampleData: Boolean,
     private val aiDailyLimit: Int = 15,
-    private val sessions: BriefSessions = BriefSessions()
+    private val sessions: BriefSessions = BriefSessions(),
+    /** Optional combined StockSteps+ daily AI cap (Phase 4B, decision D6); null = feature limits only. */
+    combinedAiCap: org.example.stocksteps.service.CombinedAiCap? = null
 ) {
     private val et = ZoneId.of("America/New_York")
     private val lock = Mutex()
     private val memory = ConcurrentHashMap<String, DailyBrief>()
     private val personal = ConcurrentHashMap<String, Pair<Long, PersonalizedBrief>>()
-    private val aiUsage = ConcurrentHashMap<String, Int>()
+    /** Phase 4B: durable Brief AI allowance on the user's `aiUsage` document (shared across instances and restarts). */
+    private val aiQuota = org.example.stocksteps.service.DurableAiQuota(store, clock, combinedAiCap)
     private val permits = Semaphore(6)
     private val shortDate = DateTimeFormatter.ofPattern("MMM d", Locale.US)
     private val longDate = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.US)
@@ -108,6 +111,8 @@ class DailyBriefService(
         const val MARKET_HOURS_REFRESH = 15 * 60_000L
         const val PERSONAL_TTL = 5 * 60_000L
         private val ID = Regex("[a-z0-9-]{10,80}")
+        /** The Brief AI feature tag on `aiUsage` charges (Phase 4B). */
+        const val BRIEF_AI_FEATURE = "brief-ai"
     }
 
     fun scenario(name: String?): BriefScenario? = name?.let {
@@ -368,23 +373,30 @@ class DailyBriefService(
         val brief = if (s != null) latest(scenarioName) else byId(briefId, BriefAccess.PLUS)
         val stories = request.storyId?.let { id -> listOf(brief.stories.firstOrNull { it.id == id } ?: throw BriefRequestException(404, "STORY_NOT_FOUND", "This story isn't in the brief.")) } ?: brief.stories
         val provider = ai?.takeUnless { s?.aiUnavailable == true } ?: throw BriefRequestException(503, "AI_UNAVAILABLE", "AI explanations aren't available right now.")
-        val limit = if (s?.aiQuota == true) 0 else aiDailyLimit
-        val key = "$uid:${LocalDate.now(clock.withZone(ZoneOffset.UTC))}"
-        if (aiUsage.size > 5_000) aiUsage.keys.removeIf { !it.endsWith(":" + key.substringAfterLast(':')) } // earlier days only
-        val used = aiUsage.merge(key, 1, Int::plus)!!
-        if (used > limit) { aiUsage.merge(key, -1, Int::plus); throw BriefRequestException(429, "AI_LIMIT", "You've reached today's limit of $limit AI explanations.") }
+        if (s?.aiQuota == true) throw BriefRequestException(429, "AI_LIMIT", "You've reached today's limit of 0 AI explanations.")
+        // Phase 4B: durable per-user allowance (Firestore `aiUsage` transaction in REAL), reserved before the provider call.
+        val policy = org.example.stocksteps.service.AiQuotaPolicy(BRIEF_AI_FEATURE, aiDailyLimit)
+        val reservation = try {
+            aiQuota.reserve(uid, policy, org.example.stocksteps.service.DurableAiQuota.clientKey(request.idempotencyKey) ?: ("b" + java.util.UUID.randomUUID().toString().replace("-", "").take(24)))
+        } catch (denied: org.example.stocksteps.service.AiQuotaDenied) {
+            throw BriefRequestException(429, "AI_LIMIT", "You've reached today's limit of ${denied.limit} AI explanations.")
+        } catch (cause: org.example.stocksteps.service.AiQuotaUnavailable) {
+            throw BriefRequestException(503, "AI_UNAVAILABLE", "AI explanations aren't available right now.")
+        }
         val context = BriefAiContext(brief.summaryLine, brief.marketSnapshot, stories, question)
         val draft = try { withTimeout(12_000) { provider.answer(context) } } catch (cause: Exception) {
+            // A timeout or cancellation keeps the charge (the provider may have produced a result); a provider error is refunded.
+            aiQuota.settleFailure(reservation, cause)
             if (cause is CancellationException && cause !is TimeoutCancellationException) throw cause
-            aiUsage.merge(key, -1, Int::plus)
             throw BriefRequestException(503, "AI_UNAVAILABLE", "AI explanations aren't available right now.")
         }
         val valid = BriefAiValidator.validate(draft, context) ?: run {
-            aiUsage.merge(key, -1, Int::plus)
+            aiQuota.release(reservation)
             throw BriefRequestException(502, "AI_UNRELIABLE", "We couldn't produce an explanation that matched the sources. Nothing was shown instead of a guess.")
         }
+        val used = try { aiQuota.usage(uid, listOf(policy))[BRIEF_AI_FEATURE]?.first ?: 0 } catch (cause: org.example.stocksteps.service.AiQuotaUnavailable) { aiDailyLimit }
         return BriefAiAnswer(valid.answer, valid.points, stories.filter { it.id in valid.sourceIds }.map { BriefSource(it.id, it.publisher, it.sourceUrl, it.publishedAt, it.headline) },
-            valid.insufficientEvidence, (limit - used).coerceAtLeast(0), provider.usesAi)
+            valid.insufficientEvidence, (aiDailyLimit - used).coerceAtLeast(0), provider.usesAi)
     }
 
     // ---------- Preferences and notifications ----------

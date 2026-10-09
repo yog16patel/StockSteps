@@ -40,6 +40,14 @@ class ProviderUsageMeter(private val started: String = java.time.Instant.now().t
     /** Adds [amount] (e.g. provider-reported tokens or milliseconds) to a counter. */
     fun event(name: String, amount: Long) { if (amount > 0) events.getOrPut(name) { AtomicLong() }.addAndGet(amount) }
 
+    private val gauges = ConcurrentHashMap<String, Long>()
+    /** Latest value of a bounded gauge (e.g. screener coverage); exported by the usage summaries (Phase 4D). */
+    fun gauge(name: String, value: Long) { gauges[name] = value }
+
+    /** Point-in-time copy of every counter, event and gauge (for delta summaries). */
+    fun snapshot(): Triple<Map<List<String>, Long>, Map<String, Long>, Map<String, Long>> =
+        Triple(counters.mapValues { it.value.get() }, events.mapValues { it.value.get() }, gauges.toMap())
+
     fun count(provider: String? = null, event: String, feature: String? = null): Long = counters.entries
         .filter { (k, _) -> (provider == null || k[0] == provider) && k[3] == event && (feature == null || k[2] == feature) }.sumOf { it.value.get() }
     fun eventCount(name: String): Long = events[name]?.get() ?: 0
@@ -80,11 +88,14 @@ class ProviderRequestBudget(private val limits: Map<String, Int>, private val no
     }
 }
 
-/** `GET /internal/metrics/usage`: aggregate counters for operators (scheduler token in REAL; open in MOCK). */
+/**
+ * `GET /internal/metrics/usage`: this instance's counters for operators (OIDC or `USAGE_METRICS_TOKEN` in REAL; open in MOCK). Cross-instance
+ * totals come from the per-minute usage summaries in the logs (Phase 4D), not from this route.
+ */
 fun Route.usageMetricsRoutes(meter: ProviderUsageMeter, secret: String?, mock: Boolean) {
-    if (secret == null && !mock) return
+    if (!org.example.stocksteps.security.InternalCallers.available(secret) && !mock) return
     get("/internal/metrics/usage") {
-        if (!mock && call.request.headers["X-StockSteps-Scheduler-Token"] != secret) { call.respond(HttpStatusCode.Forbidden, ApiError("FORBIDDEN", "Not allowed.")); return@get }
+        if (!mock && !org.example.stocksteps.security.InternalCallers.authorized(call, secret)) { call.respond(HttpStatusCode.Forbidden, ApiError("FORBIDDEN", "Not allowed.")); return@get }
         call.respond(meter.report())
     }
 }

@@ -8,8 +8,10 @@ import io.ktor.server.routing.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.withPermit
 import org.example.stocksteps.model.*
 import org.example.stocksteps.service.UsMarketCalendar
+import org.example.stocksteps.security.clientIdentity
 import java.time.Clock
 import java.time.Instant
 import java.util.Locale
@@ -20,12 +22,15 @@ class WatchDataService(
     private val rules: AlertRules,
     private val calendar: UsMarketCalendar,
     private val clock: Clock,
-    private val notice: String
+    private val notice: String,
+    /** Phase 4A: symbols looked up at once per request (each costs up to a quote, a profile and an earnings history when cold). */
+    private val maxConcurrent: Int = 8
 ) {
     suspend fun get(symbols: List<String>): WatchDataResponse = coroutineScope {
         val now = clock.instant()
+        val permits = kotlinx.coroutines.sync.Semaphore(maxConcurrent)
         val rows = symbols.map { symbol ->
-            async {
+            async { permits.withPermit {
                 val quote = market.quote(symbol)
                 val profile = market.profile(symbol)
                 val earnings = market.upcomingEarnings(symbol)?.takeIf { runCatching { java.time.LocalDate.parse(it.date) >= now.atZone(calendar.zone).toLocalDate() }.getOrDefault(false) }
@@ -44,7 +49,7 @@ class WatchDataService(
                     stale = price != null && rules.freshQuote(quote, now) == null,
                     logoUrl = profile?.logoUrl
                 ) to earnings
-            }
+            } }
         }.awaitAll()
         WatchDataResponse(rows.map { it.first }, rows.mapNotNull { it.second }, calendar.session(now), now.toString(), notice)
     }
@@ -59,12 +64,20 @@ class WatchDataService(
     }
 }
 
-/** Public market data for the Watchlist screen. */
-fun Route.watchDataRoutes(service: WatchDataService) {
+/**
+ * Public market data for the Watchlist screen. Phase 4A: callers without a verified uid may send at most [anonymousMaxSymbols] distinct
+ * symbols per request (the shared client splits larger watchlists into several requests); verified users keep [WatchDataService.MAX_SYMBOLS].
+ */
+fun Route.watchDataRoutes(service: WatchDataService, anonymousMaxSymbols: Int = WatchDataService.MAX_SYMBOLS) {
     get("/api/v1/stocks/watch-data") {
         val symbols = WatchDataService.parse(call.request.queryParameters["symbols"])
         if (symbols == null) {
             call.respond(HttpStatusCode.BadRequest, ApiError("INVALID_SYMBOLS", "Send 1–${WatchDataService.MAX_SYMBOLS} comma-separated stock symbols."))
+            return@get
+        }
+        val signedIn = call.clientIdentity() is org.example.stocksteps.security.ClientIdentity.User
+        if (!signedIn && symbols.size > anonymousMaxSymbols) {
+            call.respond(HttpStatusCode.BadRequest, ApiError("TOO_MANY_SYMBOLS", "Send at most $anonymousMaxSymbols symbols per request."))
             return@get
         }
         call.respond(service.get(symbols))
@@ -122,19 +135,19 @@ fun Route.userRoutes(auth: UserAuthenticator, watchlists: WatchlistsService, ale
 }
 
 /**
- * `POST /internal/alerts/evaluate`: one evaluation pass. REAL requires the shared secret in
- * `X-StockSteps-Scheduler-Token` (configure Cloud Scheduler with the same value); the route is
- * absent when no secret is configured. MOCK accepts local calls without a secret.
+ * `POST /internal/alerts/evaluate`: one evaluation pass. REAL requires a Cloud Scheduler OIDC token or this job's own secret
+ * (`ALERTS_EVALUATOR_TOKEN`) in `X-StockSteps-Scheduler-Token`, compared in constant time; the route is absent when neither is
+ * configured. MOCK accepts local calls without a secret.
  */
 fun Route.alertEvaluationRoutes(evaluator: AlertEvaluator, secret: String?, mock: Boolean) {
-    if (secret == null && !mock) return
+    if (!org.example.stocksteps.security.InternalCallers.available(secret) && !mock) return
     post("/internal/alerts/evaluate") {
-        if (!mock && call.request.headers["X-StockSteps-Scheduler-Token"] != secret) {
+        if (!mock && !org.example.stocksteps.security.InternalCallers.authorized(call, secret)) {
             call.respond(HttpStatusCode.Forbidden, ApiError("FORBIDDEN", "Not allowed."))
             return@post
         }
         try {
-            call.respond(evaluator.run())
+            call.respond(kotlinx.coroutines.withContext(org.example.stocksteps.service.ProviderPriorityElement(org.example.stocksteps.service.ProviderPriority.NORMAL)) { evaluator.run() })
         } catch (cause: UserDataException) {
             call.respond(HttpStatusCode.fromValue(cause.status), ApiError(cause.code, cause.message))
         }

@@ -1,4 +1,194 @@
-# StockSteps — session handoff (2026-10-09, end of the Comparison Phase 5 / sign-in redesign / financial API cost session)
+# StockSteps — session handoff (2026-10-09, end of the financial API Phase 3 implementation + Phase 4 security/quota/budget session)
+
+Read order for a new session: `CLAUDE.md` → **this section** → `docs/project-status.md` §0 → the root `PROJECT_HANDOFF.md` top sections
+(canonical milestone log) → `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` (Phase 4 report, §8–§9 blockers and validation) → the code.
+Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## 1. Repository state at handoff (verified)
+
+- Branch `main`, **one commit ahead of `origin/main`** (Phase 4 committed, not pushed).
+- HEAD: **"Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** (Phase 4), on top of `6a70d0e` "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage".
+- Commits made in this session (all pushed): `517a46b` "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective
+  statements, market- and earnings-aware freshness, stale fallback"; `6a70d0e` (above).
+- Phase 4 = that HEAD commit: 31 modified files and 20 new files — see §5. Nothing was deployed. No MOCK server running.
+- Shareable results document (Claude Docs, private until shared from its Share menu):
+  https://claude.ai/code/artifact/c4ca8cbb-855c-4aa2-a43a-feecd79b4da9 ("StockSteps Financial API Phase 4 Results").
+
+## 2. Current development objective
+
+Financial API cost and safety program: reduce paid provider usage (FMP, Finnhub, Gemini, Bank of Canada) without losing financial correctness,
+then make the backend safe for a controlled public launch. Phases 1–3 are done, committed and verified. **Phase 4 (production API security,
+durable AI quotas, provider-wide budgets, cost monitoring) is implemented, fully tested and committed (not pushed).** Verdict: READY WITH CONDITIONS —
+not launchable until the deployment-side settings in §8 are made and verified.
+
+## 3. Exact task at the end of the session
+
+Phase 4F verification was completed (full matrix green, provider-path audit, anonymous-pool audit and fix, older-client compatibility, §9 of the
+implementation report), a shareable results doc was produced, the Phase 4 diff was reviewed (no secrets, debug output or unrelated changes; only
+docs changed after the final test run) and Phase 4 was committed (not pushed). The next task is to **push when the user asks**, then work through
+the production configuration blockers (§8) or continue with the next product feature the user chooses.
+
+## 4. Work completed in this session
+
+### 4.1 Phase 3 implementation — commit `517a46b`
+3B-0 screener re-warm fix (expired fundamentals reloaded oldest-first within `SCREENER_FUNDAMENTALS_PER_HOUR`, failure backoff, bounded maps);
+3A `statementHistory` selective statements (1Y history income only); 3B-1 default universe 50 NASDAQ + 50 NYSE + 50 TSX = 150, screener dataset set
+(11 requests per cold company), FMP dataset cache 4,096 entries; 3C `MarketFreshnessPolicy` (US/TSX calendars) for quotes, TTM ratios, intraday bars;
+3D `EarningsStatementSignals` (2 h statement lifetime after a reported quarter until it appears); 3E labelled stale fallback (statements ≤ 7 d,
+estimates ≤ 2 d), additive `CompanyFundamentals.freshness`/`staleDatasets`, Financials stale notice on Android and iOS.
+Details: `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`.
+
+### 4.2 Phase 3 verification — commit `6a70d0e`
+Benchmark A–H rewritten (`Phase3AuditBenchmarkTest`, output `server/build/phase3-benchmark.txt`); pre-Phase 3 baseline re-measured on `e4ba2be`.
+Fix: earnings "covered" rule (the 105-day fallback could mark a fast reporter's previous quarter as covered → now exact `periodEnd` or "newer than
+the baseline cached when the report arrived"). Injectable wall clock for FMP retrieval times. Results: A 17→17, B 72→64, cold 1Y history 56→8,
+screener first hour 328→278, 24 h 1,953 (bug) → 4,353 with full coverage, closed market 39→16, new quarter visible 19 h → 30 min.
+
+### 4.3 Phase 4 audit (read-only) — in commit "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"
+`docs/FINANCIAL_API_PHASE4_SECURITY_AUDIT.md` (route inventory, findings S1–S14), `…_QUOTA_ARCHITECTURE.md`, `…_COST_MODEL.md`,
+`…_OBSERVABILITY.md`, `…_DECISIONS.md` (D1–D8 register), `…_IMPLEMENTATION_PLAN.md`. Key P0s found: TRACE logging wrote FMP URLs with the
+`apikey` query parameter (114,826 occurrences in one test run's output); random-symbol cost amplification (13–17 requests per unknown symbol);
+watch-data fan-out (100 symbols ≈ 300 requests); no limits on public provider routes.
+
+### 4.4 Phase 4 implementation — in commit "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring" (report: `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md`)
+- **4A-0 logging**: `server/src/main/resources/logback.xml` root INFO, `io.ktor` + `io.ktor.client` WARN, `io.ktor.server.Application` INFO, Google/gRPC
+  WARN; separate plain-JSON appender for `StockSteps.Usage`.
+- **4A public API protection** (package `security/`):
+  - `ClientIdentity.kt`: verified Firebase uid → `User`; else the client IP at position `TRUSTED_PROXY_HOPS` from the right of `X-Forwarded-For`
+    (IP literals only, IPv6 grouped by /64) → `Address`; else `Unverified`. Never `remoteHost`, never the first XFF value. `limiterKey()` for route
+    limiters (null for unverified callers; legacy `remoteHost` only when the plugin isn't installed, i.e. route tests).
+  - `Admission.kt`: `installAdmission` intercepts before routing: query ≤ 2,048 chars (414), body size per group (413; chunked without length 411),
+    App Check guard, then per-`RouteGroup` admission (market data, screener, history, research, earnings, brief, public AI, premium AI, user data).
+    Units = 1 per request + 1 per FMP/Finnhub/BoC call + 20 per Gemini call **actually made** (`RequestCost`, counted in `ProviderCalls.record`).
+    Per-identity windows, per-identity and per-group in-flight caps, bounded state (10,000 identities/group), 429 `RATE_LIMITED` + `Retry-After`.
+    **Unverified callers share one pool per group per instance that is charged only for upstream work** (cache hits free) — changed during
+    verification so cheap floods can't lock guests out. Defaults in `AdmissionPolicy.DEFAULTS`; env overrides `ADMISSION_<GROUP>_…`.
+  - `AppCheck.kt`: `FirebaseAppCheckVerifier` (JWKS, issuer/audience, optional app ids) + `AppCheckGuard` (monitor mode by default; counts
+    `appcheck.valid|missing|invalid|unconfigured`; `APP_CHECK_ENFORCE=true` rejects; enforcement without a verifier fails startup). Not verified
+    against real tokens.
+  - `InternalAuth.kt`: `InternalJob` per-job secrets (`ALERTS_EVALUATOR_TOKEN`, `EARNINGS_REMINDERS_TOKEN`, `DAILY_BRIEF_DISPATCH_TOKEN`,
+    `USAGE_METRICS_TOKEN`; ≥ 32 chars; a value shared by jobs disables those jobs), constant-time compare, optional Cloud Scheduler OIDC
+    (`INTERNAL_OIDC_AUDIENCE`, `INTERNAL_OIDC_SERVICE_ACCOUNT`). Used by the four `/internal/…` routes (signatures unchanged).
+  - `service/SymbolExistence.kt`: before fundamentals/details/valuation/movement and comparison bundles: cached profile, else quote; only a
+    successful "neither exists" is negative-cached 24 h → 404 `SYMBOL_NOT_FOUND`; provider failure → `UNKNOWN` (request continues, never cached).
+  - Watch-data: ≤ `WATCH_DATA_ANONYMOUS_MAX_SYMBOLS` (30) without a verified uid (`TOO_MANY_SYMBOLS`), signed-in 100, ≤ 8 symbols looked up at once
+    per request; shared client `StockStepsApi.getWatchData` splits into chunks of `WATCH_DATA_CHUNK` = 30 and merges in order.
+  - Existing route limiters (screener, history, brief, earnings) now key on `limiterKey()`.
+- **4B durable AI quotas**: `service/AiQuota.kt` `DurableAiQuota` (feature-tagged charges in `users/{uid}/meta/aiUsage`, per-feature retention so
+  features don't prune each other, idempotency keys, `settleFailure`: refunds failures that produced nothing, keeps timeouts/cancellations, store
+  outage → `AiQuotaUnavailable` → 503 fail closed, optional `CombinedAiCap` disabled unless `STOCKSTEPS_PLUS_AI_DAILY_CAP`). Daily Brief AI
+  (`brief-ai`, 15/day) and `EarningsAiQuotaLedger` (explanation 10, question 20, digest 3 per day; now suspend + durable; global per-day budget still
+  per instance) use it. Optional `idempotencyKey` added to `BriefAiRequest` and `EarningsAiQuestion` (additive). `ComparisonAiQuota` unchanged.
+- **4C provider budgets**: `service/ProviderBudget.kt` `ProviderGuard` (token bucket, burst, concurrency, priorities HIGH/NORMAL/LOW with a 30 %
+  interactive reserve, slot waiting HIGH 2 s / NORMAL 5 s / LOW 10 s, circuit breaker: 429 pauses the provider for Retry-After else 30 s doubling to
+  5 min; 5 consecutive 5xx/timeouts pause that endpoint; half-open single trial; 402/403 never trip). Enforced per attempt in `apiCall`
+  (`httpclient/NetworkUtils.kt`), `GeminiJsonCall` (`news/GeminiInsights.kt`), `GeminiNewsSimplifier` (LOW) and `BankOfCanadaPortfolioFx`
+  (`userdata/PortfolioMarketService.kt`). Denials = `StockProviderException(UNAVAILABLE)` with no upstream count → existing fallbacks (stale
+  labelled data, unavailable, AI fallbacks; Practice refuses fills without a fresh quote). Screener warm-up runs LOW; alert/reminder/brief
+  dispatch NORMAL. Installed globally only in REAL (`ProviderGuard.installed`); tests put a guard in the coroutine context. Config
+  `ProviderBudgetConfig.fromEnvironment`: `PROVIDER_{FMP,FINNHUB,GEMINI,BOC}_{PER_MINUTE,BURST,CONCURRENCY,DAILY_TARGET}`, `PROVIDER_SAFETY_MARGIN`
+  (0.8), `CLOUD_RUN_MAX_INSTANCES`; without them **development defaults** (FMP 600/min burst 600 conc. 24; Finnhub 60; Gemini 60, conc. 4; BoC 30)
+  and a "not production-ready" warning.
+- **4D monitoring**: `service/UsageSummary.kt` `UsageSummaryReporter` (REAL; `USAGE_SUMMARY_SECONDS`, default 60) logs one JSON line per instance
+  per interval (`kind: stocksteps.usage`, counter deltas by provider/endpoint/feature/event, event deltas, gauges incl. `screener.coverage.*`) for
+  logs-based metrics. `ProviderUsageMeter.gauge` + `snapshot`.
+
+## 5. Files created or modified (Phase 4 commit)
+
+- New main: `security/{ClientIdentity,Admission,AppCheck,InternalAuth}.kt`, `service/{SymbolExistence,AiQuota,ProviderBudget,UsageSummary}.kt`.
+- Modified main: `resources/logback.xml`, `Application.kt`, `CompanyFinancialRoutes.kt`, `brief/DailyBriefRoutes.kt`, `brief/DailyBriefService.kt`,
+  `earnings/{EarningsAi,EarningsPremiumService,EarningsReminderService,EarningsService}.kt`, `httpclient/NetworkUtils.kt`,
+  `news/{GeminiInsights,GeminiNewsSimplifier}.kt`, `screener/{ComparisonHistoryService,ScreenerRoutes,ScreenerService}.kt`,
+  `service/ProviderUsage.kt`, `userdata/{PortfolioMarketService,UserRoutes}.kt`.
+- Core (KMP): `network/StockStepsApi.kt` (watch-data chunking), `earnings/EarningsPremium.kt`, `brief/DailyBriefModels.kt` (optional
+  `idempotencyKey`); test `network/StockStepsApiTest.kt` (+2).
+- New tests: `service/LoggingSecurityTest.kt` (2), `security/PublicApiProtectionTest.kt` (13), `service/DurableAiQuotaTest.kt` (6),
+  `service/ProviderBudgetTest.kt` (10), `service/UsageSummaryTest.kt` (3). Modified tests: `brief/DailyBriefServiceTest.kt` (+1 cross-instance),
+  `earnings/EarningsPremiumTest.kt` (timeouts now charged), `market/MarketSnapshotTest.kt` (thread-safe list), `service/FmpMock.kt`
+  (unknown symbols, failing symbols, Finnhub events, concurrency peak), `service/Phase3AuditBenchmarkTest.kt` (24 h run under the dev budget).
+- Docs: 7 new `docs/FINANCIAL_API_PHASE4_*.md`; updated `CLAUDE.md`, root `PROJECT_HANDOFF.md`, `docs/project-status.md`, this file.
+- Android/iOS UI code: not changed in Phase 4.
+
+## 6. Important decisions and reasons
+
+- **Never trust forwarded headers without a verified hop count**: the deployed ingress is unknown; trusting the wrong XFF entry is spoofable.
+  Unverified guests share a large pool charged only for upstream work, never a small proxy-keyed bucket (that throttled every guest together).
+- **Admission charges actual upstream calls**, so cache hits are cheap and cold or AI-heavy requests cost what they cost.
+- **Per-instance limits are not global**; the provider budget (`plan × margin ÷ maxInstances`) is the deployment-wide backstop once
+  `CLOUD_RUN_MAX_INSTANCES` matches the real maximum. No Redis/Memorystore/Firestore counters for request admission (cost, contention).
+- **Budget denial = provider outage semantics** so every existing fallback applies and no route can bypass a provider's budget.
+- **Durable AI quotas reuse the existing `aiUsage` document** (no new collection/migration); per-feature retention; **timeouts and cancellations
+  keep the charge** (the provider may have billed) — this deliberately changed the earlier "timeouts aren't charged" behaviour.
+- **Combined StockSteps+ AI cap implemented but disabled** (owner decision D6). **App Check monitor mode only**, enforcement flag off.
+- **Per-job scheduler secrets, fail closed** (a shared or short secret disables the route) — operator reconfiguration required.
+- **Watch-data cap 30 for unverified callers** with client chunking; signed-in callers keep 100 (watchlists hold up to 100).
+- Dev-default provider budget raised to FMP burst 600 and background slot waiting after the benchmark showed the screener warm-up being deferred.
+- **Phase 4E shared caching deferred**: provider licensing (D3) unconfirmed.
+
+## 7. Known bugs, blockers and risks
+
+1. **Production configuration not done** (§8) — launch-blocking.
+2. Without a trusted client IP, one abuser can still use up the shared provider budget (others get cached/stale/unavailable data, never invented
+   values). Fix: `TRUSTED_PROXY_HOPS` (D1) + App Check.
+3. **Older app builds** with watchlists > 30 stocks get `TOO_MANY_SYMBOLS` (mitigation `WATCH_DATA_ANONYMOUS_MAX_SYMBOLS=100`); unknown symbols now
+   return 404 `SYMBOL_NOT_FOUND` on fundamentals/details/valuation/movement instead of 200 with empty data.
+4. Existing deployments using one `ALERTS_EVALUATOR_TOKEN` for every job lose earnings reminders, brief dispatch and usage metrics until the new
+   per-job secrets (or OIDC) are configured.
+5. App Check verifier untested against real tokens; App Check SDKs not in the apps.
+6. Global per-day AI budgets (Comparison 2,000; Earnings 5,000) and anonymous AI hourly budgets are still per instance.
+7. Article insight results cache per instance (no shared persistence added).
+8. Known flaky test (pre-existing): `PracticeServiceTest.concurrentOrdersCannotOverspendOrBypassTheLimit` (not seen this session).
+9. Disk space on the dev machine is tight (~30 GB free); use default DerivedData for iOS.
+
+## 8. Production-only configuration blockers (complete list)
+
+| # | Item | Decision | Blocks launch |
+|---|---|---|---|
+| 1 | Confirm the deployed logging config; if TRACE was ever deployed, rotate `FMP_API_KEY` and review log access | — | yes |
+| 2 | Verify ingress (direct Cloud Run vs load balancer) with a forged `X-Forwarded-For`, then set `TRUSTED_PROXY_HOPS` (1 or 2) | D1 | yes |
+| 3 | Cloud Run max instances = `CLOUD_RUN_MAX_INSTANCES` | D4 | yes |
+| 4 | `PROVIDER_*` plan limits (per minute, burst, concurrency, daily target) | D5 | yes |
+| 5 | Cloud Scheduler OIDC or the four per-job secrets | — | yes |
+| 6 | `WATCH_DATA_ANONYMOUS_MAX_SYMBOLS=100` if older builds are installed | — | yes, if old builds exist |
+| 7 | App Check: Firebase registration, Play Integrity / App Attest-DeviceCheck, SDKs, `FIREBASE_PROJECT_NUMBER`, `APP_CHECK_APP_IDS`; enforce later | D1 | no (monitor) |
+| 8 | Logs-based metrics, dashboard, alerts, billing budgets 50/80/100 % | D7 | no (advised) |
+| 9 | AI policy: combined cap, per-instance AI budgets, Gemini project quota | D6 | no |
+
+Unknown (owner input): provider plan limits and prices, Cloud Run settings, traffic, caching rights (D3).
+
+## 9. Build and test results
+
+Verified this session on the final Phase 4 code:
+- `./gradlew :core:jvmTest :core:iosSimulatorArm64Test :server:test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test
+  :app:androidApp:assembleDebug --continue` → **BUILD SUCCESSFUL in 9 m 1 s**: server **473/0 (3 skipped — Firestore emulator)**, core JVM **416/0**,
+  core iOS simulator **416/0**, shared Android host **55/0**, shared iOS simulator **49/0**, `assembleDebug` up to date (built earlier from the same
+  Android sources, including the Phase 4 client change). 1,409 tests, 0 failures.
+- `xcodebuild -project app/iosApp/iosApp.xcodeproj -scheme app.iosApp -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+  CODE_SIGNING_ALLOWED=NO build` → **BUILD SUCCEEDED**.
+- Phase 3 benchmark numbers unchanged under Phase 4 (A 17, B 64, B′ 8, D 278, D24 4,353, F 16, G 253, H 15→15); 24 h screener under the dev
+  provider budget 4,353 requests, full coverage, 0 denials. 1,000 unknown symbols ≤ 2,000 requests (was ≈ 13,000 modeled); 429 storm 100 → 1
+  upstream; five instances never exceed the plan.
+Not verified: REAL FMP/Finnhub/Gemini/BoC calls, production Firestore (`aiUsage` transactions), Firestore emulator tests, Cloud Run topology/XFF,
+real App Check tokens, Cloud Scheduler OIDC, device/simulator walkthroughs, logs-based metrics in Cloud Logging.
+
+## 10. Exact next steps
+
+1. Push the Phase 4 commit when the user asks (never push or deploy otherwise).
+2. Production configuration (§8 items 1–6), each verified on the deployment (needs owner access/decisions D1, D4, D5).
+3. App Check client integration (Android Play Integrity, iOS App Attest/DeviceCheck) in monitor mode; enforcement later.
+4. Monitoring setup from `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` §10.
+5. Optional follow-ups: shared Firestore store for article insights; durable global AI budgets; stale fallback for profiles/daily closes;
+   market-aware watch-data quote caches; set the anonymous pool below the provider budget if guest abuse appears.
+
+## 11. Requirements discussed but not implemented
+
+- Phase 4E shared/persistent caching (blocked on licensing D3 and production evidence).
+- App Check enforcement and client SDKs; Cloud Armor/API Gateway (not justified yet).
+- Global (cross-instance) AI budgets and anonymous-AI result sharing; combined StockSteps+ AI cap activation (D6).
+- Cloud Monitoring dashboards/alerts/billing budgets (documented only; no cloud resources created).
+- Password reset flow (no backend support; unchanged).
+
+## Earlier handoff (2026-10-09, morning: Comparison Phase 5 / sign-in redesign / financial API Phases 1–3 audit) — kept for history
 
 Read order for a new session: `CLAUDE.md` → **this section** → `docs/project-status.md` §0 → the root `PROJECT_HANDOFF.md` top sections
 (canonical per-commit milestone log) → the feature docs named below → the code. Always start with `git status` and `git log -5 --oneline`;

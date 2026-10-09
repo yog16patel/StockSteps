@@ -505,12 +505,12 @@ fun Route.earningsReminderRoutes(service: EarningsReminderService, auth: UserAut
         put("/{reminderId}") { user(auth) { uid -> guarded(uid) { service.update(uid, call.parameters["reminderId"].orEmpty(), call.receive<UpdateEarningsReminder>()) } } }
         delete("/{reminderId}") { user(auth) { uid -> guarded(uid) { service.delete(uid, call.parameters["reminderId"].orEmpty()) } } }
     }
-    // Cloud Scheduler in REAL (shared secret header); local calls allowed in MOCK. Absent otherwise.
-    if (schedulerSecret != null || mock) post("/internal/earnings-reminders/dispatch") {
-        if (!mock && call.request.headers["X-StockSteps-Scheduler-Token"] != schedulerSecret) {
+    // Cloud Scheduler in REAL (OIDC or this job's own secret, Phase 4A); local calls allowed in MOCK. Absent otherwise.
+    if (org.example.stocksteps.security.InternalCallers.available(schedulerSecret) || mock) post("/internal/earnings-reminders/dispatch") {
+        if (!mock && !org.example.stocksteps.security.InternalCallers.authorized(call, schedulerSecret)) {
             call.respond(HttpStatusCode.Forbidden, ApiError("FORBIDDEN", "Not allowed.")); return@post
         }
-        call.respond(service.runPass())
+        call.respond(kotlinx.coroutines.withContext(org.example.stocksteps.service.ProviderPriorityElement(org.example.stocksteps.service.ProviderPriority.NORMAL)) { service.runPass() })
     }
 }
 

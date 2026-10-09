@@ -45,7 +45,7 @@ class MarketSnapshotTest {
         assertEquals(MarketStatus.UNKNOWN, FmpMarketHours("NYSE", null).toMarketStatus())
     }
     @Test fun fmpQuoteFailureDoesNotRemoveOtherProxyQuotes() = runBlocking {
-        val requests = mutableListOf<String>()
+        val requests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
         val client = HttpClient(MockEngine { request ->
             requests += request.url.encodedPath
             val body = when (request.url.parameters["symbol"]) {
@@ -66,7 +66,7 @@ class MarketSnapshotTest {
         } finally { client.close() }
     }
     @Test fun fallbackLoadsRestrictedQuotesAndPreservesSuccessfulFmpQuote() = runBlocking {
-        val fallbackSymbols = mutableListOf<String>()
+        val fallbackSymbols: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
         val client = HttpClient(MockEngine { request ->
             if (request.url.parameters["symbol"] == "SPY") {
                 respond("""[{"symbol":"SPY","price":500}]""", headers = headersOf(HttpHeaders.ContentType, "application/json"))

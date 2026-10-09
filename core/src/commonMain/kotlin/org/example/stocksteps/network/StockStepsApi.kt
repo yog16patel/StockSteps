@@ -135,13 +135,19 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
     }
     suspend fun getBriefHistory(): org.example.stocksteps.brief.BriefHistory = request { url("$baseUrl/api/v1/daily-brief/history") }
 
-    /** Quotes, names/logos and next earnings for watched symbols (public market data). */
+    /**
+     * Quotes, names/logos and next earnings for watched symbols (public market data). The backend accepts at most
+     * [WATCH_DATA_CHUNK] symbols per anonymous request (Financial API Phase 4A), so larger watchlists are fetched in chunks and merged.
+     */
     suspend fun getWatchData(symbols: List<String>): WatchDataResponse {
         require(symbols.isNotEmpty() && symbols.size <= 100 && symbols.all { Regex("[A-Z0-9][A-Z0-9.^-]{0,31}").matches(it) })
-        return request {
-            url("$baseUrl/api/v1/stocks/watch-data")
-            parameter("symbols", symbols.joinToString(","))
+        val parts = symbols.distinct().chunked(WATCH_DATA_CHUNK).map { chunk ->
+            request<WatchDataResponse> {
+                url("$baseUrl/api/v1/stocks/watch-data")
+                parameter("symbols", chunk.joinToString(","))
+            }
         }
+        return parts.first().copy(quotes = parts.flatMap { it.quotes }, earnings = parts.flatMap { it.earnings }.distinct())
     }
 
     suspend fun getBackendInfo(): BackendInfo = request { url("$baseUrl/api/v1/meta") }
@@ -267,3 +273,6 @@ fun io.ktor.client.HttpClientConfig<*>.configureStockStepsClient() {
         socketTimeoutMillis = 20_000
     }
 }
+
+/** Symbols per watch-data request (the backend's anonymous limit, Financial API Phase 4A). */
+const val WATCH_DATA_CHUNK = 30
