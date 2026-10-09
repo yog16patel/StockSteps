@@ -1,7 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **"Improve Company Comparison Phase 1 for beginners on Android and iOS"** on `main`.
-Includes the Company Comparison Phase 1 review and completion (next section, `docs/SCREENER_AND_COMPARISON.md` "Company Comparison — Phase 1").
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS"** on `main`.
+Includes Company Comparison Phase 2 — Guided Metric Interpretation (next section, `docs/SCREENER_AND_COMPARISON.md` "Company Comparison — Phase 2").
+Previous commit: **"Improve Company Comparison Phase 1 for beginners on Android and iOS"** (`9bbf586`), the Phase 1 review and completion.
 Previous commit: **"Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS"** (`b558ba9`).
 Includes Earnings Intelligence Lite Phase 5 — StockSteps+ Premium Earnings Intelligence (next section, `docs/EARNINGS.md` "Phase 5").
 Previous commit: **"Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"** (`87acb1d`), Earnings Reminders (Phase 4).
@@ -25,6 +26,27 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Company Comparison Phase 2 — Guided Metric Interpretation (2026-10-08) — commit "Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS"
+
+On top of `9bbf586` ("Improve Company Comparison Phase 1 for beginners on Android and iOS"). Spec and rules:
+`docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 2". Free for everyone; no entitlement check, paywall or AI.
+- **Completed**: core `screener/ComparisonInterpretation.kt` — `ComparisonInterpretationEngine` (deterministic; comparability
+  `COMPARABLE` / `COMPARABLE_WITH_CAVEATS` / `NOT_COMPARABLE` / `INSUFFICIENT_DATA`; periods, months, stale data, currencies, sectors,
+  banks/insurers/REITs/utilities; no thresholds, no rankings, no benchmarks), `MetricInterpretation` (A–E sections), learning summary
+  (`ComparisonInsight`), `MetricGuides` education text, `FxConversion`. `ComparisonPresenter`: `guides`, `insights`, `industryNote`,
+  `expanded`/`deeper`/`showMore`/`focus` state and `toggleExplanation`, `toggleDeeper`, `openRelated`, `clearFocus`,
+  `collapseExplanations`, `toggleMore`; the shared price-history request cache is now mutex-guarded (fixes a duplicate-request race on
+  multi-threaded dispatchers). Server: additive `ComparisonResponse.fx` (CAD→USD rate, date, source) from one shared FX source in
+  `Application.kt`. Android: `GuidedMetricExplanation.kt` (explanation card + `ComparisonLearningSummary`), `ComparisonScreen.kt`
+  (list entries, Explain/Hide per beginner row, related metrics scroll to their row, "More metrics" in presenter state).
+  iOS: `GuidedMetricExplanationView`, `ComparisonLearningSummaryView`, Explain/Hide and `ScrollViewReader` focus in `ScreenerScenes.swift`.
+- **Tests added**: core `ComparisonInterpretationTest` (18) and `ComparisonGuidancePresenterTest` (4); server
+  `ComparisonInterpretationMockTest` (5, MOCK fixtures through `/api/v1/compare`).
+- **Validation**: `./gradlew :core:jvmTest :core:iosSimulatorArm64Test :server:test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug` → BUILD SUCCESSFUL: core JVM 370, core iOS 370, server 326, shared Android host 55, shared iOS 49 — 0 failures; APK built (this also completes the Phase 1 full-suite verification that `9bbf586` lacked). A first run had 2 intermittent core JVM presenter failures (duplicate 1Y price-history request; a timeout) caused by the unguarded request cache on `Dispatchers.Default`; fixed with the mutex, then the full suite passed and both presenter test classes passed 5 consecutive `--rerun`s. Server tests re-run after the final FX-date change: 326, 0 failures. iOS `xcodebuild` (default DerivedData) BUILD SUCCEEDED on the final code. Live MOCK (`:server:runMock`): `/api/v1/compare?symbols=RY.TO,AAPL` returns `fx` = 1 CAD = 0.7407 USD, "fixed sample rate", 2026-10-07 (pinned MOCK clock); USD-only comparisons omit `fx`. No REAL provider, AI or Firebase calls; no device/simulator UI walkthrough.
+- **Limits**: English only; qualitative industry context (no benchmark source); "similar" thresholds are presentation choices; FX
+  disclosure covers CAD only; no device walkthrough or UI automation; REAL not live-verified (no extra provider calls are needed).
+- **Next**: device pass; authorized REAL run; Phase 3 only when asked.
 
 ## Company Comparison Phase 1 (2026-10-08) — commit "Improve Company Comparison Phase 1 for beginners on Android and iOS"
 

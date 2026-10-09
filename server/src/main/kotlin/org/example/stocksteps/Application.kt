@@ -158,6 +158,15 @@ fun Application.module() {
                 portfolioMarket, watchMarket,
                 sources.indexData?.takeIf { dataMode == DataMode.MOCK }?.let { MockBenchmarkHistory(it) } ?: ChartBenchmarkHistory(charts::getDailyCloses),
                 entitlements, portfolioClock, sampleData = dataMode == DataMode.MOCK), entitlements)
+            // One FX source for comparisons (its 6 h cache is reused). The rate's date and source are disclosed to users.
+            val comparisonFx = if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client)
+            suspend fun latestUsdPerCad(): org.example.stocksteps.screener.FxConversion? {
+                val today = java.time.LocalDate.now(sources.marketClock.withZone(java.time.ZoneOffset.UTC))
+                val (date, usdCad) = runCatching { comparisonFx.rates(today.minusDays(10).toString(), today.toString()) }.getOrNull()
+                    ?.maxByOrNull { it.key }?.let { it.key to it.value.toDoubleOrNull() } ?: return null
+                return usdCad?.takeIf { it > 0 }?.let { org.example.stocksteps.screener.FxConversion("CAD", "USD", 1 / it, date,
+                    if (dataMode == DataMode.MOCK) "fixed sample rate" else "Bank of Canada") }
+            }
             val screener = org.example.stocksteps.screener.ScreenerService(
                 universe = sources.screenerUniverse ?: org.example.stocksteps.screener.FmpScreenerUniverse(HttpClientProvider.client, AppConfig.fmpApiKey,
                     exchanges = (System.getenv("SCREENER_EXCHANGES") ?: "NASDAQ,NYSE,TSX").split(',').map { it.trim() }.filter { it.isNotEmpty() },
@@ -166,12 +175,9 @@ fun Application.module() {
                 stocks = stockService,
                 fundamentalsOf = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider).let { service -> { symbol: String -> service.getFundamentals(symbol, "annual") } },
                 charts = charts,
-                usdPerCad = {
-                    val fx = if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client)
-                    val today = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
-                    runCatching { fx.rates(today.minusDays(10).toString(), today.toString()) }.getOrNull()
-                        ?.maxByOrNull { it.key }?.value?.toDoubleOrNull()?.takeIf { it > 0 }?.let { 1 / it }
-                },
+                usdPerCad = { latestUsdPerCad()?.rate },
+                // Phase 2 explanations disclose the rate behind converted market caps (same source, cached 6 h in REAL).
+                usdPerCadQuote = { latestUsdPerCad() },
                 clock = sources.marketClock,
                 sampleData = dataMode == DataMode.MOCK,
                 fundamentalsPerHour = System.getenv("SCREENER_FUNDAMENTALS_PER_HOUR")?.toIntOrNull() ?: 25,

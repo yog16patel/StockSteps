@@ -147,7 +147,14 @@ internal fun ComparisonScene(
                 onOpen = onOpenStock,
                 onRetry = model.presenter::retry,
                 onDiscover = onDiscover,
-                onDismissMessage = model.presenter::dismissMessage
+                onDismissMessage = model.presenter::dismissMessage,
+                guidance = GuidanceActions(
+                    onExplain = model.presenter::toggleExplanation,
+                    onDeeper = model.presenter::toggleDeeper,
+                    onRelated = model.presenter::openRelated,
+                    onToggleMore = model.presenter::toggleMore,
+                    onFocusHandled = model.presenter::clearFocus
+                )
             )
         }
     }

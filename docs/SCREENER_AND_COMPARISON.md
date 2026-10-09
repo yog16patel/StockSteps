@@ -1,20 +1,150 @@
 # Smart Stock Screener & Stock Comparison
 
-> **Company Comparison Phase 1 review and completion (2026-10-08, commit "Improve Company Comparison Phase 1 for beginners on Android and iOS")** is documented in the next
-> section. It improves the comparison shipped in `4c65521` in place; the older sections below still describe the Screener and the
-> shared architecture.
+> **Company Comparison Phase 2 — Guided Metric Interpretation (2026-10-08, commit "Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS")** is documented in the next section.
+> **Phase 1 review and completion** (commit "Improve Company Comparison Phase 1 for beginners on Android and iOS") follows it. Both
+> improve the comparison shipped in `4c65521` in place; the older sections below still describe the Screener and the shared architecture.
+
+### Company Comparison roadmap
+| Phase | Scope | Plan | Status |
+|---|---|---|---|
+| **1. Basic company comparison** | 2–4 companies (2–3 recommended), beginner metrics, price-change chart, deterministic observations | Free | **Implemented** |
+| **2. Guided metric interpretation** | what each metric means, what these companies' values show, caveats, comparability, related metrics, research questions, learning summary | Free | **Implemented** |
+| 3. Historical financial comparison | multi-year financial history side by side | 1Y free; 3Y/5Y StockSteps+ | Not started |
+| 4. Guided comparison checklist | comparison-driven research steps | Free | Not started |
+| 5. AI comparison assistant | `ComparisonExplainer` exists as an interface only (`NoComparisonExplainer`) | StockSteps+ | Not started |
+No paywall, entitlement check or upgrade prompt is applied to Phases 1–2.
+
+## Company Comparison — Phase 2: Guided Metric Interpretation (free)
+
+Phase 1 answers "what are the differences?". Phase 2 answers "what do they mean, what don't they show, and what should I look at
+next?" — without rankings, winners, scores, buy/sell/hold language, price targets, predictions, universal thresholds, invented
+industry averages or AI.
+
+### What users see (Android `ComparisonScreen.kt` + `GuidedMetricExplanation.kt`; iOS `CompareStocksScreen`, `GuidedMetricExplanationView`, `ComparisonLearningSummaryView` in `ScreenerScenes.swift`)
+- **What can we learn from this comparison?** (above the table): 2–3 grounded lines — industry context (different sectors, same
+  industry, or sector not reported) and then growth, profitability, valuation or financial-health observations that the data
+  supports. Each metric line has **Explain this**, which opens and scrolls to that metric. Partial failures and sparse data are said
+  plainly ("Missing values are never filled in or estimated").
+- Each beginner metric row (market cap, revenue growth latest quarter / fiscal year, net profit margin, debt to equity, P/E, price to
+  sales, dividend yield) has **Explain / Hide** (48 dp, state announced). The explanation opens **inline below the values**, so the
+  company columns stay aligned. Other rows (sector, "More metrics") keep the Phase 1 info sheet.
+- The explanation card (concise by default): **title** ("Understanding P/E") + comparability tag (*Comparable*, *Compare with care*,
+  *Not directly comparable*, *Not enough data*); **What it measures** (A); **Your comparison** (C: the actual values and what the
+  difference means, qualified); **What to keep in mind** (D: the two most relevant caveats, data-specific first); **Explore next** (E:
+  related-metric chips that open and scroll to that metric — across groups, and into "More metrics" for extra metrics — plus one
+  research question). **Learn more** adds **Why it matters** (B), **How it's calculated**, more caveats/education and all research
+  questions. **Close** collapses it. Selections, chart period and data are never touched by these interactions (no refetch).
+- Accessibility: headings for the card and its parts, comparability announced, Explain/Learn more expose expanded/collapsed state,
+  related chips are labelled "Open …", text scales with Dynamic Type / font size, scrolling to a related metric respects Reduce Motion
+  on iOS. Theme tokens only (dark/light/system).
+
+### Architecture
+`ComparisonResponse` (unchanged endpoint) → `ComparisonPresenter.build` → **`ComparisonInterpretationEngine.interpret(companies, fx)`**
+(core `screener/ComparisonInterpretation.kt`, pure and deterministic, shared by Android and iOS via `IosScreenerClient`) →
+`ComparisonUiState.guides` (metric id → `MetricInterpretation`), `insights` (`ComparisonInsight`), `industryNote`. UI state lives in the
+presenter: `expanded`, `deeper`, `showMore` (moved from screen state so related links can open "More metrics"), `focus` (one-shot
+scroll request). Actions: `toggleExplanation`, `toggleDeeper`, `openRelated`, `clearFocus`, `collapseExplanations`, `toggleMore`.
+Education text lives in one place (`MetricGuides`, internal; ready for localization). Row labels are shared
+(`ComparisonInterpretationEngine.ROW_LABELS`). No new endpoint, no AI, no extra provider call.
+
+`MetricInterpretation`: `metricId`, `label`, `title`, `definition` (A), `whyItMatters` (B), `comparability`, `observation` + `meaning`
+(C), `caveats` (D; `keyCaveats` = first two), `learnMore`, `calculation` (from `MetricEducation`), `related` (`RelatedMetric(id, label,
+guided)`) + `questions` (E), `headline` (short form for the summary; null when nothing can be stated).
+
+### API change (additive, backward compatible)
+`GET /api/v1/compare` gains `fx: [{from, to, rate, date, source}]` — the CAD→USD rate behind the converted market caps (Bank of Canada in
+REAL, "fixed sample rate" 1/1.35 in MOCK), only when a CAD listing is compared. Omitted from JSON when empty; older apps ignore it.
+`Application.kt` now shares one FX source between the conversion and this disclosure (the Bank of Canada client is created once, so
+its 6 h cache is actually reused).
+
+### Interpretation rules (deterministic)
+1. **Readings**: a company contributes a value only when it is `AVAILABLE` and finite; `NO_DIVIDEND` is a real 0% ("paid none");
+   anything else is left out with its Phase 1 reason (`MetricFormatter.explanation`: loss → no P/E, equity ≤ 0 → no debt to equity,
+   unknown dividend history ≠ no dividend). Values are quoted exactly as the table displays them (`MetricFormatter.cell`).
+2. **Comparability** (per metric):
+   - fewer than two readings → `INSUFFICIENT_DATA` ("Only X has a value for …"; nothing invented);
+   - all companies left out because of their industry (debt to equity for banks/insurers/financials) → `NOT_COMPARABLE`;
+   - different kinds of period (TTM vs fiscal year vs quarter) → `NOT_COMPARABLE` (values listed with their periods, no relative statement);
+   - otherwise `COMPARABLE`, downgraded to `COMPARABLE_WITH_CAVEATS` when: a period is unreported; period ends differ by month or by
+     more than 120 days (`PERIOD_TOLERANCE_DAYS`); statements are stale (> 18 months); sectors differ or a sector is unknown
+     (sector-sensitive metrics); a company was left out; growth rates are reported in different currencies; market caps needed conversion.
+3. **Currencies**: ratios and percentages are compared across CAD/USD (currency cancels out; said in "Learn more"). Market caps in one
+   currency are compared directly; mixed currencies are compared only through the server's converted USD values, with the rate, its
+   date and source disclosed ("1 CAD = 0.7407 USD (Bank of Canada, YYYY-MM-DD)") and both amounts shown ("C$245.0B ≈ US$181.5B");
+   with no conversion available → `NOT_COMPARABLE`. No silent FX.
+4. **Statements**: two companies → "A has a higher X than B (a vs b)" plus a qualified meaning; three or four → "X ranges from low (L)
+   to high (H). Values: …" listed in **selection order** (never a ranking). Equal at display precision → "the same … as displayed";
+   very close → "similar … says little on its own" (percentages: < 0.5 points and ≤ 10% relative; ratios/amounts: ≤ 5% relative —
+   presentation thresholds, not judgements). Growth wording follows the sign (grew vs declined). Negative net margin → "reported a net
+   loss … doesn't mean a company will stay unprofitable". Dividends: payers vs non-payers described as such.
+5. **No universal thresholds**: the same sentence is produced for P/E 8 vs 12 and 80 vs 120 (tested); no "cheap", "expensive", "safe",
+   "too much debt" levels.
+6. **Summary**: up to 3 lines — data problems, industry context, then the first available headline from growth (latest quarter, else
+   fiscal year), profitability, valuation, financial health. Headlines exist only when the values support a statement; "Compare with
+   care (see Explain)" is appended when caveats apply.
+
+### Metric guide (formulas from `MetricEducation`)
+| Metric | What it measures | Key cautions taught | Related |
+|---|---|---|---|
+| Market cap | price × shares outstanding; current market value of the shares | not revenue/profit/cash; bigger ≠ better; currency conversion | revenue growth, P/S, P/E |
+| P/E (trailing) | price ÷ TTM diluted EPS | low can reflect risk/slow growth/peak earnings; high can reflect growth expectations; loss → not meaningful; cross-industry care | revenue growth, net margin, P/S |
+| Price to sales | market cap ÷ TTM revenue | sales aren't profit; margins differ; low ≠ undervalued; revenue quality | net margin, revenue growth, P/E |
+| Revenue growth (FY / latest quarter) | change vs prior fiscal year / same quarter a year earlier | faster ≠ better (acquisitions, prices, currency, base effect); one period ≠ trend; quarters can end in different months | net margin, the other growth row, P/E |
+| Net profit margin | net income ÷ revenue | industry structure; one-time items; a loss isn't permanent; same kind of period | P/S, revenue growth, P/E |
+| Debt to equity | total debt ÷ shareholders' equity | higher ≠ dangerous; equity ≤ 0 → not meaningful; provider definitions differ; banks/insurers not comparable | interest coverage, current ratio, net margin |
+| Dividend yield | trailing-year dividends per share ÷ price | not guaranteed; can rise because the price fell; many companies reinvest; industry habits | payout ratio, net margin, debt to equity |
+
+### Industry caveats (qualitative only — no benchmarks)
+Business model from provider sector/industry (`IndustryKind`): BANK, INSURER, OTHER_FINANCIAL, REIT, UTILITY, GENERAL, UNKNOWN.
+Different sectors → industry note + per-metric caveats (cross-industry comparisons are never blocked). Banks/insurers/financials: debt to
+equity not compared (consistent with `notApplicableSectors`); margins and P/S need extra care when mixed with other industries; bank P/E
+context. REITs: FFO (not shown) vs earnings for P/E; high payouts by design; property borrowing. Utilities: infrastructure debt; steady
+dividends. Same industry → "usually makes their ratios easier to compare". No industry or sector averages are shown anywhere.
+
+### MOCK scenarios (fixtures only; `ComparisonInterpretationMockTest`)
+| Scenario | Symbols |
+|---|---|
+| Same industry, cross-border, CAD vs USD, banks (debt to equity not comparable), FX disclosed | RY.TO, TD |
+| Different industries (tech vs bank), fiscal Sep vs Dec | AAPL, JPM |
+| Three companies, same industry, a non-payer | AMD, NVDA, INTC |
+| Four companies, three sectors incl. a REIT and a bank, mixed currencies, periods far apart | AAPL, MSFT, RY.TO, GIPR |
+| Negative EPS (no P/E), negative net margin, non-payer | KO, RIVN |
+| Unknown dividend history, missing price to sales | CSU.TO, LONGN |
+| Stale statements, loss, Feb fiscal year | BB.TO, MSFT |
+| Missing sector; equal displayed values (P/S 10.6× both) | LUCY, AAPL |
+| Partially available data / missing P/E (fundamentals provider failure) | AAPL, MSFT with MSFT failing |
+| Different fiscal calendars | AAPL (Sep) vs MSFT (Jun) |
+Zero/negative equity, slightly different values, missing period metadata and missing reporting dates are covered by core unit tests
+(no fixture has them; the FMP adapter test covers negative equity from provider JSON).
+
+### REAL
+Works from the same `/api/v1/compare` data FMP/Finnhub already provide — **no additional provider calls** (the only new server work is
+reading the Bank of Canada rate already used for market-cap conversion). Not live-verified (no authorized REAL run): sector/industry
+labels from FMP for TSX names, period metadata completeness, and the Bank of Canada date shown.
+
+### Tests
+- core `ComparisonInterpretationTest` (18): five sections for every metric, two-company wording, no thresholds (8 vs 12 ≡ 80 vs 120),
+  equal / slightly different / small-but-relatively-large values, 3–4 companies in selection order, growth sign wording, negative EPS,
+  zero/negative equity, missing vs no dividend, negative margin, TTM vs annual, different months, far-apart periods, missing period
+  metadata, stale data, market cap with/without FX, ratios across currencies, cross-industry, same industry, missing sector, REIT,
+  no invented benchmarks, summary limits, every summary number is a displayed value, determinism and input-order independence,
+  partial failure. `ComparisonGuidancePresenterTest` (4): open/collapse/deepen without refetching or touching the selection, related
+  metric switches group and opens "More metrics", changing companies recomputes guides and keeps open explanations, load failure → retry.
+- server `ComparisonInterpretationMockTest` (5): the engine over real MOCK `/api/v1/compare` responses (scenarios above), `fx` field
+  serialized and decoded, no FX lookup for USD-only comparisons, every quoted number is a displayed value, no ranking/advice words,
+  determinism across requests.
+- No Compose UI / XCUITest framework exists: rendering, TalkBack/VoiceOver, large text and dark/light need a manual device pass.
+- Validation (2026-10-08): `./gradlew :core:jvmTest :core:iosSimulatorArm64Test :server:test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug` → BUILD SUCCESSFUL: core JVM 370, core iOS 370, server 326, shared Android host 55, shared iOS 49 — 0 failures; APK built (this also completes the Phase 1 full-suite verification that `9bbf586` lacked). A first run had 2 intermittent core JVM presenter failures (duplicate 1Y price-history request; a timeout) caused by the unguarded request cache on `Dispatchers.Default`; fixed with the mutex, then the full suite passed and both presenter test classes passed 5 consecutive `--rerun`s. Server tests re-run after the final FX-date change: 326, 0 failures. iOS `xcodebuild` (default DerivedData) BUILD SUCCEEDED on the final code. Live MOCK (`:server:runMock`): `/api/v1/compare?symbols=RY.TO,AAPL` returns `fx` = 1 CAD = 0.7407 USD, "fixed sample rate", 2026-10-07 (pinned MOCK clock); USD-only comparisons omit `fx`. No REAL provider, AI or Firebase calls; no device/simulator UI walkthrough.
+
+### Known limitations
+- Explanations are English only (strings centralized in `MetricGuides` for later localization).
+- "Similar" thresholds are presentation choices (documented above), not financial judgements.
+- Industry context is qualitative; no authorized benchmark source exists, so no averages are shown.
+- Debt to equity with mixed bases (provider TTM ratio vs calculated annual) is `NOT_COMPARABLE`, as in Phase 1 observations.
+- The FX disclosure covers CAD only (the only converted currency today).
+- No manual device walkthrough yet; REAL not live-verified.
 
 ## Company Comparison — Phase 1 (free)
-
-### Phases (only Phase 1 is implemented)
-| Phase | Scope | Plan |
-|---|---|---|
-| **1. Basic company comparison** | 2–4 companies (2–3 recommended), beginner metrics, price-change chart, deterministic observations | **Free (implemented)** |
-| 2. Guided metric interpretation | step-by-step explanation of what each difference can mean | Free (not started) |
-| 3. Historical financial comparison | 1Y free; 3Y/5Y | 1Y free, 3Y/5Y StockSteps+ (not started) |
-| 4. Guided research checklist | comparison-driven research steps | Free (not started) |
-| 5. AI comparison assistant | `ComparisonExplainer` exists as an interface only (`NoComparisonExplainer`) | StockSteps+ (not started) |
-No paywall is applied to Phase 1.
 
 ### Entry points (no new tab)
 Markets → **Compare Companies** tile; Company Details → **Compare** (adds that company); Discover Stocks (Screener) result
@@ -110,7 +240,7 @@ errors (fundamentals failure for one company; quarterly-results provider failure
 - Each comparison loads full annual fundamentals per company in REAL (about 13 FMP calls, cached 6 h) — the existing design;
   a lighter metrics-only path would reduce cost.
 - Market-cap USD conversion uses the latest rate only; other amounts aren't converted (by design).
-- No total-return series; the chart is price change only. No per-metric industry context (Phase 2).
+- No total-return series; the chart is price change only. (Per-metric industry context is now provided by Phase 2.)
 - The selection isn't persisted across app restarts; manual UI/accessibility checks pending.
 
 Markets → **Discover Stocks** and **Compare Stocks** (pushed destinations; the bottom bar is

@@ -1,18 +1,26 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-08 (end-of-session handoff) against the repository (`main`, latest commit **`87acb1d` "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"**, pushed). Verify with
+Last reviewed: 2026-10-09 (Company Comparison Phase 2 session) against the repository (`main`, latest commit **"Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS"**). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-HEAD is **"Improve Company Comparison Phase 1 for beginners on Android and iOS"** (on top of `b558ba9`, Earnings Phase 5). Company Comparison Phase 1 was reviewed and completed; see
-`docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 1". **No feature is in progress.**
+HEAD is **"Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS"** (on top of `9bbf586`, Comparison Phase 1). **No feature is in progress.**
+Company Comparison Phase 2 — Guided Metric Interpretation (free) is committed (spec and rules: `docs/SCREENER_AND_COMPARISON.md` →
+"Company Comparison — Phase 2"). Next: a manual device/simulator walkthrough (no UI-automation framework); an authorized REAL acceptance run. Phases 3–5 not started.
+
+Phase 2 validation: full suite green (core JVM 370 / core iOS 370 / server 326 / shared Android host 55 / shared iOS 49, 0 failures), APK built, iOS BUILD SUCCEEDED, live MOCK `fx` check passed — details in the root `PROJECT_HANDOFF.md`.
+
+Phase 1 status at `9bbf586` (kept for history; the Phase 2 session's full-suite run also covers it):
 
 Verified: core screener/comparison tests (`:core:jvmTest --tests org.example.stocksteps.screener.*`, 30 passed); server screener + FMP adapter tests (`:server:test --tests org.example.stocksteps.screener.* --tests org.example.stocksteps.repositoryImpl.*`, all passed); `:app:shared:compileAndroidMain` succeeded; iOS `xcodebuild` BUILD SUCCEEDED. **Not run to completion:** the full suite (core iOS, all server tests, shared Android/iOS host tests) and `:app:androidApp:assembleDebug` were started but stopped before finishing; no live MOCK curl pass; no REAL calls.
 
-Next steps: run the full test command and Android build; restart the MOCK server (`./gradlew :server:runMock`) and do a live/device
-check of Compare; authorized REAL acceptance run for comparison (TSX coverage, quarterly results); Comparison Phase 2 only when asked.
+**Exact next task** (details in `docs/PROJECT_HANDOFF.md` §9): (1) run the full test command and `:app:androidApp:assembleDebug`
+plus the iOS `xcodebuild` for `9bbf586` and fix any failures; (2) start the MOCK server (it is **not running** at handoff:
+`./gradlew :server:runMock`) and live-check `/api/v1/compare` (`quarterRevenueGrowth`, notes) and `/compare/performance`
+(`baseDate`); (3) write the Comparison Phase 1 final report (A–I) with a MOCK verdict (currently PARTIAL) and a REAL verdict
+(not production-ready: no authorized live run). Comparison Phase 2 only when the user asks.
 
 ## 1. Feature status
 
@@ -44,6 +52,12 @@ check of Compare; authorized REAL acceptance run for comparison (TSX coverage, q
 ### Implemented but NOT committed (working tree)
 
 None.
+
+### Latest commit
+
+| Feature | Doc | Notes |
+|---|---|---|
+| ("Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS") Company Comparison Phase 2 — Guided Metric Interpretation (learning summary, inline "Explain" per beginner metric with definition / your comparison / caveats / explore next / learn more, comparability states, cross-industry and currency rules; additive `fx` field on `/api/v1/compare`) | `docs/SCREENER_AND_COMPARISON.md` (Phase 2) | Free; deterministic shared engine `screener/ComparisonInterpretation.kt`; no AI, no extra provider calls. Also fixes a presenter race on the shared price-history request cache. |
 
 ## 2. Architecture and key decisions
 
@@ -118,7 +132,8 @@ None.
    record; restore/pending/cancelled states.
 4. A verified **dividend/split source** for Practice in REAL (MOCK has sample events only).
 5. Device/simulator walkthroughs and UI-automation tests (none exist; presenters are unit-tested).
-6. REAL AI provider for earnings and learning explanations (currently 503).
+6. REAL AI: Phase 5 premium earnings AI uses Gemini only when `GEMINI_API_KEY` is set (output unverified); the older Earnings
+   Details "Ask" and Guided Research AI still have no REAL provider (503).
 7. Optional: system Back inside Guided Research steps; retry queue for brief pushes; TSX early closes.
 8. **Earnings Intelligence Lite Phase 5** production gaps: store billing/receipt verification, shared (multi-instance) quota and AI caches,
    REAL Gemini output review, a secondary results provider, filing/press-release links, split data for EPS history.
@@ -126,17 +141,24 @@ None.
    - Firebase project (`FIREBASE_PROJECT_ID`, ADC with the FCM Admin role);
    - APNs key in Firebase; iOS Push Notifications and Background Modes capabilities;
    - Firestore indexes `earningsDeliveries` (status, dueAt) and (status, leaseUntil);
-   - one Android and one iOS device.
+   - one Android and one iOS device;
+   - iOS: add the FirebaseMessaging package product and an `aps-environment` entitlement (per the 2026-10-08 audit, iOS remote
+     push isn't wired: every `#if canImport(FirebaseMessaging)` block compiles out).
 10. A REAL **corporate-action source** for price reactions (and Practice); intraday/extended-hours data if a plan supports it.
 11. UI automation and accessibility checks for the earnings screens.
 12. Cleanup: the unused `EarningsDetailsState.reminder`/`reminderBusy` and the alerts collection in `EarningsDetailsPresenter`.
 13. Phase 5 follow-ups: Settings plan simulator segments for grace/canceled/payment-failed (debug API only today); persist
     conversations/explanations in Firestore; a real paywall/checkout once billing exists.
+14. **Company Comparison Phases 1–2**: device UI pass (Explain cards, related-metric scrolling,
+    TalkBack/VoiceOver, large text, dark/light); authorized REAL acceptance run (FMP TSX coverage, sector/industry labels, Finnhub
+    quarterly coverage, Bank of Canada date in the FX disclosure); consider a lighter REAL metrics path (each compare loads full annual
+    fundamentals, ~13 FMP calls per company, cached 6 h). Phases 3–5 not started (see `docs/SCREENER_AND_COMPARISON.md`).
 
 ## 5. Known limitations / bugs to watch
 
-- REAL AI features need `GEMINI_API_KEY` (otherwise 503 `AI_UNAVAILABLE`); earnings/learning AI have no
-  REAL provider wired (503).
+- REAL AI features need `GEMINI_API_KEY` (otherwise 503 `AI_UNAVAILABLE`); the older Earnings Details ask and Guided Research AI
+  have no REAL provider wired (503). Phase 5 quotas/caches/conversations are in process memory (single instance).
+- MOCK fixtures use `sampleFallback`: some missing values are filled with labelled sample numbers (e.g. TD debt/equity).
 - MOCK ETF fixtures (SPY, QQQ…) have prices only (no profile file); some paths treat them as
   "unsupported" (Guided Research) while the sample profile fallback marks them ETF elsewhere.
 - MOCK news feed includes general (political) news; the brief now filters to market-relevant stories,
@@ -168,7 +190,7 @@ None.
 | Guided Research | `learning/*` | `learning/LearningService.kt` | `presentation/research/*`, `presentation/learn/*` | `GuidedResearchScenes.swift`, `IosLearningClient.kt` |
 | Earnings (Phases 1–4) | `earnings/EarningsCalendar.kt`, `EarningsResults.kt`, `EarningsPriceReaction.kt`, `EarningsReminders.kt`, plus `EarningsModels/Calculations/Presentation.kt` | `earnings/EarningsService.kt`, `EarningsSources.kt`, `PriceReactionEngine.kt`, `EarningsReminderService.kt`, `EarningsReaction.kt` | `presentation/earnings/*` (`EarningsRoute`, `EarningsScenes`, `EarningsScreens`, `EarningsReminderUi`, `DeviceZone`) | `EarningsScenes.swift`, `EarningsReminderViews.swift`, `IosEarningsClient.kt` |
 | Earnings fixtures | — | `scripts/generate_earnings_fixtures.py` → `fixtures/earnings/events.json`, `price-scenarios.json` | — | — |
-| Screener/Compare | `screener/*` | `screener/*` | `presentation/screener/*` | `ScreenerScenes.swift` |
+| Screener/Compare | `screener/*` (Phase 2 engine: `screener/ComparisonInterpretation.kt`) | `screener/*` | `presentation/screener/*` (`GuidedMetricExplanation.kt`) | `ScreenerScenes.swift` |
 | Portfolio (+Insights) | `portfolio/*`, `portfolio/analytics/*` | `userdata/Portfolio*.kt` | `presentation/portfolio/*` | `Portfolio*.swift` |
 | Entitlements | `portfolio/analytics/EntitlementsRepository.kt` | `userdata/PortfolioAnalyticsService.kt` (`EntitlementService`) | Settings simulated plan | `SettingsScreen.swift` |
 | User data store | `data/userdata/*` (client cache, `UserApi`) | `userdata/UserDataStore.kt`, `FirestoreUserDataStore.kt` | — | — |

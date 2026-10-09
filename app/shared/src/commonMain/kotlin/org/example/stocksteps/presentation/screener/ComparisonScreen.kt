@@ -5,13 +5,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.delay
 import org.example.stocksteps.designsystem.components.*
@@ -21,11 +23,13 @@ import org.example.stocksteps.model.StockSearchResult
 import org.example.stocksteps.screener.*
 
 /**
- * Compare Companies (Phase 1, free): pick 2–4 companies, then read beginner metrics grouped as
+ * Compare Companies (Phases 1–2, free): pick 2–4 companies, then read beginner metrics grouped as
  * Overview, Growth, Profitability, Financial Health, Valuation and Shareholder Returns. Each metric's
  * label sits above equal-width company columns, so three companies fit a phone without horizontal
- * scrolling. Extra metrics are under "More metrics". Everything is calculated on the server and
- * formatted by the shared presenter; this screen only renders.
+ * scrolling. Extra metrics are under "More metrics". Phase 2 adds "What can we learn from this
+ * comparison?" and an inline guided explanation per beginner metric ("Explain"), with related metrics
+ * that scroll to their row. Everything is calculated on the server and interpreted by the shared
+ * presenter; this screen only renders.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -41,7 +45,8 @@ internal fun ComparisonScreen(
     onOpen: (String) -> Unit,
     onRetry: () -> Unit,
     onDiscover: () -> Unit,
-    onDismissMessage: () -> Unit
+    onDismissMessage: () -> Unit,
+    guidance: GuidanceActions = GuidanceActions()
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -49,50 +54,58 @@ internal fun ComparisonScreen(
     /** null = closed; "" = add; otherwise the symbol being replaced. */
     var picking by rememberSaveable { mutableStateOf<String?>(null) }
     var info by remember { mutableStateOf<MetricInfo?>(null) }
-    var showMore by rememberSaveable { mutableStateOf(false) }
-    LazyColumn(modifier.background(colors.appBackground), contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, top = spacing.md, bottom = spacing.xxl),
+    val list = rememberLazyListState()
+    val entries = remember(state) { comparisonEntries(state) }
+    val headerOffset = with(LocalDensity.current) { 72.dp.roundToPx() }
+    // "Explore next" / "Explain this": scroll to the metric's row (below the pinned company header), then clear the request.
+    LaunchedEffect(state.focus, entries) {
+        val focus = state.focus ?: return@LaunchedEffect
+        val index = entries.indexOfFirst { it is ComparisonEntry.Metric && it.row.id == focus }
+        if (index >= 0) list.animateScrollToItem(index, -headerOffset)
+        guidance.onFocusHandled()
+    }
+    val onInfo: (ComparisonRow) -> Unit = { row -> info = MetricFormatter.education(row.id, ScreenerDefinitions.metric(row.id)).let { if (row.id == "marketCap") it.copy(title = "Market cap") else it } }
+    LazyColumn(modifier.background(colors.appBackground), state = list, contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, top = spacing.md, bottom = spacing.xxl),
         verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item(key = "header") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                Text("Compare Companies", Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
-                Text("See companies side by side. The numbers describe each business; they don't say which is a better investment.", style = typography.small, color = colors.textSecondary)
-                if (state.sampleData) StockSampleDataBanner("Sample data for development, not live markets.")
-            }
-        }
-        item(key = "selection") { SelectionCard(state, onAdd = { picking = "" }, onReplace = { picking = it }, onRemove = onRemove) }
-        if (state.needsMore) {
-            item(key = "examples") { ExamplesCard(state, onExample, onDiscover) }
-            return@LazyColumn
-        }
-        if (state.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading comparison" }) }
-        state.error?.let { item(key = "error") { StockErrorState(it, onRetry) } }
-        if (state.columns.isNotEmpty()) {
-            stickyHeader(key = "companies") { CompanyHeader(state.columns, onOpen) }
-            val onInfo: (ComparisonRow) -> Unit = { row -> info = MetricFormatter.education(row.id, ScreenerDefinitions.metric(row.id)).let { if (row.id == "marketCap") it.copy(title = "Market cap") else it } }
-            state.sections.filterNot { it.advanced }.forEach { section -> sectionItems(section, state.columns, onInfo) }
-            if (state.advancedCount > 0) item(key = "more") {
-                StockButton(if (showMore) "Hide extra metrics" else "More metrics (${state.advancedCount})", onClick = { showMore = !showMore },
-                    variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth().semantics { stateDescription = if (showMore) "Expanded" else "Collapsed" })
-            }
-            if (showMore) state.sections.filter { it.advanced && it.rows.isNotEmpty() }.forEach { section -> sectionItems(section, state.columns, onInfo) }
-        }
-        item(key = "chart") { PerformanceCard(state, onPeriod, onRetry) }
-        if (state.observations.isNotEmpty()) item(key = "observations") {
-            StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Text("What the numbers show", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
-                state.observations.forEach { o ->
-                    Text("• ${o.text}", style = typography.small, color = colors.textBody)
-                    o.caveat?.let { Text(it, Modifier.padding(start = spacing.sm), style = typography.caption, color = colors.textSecondary) }
+        entries.forEach { entry ->
+            if (entry is ComparisonEntry.Companies) stickyHeader(key = entry.key) { CompanyHeader(state.columns, onOpen) }
+            else item(key = entry.key) {
+                when (entry) {
+                    ComparisonEntry.Header -> Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                        Text("Compare Companies", Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
+                        Text("See companies side by side. The numbers describe each business; they don't say which is a better investment.", style = typography.small, color = colors.textSecondary)
+                        if (state.sampleData) StockSampleDataBanner("Sample data for development, not live markets.")
+                    }
+                    ComparisonEntry.Selection -> SelectionCard(state, onAdd = { picking = "" }, onReplace = { picking = it }, onRemove = onRemove)
+                    ComparisonEntry.Examples -> ExamplesCard(state, onExample, onDiscover)
+                    ComparisonEntry.Loading -> LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading comparison" })
+                    ComparisonEntry.Error -> StockErrorState(state.error.orEmpty(), onRetry)
+                    ComparisonEntry.Summary -> ComparisonLearningSummary(state.insights, guidance.onRelated)
+                    is ComparisonEntry.SectionTitle -> Column(Modifier.padding(top = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                        Text(entry.section.title, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
+                        entry.section.note?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+                    }
+                    is ComparisonEntry.Metric -> MetricRowView(entry.row, state.columns, state.guide(entry.row.id), state.isExpanded(entry.row.id), state.isDeeper(entry.row.id),
+                        onInfo = { onInfo(entry.row) }, guidance = guidance)
+                    ComparisonEntry.More -> StockButton(if (state.showMore) "Hide extra metrics" else "More metrics (${state.advancedCount})", onClick = guidance.onToggleMore,
+                        variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth().semantics { stateDescription = if (state.showMore) "Expanded" else "Collapsed" })
+                    ComparisonEntry.Chart -> PerformanceCard(state, onPeriod, onRetry)
+                    ComparisonEntry.Observations -> StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        Text("What the numbers show", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+                        state.observations.forEach { o ->
+                            Text("• ${o.text}", style = typography.small, color = colors.textBody)
+                            o.caveat?.let { Text(it, Modifier.padding(start = spacing.sm), style = typography.caption, color = colors.textSecondary) }
+                        }
+                        Text("These describe reported figures. They aren't rankings or recommendations.", style = typography.caption, color = colors.textTertiary)
+                    }
+                    ComparisonEntry.Notes -> Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                        Text("Sources and notes", Modifier.semantics { heading() }, style = typography.label, color = colors.textSecondary)
+                        state.notes.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
+                        state.asOf?.let { Text("Comparison prepared ${it.take(10)} ${it.drop(11).take(5)} UTC.", style = typography.caption, color = colors.textSecondary) }
+                        Text("Education, not investment advice. Past results don't indicate future returns.", style = typography.caption, color = colors.textTertiary)
+                    }
+                    ComparisonEntry.Companies -> Unit
                 }
-                Text("These describe reported figures. They aren't rankings or recommendations.", style = typography.caption, color = colors.textTertiary)
-            }
-        }
-        if (state.columns.isNotEmpty()) item(key = "notes") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                Text("Sources and notes", Modifier.semantics { heading() }, style = typography.label, color = colors.textSecondary)
-                state.notes.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
-                state.asOf?.let { Text("Comparison prepared ${it.take(10)} ${it.drop(11).take(5)} UTC.", style = typography.caption, color = colors.textSecondary) }
-                Text("Education, not investment advice. Past results don't indicate future returns.", style = typography.caption, color = colors.textTertiary)
             }
         }
     }
@@ -165,20 +178,58 @@ private fun CompanyHeader(columns: List<CompanyColumn>, onOpen: (String) -> Unit
     HorizontalDivider(color = colors.border)
 }
 
-private fun LazyListScope.sectionItems(section: ComparisonSection, columns: List<CompanyColumn>, onInfo: (ComparisonRow) -> Unit) {
-    if (section.rows.isEmpty()) return
-    item(key = "section-${section.title}") {
-        Column(Modifier.padding(top = StockStepsTheme.spacing.sm), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-            Text(section.title, Modifier.semantics { heading() }, style = StockStepsTheme.typography.sectionTitle, color = StockStepsTheme.colors.textPrimary)
-            section.note?.let { Text(it, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary) }
-        }
-    }
-    section.rows.forEach { row -> item(key = "row-${section.title}-${row.id}") { MetricRowView(row, columns) { onInfo(row) } } }
+/** Phase 2 actions (explanations, related metrics, "More metrics"); defaults keep previews and older call sites working. */
+internal data class GuidanceActions(
+    val onExplain: (String) -> Unit = {},
+    val onDeeper: (String) -> Unit = {},
+    val onRelated: (String) -> Unit = {},
+    val onToggleMore: () -> Unit = {},
+    val onFocusHandled: () -> Unit = {}
+)
+
+/** The screen's list items in order, so a metric row can be found (and scrolled to) by id. */
+internal sealed class ComparisonEntry(val key: String) {
+    data object Header : ComparisonEntry("header")
+    data object Selection : ComparisonEntry("selection")
+    data object Examples : ComparisonEntry("examples")
+    data object Loading : ComparisonEntry("loading")
+    data object Error : ComparisonEntry("error")
+    data object Summary : ComparisonEntry("summary")
+    data object Companies : ComparisonEntry("companies")
+    class SectionTitle(val section: ComparisonSection) : ComparisonEntry("section-${section.title}")
+    class Metric(val section: ComparisonSection, val row: ComparisonRow) : ComparisonEntry("row-${section.title}-${row.id}")
+    data object More : ComparisonEntry("more")
+    data object Chart : ComparisonEntry("chart")
+    data object Observations : ComparisonEntry("observations")
+    data object Notes : ComparisonEntry("notes")
 }
 
-/** One metric: its name (with an info button) and period above one value per company. N/A explains itself. */
+internal fun comparisonEntries(state: ComparisonUiState): List<ComparisonEntry> = buildList {
+    add(ComparisonEntry.Header); add(ComparisonEntry.Selection)
+    if (state.needsMore) { add(ComparisonEntry.Examples); return@buildList }
+    if (state.loading) add(ComparisonEntry.Loading)
+    if (state.error != null) add(ComparisonEntry.Error)
+    if (state.columns.isNotEmpty()) {
+        if (state.insights.isNotEmpty()) add(ComparisonEntry.Summary)
+        add(ComparisonEntry.Companies)
+        fun section(s: ComparisonSection) { if (s.rows.isEmpty()) return; add(ComparisonEntry.SectionTitle(s)); s.rows.forEach { add(ComparisonEntry.Metric(s, it)) } }
+        state.sections.filterNot { it.advanced }.forEach(::section)
+        if (state.advancedCount > 0) add(ComparisonEntry.More)
+        if (state.showMore) state.sections.filter { it.advanced }.forEach(::section)
+    }
+    add(ComparisonEntry.Chart)
+    if (state.observations.isNotEmpty()) add(ComparisonEntry.Observations)
+    if (state.columns.isNotEmpty()) add(ComparisonEntry.Notes)
+}
+
+/**
+ * One metric: its name and period above one value per company. N/A explains itself. Beginner metrics
+ * have "Explain" (Phase 2: the guided explanation opens inline below the values, keeping columns
+ * aligned); other metrics keep the info sheet.
+ */
 @Composable
-private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, onInfo: () -> Unit) {
+private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, guide: MetricInterpretation?, expanded: Boolean, deeper: Boolean,
+                          onInfo: () -> Unit, guidance: GuidanceActions) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     var why by remember { mutableStateOf<String?>(null) }
@@ -188,7 +239,12 @@ private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, onIn
                 Text(row.label, style = typography.label, color = colors.textPrimary)
                 row.period?.let { Text(it, style = typography.tiny, color = colors.textTertiary) }
             }
-            IconButton(onClick = onInfo) { Icon(StockIcons.Info, contentDescription = "About ${row.label}", tint = colors.primary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall)) }
+            if (guide != null) TextButton(onClick = { guidance.onExplain(row.id) }, modifier = Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
+                .semantics { contentDescription = (if (expanded) "Hide explanation of " else "Explain ") + row.label; stateDescription = if (expanded) "Expanded" else "Collapsed" }) {
+                Icon(StockIcons.Info, contentDescription = null, tint = colors.primary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+                Text(if (expanded) " Hide" else " Explain", style = typography.caption)
+            }
+            else IconButton(onClick = onInfo) { Icon(StockIcons.Info, contentDescription = "About ${row.label}", tint = colors.primary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall)) }
         }
         Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = row.accessibility(columns) }, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
             row.cells.forEachIndexed { i, cell ->
@@ -201,6 +257,8 @@ private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, onIn
             }
         }
     }
+    if (guide != null && expanded) GuidedMetricExplanation(guide, deeper, onToggleDeeper = { guidance.onDeeper(row.id) }, onRelated = guidance.onRelated,
+        onClose = { guidance.onExplain(row.id) }, modifier = Modifier.padding(bottom = StockStepsTheme.spacing.xs))
     HorizontalDivider(color = colors.borderSubtle)
     why?.let { AlertDialog(onDismissRequest = { why = null }, title = { Text(row.label) }, text = { Text(it) }, confirmButton = { TextButton(onClick = { why = null }) { Text("OK") } }) }
 }

@@ -226,7 +226,9 @@ data class ComparisonResponse(
     @EncodeDefault val observations: List<ComparisonObservation> = emptyList(),
     @EncodeDefault val notes: List<String> = emptyList(),
     val asOf: String,
-    val sampleData: Boolean = false
+    val sampleData: Boolean = false,
+    /** Exchange rates the server used for converted amounts (market cap ≈ USD), with date and source. Additive (Phase 2). */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val fx: List<FxConversion> = emptyList()
 )
 
 @Serializable enum class PerformancePeriod(val label: String, val months: Int) {

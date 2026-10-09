@@ -13,11 +13,11 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-08)
 
-Latest commit: "Improve Company Comparison Phase 1 for beginners on Android and iOS", after `b558ba9` (Earnings Phase 5). The full test suite was not re-run to completion at that commit (see `docs/project-status.md` §0).
-Earnings Intelligence Lite Phases 1–5 are committed (spec: `docs/EARNINGS.md`, Phase 5 = StockSteps+ premium earnings
-intelligence). No feature in progress. Read `docs/PROJECT_HANDOFF.md` (end-of-session handoff) first; next steps and
-production dependencies are in `docs/project-status.md` §0 and §4. A local MOCK server may still be
-running on :8081 (restart after server changes; stop with `./gradlew :server:stopMock`).
+Latest commit: "Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS" (on top of `9bbf586`, Comparison Phase 1). Company Comparison Phase 2
+(Guided Metric Interpretation, free) is committed; no feature is in progress — engine `core/.../screener/ComparisonInterpretation.kt`, spec
+`docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 2". Read the root `PROJECT_HANDOFF.md` top section and
+`docs/project-status.md` §0 first. A local MOCK server may still be running on :8081 (restart after server changes; stop with
+`./gradlew :server:stopMock`).
 
 ## Repository layout
 

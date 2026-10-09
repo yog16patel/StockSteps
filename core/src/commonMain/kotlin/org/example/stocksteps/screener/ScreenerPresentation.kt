@@ -2,6 +2,7 @@ package org.example.stocksteps.screener
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.withLock
 import org.example.stocksteps.companydetail.MetricEducation
 import org.example.stocksteps.data.userdata.ServerBackedRepository
 import org.example.stocksteps.data.userdata.UserApi
@@ -462,8 +463,24 @@ data class ComparisonUiState(
     val sampleData: Boolean = false,
     val message: String? = null,
     /** When the comparison data was produced (server time). */
-    val asOf: String? = null
+    val asOf: String? = null,
+    /** Phase 2 guided interpretation per metric id (only the beginner rows have one). */
+    val guides: Map<String, MetricInterpretation> = emptyMap(),
+    /** "What can we learn from this comparison?" (2–3 grounded lines, never a ranking). */
+    val insights: List<ComparisonInsight> = emptyList(),
+    val industryNote: String? = null,
+    /** Metric ids whose explanation is open (inline, under the row). */
+    val expanded: Set<String> = emptySet(),
+    /** Metric ids whose explanation shows the deeper "Learn more" part. */
+    val deeper: Set<String> = emptySet(),
+    /** "More metrics" expanded. */
+    val showMore: Boolean = false,
+    /** A row the screen should scroll to once (after opening a related metric); cleared by [ComparisonPresenter.clearFocus]. */
+    val focus: String? = null
 ) {
+    fun guide(id: String): MetricInterpretation? = guides[id]
+    fun isExpanded(id: String): Boolean = id in expanded
+    fun isDeeper(id: String): Boolean = id in deeper
     val needsMore: Boolean get() = selected.size < 2
     val canAdd: Boolean get() = selected.size < MAX_COMPARED_COMPANIES
     val examples: List<ComparisonExample> get() = ComparisonPresenter.EXAMPLES
@@ -511,12 +528,15 @@ class ComparisonPresenter(
 
     private fun key(symbols: List<String>, p: PerformancePeriod) = symbols.joinToString(",") + "|" + p.name
 
+    /** Guards [performanceRequests]: the metrics and chart collectors can ask at the same time on a multi-threaded dispatcher. */
+    private val performanceLock = kotlinx.coroutines.sync.Mutex()
+
     /** One request per selection and period, shared by the chart and the price-change rows. */
-    private fun performance(symbols: List<String>, p: PerformancePeriod): Deferred<PerformanceComparison> {
-        performanceRequests[key(symbols, p)]?.let { return it }
+    private suspend fun performance(symbols: List<String>, p: PerformancePeriod): Deferred<PerformanceComparison> = performanceLock.withLock {
+        performanceRequests[key(symbols, p)]?.let { return@withLock it }
         // Only the current selection's requests are kept.
         performanceRequests.keys.filterNot { it.startsWith(symbols.joinToString(",") + "|") }.forEach { performanceRequests.remove(it) }
-        return requestScope.async { data.performance(symbols, p) }.also { performanceRequests[key(symbols, p)] = it }
+        requestScope.async { data.performance(symbols, p) }.also { performanceRequests[key(symbols, p)] = it }
     }
 
     private suspend fun performanceOrNull(symbols: List<String>, p: PerformancePeriod): PerformanceComparison? {
@@ -524,7 +544,7 @@ class ComparisonPresenter(
         return try { request.await() } catch (cause: Exception) {
             if (cause is CancellationException && !currentCoroutineContext().isActive) throw cause
             // A failed request is forgotten so the next attempt fetches again.
-            if (performanceRequests[key(symbols, p)] === request) performanceRequests.remove(key(symbols, p))
+            performanceLock.withLock { if (performanceRequests[key(symbols, p)] === request) performanceRequests.remove(key(symbols, p)) }
             null
         }
     }
@@ -533,7 +553,8 @@ class ComparisonPresenter(
         scope.launch {
             combine(selection.selected.map { list -> list.map { it.symbol } }.distinctUntilChanged(), refreshes) { s, r -> s to r }.collectLatest { (symbols, _) ->
                 mutable.update { it.copy(selected = selection.selected.value) }
-                if (symbols.size < 2) { mutable.update { it.copy(loading = false, columns = emptyList(), sections = emptyList(), observations = emptyList(), notes = emptyList(), error = null) }; return@collectLatest }
+                if (symbols.size < 2) { mutable.update { it.copy(loading = false, columns = emptyList(), sections = emptyList(), observations = emptyList(), notes = emptyList(), error = null,
+                    guides = emptyMap(), insights = emptyList(), industryNote = null, focus = null) }; return@collectLatest }
                 mutable.update { it.copy(loading = true, error = null) }
                 try {
                     val response = data.compare(symbols)
@@ -628,8 +649,7 @@ class ComparisonPresenter(
                 figures?.let(get)?.let { MetricCell(MetricFormatter.money(it, figures.currency, explicit), detail = periodLabel(FinancialBasis("annual", figures.date, figures.fiscalYear))) }
                     ?: MetricCell("N/A", explanation = "No fiscal-year $year figures.")
             })
-        val labels = mapOf("quarterRevenueGrowth" to "Revenue growth — latest quarter", "revenueGrowth" to "Revenue growth — fiscal year", "netMargin" to "Net profit margin",
-            "debtEquity" to "Debt to equity", "pe" to "P/E ratio (trailing)", "priceSales" to "Price to sales", "dividendYield" to "Dividend yield")
+        val labels = ComparisonInterpretationEngine.ROW_LABELS
         val core = listOf(ComparisonSection("Overview", listOf(marketCapRow,
             textRow("sector", "Sector") { it.sector }, textRow("industry", "Industry") { it.industry },
             textRow("listing", "Listing") { r -> listOfNotNull(r.exchange, r.country, r.currency).joinToString(" · ").ifBlank { null } }),
@@ -656,8 +676,32 @@ class ComparisonPresenter(
             ComparisonSection("Fiscal-year figures", years.flatMap { y -> listOf(annualRow(y, "Revenue") { it.revenue }, annualRow(y, "Net income") { it.netIncome }, annualRow(y, "Free cash flow") { it.freeCashFlow }) },
                 if (reportingCurrencies.size > 1) "Amounts are in each company's reporting currency (${reportingCurrencies.joinToString()}) and aren't converted." else null, advanced = true)
         )
-        return state.copy(columns = columns, sections = core + advanced, observations = response.observations, notes = response.notes, sampleData = response.sampleData, asOf = response.asOf)
+        // Phase 2: guided interpretation from the same response (deterministic; no extra requests, no AI).
+        val interpretation = ComparisonInterpretationEngine.interpret(companies, response.fx)
+        return state.copy(columns = columns, sections = core + advanced, observations = response.observations, notes = response.notes, sampleData = response.sampleData, asOf = response.asOf,
+            guides = interpretation.metrics, insights = interpretation.summary, industryNote = interpretation.industryNote)
     }
+
+    // ---------- Phase 2: guided explanations (UI state only; selection and data are untouched) ----------
+
+    /** Opens or closes one metric's explanation under its row. */
+    fun toggleExplanation(id: String) = mutable.update { s ->
+        if (id in s.expanded) s.copy(expanded = s.expanded - id, deeper = s.deeper - id) else s.copy(expanded = s.expanded + id)
+    }
+    /** Shows or hides the deeper "Learn more" part of an open explanation. */
+    fun toggleDeeper(id: String) = mutable.update { s -> s.copy(deeper = if (id in s.deeper) s.deeper - id else s.deeper + id, expanded = s.expanded + id) }
+    /**
+     * "Explore next": opens the related metric (its explanation, or "More metrics" for an extra metric
+     * that only has an info sheet) and asks the screen to scroll to it, even in another group.
+     */
+    fun openRelated(id: String) = mutable.update { s ->
+        val guided = id in ComparisonInterpretationEngine.GUIDED
+        val advanced = s.sections.any { section -> section.advanced && section.rows.any { it.id == id } }
+        s.copy(expanded = if (guided) s.expanded + id else s.expanded, showMore = s.showMore || advanced, focus = id)
+    }
+    fun clearFocus() = mutable.update { it.copy(focus = null) }
+    fun collapseExplanations() = mutable.update { it.copy(expanded = emptySet(), deeper = emptySet()) }
+    fun toggleMore() = mutable.update { it.copy(showMore = !it.showMore) }
 
     fun selectPeriod(value: PerformancePeriod) { period.value = value }
     fun remove(symbol: String) = selection.remove(symbol)
@@ -677,7 +721,7 @@ class ComparisonPresenter(
         }
     }
     fun useExample(index: Int) { EXAMPLES.getOrNull(index)?.let { selection.set(it.companies) } }
-    fun retry() { performanceRequests.clear(); refreshes.value++ }
+    fun retry() { scope.launch { performanceLock.withLock { performanceRequests.clear() }; refreshes.value++ } }
     fun dismissMessage() = mutable.update { it.copy(message = null) }
 }
 

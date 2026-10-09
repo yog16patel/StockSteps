@@ -120,7 +120,9 @@ class ScreenerService(
      */
     private val quarterlyRevenueGrowth: (suspend (String) -> MetricValue)? = null,
     /** Where comparison data comes from in this environment (shown with every comparison). */
-    private val provenance: List<String> = emptyList()
+    private val provenance: List<String> = emptyList(),
+    /** The CAD→USD rate behind converted market caps, with its date and source (disclosed by Phase 2 explanations). */
+    private val usdPerCadQuote: (suspend () -> FxConversion?)? = null
 ) {
     private val log = LoggerFactory.getLogger("StockSteps.Screener")
     private val lock = Mutex()
@@ -291,7 +293,11 @@ class ScreenerService(
                 ?.let { add("Financial statements retrieved: ${it.joinToString(", ")}.") }
             addAll(provenance)
         }
-        ComparisonResponse(companies, ScreenerDefinitions.metrics, ComparisonEngine.observations(loaded), notes, clock.instant().toString(), sampleData)
+        val fx = if (loaded.any { it.currency == "CAD" }) listOfNotNull(try { usdPerCadQuote?.invoke() } catch (cause: Exception) {
+            if (cause is CancellationException) throw cause
+            null
+        }) else emptyList()
+        ComparisonResponse(companies, ScreenerDefinitions.metrics, ComparisonEngine.observations(loaded), notes, clock.instant().toString(), sampleData, fx)
     }
 
     private suspend fun quarterGrowth(symbol: String): MetricValue = try {

@@ -474,35 +474,48 @@ struct CompareStocksScene: View {
     }
 }
 
-/// Phase 1 (free): beginner metrics in Overview, Growth, Profitability, Financial Health, Valuation and
+/// Phases 1–2 (free): beginner metrics in Overview, Growth, Profitability, Financial Health, Valuation and
 /// Shareholder Returns; each metric's label sits above equal-width company columns (no horizontal
-/// scrolling for three companies); extra metrics under "More metrics". Same shared presenter as Android.
+/// scrolling for three companies); extra metrics under "More metrics". Phase 2 adds "What can we learn
+/// from this comparison?" and an inline guided explanation per beginner metric ("Explain"); related
+/// metrics scroll to their row. Same shared presenter and interpretation engine as Android.
 struct CompareStocksScreen: View {
     let state: ComparisonUiState?
     let client: IosScreenerClient
     let onOpen: (String) -> Void
     let onDiscover: () -> Void
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// nil = closed; "" = add; otherwise the symbol being replaced.
     @State private var picking: String?
     @State private var info: MetricInfo?
-    @State private var showMore = false
     @State private var why: (String, String)?
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: CGFloat(space.sm), pinnedViews: [.sectionHeaders]) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Compare Companies").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
-                    Text("See companies side by side. The numbers describe each business; they don't say which is a better investment.")
-                        .font(.subheadline).foregroundStyle(colors.textSecondary)
-                    if state?.sampleData == true { Text("Sample data for development, not live markets.").font(.caption).foregroundStyle(colors.cautionText) }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: CGFloat(space.sm), pinnedViews: [.sectionHeaders]) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Compare Companies").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
+                        Text("See companies side by side. The numbers describe each business; they don't say which is a better investment.")
+                            .font(.subheadline).foregroundStyle(colors.textSecondary)
+                        if state?.sampleData == true { Text("Sample data for development, not live markets.").font(.caption).foregroundStyle(colors.cautionText) }
+                    }
+                    if let state { content(state, colors) }
                 }
-                if let state { content(state, colors) }
+                .padding(.horizontal, CGFloat(space.screen))
+                .padding(.vertical, CGFloat(space.md))
             }
-            .padding(.horizontal, CGFloat(space.screen))
-            .padding(.vertical, CGFloat(space.md))
+            // "Explore next" / "Explain this": bring the metric into view (no animation with Reduce Motion), then clear the request.
+            .onChange(of: state?.focus) { _, focus in
+                guard let focus else { return }
+                DispatchQueue.main.async {
+                    if reduceMotion { proxy.scrollTo("metric-\(focus)", anchor: .center) }
+                    else { withAnimation { proxy.scrollTo("metric-\(focus)", anchor: .center) } }
+                    client.comparison.clearFocus()
+                }
+            }
         }
         .background(colors.appBackground)
         .sheet(item: Binding(get: { picking.map { PickTarget(id: $0) } }, set: { picking = $0?.id })) { target in
@@ -523,16 +536,17 @@ struct CompareStocksScreen: View {
             if state.loading { ProgressView().accessibilityLabel("Loading comparison") }
             if let error = state.error { StockSectionMessage(message: error, actionTitle: "Try again") { client.comparison.retry() } }
             if !state.columns.isEmpty {
+                if !state.insights.isEmpty { ComparisonLearningSummaryView(insights: state.insights) { client.comparison.openRelated(id: $0) } }
                 Section {
                     ForEach(state.sections.filter { !$0.advanced }, id: \.title) { section in sectionView(section, state, colors) }
                     if state.advancedCount > 0 {
-                        Button { showMore.toggle() } label: {
-                            Text(showMore ? "Hide extra metrics" : "More metrics (\(state.advancedCount))").frame(maxWidth: .infinity, minHeight: 48)
+                        Button { client.comparison.toggleMore() } label: {
+                            Text(state.showMore ? "Hide extra metrics" : "More metrics (\(state.advancedCount))").frame(maxWidth: .infinity, minHeight: 48)
                         }
                         .buttonStyle(.bordered)
-                        .accessibilityValue(showMore ? "Expanded" : "Collapsed")
+                        .accessibilityValue(state.showMore ? "Expanded" : "Collapsed")
                     }
-                    if showMore { ForEach(state.sections.filter { $0.advanced && !$0.rows.isEmpty }, id: \.title) { section in sectionView(section, state, colors) } }
+                    if state.showMore { ForEach(state.sections.filter { $0.advanced && !$0.rows.isEmpty }, id: \.title) { section in sectionView(section, state, colors) } }
                 } header: { companyHeader(state, colors) }
             }
             performance(state, colors)
@@ -636,16 +650,28 @@ struct CompareStocksScreen: View {
     }
 
     private func metricRow(_ row: ComparisonRow, _ state: ComparisonUiState, _ colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        let guide = state.guide(id: row.id)
+        let expanded = state.isExpanded(id: row.id)
+        return VStack(alignment: .leading, spacing: 4) {
             HStack {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(row.label).font(.subheadline.weight(.medium)).foregroundStyle(colors.textPrimary)
                     if let period = row.period { Text(period).font(.caption2).foregroundStyle(colors.textTertiary) }
                 }
                 Spacer()
-                Button { info = client.education(id: row.id) } label: { Image(systemName: "info.circle").frame(width: 44, height: 44) }
-                    .accessibilityLabel("About \(row.label)")
+                if guide != nil {
+                    // Phase 2: the guided explanation opens inline below the values (columns stay aligned).
+                    Button { client.comparison.toggleExplanation(id: row.id) } label: {
+                        Label(expanded ? "Hide" : "Explain", systemImage: "info.circle").font(.caption).frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel(expanded ? "Hide explanation of \(row.label)" : "Explain \(row.label)")
+                    .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+                } else {
+                    Button { info = client.education(id: row.id) } label: { Image(systemName: "info.circle").frame(width: 44, height: 44) }
+                        .accessibilityLabel("About \(row.label)")
+                }
             }
+            .id("metric-\(row.id)")
             HStack(alignment: .top, spacing: 8) {
                 ForEach(Array(row.cells.enumerated()), id: \.offset) { i, cell in
                     VStack(alignment: .leading, spacing: 1) {
@@ -660,6 +686,13 @@ struct CompareStocksScreen: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(row.accessibility(columns: state.columns))
+            if let guide, expanded {
+                GuidedMetricExplanationView(guide: guide, deeper: state.isDeeper(id: row.id),
+                                            onToggleDeeper: { client.comparison.toggleDeeper(id: row.id) },
+                                            onRelated: { client.comparison.openRelated(id: $0) },
+                                            onClose: { client.comparison.toggleExplanation(id: row.id) })
+                    .padding(.bottom, 4)
+            }
             Divider()
         }
     }
@@ -711,6 +744,105 @@ struct CompareStocksScreen: View {
                 ForEach(chart.series.filter { $0.error != nil }, id: \.symbol) { Text("\($0.symbol): \($0.error ?? "")").font(.caption).foregroundStyle(colors.cautionText) }
                 ForEach(chart.notes, id: \.self) { Text($0).font(.caption2).foregroundStyle(colors.textSecondary) }
             }
+        }
+        .stockCard()
+    }
+}
+
+/// Company Comparison Phase 2 (free): one metric's guided explanation, inline under its row. Mirrors
+/// Android's `GuidedMetricExplanation`; every sentence comes from the shared `ComparisonInterpretationEngine`.
+struct GuidedMetricExplanationView: View {
+    let guide: MetricInterpretation
+    let deeper: Bool
+    let onToggleDeeper: () -> Void
+    let onRelated: (String) -> Void
+    let onClose: () -> Void
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(guide.title).font(.headline).accessibilityAddTraits(.isHeader)
+                Spacer()
+                Text(guide.comparability.label).font(.caption).foregroundStyle(colors.textSecondary)
+                    .padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(colors.surface, in: Capsule())
+                    .accessibilityLabel("Comparability: \(guide.comparability.label)")
+            }
+            part("What it measures", colors) { Text(guide.definition) }
+            part("Your comparison", colors) {
+                Text(guide.observation)
+                if let meaning = guide.meaning { Text(meaning) }
+            }
+            if !guide.keyCaveats.isEmpty { part("What to keep in mind", colors) { ForEach(guide.keyCaveats, id: \.self) { Text("• \($0)") } } }
+            if deeper {
+                part("Why it matters", colors) { Text(guide.whyItMatters) }
+                if let calculation = guide.calculation { part("How it's calculated", colors) { Text(calculation) } }
+                let more = guide.moreCaveats + guide.learnMore
+                if !more.isEmpty { part("More to consider", colors) { ForEach(more, id: \.self) { Text("• \($0)") } } }
+                part("Questions to research", colors) { ForEach(guide.questions, id: \.self) { Text("• \($0)") } }
+            }
+            part("Explore next", colors) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { relatedButtons }
+                    VStack(alignment: .leading, spacing: 4) { relatedButtons }
+                }
+                if !deeper, let question = guide.questions.first { Text("• \(question)") }
+            }
+            HStack(spacing: 16) {
+                Button(deeper ? "Show less" : "Learn more", action: onToggleDeeper).frame(minHeight: 44)
+                    .accessibilityValue(deeper ? "Expanded" : "Collapsed")
+                Button("Close", action: onClose).frame(minHeight: 44)
+                    .accessibilityLabel("Close explanation of \(guide.label)")
+            }
+            .font(.subheadline)
+            Text("Education, not investment advice. These explanations describe the numbers; they don't rank the companies.")
+                .font(.caption2).foregroundStyle(colors.textTertiary)
+        }
+        .font(.subheadline)
+        .padding(CGFloat(space.sm))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(colors.surfaceSecondary, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
+    }
+
+    private var relatedButtons: some View {
+        ForEach(guide.related, id: \.id) { related in
+            Button(related.label) { onRelated(related.id) }
+                .buttonStyle(.bordered).controlSize(.small).frame(minHeight: 44)
+                .accessibilityLabel("Open \(related.label)")
+        }
+    }
+
+    @ViewBuilder private func part<Content: View>(_ title: String, _ colors: StockColors, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(colors.textSecondary).accessibilityAddTraits(.isHeader)
+            content()
+        }
+    }
+}
+
+/// "What can we learn from this comparison?": two or three grounded lines from the shared engine, never a ranking.
+struct ComparisonLearningSummaryView: View {
+    let insights: [ComparisonInsight]
+    let onOpen: (String) -> Void
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Text("What can we learn from this comparison?").font(.headline).accessibilityAddTraits(.isHeader)
+            ForEach(Array(insights.enumerated()), id: \.offset) { _, insight in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(insight.category.title).font(.caption2).foregroundStyle(colors.textTertiary)
+                    Text(insight.text).font(.subheadline)
+                    if let id = insight.metricId {
+                        Button("Explain this") { onOpen(id) }.font(.subheadline).frame(minHeight: 44)
+                    }
+                }
+            }
+            Text("Tap Explain on any metric to learn what it measures, what to keep in mind and what to look at next. Free for everyone.")
+                .font(.caption).foregroundStyle(colors.textSecondary)
         }
         .stockCard()
     }
