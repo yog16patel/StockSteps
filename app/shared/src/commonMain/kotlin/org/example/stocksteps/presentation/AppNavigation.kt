@@ -277,7 +277,8 @@ internal fun AppNavigation(
             }
             composable<org.example.stocksteps.presentation.screener.ComparisonRoute> {
                 org.example.stocksteps.presentation.screener.ComparisonScene(backend, environment, hinge, onOpenStock = openStock,
-                    onDiscover = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) })
+                    onDiscover = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
+                    accounts = accounts, onUpgrade = { navController.navigate(SettingsRoute) }, onSignIn = { navController.navigate(AuthRoute()) })
             }
             composable<PortfolioInsightsRoute> {
                 if (accounts != null) PortfolioInsightsScene(accounts, onOpenCompany = openStock, onSignIn = { navController.navigate(AuthRoute()) }, hinge = hinge)

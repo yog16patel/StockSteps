@@ -13,9 +13,9 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-08)
 
-Latest commit: "Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS" (on top of `9bbf586`, Comparison Phase 1). Company Comparison Phase 2
-(Guided Metric Interpretation, free) is committed; no feature is in progress — engine `core/.../screener/ComparisonInterpretation.kt`, spec
-`docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 2". Read the root `PROJECT_HANDOFF.md` top section and
+Latest commit: "Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS". Company Comparison Phase 3 (Historical Financial Comparison: 1Y free, 3Y/5Y StockSteps+) is
+committed (core iOS simulator tests not re-run; see the handoff) — engine `core/.../screener/ComparisonHistory.kt`, server `screener/ComparisonHistoryService.kt`, spec
+`docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 3". Read the root `PROJECT_HANDOFF.md` top section and
 `docs/project-status.md` §0 first. A local MOCK server may still be running on :8081 (restart after server changes; stop with
 `./gradlew :server:stopMock`).
 

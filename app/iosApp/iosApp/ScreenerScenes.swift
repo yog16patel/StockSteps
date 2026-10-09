@@ -466,9 +466,11 @@ struct CompareStocksScene: View {
     let model: ScreenerModel
     let onOpenStock: (String) -> Void
     var onDiscover: () -> Void = {}
+    var onUpgrade: () -> Void = {}
+    var onSignIn: () -> Void = {}
 
     var body: some View {
-        CompareStocksScreen(state: model.comparison, client: model.client, onOpen: onOpenStock, onDiscover: onDiscover)
+        CompareStocksScreen(state: model.comparison, client: model.client, onOpen: onOpenStock, onDiscover: onDiscover, onUpgrade: onUpgrade, onSignIn: onSignIn)
             .navigationTitle("Compare")
             .navigationBarTitleDisplayMode(.inline)
     }
@@ -484,6 +486,8 @@ struct CompareStocksScreen: View {
     let client: IosScreenerClient
     let onOpen: (String) -> Void
     let onDiscover: () -> Void
+    var onUpgrade: () -> Void = {}
+    var onSignIn: () -> Void = {}
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// nil = closed; "" = add; otherwise the symbol being replaced.
@@ -550,6 +554,7 @@ struct CompareStocksScreen: View {
                 } header: { companyHeader(state, colors) }
             }
             performance(state, colors)
+            if state.historyEnabled { HistoricalComparisonView(state: state, client: client, onUpgrade: onUpgrade, onSignIn: onSignIn) }
             if !state.observations.isEmpty {
                 VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                     Text("What the numbers show").font(.headline).accessibilityAddTraits(.isHeader)

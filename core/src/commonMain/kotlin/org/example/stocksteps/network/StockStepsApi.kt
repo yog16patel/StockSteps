@@ -189,6 +189,15 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
         require(symbols.all { Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(it) })
         return request { url("$baseUrl/api/v1/compare"); parameter("symbols", symbols.joinToString(",") { it.uppercase() }) }
     }
+    /** Company Comparison Phase 3, free view only (latest four fiscal quarters). 3Y/5Y go through `UserApi.compareHistory`. */
+    suspend fun compareHistory(symbols: List<String>, range: org.example.stocksteps.screener.HistoryRange): org.example.stocksteps.screener.HistoricalComparison {
+        require(symbols.all { Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(it) })
+        return request {
+            url("$baseUrl/api/v1/compare/history")
+            parameter("symbols", symbols.joinToString(",") { it.uppercase() })
+            parameter("range", range.label)
+        }
+    }
     suspend fun comparePerformance(symbols: List<String>, period: org.example.stocksteps.screener.PerformancePeriod): org.example.stocksteps.screener.PerformanceComparison {
         require(symbols.all { Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(it) })
         return request {

@@ -1,5 +1,8 @@
 # StockSteps — session handoff (2026-10-08, end of the Earnings Phase 5 + Company Comparison session)
 
+> **Update (2026-10-09):** Company Comparison Phase 3 — Historical Financial Comparison is committed as **"Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS"**; see the root
+> `PROJECT_HANDOFF.md` (top section) and `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 3".
+>
 > **Update (Company Comparison Phase 2 session, 2026-10-08):** Phase 2 — Guided Metric Interpretation (free) is committed as
 > **"Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS"**. See the root `PROJECT_HANDOFF.md` (top section), `docs/project-status.md` §0 and
 > `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 2". The full-suite verification that §3/§9 below list as pending was

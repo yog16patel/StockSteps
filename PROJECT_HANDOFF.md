@@ -1,6 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS"** on `main`.
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS"** on `main`.
+Includes Company Comparison Phase 3 — Historical Financial Comparison (next section).
+Previous commit: **"Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS"**.
 Includes Company Comparison Phase 2 — Guided Metric Interpretation (next section, `docs/SCREENER_AND_COMPARISON.md` "Company Comparison — Phase 2").
 Previous commit: **"Improve Company Comparison Phase 1 for beginners on Android and iOS"** (`9bbf586`), the Phase 1 review and completion.
 Previous commit: **"Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS"** (`b558ba9`).
@@ -26,6 +28,25 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Company Comparison Phase 3 — Historical Financial Comparison (2026-10-09) — commit "Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS"
+
+On top of "Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS". Spec: `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 3". 1Y free; 3Y/5Y and advanced metrics StockSteps+.
+- **Completed**: core `screener/ComparisonHistory.kt` (`HistoricalComparisonEngine`: completed-period windows with explicit gaps, same-quarter
+  YoY revenue growth, net margin, EPS growth with positive baselines only, revenue index, period alignment, currency rules, deterministic
+  observations; free callers never get premium series) and `ComparisonHistoryPresentation.kt` (`RemoteComparisonHistory`, `HistoryUpsell`,
+  `HistoryView`); `ComparisonPresenter` history state/actions (range, metric, preview, retry; refetch on selection/range/account-plan change;
+  per-selection cache); `StockStepsApi.compareHistory`, `UserApi.compareHistory`. Server `screener/ComparisonHistoryService.kt`: public free
+  route and signed-in route; StockSteps+ from `EntitlementService` before provider calls (403 `PLUS_REQUIRED`, 503 `ENTITLEMENT_UNAVAILABLE`
+  for 3Y/5Y, free fallback for 1Y); per-company failures/timeouts; statements cached per symbol+frequency, responses never cached;
+  `parseComparisonSymbols` shared. Android `ComparisonHistoryUi.kt` (card, chips, chart, table, observations, preview dialog) wired via
+  `ComparisonScene` (accounts, Settings/Auth); iOS `ComparisonHistoryViews.swift` + `IosScreenerClient` + `AppScene` wiring. Fixture: fictional
+  `SSHC.TO` (profile, quote, quarterly/annual statements, search entry, `keepMissing`).
+- **Tests added**: core `ComparisonHistoryTest` (15), `ComparisonHistoryPresenterTest` (4); server `ComparisonHistoryRoutesTest` (10).
+- **Validation**: `./gradlew :core:jvmTest :core:iosSimulatorArm64Test :server:test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue`: core JVM 389, server 336, shared Android host 55, shared iOS 49 — 0 failures; `assembleDebug` succeeded; iOS `xcodebuild` (default DerivedData) BUILD SUCCEEDED. **Not verified:** `:core:iosSimulatorArm64Test` failed with `java.io.EOFException` from the simulator test runner (infrastructure, not an assertion) before writing results, so the 19 new core history tests have run on JVM only; a rerun was stopped. No live MOCK curl pass of `/api/v1/compare/history`, no device walkthrough, no REAL calls.
+- **Limits**: no billing; Company Details' existing free statements endpoint still exposes raw statements (documented, not restricted);
+  no quarterly 3Y/5Y; English only; no restatement history; REAL not live-verified; no device walkthrough.
+- **Next**: rerun `:core:iosSimulatorArm64Test`; live MOCK check; device pass (chips, chart gaps, table, preview, TalkBack/VoiceOver); authorized REAL run.
 
 ## Company Comparison Phase 2 — Guided Metric Interpretation (2026-10-08) — commit "Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS"
 

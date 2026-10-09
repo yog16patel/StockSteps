@@ -313,5 +313,12 @@
     "currency": "USD",
     "exchange": "NASDAQ",
     "exchangeFullName": "NASDAQ Capital Market"
+  },
+  {
+    "symbol": "SSHC.TO",
+    "name": "StockSteps Sample History Co (fictional)",
+    "currency": "CAD",
+    "exchange": "TSX",
+    "exchangeFullName": "Toronto Stock Exchange"
   }
 ]

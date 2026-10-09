@@ -223,7 +223,8 @@ struct AppScene: View {
                                     onCompare: { showingCompare = true }, onSignIn: { showingAuth = true })
             }
             .navigationDestination(isPresented: $showingCompare) {
-                CompareStocksScene(model: screenerModel, onOpenStock: explore, onDiscover: { showingCompare = false; showingDiscover = true })
+                CompareStocksScene(model: screenerModel, onOpenStock: explore, onDiscover: { showingCompare = false; showingDiscover = true },
+                                   onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true })
             }
             .navigationDestination(item: $alertsTarget) { target in
                 AlertsScene(model: watchlistsModel, symbol: target.isEmpty ? nil : target, onOpenStock: explore)

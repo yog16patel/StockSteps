@@ -33,6 +33,11 @@ class UserApi(
         send(HttpMethod.Get, "portfolio/accounts/${accountId.segment()}/analytics?period=${period.label}" + (benchmark?.let { "&benchmark=${it.name}" } ?: ""), expectedOwner = expectedOwner)
     suspend fun entitlements(): org.example.stocksteps.portfolio.analytics.Entitlements = send(HttpMethod.Get, "entitlements")
     suspend fun savedScreens(): org.example.stocksteps.screener.SavedScreensResponse = send(HttpMethod.Get, "screens")
+    /** Company Comparison Phase 3 for a signed-in account: the server decides StockSteps+ (3Y/5Y, advanced metrics). */
+    suspend fun compareHistory(symbols: List<String>, range: org.example.stocksteps.screener.HistoryRange, expectedOwner: String? = null): org.example.stocksteps.screener.HistoricalComparison {
+        require(symbols.all { Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(it) })
+        return send(HttpMethod.Get, "compare/history?symbols=${symbols.joinToString(",") { it.uppercase() }.encodeURLParameter()}&range=${range.label}", expectedOwner = expectedOwner)
+    }
     suspend fun earningsFollowing(query: org.example.stocksteps.earnings.EarningsCalendarQuery): org.example.stocksteps.earnings.EarningsCalendarPage {
         val params = io.ktor.http.ParametersBuilder().apply {
             append("from", query.from); append("to", query.to); append("pageSize", query.pageSize.toString())

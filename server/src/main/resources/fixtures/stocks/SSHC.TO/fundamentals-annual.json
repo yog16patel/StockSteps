@@ -1,0 +1,62 @@
+{
+    "symbol": "SSHC.TO",
+    "history": [
+        {
+            "period": "FY",
+            "fiscalYear": 2026,
+            "date": "2026-03-31",
+            "currency": "CAD",
+            "revenue": 305000000,
+            "netIncome": -15000000,
+            "epsDiluted": -0.31
+        },
+        {
+            "period": "FY",
+            "fiscalYear": 2025,
+            "date": "2025-03-31",
+            "currency": "CAD",
+            "revenue": 260000000,
+            "netIncome": -22000000,
+            "epsDiluted": -0.45
+        },
+        {
+            "period": "FY",
+            "fiscalYear": 2024,
+            "date": "2024-03-31",
+            "currency": "USD",
+            "revenue": 210000000,
+            "netIncome": -30000000,
+            "epsDiluted": -0.6
+        },
+        {
+            "period": "FY",
+            "fiscalYear": 2023,
+            "date": "2023-03-31",
+            "currency": "USD",
+            "revenue": 150000000,
+            "netIncome": -35000000,
+            "epsDiluted": -0.7
+        },
+        {
+            "period": "FY",
+            "fiscalYear": 2022,
+            "date": "2022-03-31",
+            "currency": "USD",
+            "revenue": 90000000,
+            "netIncome": -40000000,
+            "epsDiluted": -0.8
+        },
+        {
+            "period": "FY",
+            "fiscalYear": 2021,
+            "date": "2021-03-31",
+            "currency": "USD",
+            "revenue": 40000000,
+            "netIncome": -42000000,
+            "epsDiluted": -0.85
+        }
+    ],
+    "warnings": [
+        "Fictional sample data for development; not a real company."
+    ]
+}

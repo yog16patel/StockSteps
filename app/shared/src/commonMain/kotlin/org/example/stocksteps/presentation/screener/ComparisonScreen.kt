@@ -46,7 +46,8 @@ internal fun ComparisonScreen(
     onRetry: () -> Unit,
     onDiscover: () -> Unit,
     onDismissMessage: () -> Unit,
-    guidance: GuidanceActions = GuidanceActions()
+    guidance: GuidanceActions = GuidanceActions(),
+    history: HistoryActions = HistoryActions()
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -90,6 +91,7 @@ internal fun ComparisonScreen(
                     ComparisonEntry.More -> StockButton(if (state.showMore) "Hide extra metrics" else "More metrics (${state.advancedCount})", onClick = guidance.onToggleMore,
                         variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth().semantics { stateDescription = if (state.showMore) "Expanded" else "Collapsed" })
                     ComparisonEntry.Chart -> PerformanceCard(state, onPeriod, onRetry)
+                    ComparisonEntry.History -> HistoricalComparisonCard(state, history)
                     ComparisonEntry.Observations -> StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                         Text("What the numbers show", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
                         state.observations.forEach { o ->
@@ -200,6 +202,7 @@ internal sealed class ComparisonEntry(val key: String) {
     class Metric(val section: ComparisonSection, val row: ComparisonRow) : ComparisonEntry("row-${section.title}-${row.id}")
     data object More : ComparisonEntry("more")
     data object Chart : ComparisonEntry("chart")
+    data object History : ComparisonEntry("history")
     data object Observations : ComparisonEntry("observations")
     data object Notes : ComparisonEntry("notes")
 }
@@ -218,6 +221,7 @@ internal fun comparisonEntries(state: ComparisonUiState): List<ComparisonEntry> 
         if (state.showMore) state.sections.filter { it.advanced }.forEach(::section)
     }
     add(ComparisonEntry.Chart)
+    if (state.historyEnabled) add(ComparisonEntry.History)
     if (state.observations.isNotEmpty()) add(ComparisonEntry.Observations)
     if (state.columns.isNotEmpty()) add(ComparisonEntry.Notes)
 }

@@ -1,0 +1,10 @@
+{
+    "symbol": "SSHC.TO",
+    "companyName": "StockSteps Sample History Co (fictional)",
+    "description": "Fictional sample company for development and tests (not a real issuer). Its financial history deliberately includes a zero-revenue quarter, a missing quarter, a missing diluted EPS value, a change of reporting currency and losses, to exercise Historical Comparison edge cases.",
+    "sector": "Technology",
+    "industry": "Software - Application",
+    "country": "CA",
+    "currency": "CAD",
+    "exchange": "TSX"
+}

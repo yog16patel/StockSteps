@@ -11,6 +11,7 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.launch
 import org.example.stocksteps.userdata.WatchDataService
+import org.example.stocksteps.screener.comparisonHistoryRoutes
 import org.example.stocksteps.screener.RequestRateLimiter
 import org.example.stocksteps.screener.SavedScreensService
 import org.example.stocksteps.screener.savedScreenRoutes
@@ -195,6 +196,15 @@ fun Application.module() {
             )
             screenerRoutes(screener, RequestRateLimiter(System.getenv("SCREENER_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 60))
             savedScreenRoutes(sources.userAuth, SavedScreensService(userData, entitlements, sources.marketClock::millis))
+            // Company Comparison Phase 3: free 1Y quarterly history; 3Y/5Y and advanced metrics verified as StockSteps+ on the server.
+            comparisonHistoryRoutes(org.example.stocksteps.screener.ComparisonHistoryService(
+                stocks = stockService,
+                fundamentalsOf = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider).let { service -> { symbol: String, period: String -> service.getFundamentals(symbol, period) } },
+                entitlements = entitlements,
+                clock = sources.marketClock,
+                sampleData = dataMode == DataMode.MOCK,
+                source = if (dataMode == DataMode.MOCK) "Sample fixture financial statements (MOCK)" else "Financial Modeling Prep income statements (reported, as filed with regulators)"
+            ), sources.userAuth, RequestRateLimiter(System.getenv("SCREENER_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 60))
             userRoutes(sources.userAuth, WatchlistsService(userData, now = sources.marketClock::millis),
                 AlertsService(userData, watchMarket, alertRules, sources.alertsDeliveryNote, now = sources.marketClock::millis, isPlus = { entitlements.get(it).plus }), userData, now = sources.marketClock::millis)
             // Practice Portfolio: a separate simulated ledger (never mixed with the real portfolio).

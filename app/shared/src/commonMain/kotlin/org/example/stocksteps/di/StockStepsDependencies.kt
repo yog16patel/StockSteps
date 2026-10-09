@@ -91,6 +91,9 @@ internal class StockStepsDependencies(baseUrl: () -> String, clientFactory: () -
     /** Company data for Guided Research: loaded once per company and shared by all five steps. */
     fun guidedResearch(): org.example.stocksteps.learning.GuidedResearchRepository = org.example.stocksteps.learning.GuidedResearchRepository(application.koin.get())
     fun screenerData(): org.example.stocksteps.screener.ScreenerDataSource = org.example.stocksteps.screener.RemoteScreenerDataSource(application.koin.get())
+    /** Comparison history: the public free view for guests, the account route (server-checked StockSteps+) when signed in. */
+    fun comparisonHistory(user: org.example.stocksteps.data.userdata.UserApi?, uid: () -> String?): org.example.stocksteps.screener.ComparisonHistorySource =
+        org.example.stocksteps.screener.RemoteComparisonHistory(application.koin.get(), user, uid)
     fun searchViewModel(query: String, selection: StockSearchResult?): StockSearchViewModel =
         application.koin.get { parametersOf(SearchInitialState(query, selection)) }
 

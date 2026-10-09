@@ -17,7 +17,11 @@ class IosScreenerClient(baseUrl: () -> String, account: IosAccountClient?) {
     private val data = dependencies.screenerData()
     private val search = dependencies.searchStocks()
     val screener = ScreenerPresenter(data, SharedComparisonSelection.instance, scope, account?.savedScreens)
-    val comparison = ComparisonPresenter(data, SharedComparisonSelection.instance, scope)
+    private val accountGraph = account?.dependenciesForEarnings
+    /** Phase 3 history: public free view for guests; the signed-in route (server-checked StockSteps+) otherwise. */
+    val comparison = ComparisonPresenter(data, SharedComparisonSelection.instance, scope,
+        dependencies.comparisonHistory(accountGraph?.userApi) { accountGraph?.auth?.session?.value?.user?.id },
+        accountGraph?.comparisonAccount ?: kotlinx.coroutines.flow.flowOf(null))
 
     fun observeScreener(onChange: (ScreenerUiState) -> Unit): AccountSubscription {
         val job = scope.launch { screener.state.collect(onChange) }
@@ -40,6 +44,8 @@ class IosScreenerClient(baseUrl: () -> String, account: IosAccountClient?) {
     fun compareCompanies(symbols: List<String>, names: List<String>) =
         SharedComparisonSelection.instance.set(symbols.zip(names).map { (s, n) -> SelectedCompany(s, n) }.take(3))
     fun maxCompanies(): Int = MAX_COMPARED_COMPANIES
+    fun historyRanges(): List<HistoryRange> = HistoryRange.entries
+    fun historyMetrics(): List<HistoryMetric> = HistoryMetric.entries
     fun education(id: String): MetricInfo = MetricFormatter.education(id, ScreenerDefinitions.metric(id))
     fun rangeText(range: RangeFilter): String = when {
         range.min != null && range.max != null -> "${format(range.metric, range.min!!)}–${format(range.metric, range.max!!)}"

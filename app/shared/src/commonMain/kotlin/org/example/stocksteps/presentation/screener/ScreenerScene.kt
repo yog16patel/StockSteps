@@ -30,8 +30,8 @@ internal class ScreenerViewModel(data: ScreenerDataSource, saved: SavedScreensRe
     override fun onCleared() = close()
 }
 
-internal class ComparisonViewModel(data: ScreenerDataSource, private val close: () -> Unit) : ViewModel() {
-    val presenter = ComparisonPresenter(data, SharedComparisonSelection.instance, viewModelScope)
+internal class ComparisonViewModel(data: ScreenerDataSource, history: ComparisonHistorySource, account: kotlinx.coroutines.flow.Flow<String?>, private val close: () -> Unit) : ViewModel() {
+    val presenter = ComparisonPresenter(data, SharedComparisonSelection.instance, viewModelScope, history, account)
     override fun onCleared() = close()
 }
 
@@ -124,11 +124,15 @@ internal fun ComparisonScene(
     environment: BackendEnvironment,
     hinge: WindowHinge?,
     onOpenStock: (String) -> Unit,
-    onDiscover: () -> Unit
+    onDiscover: () -> Unit,
+    accounts: AccountDependencies? = null,
+    onUpgrade: () -> Unit = {},
+    onSignIn: () -> Unit = {}
 ) {
     val model = viewModel(key = "comparison:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
-        ComparisonViewModel(data.screenerData(), data::close)
+        ComparisonViewModel(data.screenerData(), data.comparisonHistory(accounts?.userApi) { accounts?.auth?.session?.value?.user?.id },
+            accounts?.comparisonAccount ?: kotlinx.coroutines.flow.flowOf(null), data::close)
     }
     val state by model.presenter.state.collectAsStateWithLifecycle()
     val search = remember(environment) { StockStepsDependencies(backend::currentUrl) }
@@ -154,6 +158,14 @@ internal fun ComparisonScene(
                     onRelated = model.presenter::openRelated,
                     onToggleMore = model.presenter::toggleMore,
                     onFocusHandled = model.presenter::clearFocus
+                ),
+                history = HistoryActions(
+                    onRange = model.presenter::selectHistoryRange,
+                    onMetric = model.presenter::selectHistoryMetric,
+                    onRetry = model.presenter::retryHistory,
+                    onDismissUpsell = model.presenter::dismissHistoryUpsell,
+                    onUpgrade = { model.presenter.dismissHistoryUpsell(); onUpgrade() },
+                    onSignIn = { model.presenter.dismissHistoryUpsell(); onSignIn() }
                 )
             )
         }

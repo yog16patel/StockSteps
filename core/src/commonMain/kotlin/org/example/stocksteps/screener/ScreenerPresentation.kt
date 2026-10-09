@@ -476,8 +476,23 @@ data class ComparisonUiState(
     /** "More metrics" expanded. */
     val showMore: Boolean = false,
     /** A row the screen should scroll to once (after opening a related metric); cleared by [ComparisonPresenter.clearFocus]. */
-    val focus: String? = null
+    val focus: String? = null,
+    // Phase 3: historical financial comparison (null source = section not offered).
+    val historyEnabled: Boolean = false,
+    val history: HistoricalComparison? = null,
+    val historyRange: HistoryRange = HistoryRange.ONE_YEAR,
+    val historyMetric: HistoryMetric = HistoryMetric.REVENUE,
+    val historyLoading: Boolean = false,
+    val historyError: String? = null,
+    /** The StockSteps+ preview to show (a locked range or metric was tapped); the free 1Y view stays. */
+    val historyUpsell: HistoryUpsell? = null
 ) {
+    /** From the server's answer only; never from a local flag. */
+    val historyPlus: Boolean get() = history?.access?.plus == true
+    fun historyLocked(range: HistoryRange): Boolean = range.premium && !historyPlus
+    fun historyLocked(metric: HistoryMetric): Boolean = metric.premium && !historyPlus
+    /** Formatted chart, table and observations for the selected metric (no calculations: values come from the server). */
+    fun historyView(): HistoryView? = history?.let { HistoryView.of(it, historyMetric) }
     fun guide(id: String): MetricInterpretation? = guides[id]
     fun isExpanded(id: String): Boolean = id in expanded
     fun isDeeper(id: String): Boolean = id in deeper
@@ -497,7 +512,11 @@ data class ComparisonUiState(
 class ComparisonPresenter(
     private val data: ScreenerDataSource,
     private val selection: ComparisonSelection,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    /** Phase 3 history; null hides the section (e.g. tests of earlier phases). */
+    private val historySource: ComparisonHistorySource? = null,
+    /** Who is asking and on which plan ("uid|PLUS|ACTIVE", null for guests): a change refetches, so an expired plan loses 3Y/5Y. */
+    private val account: Flow<String?> = flowOf(null)
 ) {
     private val mutable = MutableStateFlow(ComparisonUiState())
     val state: StateFlow<ComparisonUiState> = mutable.asStateFlow()
@@ -549,7 +568,63 @@ class ComparisonPresenter(
         }
     }
 
+    // ---------- Phase 3: historical financial comparison ----------
+
+    private val historyRange = MutableStateFlow(HistoryRange.ONE_YEAR)
+    private val historyRefreshes = MutableStateFlow(0)
+    /** Results for the current selection by "range|account" (switching back doesn't refetch; a plan change does). */
+    private val historyCache = HashMap<String, HistoricalComparison>()
+    private var historySymbols: List<String> = emptyList()
+
+    private fun startHistory(source: ComparisonHistorySource) = scope.launch {
+        mutable.update { it.copy(historyEnabled = true) }
+        combine(selection.selected.map { list -> list.map { it.symbol } }.distinctUntilChanged(), historyRange, account.distinctUntilChanged(), historyRefreshes) { s, r, a, n -> HistoryRequest(s, r, a, n) }
+            .collectLatest { request ->
+                if (request.symbols != historySymbols) { historyCache.clear(); historySymbols = request.symbols }
+                // Never show the previous selection's history while the new one loads.
+                mutable.update { s -> if (s.history?.companies?.map { it.symbol } == request.symbols) s else s.copy(history = null) }
+                if (request.symbols.size < 2) { mutable.update { it.copy(history = null, historyLoading = false, historyError = null) }; return@collectLatest }
+                val key = "${request.range}|${request.account}"
+                historyCache[key]?.let { cached -> mutable.update { it.copy(history = cached, historyLoading = false, historyError = null, historyRange = request.range) }; return@collectLatest }
+                mutable.update { it.copy(historyLoading = true, historyError = null) }
+                try {
+                    val result = source.history(request.symbols, request.range)
+                    historyCache[key] = result
+                    mutable.update { s -> s.copy(history = result, historyLoading = false, historyRange = request.range,
+                        historyMetric = s.historyMetric.takeIf { m -> result.metric(m) != null } ?: HistoryMetric.REVENUE) }
+                } catch (cause: Exception) {
+                    if (cause is CancellationException) throw cause
+                    val code = (cause as? StockStepsApiException)?.error?.code
+                    if (code == "PLUS_REQUIRED" || code == "SIGN_IN_REQUIRED") {
+                        // The server said no (e.g. the plan ended): back to the free view, with the preview.
+                        historyRange.value = HistoryRange.ONE_YEAR
+                        mutable.update { it.copy(historyLoading = false, historyRange = HistoryRange.ONE_YEAR, historyUpsell = HistoryUpsell.forRange(request.range, signIn = code == "SIGN_IN_REQUIRED")) }
+                    } else mutable.update { it.copy(historyLoading = false, historyError = (cause as? StockStepsApiException)?.error?.message ?: "Financial history couldn't be loaded. Check your connection and try again.") }
+                }
+            }
+    }
+    private data class HistoryRequest(val symbols: List<String>, val range: HistoryRange, val account: String?, val refresh: Int)
+
+    /** 3Y/5Y without StockSteps+ (as reported by the server) shows the preview instead of requesting protected data. */
+    fun selectHistoryRange(range: HistoryRange) {
+        val state = mutable.value
+        if (state.historyLocked(range)) { mutable.update { it.copy(historyUpsell = HistoryUpsell.forRange(range, signIn = state.history?.access?.signedIn != true)) }; return }
+        mutable.update { it.copy(historyRange = range) }
+        historyRange.value = range
+    }
+    fun selectHistoryMetric(metric: HistoryMetric) {
+        val state = mutable.value
+        if (state.historyLocked(metric) || state.history?.metric(metric) == null) {
+            if (metric.premium) mutable.update { it.copy(historyUpsell = HistoryUpsell.forMetric(metric, signIn = state.history?.access?.signedIn != true)) }
+            return
+        }
+        mutable.update { it.copy(historyMetric = metric) }
+    }
+    fun dismissHistoryUpsell() = mutable.update { it.copy(historyUpsell = null) }
+    fun retryHistory() { historyCache.clear(); historyRefreshes.value++ }
+
     init {
+        historySource?.let(::startHistory)
         scope.launch {
             combine(selection.selected.map { list -> list.map { it.symbol } }.distinctUntilChanged(), refreshes) { s, r -> s to r }.collectLatest { (symbols, _) ->
                 mutable.update { it.copy(selected = selection.selected.value) }

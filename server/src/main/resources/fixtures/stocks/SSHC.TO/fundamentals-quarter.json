@@ -1,0 +1,70 @@
+{
+    "symbol": "SSHC.TO",
+    "history": [
+        {
+            "period": "Q1",
+            "fiscalYear": 2027,
+            "date": "2026-06-30",
+            "currency": "CAD",
+            "revenue": 120000000,
+            "netIncome": 6000000,
+            "epsDiluted": 0.12
+        },
+        {
+            "period": "Q4",
+            "fiscalYear": 2026,
+            "date": "2026-03-31",
+            "currency": "CAD",
+            "revenue": 110000000,
+            "netIncome": -4000000,
+            "epsDiluted": -0.08
+        },
+        {
+            "period": "Q2",
+            "fiscalYear": 2026,
+            "date": "2025-09-30",
+            "currency": "CAD",
+            "revenue": 95000000,
+            "netIncome": -2000000
+        },
+        {
+            "period": "Q1",
+            "fiscalYear": 2026,
+            "date": "2025-06-30",
+            "currency": "CAD",
+            "revenue": 0,
+            "netIncome": -9000000,
+            "epsDiluted": -0.2
+        },
+        {
+            "period": "Q4",
+            "fiscalYear": 2025,
+            "date": "2025-03-31",
+            "currency": "CAD",
+            "revenue": 80000000,
+            "netIncome": -6000000,
+            "epsDiluted": -0.13
+        },
+        {
+            "period": "Q3",
+            "fiscalYear": 2025,
+            "date": "2024-12-31",
+            "currency": "CAD",
+            "revenue": 70000000,
+            "netIncome": -7000000,
+            "epsDiluted": -0.15
+        },
+        {
+            "period": "Q2",
+            "fiscalYear": 2025,
+            "date": "2024-09-30",
+            "currency": "USD",
+            "revenue": 60000000,
+            "netIncome": -8000000,
+            "epsDiluted": -0.17
+        }
+    ],
+    "warnings": [
+        "Fictional sample data for development; not a real company."
+    ]
+}

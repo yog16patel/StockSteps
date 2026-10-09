@@ -94,6 +94,9 @@ class AccountDependencies(
     val savedScreens: org.example.stocksteps.screener.SavedScreensRepository = graph.koin.get()
     /** Signed-in API (Firebase token per request), e.g. for tier-aware earnings. */
     val userApi: UserApi = graph.koin.get()
+    /** "uid|tier|status" for Company Comparison history: a sign-in, sign-out or plan change refetches (null = guest). */
+    val comparisonAccount: kotlinx.coroutines.flow.Flow<String?> get() = kotlinx.coroutines.flow.combine(
+        auth.session.map { it.user?.id }, entitlements.state) { uid, plan -> uid?.let { "$it|${plan?.tier}|${plan?.status}" } }
     /** Created on first use (Insights), not at app start. */
     val insightsPresenter: org.example.stocksteps.portfolio.analytics.PortfolioAnalyticsPresenter by lazy { graph.koin.get() }
     val alerts: AlertsRepository = graph.koin.get()

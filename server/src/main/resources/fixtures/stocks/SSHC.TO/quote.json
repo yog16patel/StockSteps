@@ -1,0 +1,16 @@
+{
+    "symbol": "SSHC.TO",
+    "companyName": "StockSteps Sample History Co (fictional)",
+    "price": 12.4,
+    "change": 0.1,
+    "changePercent": 0.813,
+    "dayHigh": 12.55,
+    "dayLow": 12.2,
+    "previousClose": 12.3,
+    "volume": 410000,
+    "timestamp": 1791403200,
+    "marketCap": 620000000,
+    "open": 12.3,
+    "yearHigh": 14.1,
+    "yearLow": 8.9
+}

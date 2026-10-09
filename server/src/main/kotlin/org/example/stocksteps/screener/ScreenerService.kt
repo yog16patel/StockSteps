@@ -89,6 +89,15 @@ class FmpScreenerUniverse(
 
 class ScreenerRequestException(val status: Int, val code: String, message: String) : Exception(message)
 
+/** 2–[MAX_COMPARED_COMPANIES] distinct, exchange-qualified symbols (shared by every comparison route). */
+fun parseComparisonSymbols(raw: String?): List<String> {
+    val list = raw.orEmpty().split(',').map { it.trim().uppercase() }.filter { it.isNotEmpty() }
+    if (list.size !in 2..MAX_COMPARED_COMPANIES) throw ScreenerRequestException(400, "INVALID_COMPARISON", "Compare between 2 and $MAX_COMPARED_COMPANIES companies.")
+    if (list.distinct().size != list.size) throw ScreenerRequestException(400, "INVALID_COMPARISON", "Each company can be compared once.")
+    if (list.any { !Regex("[A-Z0-9][A-Z0-9.-]{0,19}").matches(it) }) throw ScreenerRequestException(400, "INVALID_SYMBOL", "Invalid symbol.")
+    return list
+}
+
 /**
  * Screening and comparison over the defined universe. Records are built by [CompanyRecordBuilder]
  * from the same quote/profile/fundamentals services Company Details uses.
@@ -252,13 +261,7 @@ class ScreenerService(
 
     // ---------- Comparison ----------
 
-    private fun symbols(raw: String?): List<String> {
-        val list = raw.orEmpty().split(',').map { it.trim().uppercase() }.filter { it.isNotEmpty() }
-        if (list.size !in 2..MAX_COMPARED_COMPANIES) throw ScreenerRequestException(400, "INVALID_COMPARISON", "Compare between 2 and $MAX_COMPARED_COMPANIES companies.")
-        if (list.distinct().size != list.size) throw ScreenerRequestException(400, "INVALID_COMPARISON", "Each company can be compared once.")
-        if (list.any { !Regex("[A-Z0-9][A-Z0-9.-]{0,19}").matches(it) }) throw ScreenerRequestException(400, "INVALID_SYMBOL", "Invalid symbol.")
-        return list
-    }
+    private fun symbols(raw: String?): List<String> = parseComparisonSymbols(raw)
 
     suspend fun compare(rawSymbols: String?): ComparisonResponse = coroutineScope {
         val list = symbols(rawSymbols)
