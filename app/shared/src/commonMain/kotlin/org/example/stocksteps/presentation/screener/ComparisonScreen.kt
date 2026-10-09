@@ -48,7 +48,8 @@ internal fun ComparisonScreen(
     onDismissMessage: () -> Unit,
     guidance: GuidanceActions = GuidanceActions(),
     history: HistoryActions = HistoryActions(),
-    onResearch: () -> Unit = {}
+    onResearch: () -> Unit = {},
+    onAskAi: () -> Unit = {}
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -94,6 +95,7 @@ internal fun ComparisonScreen(
                     ComparisonEntry.Chart -> PerformanceCard(state, onPeriod, onRetry)
                     ComparisonEntry.History -> HistoricalComparisonCard(state, history)
                     ComparisonEntry.Research -> ResearchEntryCard(onResearch)
+                    ComparisonEntry.Ai -> ComparisonAiEntryCard(onAskAi)
                     ComparisonEntry.Observations -> StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                         Text("What the numbers show", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
                         state.observations.forEach { o ->
@@ -205,6 +207,7 @@ internal sealed class ComparisonEntry(val key: String) {
     data object More : ComparisonEntry("more")
     data object Chart : ComparisonEntry("chart")
     data object History : ComparisonEntry("history")
+    data object Ai : ComparisonEntry("ai")
     data object Research : ComparisonEntry("research")
     data object Observations : ComparisonEntry("observations")
     data object Notes : ComparisonEntry("notes")
@@ -226,6 +229,7 @@ internal fun comparisonEntries(state: ComparisonUiState): List<ComparisonEntry> 
     add(ComparisonEntry.Chart)
     if (state.historyEnabled) add(ComparisonEntry.History)
     if (state.historyEnabled && state.columns.isNotEmpty()) add(ComparisonEntry.Research)
+    if (state.historyEnabled && state.columns.isNotEmpty()) add(ComparisonEntry.Ai)
     if (state.observations.isNotEmpty()) add(ComparisonEntry.Observations)
     if (state.columns.isNotEmpty()) add(ComparisonEntry.Notes)
 }

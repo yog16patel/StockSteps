@@ -15,12 +15,18 @@ struct ComparisonResearchView: View {
     let onSignIn: () -> Void
     @Environment(\.colorScheme) private var scheme
     @State private var deleting: ResearchSessionInfo?
+    /// Phase 5: the research question to ask StockSteps AI about (its note is only sent after the user agrees there).
+    @State private var asking: AskAiTarget?
 
     private var client: IosScreenerClient { model.client }
     private var presenter: ComparisonResearchPresenter? { model.client.research }
 
     var body: some View {
         dialogs(exporter(page))
+            .navigationDestination(item: $asking) { target in
+                ComparisonAiView(model: model, researchQuestionId: target.questionId, researchSessionId: target.sessionId, researchHasNote: target.hasNote,
+                                 onUpgrade: onUpgrade, onSignIn: onSignIn)
+            }
     }
 
     private var page: some View {
@@ -213,6 +219,11 @@ struct ComparisonResearchView: View {
                     .frame(minHeight: 48)
                 } else if q.saving { Text("Saving…").font(.caption).foregroundStyle(colors.textSecondary) }
             }
+            Button("Ask StockSteps AI about this") {
+                asking = AskAiTarget(questionId: q.question.id, sessionId: model.research?.open?.session.id, hasNote: !q.note.isEmpty)
+            }
+            .frame(minHeight: 44)
+            .accessibilityLabel("Ask StockSteps AI about: \(q.question.text). StockSteps+.")
         }
         .stockCard()
     }
@@ -246,4 +257,12 @@ struct PDFReportFile: FileDocument {
     init(data: Data) { self.data = data }
     init(configuration: ReadConfiguration) throws { data = configuration.file.regularFileContents ?? Data() }
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
+}
+
+/// A research question handed to the AI assistant.
+struct AskAiTarget: Hashable, Identifiable {
+    let questionId: String
+    let sessionId: String?
+    let hasNote: Bool
+    var id: String { questionId }
 }

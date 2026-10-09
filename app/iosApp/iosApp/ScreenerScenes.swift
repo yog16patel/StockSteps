@@ -12,6 +12,7 @@ final class ScreenerModel {
     private(set) var screener: ScreenerUiState?
     private(set) var comparison: ComparisonUiState?
     private(set) var research: ResearchUiState?
+    private(set) var ai: ComparisonAiUiState?
     @ObservationIgnored let client: IosScreenerClient
     @ObservationIgnored private var subscriptions: [any AccountSubscription] = []
 
@@ -20,7 +21,8 @@ final class ScreenerModel {
         subscriptions = [
             client.observeScreener { [weak self] in self?.screener = $0 },
             client.observeComparison { [weak self] in self?.comparison = $0 },
-            client.observeResearch { [weak self] in self?.research = $0 }
+            client.observeResearch { [weak self] in self?.research = $0 },
+            client.observeAi { [weak self] in self?.ai = $0 }
         ]
         client.screener.start()
     }
@@ -471,11 +473,13 @@ struct CompareStocksScene: View {
     var onUpgrade: () -> Void = {}
     var onSignIn: () -> Void = {}
     @State private var showingResearch = false
+    @State private var showingAi = false
 
     var body: some View {
         CompareStocksScreen(state: model.comparison, client: model.client, onOpen: onOpenStock, onDiscover: onDiscover, onUpgrade: onUpgrade, onSignIn: onSignIn,
-                            onResearch: { showingResearch = true })
+                            onResearch: { showingResearch = true }, onAskAi: { showingAi = true })
             .navigationDestination(isPresented: $showingResearch) { ComparisonResearchView(model: model, onUpgrade: onUpgrade, onSignIn: onSignIn) }
+            .navigationDestination(isPresented: $showingAi) { ComparisonAiView(model: model, onUpgrade: onUpgrade, onSignIn: onSignIn) }
             .navigationTitle("Compare")
             .navigationBarTitleDisplayMode(.inline)
     }
@@ -494,6 +498,7 @@ struct CompareStocksScreen: View {
     var onUpgrade: () -> Void = {}
     var onSignIn: () -> Void = {}
     var onResearch: () -> Void = {}
+    var onAskAi: () -> Void = {}
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// nil = closed; "" = add; otherwise the symbol being replaced.
@@ -571,6 +576,8 @@ struct CompareStocksScreen: View {
                 }
                 .stockCard()
             }
+            // Phase 5 entry point (StockSteps+; the AI screen shows the preview for free accounts).
+            if state.historyEnabled && !state.columns.isEmpty { ComparisonAiEntryCard(onOpen: onAskAi) }
             if !state.observations.isEmpty {
                 VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                     Text("What the numbers show").font(.headline).accessibilityAddTraits(.isHeader)

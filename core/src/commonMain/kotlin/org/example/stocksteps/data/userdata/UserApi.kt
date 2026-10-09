@@ -49,6 +49,11 @@ class UserApi(
     /** StockSteps+ PDF report bytes (streamed; never stored on the server). */
     suspend fun exportResearch(id: String): ByteArray = send(HttpMethod.Post, "comparison-research/${id.segment()}/export")
 
+    // Company Comparison Phase 5 (StockSteps+): the server checks the plan and quota, builds the financial context itself and validates every answer.
+    suspend fun compareAiSummary(request: org.example.stocksteps.screener.ComparisonAiRequest): org.example.stocksteps.screener.ComparisonAiResponse = send(HttpMethod.Post, "compare/ai/summary", request)
+    suspend fun compareAiAsk(request: org.example.stocksteps.screener.ComparisonAiRequest): org.example.stocksteps.screener.ComparisonAiResponse = send(HttpMethod.Post, "compare/ai/ask", request)
+    suspend fun compareAiUsage(): org.example.stocksteps.screener.ComparisonAiUsage = send(HttpMethod.Get, "compare/ai/usage")
+
     /** Company Comparison Phase 3 for a signed-in account: the server decides StockSteps+ (3Y/5Y, advanced metrics). */
     suspend fun compareHistory(symbols: List<String>, range: org.example.stocksteps.screener.HistoryRange, expectedOwner: String? = null): org.example.stocksteps.screener.HistoricalComparison {
         require(symbols.all { Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(it) })

@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import org.example.stocksteps.userdata.WatchDataService
 import org.example.stocksteps.screener.comparisonHistoryRoutes
 import org.example.stocksteps.screener.comparisonResearchRoutes
+import org.example.stocksteps.screener.comparisonAiRoutes
 import org.example.stocksteps.service.usageMetricsRoutes
 import org.example.stocksteps.service.ProviderUsageMeter
 import org.example.stocksteps.screener.RequestRateLimiter
@@ -216,6 +217,22 @@ fun Application.module() {
                 history = comparisonHistory, clock = sources.marketClock,
                 plusLimit = System.getenv("RESEARCH_PLUS_SESSION_LIMIT")?.toIntOrNull()?.takeIf { it > 0 } ?: 100
             ), sources.userAuth, RequestRateLimiter(System.getenv("RESEARCH_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 120))
+            // Company Comparison Phase 5: StockSteps+ AI assistant. MOCK = deterministic templates (no Gemini); REAL = Gemini only when a key is set.
+            // Context reuses the comparison/history caches; quotas are durable (users/{uid}/meta/aiUsage in Firestore).
+            comparisonAiRoutes(org.example.stocksteps.screener.ComparisonAiService(
+                comparison = { symbols -> screener.compare(symbols.joinToString(",")) },
+                history = comparisonHistory, store = userData, entitlements = entitlements,
+                provider = if (dataMode == DataMode.MOCK) org.example.stocksteps.screener.TemplateComparisonAi()
+                    else AppConfig.geminiApiKey?.let { org.example.stocksteps.screener.GeminiComparisonAi(HttpClientProvider.client, it, System.getenv("GEMINI_COMPARISON_MODEL") ?: AppConfig.geminiNewsModel) },
+                quota = org.example.stocksteps.screener.ComparisonAiQuota(userData, sources.marketClock,
+                    dailyLimit = System.getenv("COMPARISON_AI_DAILY_LIMIT")?.toIntOrNull()?.takeIf { it > 0 } ?: 10,
+                    windowLimit = System.getenv("COMPARISON_AI_30_DAY_LIMIT")?.toIntOrNull()?.takeIf { it > 0 } ?: 50,
+                    globalDailyBudget = System.getenv("COMPARISON_AI_GLOBAL_DAILY_BUDGET")?.toIntOrNull()?.takeIf { it > 0 } ?: 2_000),
+                clock = sources.marketClock, sampleData = dataMode == DataMode.MOCK,
+                source = if (dataMode == DataMode.MOCK) "Sample fixture data (MOCK)" else "Financial Modeling Prep; quarterly results from the earnings data provider",
+                timeoutMillis = if (dataMode == DataMode.MOCK) 3_000 else 20_000,
+                pricing = org.example.stocksteps.screener.AiPricing.fromEnvironment()
+            ), sources.userAuth, RequestRateLimiter(System.getenv("COMPARISON_AI_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 20))
             usageMetricsRoutes(ProviderUsageMeter.shared, System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
             userRoutes(sources.userAuth, WatchlistsService(userData, now = sources.marketClock::millis),
                 AlertsService(userData, watchMarket, alertRules, sources.alertsDeliveryNote, now = sources.marketClock::millis, isPlus = { entitlements.get(it).plus }), userData, now = sources.marketClock::millis)

@@ -23,6 +23,8 @@ import java.util.concurrent.TimeUnit
  * - `users/{uid}/practice/account` — `data`: PracticeAccountData JSON (simulated ledger, trial, challenges, idempotency keys).
  * - `users/{uid}/meta/learning` — `data`: LearningProgressDocument JSON (Guided Research progress).
  * - `users/{uid}/meta/entitlements` — `plan`, `expiresAt`, `data`: StoredEntitlement JSON (billing writes it).
+ * - `users/{uid}/meta/aiUsage` — `data`: AiUsageDocument JSON (timestamps and idempotency keys of charged AI requests
+ *   in the rolling window; no questions, answers or notes). Updated in a transaction, so concurrent requests can't exceed a quota.
  * - `alertRules/{ruleId}` — `ownerUid`, `status`, `data`: AlertRule JSON.
  * - `alertEvents/{eventId}` — `ownerUid`, `triggeredAt`, `data`: AlertEvent JSON (id = idempotency key).
  * - `notificationOutbox/{id}` — `status`, `leaseUntil`, `eventId`, `data`: OutboxItem JSON.
@@ -161,6 +163,16 @@ class FirestoreUserDataStore(private val db: Firestore) : UserDataStore {
             val current = tx.get(reference).get().getString("data")?.let { decode(serializer, it) } ?: org.example.stocksteps.learning.LearningProgressDocument()
             val (next, result) = block(current)
             if (next != current) tx.set(reference, mapOf("data" to encode(serializer, next)))
+            result
+        }.await()
+    }
+
+    override suspend fun <T> updateAiUsage(uid: String, block: (AiUsageDocument) -> Pair<AiUsageDocument, T>): T = io {
+        val reference = db.collection("users").document(uid).collection("meta").document("aiUsage")
+        db.runTransaction { tx ->
+            val current = tx.get(reference).get().getString("data")?.let { decode(AiUsageDocument.serializer(), it) } ?: AiUsageDocument()
+            val (next, result) = block(current)
+            if (next != current) tx.set(reference, mapOf("data" to encode(AiUsageDocument.serializer(), next)))
             result
         }.await()
     }

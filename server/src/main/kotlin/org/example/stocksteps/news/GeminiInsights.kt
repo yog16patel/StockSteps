@@ -11,8 +11,15 @@ import org.example.stocksteps.service.MovementFacts
 import org.example.stocksteps.service.MovementNarrator
 
 /** One structured-JSON Gemini call (same request shape as [GeminiNewsSimplifier]). Never logs keys or bodies. */
+/** Token counts reported by the provider for one call (null fields when it didn't report them). */
+data class AiTokenUsage(val input: Int?, val output: Int?)
+
 internal class GeminiJsonCall(private val client: HttpClient, private val apiKey: String, private val model: String) {
-    suspend fun generate(systemPrompt: String, input: JsonObject, schema: JsonObject, maxOutputTokens: Int, timeoutMillis: Long): String {
+    suspend fun generate(systemPrompt: String, input: JsonObject, schema: JsonObject, maxOutputTokens: Int, timeoutMillis: Long): String =
+        generateWithUsage(systemPrompt, input, schema, maxOutputTokens, timeoutMillis).first
+
+    /** Same call, plus the provider's own `usageMetadata` (actual token counts, never estimated). */
+    suspend fun generateWithUsage(systemPrompt: String, input: JsonObject, schema: JsonObject, maxOutputTokens: Int, timeoutMillis: Long): Pair<String, AiTokenUsage?> {
         val body = buildJsonObject {
             putJsonObject("systemInstruction") { put("parts", parts(systemPrompt)) }
             put("contents", buildJsonArray { add(buildJsonObject { put("role", "user"); put("parts", parts(input.toString())) }) })
@@ -29,14 +36,16 @@ internal class GeminiJsonCall(private val client: HttpClient, private val apiKey
             setBody(body.toString())
             timeout { requestTimeoutMillis = timeoutMillis }
         }
-        check(response.status.isSuccess()) { "AI provider unavailable" }
+        check(response.status.isSuccess()) { "AI provider unavailable (${response.status.value})" }
         val envelope = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+        val usage = envelope["usageMetadata"]?.jsonObject?.let { u -> AiTokenUsage(u["promptTokenCount"]?.jsonPrimitive?.intOrNull, u["candidatesTokenCount"]?.jsonPrimitive?.intOrNull) }
         val candidate = envelope["candidates"]?.jsonArray?.singleOrNull()?.jsonObject ?: error("Invalid AI response")
         check(candidate["finishReason"]?.jsonPrimitive?.content == "STOP") { "Incomplete AI response" }
-        return candidate["content"]?.jsonObject?.get("parts")?.jsonArray
+        val text = candidate["content"]?.jsonObject?.get("parts")?.jsonArray
             ?.filter { it.jsonObject["thought"]?.jsonPrimitive?.booleanOrNull != true }
             ?.joinToString("") { it.jsonObject["text"]?.jsonPrimitive?.content.orEmpty() }
             ?: error("Missing AI output")
+        return text to usage
     }
 
     private fun parts(text: String) = buildJsonArray { add(buildJsonObject { put("text", text) }) }

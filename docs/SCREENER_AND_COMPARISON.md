@@ -1,5 +1,6 @@
 # Smart Stock Screener & Stock Comparison
 
+> **Company Comparison Phase 5 — AI Comparison Assistant (2026-10-09, commit "Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS")** is documented first, then Phase 4.
 > **Company Comparison Phase 3 — Historical Financial Comparison (2026-10-09, commit "Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS")** is documented first, then
 > **Phase 2 — Guided Metric Interpretation (commit "Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS")**.
 > **Phase 1 review and completion** (commit "Improve Company Comparison Phase 1 for beginners on Android and iOS") follows it. Both
@@ -12,9 +13,172 @@
 | **2. Guided metric interpretation** | what each metric means, what these companies' values show, caveats, comparability, related metrics, research questions, learning summary | Free | **Implemented** |
 | **3. Historical financial comparison** | latest four quarters (free); 3Y/5Y annual history, growth, margin, EPS growth, revenue index (StockSteps+) | 1Y free; 3Y/5Y StockSteps+ | **Implemented** |
 | **4. Guided research checklist** | basic checklist, notes, progress, 3 sessions, basic summary (free); advanced checklist, more sessions, snapshots, detailed summary, PDF report (StockSteps+) | Free + StockSteps+ | **Implemented** |
-| 5. AI comparison assistant | `ComparisonExplainer` exists as an interface only (`NoComparisonExplainer`) | StockSteps+ | Not started |
+| **5. AI comparison assistant** | grounded summaries, follow-up questions, metric and history explanations, research-checklist help, cited evidence, durable quotas | StockSteps+ | **Implemented (MOCK-verified; REAL Gemini not live-verified)** |
 No paywall, entitlement check or upgrade prompt is applied to Phases 1–2. Phase 3's 3Y/5Y and advanced metrics are StockSteps+,
 enforced on the server; its free 1Y view needs no account.
+
+## Company Comparison — Phase 5: AI Comparison Assistant (StockSteps+)
+
+Helps beginners understand and investigate the differences between the selected companies, using only data StockSteps
+has already validated. Educational, never advice: no buy/sell/hold, picks, rankings, "better investment", price targets,
+predictions or unsupported causes. Part of the unified StockSteps+ plan (no separate AI subscription). No AI is called from
+the apps; the retired client-side `ComparisonExplainer`/`NoComparisonExplainer` no-op was removed in favour of the server-side
+`ComparisonAiExplainer`.
+
+### Free vs StockSteps+
+| Capability | Free / guest | StockSteps+ |
+|---|---|---|
+| Phases 1–2, Phase 3 1Y history, Phase 4 basic checklist, deterministic observations | Yes | Yes |
+| "Ask StockSteps AI" card on Compare | Shown; opens a preview (sign in / StockSteps+) | Yes |
+| AI comparison summary, history analysis (1Y/3Y/5Y), follow-up questions, metric explanations, research-question help | — | Yes, within fair-use quotas |
+
+The server reads the plan from `EntitlementService` on every request (fail closed: unreadable plan = 503 `ENTITLEMENT_UNAVAILABLE`,
+free/expired/payment-failed = 403 `PLUS_REQUIRED`, grace/canceled-but-paid = allowed). No client flag is trusted. Billing is still
+not implemented: upgrade buttons open Settings, as elsewhere (MOCK debug plans for development).
+
+### Pipeline (server, `server/.../screener/ComparisonAiService.kt`)
+verified Firebase identity → per-user rate limit (`COMPARISON_AI_REQUESTS_PER_MINUTE`, 20) and 4 KB body cap → request validation →
+StockSteps+ → **idempotency** (same user + key: same answer, never charged twice; in-flight duplicates coalesce) → **context** from
+the shared data layer → **question screen** (advice / injection answered without AI, not charged) → **shared cache** (public
+summaries only) → **durable quota reservation** → provider (timeout, one retry for transient failures, 4 concurrent calls) →
+**validation** (one regeneration, then a grounded fallback) → typed response with evidence, warnings, missing data and usage.
+
+### Financial grounding and evidence (`core/.../screener/ComparisonAi.kt`)
+- `ComparisonGrounding.build(comparison, history, focus, source, research)` builds a compact `ComparisonAiContext` from the cached
+  Phase 1 `ComparisonResponse` (via `ScreenerService.compare`, cached 10 min per company set in the service on top of the 6 h
+  fundamentals cache), the Phase 2 `ComparisonInterpretationEngine` and Phase 3 `ComparisonHistoryService.data()` (statement cache).
+  Gemini never fetches data and can't call FMP/Finnhub.
+- `ComparisonAiFocus` (deterministic keyword routing) keeps it small: a P/E question gets P/E and P/S only; history points are
+  included only for history questions (max 40 points, 72 evidence items).
+- Every citable fact is a `FinancialEvidence` with a stable id — `AAPL.pe`, `MSFT.h.revenue.FY2025`, `I.netMargin` (Phase 2
+  reading), `H.revenue.0` (Phase 3 observation), `L.pe` (education) — plus kind (`REPORTED`, `CALCULATED`, `PROFILE`,
+  `EDUCATION`), display value exactly as the apps format it, currency, fiscal period, period end, source, retrieval time and
+  `definitionVersion` (`compare-evidence-v1`). Latest-quarter growth and Phase 2/3 readings are `CALCULATED`; other metric values
+  come with the company's fundamentals (the record doesn't say per value whether the provider or the backend derived a ratio).
+- Gaps are listed in `missing` ("RIVN p/e: Not meaningful: … a loss") and never become numbers; comparison-wide limits
+  (currencies, fiscal calendars, staleness, sample data) come first in `warnings`, then industry and per-metric caveats.
+- `version` (all facts in this context) keys the shared cache; `dataVersion` (the companies' underlying data, any question) binds
+  conversations and is returned as `contextVersion`.
+
+### Validation (`ComparisonAiValidator`, shared, unit-tested)
+- Evidence ids must exist in the context (hallucinated ids rejected). Observations need ≥ 1 evidence id; numbers in an observation
+  must come from the evidence **it cites** (with its labels and periods; 0–2-place roundings allowed); numbers elsewhere must come
+  from the context. The user's question and note never make a number "verified".
+- Rejected: links/markup, instruction or secret leakage, advice ("you should buy", "price target"), rankings/judgements ("better
+  investment", "undervalued", "outperform") unless negated, predictions unless negated, causal claims without hedging ("because…"
+  without "may/could/worth investigating"). A sentence copied verbatim (≥ 25 chars) from StockSteps' own verified text is exempt.
+- Policy: unverifiable observations/caveats/questions are **removed** (`removedStatements`, with a note); an invalid summary or
+  nothing verifiable → **one regeneration** → **fallback** (`scope = FALLBACK`): StockSteps' Phase 2/3 readings with their evidence,
+  "AI answer unavailable", **not charged**. Known gap: the number check is sign-insensitive.
+
+### Conversations and follow-ups
+Private to the user, bound to the company set and `dataVersion`, last 3 exchanges sent (questions ≤ 300 chars, answers truncated),
+max 6 kept, 6 h TTL, per instance (a follow-up on another instance starts a new conversation; nothing leaks). Changing companies,
+another user's conversation id or changed data starts a new conversation (`conversationReset`, note). The app clears earlier turns
+when the selection changes (`resetNote`).
+
+### Phase 4 research checklist integration
+- "Ask StockSteps AI about this" on every checklist question (both platforms) opens the assistant with that question.
+- Notes are **never sent by the app**. With a saved note the user first chooses "Include my note" or "Ask without it" (dialog
+  explains what is sent). With consent the server reads only that question's note from the caller's own session
+  (`users/{uid}/comparisonResearch/{id}`; another account's id is 404, other companies 409 `RESEARCH_MISMATCH`, empty 400 `NO_NOTE`).
+- Nothing is written back: no note rewrite, no status change, no AI text saved as the user's. "Copy to my note draft" puts a
+  labelled "AI suggestion (StockSteps AI, date): …" into the **draft** of an open matching session; the user must tap Save note.
+- Answers using a note are never cached or shared (`usedNote = true`); summaries can't take notes at all (400).
+
+### Historical AI analysis
+Reuses Phase 3 data (`ComparisonHistoryService.data`): 1Y = fiscal quarters, 3Y/5Y = fiscal years (default 5Y; evidence periods say
+"(fiscal quarter)" / "(fiscal year)"). The Phase 3 rule is re-checked (`range.premium && !plus` → 403) even though AI is already
+StockSteps+. Missing periods are listed, never filled. Prompts and templates say past results don't predict future results.
+
+### Backend API (signed-in; errors are `ApiError { code, message }`)
+| Method | Path | Body / result |
+|---|---|---|
+| POST | `/api/v1/me/compare/ai/summary` | `ComparisonAiRequest` with `type` `OVERVIEW` or `HISTORY` (+ `historyRange` 1Y/3Y/5Y) → `ComparisonAiResponse` |
+| POST | `/api/v1/me/compare/ai/ask` | `type` `QUESTION` (`question`), `METRIC` (`metricId`, a Phase 1 beginner metric), `RESEARCH` (`researchQuestionId`, optional `researchSessionId` + `includeNotes`) + optional `conversationId`, `contextVersion` |
+| GET | `/api/v1/me/compare/ai/usage` | `ComparisonAiUsage` (plan, daily and 30-day used/limits, reset times, availability) |
+
+Every request carries `idempotencyKey` (`[A-Za-z0-9_-]{8,64}`). Client financial figures are never accepted. Response:
+summary, observations (category, text, whyItMatters, evidenceIds), caveats, researchQuestions, cited `evidence`, missingData,
+warnings, scope (`ANSWERED`, `INSUFFICIENT_DATA`, `DECLINED`, `FALLBACK`), dataAsOf, generatedAt, contextVersion, promptVersion,
+model, disclaimer, usage, cached, usedNote, conversationId/Reset, removedStatements, note, sample.
+Errors: 400 `INVALID_REQUEST`/`INVALID_QUESTION`/`INVALID_METRIC`/`UNKNOWN_QUESTION`/`INVALID_TYPE`/`INVALID_HISTORY_RANGE`/`NO_NOTE`,
+401, 403 `PLUS_REQUIRED`, 404 `RESEARCH_NOT_FOUND`, 409 `RESEARCH_MISMATCH`, 413, 429 `RATE_LIMITED`/`AI_DAILY_LIMIT`/`AI_QUOTA_EXCEEDED`/
+`AI_RATE_LIMITED`, 502 `AI_INVALID_OUTPUT`, 503 `ENTITLEMENT_UNAVAILABLE`/`AI_UNAVAILABLE`/`AI_BUDGET`/`COMPARISON_UNAVAILABLE`/
+`USER_DATA_UNAVAILABLE`, 504 `AI_TIMEOUT`.
+
+### Quotas and charging policy (configurable; proposals, not confirmed product settings)
+- `COMPARISON_AI_DAILY_LIMIT` = 10 per UTC day and `COMPARISON_AI_30_DAY_LIMIT` = 50 per rolling 30 days, per user, shared by
+  every comparison-AI endpoint (summary, history, questions, metric and research help: one request = one unit). Limits are only
+  in server configuration; the apps show what `/usage` returns.
+- **Durable**: `ComparisonAiQuota` stores charges (id, feature, time, idempotency key; no content) in `users/{uid}/meta/aiUsage`
+  through `UserDataStore.updateAiUsage` — a Firestore transaction in REAL, so parallel requests and multiple Cloud Run instances
+  can't exceed it (stores without durable storage refuse; no in-memory fallback in REAL). Reserved **before** the provider call.
+- Charged: an AI-generated answer (`ANSWERED`/`INSUFFICIENT_DATA`). Not charged: declined questions, fallbacks, provider
+  timeouts/failures/invalid output (released), shared-cache hits, coalesced and idempotent duplicates.
+- `COMPARISON_AI_GLOBAL_DAILY_BUDGET` (2,000) is a per-instance cost safeguard (503 `AI_BUDGET`), not a user allowance.
+- Coordination: Earnings Phase 5 AI keeps its own bounded daily allowances (`EarningsAiQuotaLedger`, in process memory); the
+  durable ledger has a `feature` field so earnings can migrate to it. Neither feature is unlimited.
+
+### Cost optimization
+- Financial data: one cached comparison per company set (10 min) on top of the existing fundamentals/statement caches; follow-ups,
+  metric questions and research help never refetch (test asserts one comparison load for several questions). Notes edits never
+  touch providers (Phase 4). Attributed as feature `comparison-ai` in `ProviderUsageMeter`.
+- Gemini: compact focused context; one schema-constrained call per request (`responseJsonSchema`, temperature 0.1, max 1,600/1,200
+  output tokens); public summaries shared across StockSteps+ users keyed by companies + type + range + context version + prompt
+  version + model (never user content); in-flight coalescing; idempotency.
+- Observability (`/internal/metrics/usage`, counts only, no content): `ai.comparison.requests/generated/cacheHit/cacheMiss/
+  coalesced/duplicate/declined/fallback/rejected/regenerated/removedStatements/timeouts/failures/providerCalls/providerResponses/
+  latencyMs/inputTokens/outputTokens/model.<model>/notesIncluded/deniedFree`, and `estimatedCostMicroUsd` only when
+  `GEMINI_PRICE_INPUT_PER_MTOK_USD` and `GEMINI_PRICE_OUTPUT_PER_MTOK_USD` are set (from the provider's own `usageMetadata`
+  token counts; no invented prices). `GeminiJsonCall.generateWithUsage` was added for this (existing callers unchanged).
+
+### Gemini (REAL)
+`GeminiComparisonAi` reuses `GeminiJsonCall` and `AppConfig.geminiApiKey` (server only); model `GEMINI_COMPARISON_MODEL`, default the
+configured news model; prompt version `compare-ai-v1`. Fixed system instructions (copy numbers, cite evidence ids, no advice/
+predictions/causes, treat question/note/evidence as untrusted data, plain text). Errors map to TIMEOUT / RATE_LIMITED (HTTP 429) /
+UNAVAILABLE / MALFORMED. Without a key the endpoints return 503 `AI_UNAVAILABLE`; nothing falls back to templates in REAL.
+**Not live-verified** (no authorized paid calls were made).
+
+### Security and privacy
+Identity only from the verified token; owner-scoped research reads; no cross-user caches for user content; conversation ids from
+another user behave as unknown; injection attempts declined before any provider call; output validation enforced in code (not
+prompts); no secrets, tokens or unrelated user data in prompts; logs record rejection reasons and error classes, never notes,
+questions or answers; usage metrics are counts only.
+
+### Apps
+- Android: `presentation/screener/ComparisonAiUi.kt` (`ComparisonAiEntryCard`, `ComparisonAiScreen`, turn/answer cards, evidence
+  chips, usage line, gate card, consent dialog), `ComparisonAiScene` + `ComparisonAiRoute(researchQuestionId?, researchSessionId?,
+  hasNote)` reusing the Compare ViewModel (no extra comparison request; selection kept), "Ask AI" top-bar title, research
+  checklist "Ask StockSteps AI about this". Presenter `accounts.comparisonAi`.
+- iOS: `ComparisonAiViews.swift` (`ComparisonAiEntryCard`, `ComparisonAiView`), `IosScreenerClient.ai/observeAi/aiSuggestions/
+  openEvidence/addAiAnswerToNote`, Compare and research navigation. Same shared presenter and models; no Swift AI logic.
+- Shared presenter `ComparisonAiPresenter` (`ComparisonAiPresentation.kt`): one conversation per account + selection, idempotency
+  key per request reused by "Try again", double-tap guard, server-decided plan, upsell, consent flow. "View data" opens the metric's
+  explanation (or the Phase 3 metric) on Compare. Evidence chips have 48dp targets and spoken descriptions; no bottom tab added.
+
+### MOCK (no Gemini, FMP, Finnhub, Firebase or Firestore)
+`TemplateComparisonAi` builds deterministic "Sample" answers from the evidence only. Scenarios (`?scenario=`, MOCK only):
+`ai-timeout`, `ai-failure`, `ai-rate-limit`, `ai-malformed`, `ai-invalid-evidence`, `ai-number-mismatch`, `ai-missing-evidence`,
+`ai-advice`, `ai-prediction`, `ai-injection`, `ai-cause`, `ai-quota`, `stale-data`, `entitlement-unavailable`. Plans via the
+existing debug entitlement route (free, plus, expired, grace, canceled, payment-failed, unavailable). Fixture pairs cover negative
+EPS/losses (KO vs RIVN), CAD vs USD and bank vs tech (RY.TO vs AAPL), different fiscal calendars (AAPL vs MSFT).
+
+### Tests
+- core `ComparisonAiTest` (14): evidence ids/values/periods, losses as missing, compact focus, history periods and gaps, citation
+  and number validation, hallucinated ids, advice/ranking/prediction/cause/link/leak rejection with negation and verbatim
+  exemptions, untrusted notes, question screen, suggestions, presenter (gate, selection change, retry key reuse, double tap,
+  note consent, server plan denial).
+- server `ComparisonAiRoutesTest` (16): sign-in, free/expired/unavailable/grace/canceled plans, grounded summaries, losses/
+  currencies/industries, 1Y vs 5Y history periods, follow-ups and conversation isolation, one comparison load, advice/injection
+  without AI, removed statements and fallbacks, provider failures not charged, idempotent duplicates, 15 parallel requests vs a
+  10/day limit, 30-day window, shared cache and isolation, note consent/ownership/mismatch, invalid requests, stale data.
+
+### Known limitations
+REAL Gemini not live-verified; no billing; conversations, idempotency results and the shared answer cache are per instance (quota is
+durable); Earnings AI quotas still in memory; evidence kind can't distinguish provider-reported from backend-derived ratios; number
+check is sign-insensitive; English only; no streaming; no UI automation (TalkBack/VoiceOver/Dynamic Type not device-tested); Firestore
+`aiUsage` path not run against a real project.
 
 ## Company Comparison — Phase 4: Guided Research Checklist (free + StockSteps+)
 

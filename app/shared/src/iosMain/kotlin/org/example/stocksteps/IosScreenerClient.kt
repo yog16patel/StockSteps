@@ -50,6 +50,36 @@ class IosScreenerClient(baseUrl: () -> String, account: IosAccountClient?) {
         else export.bytes.usePinned { pinned -> platform.Foundation.NSData.create(bytes = pinned.addressOf(0), length = export.bytes.size.toULong()) }
     }
 
+    /** Company Comparison Phase 5 AI assistant (null when there's no account graph). The server checks StockSteps+ and quotas. */
+    val ai: ComparisonAiPresenter? get() = accountGraph?.comparisonAi
+    fun observeAi(onChange: (ComparisonAiUiState) -> Unit): AccountSubscription {
+        val presenter = ai ?: return object : AccountSubscription { override fun cancel() {} }
+        val job = scope.launch { presenter.state.collect(onChange) }
+        return object : AccountSubscription { override fun cancel() { job.cancel() } }
+    }
+    fun aiSuggestions(comparison: ComparisonUiState?): List<SuggestedAiQuestion> = ComparisonAiSuggestions.forComparison(comparison)
+    fun aiSummary(type: String) = ComparisonAiType.entries.firstOrNull { it.name == type }?.let { ai?.summarize(it) }
+    fun aiEvidence(response: ComparisonAiResponse, ids: List<String>): List<FinancialEvidence> = ids.mapNotNull(response::evidence)
+    /** "View data": opens the metric (or its history) the evidence comes from on Compare; the selection stays. */
+    fun openEvidence(evidence: FinancialEvidence) {
+        val metric = evidence.metricId ?: return
+        HistoryMetric.entries.firstOrNull { it.name == metric }?.let { comparison.selectHistoryMetric(it); return }
+        comparison.openRelated(metric)
+    }
+    /** "Copy to my note draft": a draft in the open research session only (the user saves it); false when no matching session is open. */
+    fun addAiAnswerToNote(turn: AiTurn): Boolean {
+        val research = research ?: return false
+        val open = research.state.value.open ?: return false
+        val q = turn.request.researchQuestionId ?: return false
+        val answer = turn.response ?: return false
+        if (open.session.symbols.sorted() != turn.request.symbols.sorted()) return false
+        val existing = research.state.value.drafts[q] ?: open.session.responses[q]?.note.orEmpty()
+        research.editNote(q, (if (existing.isBlank()) "" else existing.trimEnd() + "\n\n") + answer.noteText())
+        return true
+    }
+    fun canAddAiAnswerToNote(turn: AiTurn): Boolean = turn.request.researchQuestionId != null &&
+        research?.state?.value?.open?.session?.symbols?.sorted() == turn.request.symbols.sorted()
+
     fun observeComparison(onChange: (ComparisonUiState) -> Unit): AccountSubscription {
         val job = scope.launch { comparison.state.collect(onChange) }
         return object : AccountSubscription { override fun cancel() { job.cancel() } }

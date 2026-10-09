@@ -160,7 +160,21 @@ interface UserDataStore {
     /** PENDING deliveries due by [now], and PROCESSING ones whose lease expired (crash recovery). */
     suspend fun dueEarningsDeliveries(now: Long, limit: Int): List<EarningsNotificationDelivery>
     suspend fun earningsDeliveries(uid: String, limit: Int): List<EarningsNotificationDelivery>
+
+    /**
+     * Atomic read-modify-write of the user's AI usage ledger (StockSteps+ fair-use quotas). [block] may run
+     * more than once (Firestore retries contended transactions), so it must be pure. Stores without durable
+     * storage refuse: AI quotas never fall back to process memory in REAL.
+     */
+    suspend fun <T> updateAiUsage(uid: String, block: (AiUsageDocument) -> Pair<AiUsageDocument, T>): T =
+        throw UserDataException(503, "USER_DATA_UNAVAILABLE", "AI usage can't be checked right now. Try again shortly.")
 }
+
+/** One charged AI request: when, for which feature, and the client's idempotency key (a retry is never charged twice). */
+@Serializable data class AiCharge(val id: String, val feature: String, val at: Long, val key: String? = null)
+
+/** `users/{uid}/meta/aiUsage`: charges inside the rolling window only (bounded by the window limit), no content. */
+@Serializable data class AiUsageDocument(val charges: List<AiCharge> = emptyList())
 
 /** The result of a research update: the new index, the session to store (null = unchanged) or [deleteSession]. */
 data class ResearchWrite<T>(val index: org.example.stocksteps.screener.ResearchIndex, val session: org.example.stocksteps.screener.ResearchSession? = null,
@@ -328,6 +342,12 @@ class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>>
             (it.status == org.example.stocksteps.earnings.NotificationDeliveryStatus.PROCESSING && it.leaseUntil <= now) }.sortedBy { it.dueAt }.take(limit)
     }
     override suspend fun earningsDeliveries(uid: String, limit: Int) = lock.withLock { deliveries.values.filter { it.uid == uid }.sortedByDescending { it.scheduledFor }.take(limit) }
+    private val aiUsage = HashMap<String, AiUsageDocument>()
+    override suspend fun <T> updateAiUsage(uid: String, block: (AiUsageDocument) -> Pair<AiUsageDocument, T>): T = lock.withLock {
+        val (next, result) = block(aiUsage[uid] ?: AiUsageDocument())
+        aiUsage[uid] = next
+        result
+    }
     /** Test/diagnostic view of the outbox. */
     suspend fun outboxSnapshot(): List<OutboxItem> = lock.withLock { outbox.values.toList() }
 

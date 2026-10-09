@@ -36,7 +36,9 @@ internal data class ResearchActions(
     val onUpgrade: () -> Unit = {},
     val onSignIn: () -> Unit = {},
     val onDismissMessage: () -> Unit = {},
-    val onRetry: () -> Unit = {}
+    val onRetry: () -> Unit = {},
+    /** Phase 5: AI help for one question (question id, whether a saved note exists; the note is only sent after the user agrees). */
+    val onAskAi: (String, Boolean) -> Unit = { _, _ -> }
 )
 
 /**
@@ -218,6 +220,8 @@ private fun QuestionCard(q: ResearchQuestionView, actions: ResearchActions) {
             TextButton(onClick = { actions.onDiscardNote(q.question.id) }, Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)) { Text("Discard") }
         }
         if (q.saving && !q.dirty) Text("Saving…", style = typography.caption, color = colors.textSecondary)
+        StockButton("Ask StockSteps AI about this", onClick = { actions.onAskAi(q.question.id, q.note.isNotBlank()) }, variant = StockButtonVariant.TEXT,
+            modifier = Modifier.semantics { contentDescription = "Ask StockSteps AI about: ${q.question.text}. StockSteps+." })
     }
 }
 

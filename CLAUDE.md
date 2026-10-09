@@ -11,15 +11,16 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-08)
+## Current task (as of 2026-10-09)
 
-Latest commit: "Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS". Company Comparison Phase 4 (Guided Research Checklist, free + StockSteps+) is committed (core iOS
-simulator tests not verified; see the handoff) — core `screener/ComparisonResearch*.kt`, server `screener/ComparisonResearchService.kt`, spec `docs/SCREENER_AND_COMPARISON.md` →
-"Company Comparison — Phase 4". Company Comparison Phase 3 (Historical Financial Comparison: 1Y free, 3Y/5Y StockSteps+) is
-committed (core iOS simulator tests not re-run; see the handoff) — engine `core/.../screener/ComparisonHistory.kt`, server `screener/ComparisonHistoryService.kt`, spec
-`docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 3". Read the root `PROJECT_HANDOFF.md` top section and
-`docs/project-status.md` §0 first. A local MOCK server may still be running on :8081 (restart after server changes; stop with
-`./gradlew :server:stopMock`).
+Latest commit: "Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS". It adds **Company Comparison
+Phase 5 (AI Comparison Assistant, StockSteps+)** — core
+`screener/ComparisonAi*.kt` (evidence registry, grounding, validator, presenter), server `screener/ComparisonAiService.kt` (Gemini/
+template providers, durable `ComparisonAiQuota` via `UserDataStore.updateAiUsage`, routes `/api/v1/me/compare/ai/…`), Android
+`ComparisonAiUi.kt`/`ComparisonAiScene`, iOS `ComparisonAiViews.swift`; spec `docs/SCREENER_AND_COMPARISON.md` → "Company
+Comparison — Phase 5" — and rebuilds the sign-in/create-account screens on StockStepsTheme (`presentation/account/Auth*.kt`,
+iOS `Auth*.swift`). Read the root `PROJECT_HANDOFF.md` top section and `docs/project-status.md` §0 first. A local MOCK server may
+still be running on :8081 (restart after server changes; stop with `./gradlew :server:stopMock`).
 
 ## Repository layout
 

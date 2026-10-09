@@ -128,7 +128,8 @@ internal fun ComparisonScene(
     accounts: AccountDependencies? = null,
     onUpgrade: () -> Unit = {},
     onSignIn: () -> Unit = {},
-    onResearch: () -> Unit = {}
+    onResearch: () -> Unit = {},
+    onAskAi: () -> Unit = {}
 ) {
     val model = comparisonViewModel(null, backend, environment, accounts)
     val state by model.presenter.state.collectAsStateWithLifecycle()
@@ -150,6 +151,7 @@ internal fun ComparisonScene(
                 onDiscover = onDiscover,
                 onDismissMessage = model.presenter::dismissMessage,
                 onResearch = onResearch,
+                onAskAi = onAskAi,
                 guidance = GuidanceActions(
                     onExplain = model.presenter::toggleExplanation,
                     onDeeper = model.presenter::toggleDeeper,
@@ -193,7 +195,8 @@ internal fun ComparisonResearchScene(
     compareEntry: androidx.lifecycle.ViewModelStoreOwner?,
     hinge: WindowHinge?,
     onSignIn: () -> Unit,
-    onUpgrade: () -> Unit
+    onUpgrade: () -> Unit,
+    onAskAi: (questionId: String, sessionId: String?, hasNote: Boolean) -> Unit = { _, _, _ -> }
 ) {
     val comparison = comparisonViewModel(compareEntry, backend, environment, accounts)
     val compareState by comparison.presenter.state.collectAsStateWithLifecycle()
@@ -219,9 +222,86 @@ internal fun ComparisonResearchScene(
                     onSummary = { presenter?.loadSummary() }, onCloseSummary = { presenter?.closeSummary() },
                     onSnapshot = { presenter?.createSnapshot() }, onDeleteSnapshot = { presenter?.deleteSnapshot(it) },
                     onExport = { presenter?.export() }, onUpsell = { presenter?.showUpsell() }, onDismissUpsell = { presenter?.dismissUpsell() },
-                    onUpgrade = onUpgrade, onSignIn = onSignIn, onDismissMessage = { presenter?.dismissMessage() }, onRetry = { presenter?.reload() }
+                    onUpgrade = onUpgrade, onSignIn = onSignIn, onDismissMessage = { presenter?.dismissMessage() }, onRetry = { presenter?.reload() },
+                    onAskAi = { q, hasNote -> onAskAi(q, state.open?.session?.id, hasNote) }
                 ),
                 Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize())
         }
     }
+}
+
+/**
+ * Company Comparison Phase 5: owns the AI assistant presenter (account graph) and reuses the Compare
+ * ViewModel for names, suggestions and "View data" (the selection and loaded comparison are kept).
+ */
+@Composable
+internal fun ComparisonAiScene(
+    route: ComparisonAiRoute,
+    backend: BackendRouter,
+    environment: BackendEnvironment,
+    accounts: AccountDependencies?,
+    compareEntry: androidx.lifecycle.ViewModelStoreOwner?,
+    hinge: WindowHinge?,
+    onBack: () -> Unit,
+    onSignIn: () -> Unit,
+    onUpgrade: () -> Unit
+) {
+    val comparison = comparisonViewModel(compareEntry, backend, environment, accounts)
+    val compareState by comparison.presenter.state.collectAsStateWithLifecycle()
+    val presenter = accounts?.comparisonAi
+    val state = presenter?.state?.collectAsStateWithLifecycle()?.value ?: ComparisonAiUiState(symbols = compareState.selected.map { it.symbol })
+    val research = accounts?.comparisonResearch
+    val researchState = research?.state?.collectAsStateWithLifecycle()?.value
+    // Opened from a research question: ask once (the note is only included after the user agrees).
+    var started by androidx.compose.runtime.saveable.rememberSaveable(route) { mutableStateOf(false) }
+    LaunchedEffect(route, presenter, state.usage) {
+        if (!started && route.researchQuestionId != null && presenter != null && state.usage != null) { started = true; presenter.research(route.researchQuestionId, route.researchSessionId, route.hasNote) }
+    }
+    LaunchedEffect(presenter) { presenter?.refreshUsage() }
+    var copied by remember { mutableStateOf<String?>(null) }
+    AdaptiveSinglePane(hinge) { region ->
+        Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            ComparisonAiScreen(state, ComparisonAiSuggestions.forComparison(compareState), compareState.selected.associate { it.symbol to it.name } + compareState.columns.associate { it.symbol to it.name },
+                ComparisonAiActions(
+                    onSummary = { presenter?.summarize(it) ?: onSignIn() },
+                    onSuggestion = { presenter?.suggest(it) },
+                    onInput = { presenter?.editInput(it) },
+                    onSend = { presenter?.ask() },
+                    onRetry = { presenter?.retry(it) },
+                    onRemove = { presenter?.remove(it) },
+                    onNewConversation = { presenter?.startOver() },
+                    onEvidence = { e ->
+                        // Back to Compare, scrolled to the metric (or its history) the evidence comes from.
+                        val metric = e.metricId
+                        when {
+                            metric == null -> Unit
+                            HistoryMetric.entries.any { it.name == metric } -> comparison.presenter.selectHistoryMetric(HistoryMetric.valueOf(metric))
+                            else -> comparison.presenter.openRelated(metric)
+                        }
+                        onBack()
+                    },
+                    onConfirmResearch = { presenter?.confirmResearch(it) },
+                    onCancelResearch = { presenter?.cancelResearch() },
+                    onCopyToNotes = researchState?.open?.takeIf { it.session.symbols.sorted() == state.symbols.sorted() }?.let { open ->
+                        copy@{ turn: AiTurn ->
+                            val q = turn.request.researchQuestionId ?: return@copy
+                            val answer = turn.response ?: return@copy
+                            val existing = researchState.drafts[q] ?: open.session.responses[q]?.note.orEmpty()
+                            // A draft only: the user reviews it and taps "Save note" in the checklist. Nothing is saved automatically.
+                            research.editNote(q, (if (existing.isBlank()) "" else existing.trimEnd() + "\n\n") + answer.noteText())
+                            copied = "Added to your note draft for this question. Open the research checklist to review it and tap Save note to keep it."
+                        }
+                    },
+                    onUpsell = { presenter?.showUpsell() },
+                    onDismissUpsell = { presenter?.dismissUpsell() },
+                    onUpgrade = onUpgrade,
+                    onSignIn = onSignIn,
+                    onDismissMessage = { presenter?.dismissMessage() },
+                    onDismissReset = { presenter?.dismissResetNote() },
+                    onBack = onBack
+                ),
+                Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize())
+        }
+    }
+    copied?.let { message -> AlertDialog(onDismissRequest = { copied = null }, text = { Text(message) }, confirmButton = { TextButton(onClick = { copied = null }) { Text("OK") } }) }
 }

@@ -1,7 +1,9 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS"** on `main`.
-Includes Company Comparison Phase 4 — Guided Research Checklist (next section).
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"** on `main`.
+Includes Company Comparison Phase 5 and the authentication UI redesign (next section).
+Previous commit: **"Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS"**.
+Includes Company Comparison Phase 4 — Guided Research Checklist.
 Previous commit: **"Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS"**.
 Includes Company Comparison Phase 3 — Historical Financial Comparison (next section).
 Previous commit: **"Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS"**.
@@ -30,6 +32,56 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Company Comparison Phase 5 + authentication UI redesign (2026-10-09) — commit "Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"
+
+On top of "Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS". Two pieces of work:
+
+### A. Company Comparison Phase 5 — AI Comparison Assistant (StockSteps+)
+Spec: `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 5".
+- **Completed**: core `screener/ComparisonAi.kt` (FinancialEvidence registry with stable ids, `ComparisonGrounding`, `ComparisonAiFocus`,
+  `ComparisonAiValidator`, `ComparisonQuestionScreen`, `ComparisonAiSuggestions`, request/response/usage models) and
+  `ComparisonAiPresentation.kt` (`ComparisonAiPresenter`, `RemoteComparisonAi`); `UserApi.compareAiSummary/Ask/Usage`. Server
+  `screener/ComparisonAiService.kt` (`ComparisonAiExplainer` with `TemplateComparisonAi` (MOCK) and `GeminiComparisonAi` (REAL), durable
+  `ComparisonAiQuota` (10/day, 50/rolling 30 days, `COMPARISON_AI_*` env), `ComparisonAiService`, routes `/api/v1/me/compare/ai/summary|ask|usage`),
+  `UserDataStore.updateAiUsage` (in-memory + Firestore transaction at `users/{uid}/meta/aiUsage`), `GeminiJsonCall.generateWithUsage`,
+  `ProviderUsageMeter.event(name, amount)`, wiring in `Application.kt`. Removed the unused client-side `ComparisonExplainer`/`NoComparisonExplainer`.
+  Android `presentation/screener/ComparisonAiUi.kt`, `ComparisonAiScene`, `ComparisonAiRoute`, Compare "Ask StockSteps AI" card, research
+  checklist "Ask StockSteps AI about this". iOS `ComparisonAiViews.swift`, `IosScreenerClient` AI bridge, Compare/research navigation.
+- **Tests added**: core `ComparisonAiTest` (14), server `ComparisonAiRoutesTest` (16).
+- **Validation**: `./gradlew :core:jvmTest :server:test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug :core:iosSimulatorArm64Test --continue`:
+  core JVM 413/0, **core iOS simulator 413/0** (this run also covers the Phase 3/4 core tests that earlier sessions couldn't run on iOS),
+  shared Android host 55/0, shared iOS 49/0, `assembleDebug` succeeded; server 366 with **1 failure**:
+  `PracticeServiceTest.concurrentOrdersCannotOverspendOrBypassTheLimit` (not touched by this work) — it passed 3/3 when rerun alone, so it
+  looks load-sensitive/flaky under the full parallel run. iOS `xcodebuild` BUILD SUCCEEDED. **Not done**: live MOCK curl pass and a device
+  walkthrough of the AI screens; no REAL Gemini calls (not authorized).
+- **Limits**: see the spec (per-instance conversations/shared cache, Earnings AI quotas still in memory, no billing, English only).
+
+### B. Authentication UI redesign (Android + iOS)
+- **Why earlier visual changes didn't show**: the sign-in screen never used `StockStepsTheme`. Android `presentation/account/AuthScreen.kt`/
+  `AuthComponents.kt` and iOS `AuthScreen.swift`/`AuthComponents.swift` were styled by a separate hard-coded `AuthTokens` palette
+  (`theme/AuthTokens.kt`: light grey background, near-black buttons, a text "G"), so theme or design-system changes could not reach it,
+  and it ignored Dark mode. No duplicate login screens exist: Android shows `AuthScene` → `AuthScreen` (`AuthRoute`, start destination for
+  signed-out users and every "Sign in" prompt); iOS shows `AuthScene` → `AuthScreen` (from `ContentView` at launch and `AppScene` prompts).
+- **Completed**: both screens rebuilt on StockStepsTheme colours (dark #07111C / #0D1B2A / #1683FF; light #F7FAFD / white) with shared sizes
+  in the rewritten `AuthTokens`: compact header (blue "S" tile, wordmark, "Learn • Practice • Invest Smarter"), hero "Build your **investing
+  skills**" (create-account: "Start your **investing journey**") with a decorative Canvas/Path chart (rising curve, translucent bars, glow; no
+  values, hidden from screen readers), 24dp auth card, white Google button with Google's own multi-colour "G", "or use email" divider,
+  icon fields (mail, lock, visibility toggle, focus border), right-aligned blue "Forgot password?", blue "Sign in"/"Create account" button
+  with arrow and loading spinner, outlined "Continue as guest" with description, "New to StockSteps? Create account" strip, inline error
+  with icon. Compact hero below 700dp/pt height; scrolls with the keyboard; max width 460. New icons in `StockIcons` (Mail, Lock,
+  Visibility, VisibilityOff, GoogleLogo).
+- **Unchanged behaviour**: `AuthScene` (Android and iOS), view models, Firebase/Google sign-in, guest access, mode switching and session
+  handling are untouched. "Forgot password?" still shows "Password recovery is not available in the app yet." (there is no reset API or
+  reset-confirmation screen in the app; none was invented). Create Account is the same screen in sign-up mode and uses the same design.
+- **Visual verification (real apps, not previews)**: Android emulator (sdk_gphone16k_arm64, 1280×2856) dark, light, 720×1280 compact
+  and create-account mode; iOS Simulator iPhone 16 Pro dark (top and scrolled) and light. Screenshots were reviewed during the session and not kept in the repository.
+  Fixed after comparison: chart overlapping the subtitle (Android/iOS), heavier bars than the reference, blue auto-linked email placeholder
+  on iOS (`Text(verbatim:)`), too-faint disabled button in light mode. The compact Android capture predated the narrower compact chart;
+  the iOS light capture predated the placeholder fix. Not verified: TalkBack/VoiceOver, very large font sizes, signed-in error states
+  with real credentials (no credentials were entered).
+- **Validation**: `:app:shared:compileAndroidMain`, `:app:shared:testAndroidHostTest` and `:app:androidApp:installDebug` succeeded; iOS
+  `xcodebuild` BUILD SUCCEEDED.
 
 ## Company Comparison Phase 4 — Guided Research Checklist (2026-10-09) — commit "Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS"
 

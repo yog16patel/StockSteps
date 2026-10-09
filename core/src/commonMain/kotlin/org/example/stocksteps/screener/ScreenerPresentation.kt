@@ -799,14 +799,3 @@ class ComparisonPresenter(
     fun retry() { scope.launch { performanceLock.withLock { performanceRequests.clear() }; refreshes.value++ } }
     fun dismissMessage() = mutable.update { it.copy(message = null) }
 }
-
-/** Optional AI explanation of a comparison: architecture only; nothing is sent automatically. */
-fun interface ComparisonExplainer {
-    /** Must be called only on an explicit user request, with the verified [observations] as its only facts. */
-    suspend fun explain(observations: List<ComparisonObservation>): String?
-}
-
-/** The shipped explainer: deterministic observations are the explanation; no AI service is called. */
-object NoComparisonExplainer : ComparisonExplainer {
-    override suspend fun explain(observations: List<ComparisonObservation>): String? = null
-}

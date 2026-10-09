@@ -1,32 +1,31 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (Company Comparison Phase 3 session) against the repository (`main`, latest commit **"Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS"**). Verify with
+Last reviewed: 2026-10-09 (Company Comparison Phase 5 session) against the repository (`main`, latest commit **"Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"**). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**Company Comparison Phase 4 — Guided Research Checklist** (free checklist, notes, 3 sessions, basic summary; StockSteps+ advanced
-checklist, more sessions, snapshots, detailed summary, PDF report; server-enforced) is committed (spec: `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 4"; validation in the root `PROJECT_HANDOFF.md`).
+HEAD is **"Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"** (on top of the Phase 4 commit). It contains
+**Company Comparison Phase 5 — AI Comparison Assistant (StockSteps+)**
+(spec: `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 5"; validation in the root `PROJECT_HANDOFF.md` top section).
 
-HEAD is **"Add Company Comparison Phase 3 historical financial comparison (1Y free, 3Y/5Y StockSteps+) on Android and iOS"** (on top of "Add Guided Company Comparison Phase 2 (guided metric interpretation) on Android and iOS").
-**Company Comparison Phase 3 — Historical Financial Comparison** (1Y free; 3Y/5Y + advanced metrics StockSteps+, server-enforced) is
-committed (spec: `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 3";
-validation in the root `PROJECT_HANDOFF.md`). Next: rerun `:core:iosSimulatorArm64Test` (last run hit a runner EOFException); device walkthrough; authorized REAL run.
-Company Comparison Phase 2 — Guided Metric Interpretation (free) is committed (spec and rules: `docs/SCREENER_AND_COMPARISON.md` →
-"Company Comparison — Phase 2"). Next: a manual device/simulator walkthrough (no UI-automation framework); an authorized REAL acceptance run. Phases 3–5 not started.
+Phase 5 summary: server-side grounded AI over the cached Phase 1–3 data with a typed evidence registry and validator, durable
+per-user quotas (10/day, 50/rolling 30 days; Firestore transaction), idempotency, shared cache for public summaries, MOCK templates
+and scenarios, research-checklist help with explicit note consent, Android + iOS UI. REAL Gemini is not live-verified.
 
-Phase 2 validation: full suite green (core JVM 370 / core iOS 370 / server 326 / shared Android host 55 / shared iOS 49, 0 failures), APK built, iOS BUILD SUCCEEDED, live MOCK `fx` check passed — details in the root `PROJECT_HANDOFF.md`.
+The same commit includes the **authentication UI redesign** (Android `presentation/account/AuthScreen.kt`/`AuthComponents.kt`, iOS
+`AuthScreen.swift`/`AuthComponents.swift`, `theme/AuthTokens.kt`, new `StockIcons`): the sign-in/create-account screens now use
+StockStepsTheme (dark/light) and the approved premium layout; auth behaviour unchanged; verified on the Android emulator and iOS
+Simulator (screenshots reviewed in the session, not kept in the repo). Details in the root `PROJECT_HANDOFF.md`.
 
-Phase 1 status at `9bbf586` (kept for history; the Phase 2 session's full-suite run also covers it):
+Next: (2) live MOCK walkthrough on Android and iOS (Compare → Ask AI, research → Ask AI,
+evidence → Compare, consent dialog, quota exhaustion); (3) authorized REAL Gemini acceptance run; (4) real-Firestore check of
+`users/{uid}/meta/aiUsage` and the Phase 4 paths; (5) billing (Play Billing / StoreKit 2 + server verification); (6) move Earnings
+AI quotas onto the durable ledger.
 
-Verified: core screener/comparison tests (`:core:jvmTest --tests org.example.stocksteps.screener.*`, 30 passed); server screener + FMP adapter tests (`:server:test --tests org.example.stocksteps.screener.* --tests org.example.stocksteps.repositoryImpl.*`, all passed); `:app:shared:compileAndroidMain` succeeded; iOS `xcodebuild` BUILD SUCCEEDED. **Not run to completion:** the full suite (core iOS, all server tests, shared Android/iOS host tests) and `:app:androidApp:assembleDebug` were started but stopped before finishing; no live MOCK curl pass; no REAL calls.
-
-**Exact next task** (details in `docs/PROJECT_HANDOFF.md` §9): (1) run the full test command and `:app:androidApp:assembleDebug`
-plus the iOS `xcodebuild` for `9bbf586` and fix any failures; (2) start the MOCK server (it is **not running** at handoff:
-`./gradlew :server:runMock`) and live-check `/api/v1/compare` (`quarterRevenueGrowth`, notes) and `/compare/performance`
-(`baseDate`); (3) write the Comparison Phase 1 final report (A–I) with a MOCK verdict (currently PARTIAL) and a REAL verdict
-(not production-ready: no authorized live run). Comparison Phase 2 only when the user asks.
+Earlier phases (committed): Phase 4 research checklist, Phase 3 historical comparison, Phase 2 guided interpretation, Phase 1
+review. Their pending device walkthroughs and authorized REAL runs still apply (see the root `PROJECT_HANDOFF.md`).
 
 ## 1. Feature status
 
@@ -58,6 +57,13 @@ plus the iOS `xcodebuild` for `9bbf586` and fix any failures; (2) start the MOCK
 ### Implemented but NOT committed (working tree)
 
 None.
+
+### Latest commit (Phase 5 + auth redesign)
+
+| Feature | Doc | Notes |
+|---|---|---|
+| Company Comparison Phase 5 — AI Comparison Assistant (`/api/v1/me/compare/ai/summary`, `/ask`, `/usage`; durable quota `users/{uid}/meta/aiUsage`) | `docs/SCREENER_AND_COMPARISON.md` (Phase 5) | StockSteps+; MOCK templates; REAL Gemini only with `GEMINI_API_KEY` (not live-verified); validation results in the root `PROJECT_HANDOFF.md`. |
+| Authentication UI redesign (sign in / create account, Android + iOS, dark and light) | root `PROJECT_HANDOFF.md` | Visual only; auth logic unchanged; no password-reset flow exists (the "not available yet" notice is kept). |
 
 ### Latest commit (Phase 4)
 

@@ -1,20 +1,30 @@
 package org.example.stocksteps.presentation.account
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.example.stocksteps.WindowHinge
+import org.example.stocksteps.designsystem.icons.StockIcons
+import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.presentation.AdaptiveSinglePane
-import org.example.stocksteps.theme.*
+import org.example.stocksteps.theme.AuthTokens
 
+/**
+ * Sign in / create account (the screen shown at launch for signed-out users and from every "Sign in"
+ * prompt). Rendering only: authentication state and actions come from [AuthScene]. Follows the app's
+ * Light/Dark/System theme through StockStepsTheme; scrolls, and keeps the focused field above the keyboard.
+ */
 @Composable
 internal fun AuthScreen(
     email: String,
@@ -31,64 +41,52 @@ internal fun AuthScreen(
     onSubmit: () -> Unit,
     onGuest: () -> Unit
 ) {
+    val colors = StockStepsTheme.colors
     var revealed by remember(signup) { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
-    Box(Modifier.fillMaxSize().background(authColor(AuthTokens.background))) {
+    // Navy (or pale blue) wash at the top fading into the app background.
+    val wash = Brush.verticalGradient(
+        0f to colors.primary.copy(alpha = if (colors.isDark) 0.16f else 0.10f),
+        0.45f to colors.appBackground.copy(alpha = 0f),
+        startY = 0f, endY = Float.POSITIVE_INFINITY
+    )
+    BoxWithConstraints(Modifier.fillMaxSize().background(colors.appBackground).background(wash)) {
+        val compact = maxHeight < 700.dp
         AdaptiveSinglePane(hinge) { region ->
             Column(
-                modifier = region
-                    .imePadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(ThemeSpacing.extraLarge.dp),
+                modifier = region.fillMaxSize().imePadding().verticalScroll(rememberScrollState())
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                    .padding(horizontal = AuthTokens.screenPadding.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
-                    modifier = Modifier.widthIn(max = AuthTokens.contentWidth.dp).fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(AuthTokens.stackGap.dp)
-                ) {
-                    AuthBrand()
-                    Spacer(Modifier.height(ThemeSpacing.space14.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(ThemeSpacing.tiny.dp)) {
-                        Text(if (signup) "Create account" else "Welcome back", style = AuthTokens.title.authStyle(), color = authColor(AuthTokens.ink))
-                        Text("Sign in to sync your Watchlist across devices.", style = AuthTokens.body.authStyle(), color = authColor(AuthTokens.muted))
-                    }
-                    AuthButton("Continue with Google", enabled = configured && !busy, onClick = onGoogle) {
-                        Box(
-                            modifier = Modifier.size(AuthTokens.googleSize.dp)
-                                .border(AuthTokens.googleBorderWidth.dp, authColor(AuthTokens.googleBorder), RoundedCornerShape(AuthTokens.googleRadius.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("G", style = AuthTokens.linkText.authStyle(), color = authColor(AuthTokens.googleInk))
+                Column(Modifier.widthIn(max = AuthTokens.contentWidth.dp).fillMaxWidth()) {
+                    StockStepsAuthHeader()
+                    Spacer(Modifier.height((if (compact) 14 else AuthTokens.headerGap).dp))
+                    StockStepsAuthHero(signup, compact)
+                    Spacer(Modifier.height((if (compact) 14 else AuthTokens.heroGap).dp))
+                    StockStepsAuthCard {
+                        StockStepsGoogleButton(enabled = configured && !busy, onClick = onGoogle)
+                        StockStepsAuthDivider("or use email")
+                        StockStepsAuthTextField("Email", email, "you@example.com", StockIcons.Mail, !busy, onEmailChange)
+                        Column {
+                            StockStepsAuthTextField("Password", password, if (signup) "At least 6 characters" else "••••••••", StockIcons.Lock, !busy, onPasswordChange,
+                                password = true, revealed = revealed, onReveal = { revealed = !revealed })
+                            if (!signup) TextButton(
+                                onClick = { notice = "Password recovery is not available in the app yet." },
+                                enabled = !busy,
+                                modifier = Modifier.align(Alignment.End).heightIn(min = 44.dp),
+                                contentPadding = PaddingValues(horizontal = 0.dp)
+                            ) { Text("Forgot password?", style = AuthTokens.linkText.authStyle(), color = colors.primary) }
                         }
+                        error?.let { StockStepsAuthError(it) }
+                        StockStepsAuthButton(if (signup) "Create account" else "Sign in",
+                            enabled = configured && !busy && email.isNotBlank() && password.isNotBlank(), loading = busy, onClick = onSubmit)
+                        StockStepsAuthDivider("or")
+                        StockStepsGuestAction(enabled = !busy, onClick = onGuest)
+                        StockStepsAuthSwitch(if (signup) "Already have an account?" else "New to StockSteps?", if (signup) "Sign in" else "Create account", !busy, onSwitchMode)
                     }
-                    AuthDivider("or use email")
-                    AuthField("Email", email, "you@example.com", !busy, onChange = onEmailChange)
-                    AuthField("Password", password, "••••••••", !busy, password = true, revealed = revealed, onChange = onPasswordChange, onReveal = { revealed = !revealed })
-                    if (!signup) {
-                        TextButton(
-                            onClick = { notice = "Password recovery is not available in the app yet." },
-                            enabled = !busy,
-                            modifier = Modifier.align(Alignment.End),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text("Forgot password?", style = AuthTokens.linkText.authStyle(), color = authColor(AuthTokens.link))
-                        }
-                    }
-                    error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = AuthTokens.body.authStyle()) }
-                    if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    AuthButton(if (signup) "Create account" else "Sign in", configured && !busy && email.isNotBlank() && password.isNotBlank(), primary = true, onClick = onSubmit)
-                    AuthDivider("or")
-                    AuthButton("Continue as guest", !busy, onClick = onGuest)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(if (signup) "Already have an account?" else "New to StockSteps?", style = AuthTokens.linkText.authStyle(), color = authColor(AuthTokens.muted))
-                        TextButton(onClick = onSwitchMode, enabled = !busy) {
-                            Text(if (signup) "Sign in" else "Create account", style = AuthTokens.linkText.authStyle(), color = authColor(AuthTokens.link))
-                        }
-                    }
+                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
                 }
             }
         }
@@ -96,9 +94,10 @@ internal fun AuthScreen(
     notice?.let { message ->
         AlertDialog(
             onDismissRequest = { notice = null },
-            title = { Text("Sign-in options") },
-            text = { Text(message) },
-            confirmButton = { TextButton(onClick = { notice = null }) { Text("OK") } }
+            containerColor = colors.surface,
+            title = { Text("Reset your password", color = colors.textPrimary) },
+            text = { Text(message, color = colors.textBody) },
+            confirmButton = { TextButton(onClick = { notice = null }) { Text("OK", color = colors.primary) } }
         )
     }
 }

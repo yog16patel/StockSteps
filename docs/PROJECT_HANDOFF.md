@@ -1,5 +1,9 @@
 # StockSteps — session handoff (2026-10-08, end of the Earnings Phase 5 + Company Comparison session)
 
+> **Update (2026-10-09, Phase 5 session):** Company Comparison Phase 5 — AI Comparison Assistant (StockSteps+) and the authentication UI
+> redesign are committed as **"Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"** (on top of the Phase 4 commit). See the root `PROJECT_HANDOFF.md` (top section),
+> `docs/project-status.md` §0 and `docs/SCREENER_AND_COMPARISON.md` → "Company Comparison — Phase 5".
+>
 > **Update (2026-10-09, later):** Company Comparison Phase 4 — Guided Research Checklist is committed as **"Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS"**; see the root
 > `PROJECT_HANDOFF.md` (top section).
 >

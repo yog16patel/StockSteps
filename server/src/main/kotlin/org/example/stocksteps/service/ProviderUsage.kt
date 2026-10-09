@@ -37,6 +37,8 @@ class ProviderUsageMeter(private val started: String = java.time.Instant.now().t
         counters.getOrPut(listOf(provider, endpoint, feature, event)) { AtomicLong() }.incrementAndGet()
     }
     fun event(name: String) { events.getOrPut(name) { AtomicLong() }.incrementAndGet() }
+    /** Adds [amount] (e.g. provider-reported tokens or milliseconds) to a counter. */
+    fun event(name: String, amount: Long) { if (amount > 0) events.getOrPut(name) { AtomicLong() }.addAndGet(amount) }
 
     fun count(provider: String? = null, event: String, feature: String? = null): Long = counters.entries
         .filter { (k, _) -> (provider == null || k[0] == provider) && k[3] == event && (feature == null || k[2] == feature) }.sumOf { it.value.get() }

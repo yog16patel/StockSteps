@@ -140,6 +140,7 @@ internal fun AppNavigation(
     val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true || destination?.hasRoute<PortfolioInsightsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonResearchRoute>() == true ||
+        destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonAiRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCalendarRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsResultsRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute>() == true ||
@@ -170,6 +171,7 @@ internal fun AppNavigation(
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true -> "Discover"
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true -> "Compare"
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonResearchRoute>() == true -> "Research"
+                        destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonAiRoute>() == true -> "Ask AI"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCalendarRoute>() == true -> "Earnings"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true -> "Earnings event"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsResultsRoute>() == true -> "Earnings results"
@@ -281,12 +283,21 @@ internal fun AppNavigation(
                 org.example.stocksteps.presentation.screener.ComparisonScene(backend, environment, hinge, onOpenStock = openStock,
                     onDiscover = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
                     accounts = accounts, onUpgrade = { navController.navigate(SettingsRoute) }, onSignIn = { navController.navigate(AuthRoute()) },
-                    onResearch = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonResearchRoute) })
+                    onResearch = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonResearchRoute) },
+                    onAskAi = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonAiRoute()) })
             }
             composable<org.example.stocksteps.presentation.screener.ComparisonResearchRoute> { entry ->
                 // Reuses the Compare destination's ViewModel (and its already-loaded data) when it's on the back stack.
                 val compareEntry = remember(entry) { runCatching { navController.getBackStackEntry<org.example.stocksteps.presentation.screener.ComparisonRoute>() }.getOrNull() }
                 org.example.stocksteps.presentation.screener.ComparisonResearchScene(backend, environment, accounts, compareEntry, hinge,
+                    onSignIn = { navController.navigate(AuthRoute()) }, onUpgrade = { navController.navigate(SettingsRoute) },
+                    onAskAi = { q, session, hasNote -> navController.navigate(org.example.stocksteps.presentation.screener.ComparisonAiRoute(q, session, hasNote)) })
+            }
+            composable<org.example.stocksteps.presentation.screener.ComparisonAiRoute> { entry ->
+                // Same Compare ViewModel as the research checklist: no second comparison request, selection kept.
+                val compareEntry = remember(entry) { runCatching { navController.getBackStackEntry<org.example.stocksteps.presentation.screener.ComparisonRoute>() }.getOrNull() }
+                org.example.stocksteps.presentation.screener.ComparisonAiScene(entry.toRoute(), backend, environment, accounts, compareEntry, hinge,
+                    onBack = { if (compareEntry != null) navController.popBackStack(org.example.stocksteps.presentation.screener.ComparisonRoute, inclusive = false) else navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute) },
                     onSignIn = { navController.navigate(AuthRoute()) }, onUpgrade = { navController.navigate(SettingsRoute) })
             }
             composable<PortfolioInsightsRoute> {

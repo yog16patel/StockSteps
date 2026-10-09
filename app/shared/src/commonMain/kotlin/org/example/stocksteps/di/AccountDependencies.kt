@@ -99,6 +99,12 @@ class AccountDependencies(
         org.example.stocksteps.screener.ComparisonResearchPresenter(org.example.stocksteps.screener.RemoteComparisonResearch(userApi), scope,
             auth.session.filter { !it.initializing }.map { it.user?.id })
     }
+    /** Company Comparison Phase 5 AI assistant: one conversation per account and company selection (the server checks StockSteps+ and quotas). */
+    val comparisonAi: org.example.stocksteps.screener.ComparisonAiPresenter by lazy {
+        org.example.stocksteps.screener.ComparisonAiPresenter(org.example.stocksteps.screener.RemoteComparisonAi(userApi), scope,
+            auth.session.filter { !it.initializing }.map { it.user?.id },
+            org.example.stocksteps.screener.SharedComparisonSelection.instance.selected.map { list -> list.map { it.symbol } })
+    }
     /** "uid|tier|status" for Company Comparison history: a sign-in, sign-out or plan change refetches (null = guest). */
     val comparisonAccount: kotlinx.coroutines.flow.Flow<String?> get() = kotlinx.coroutines.flow.combine(
         auth.session.map { it.user?.id }, entitlements.state) { uid, plan -> uid?.let { "$it|${plan?.tier}|${plan?.status}" } }
