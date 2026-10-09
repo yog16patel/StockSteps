@@ -1,6 +1,6 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (Company Comparison Phase 5 session) against the repository (`main`, latest commit **"Add financial API cost audit and Phase 2 shared provider cache with request reuse"**). Verify with
+Last reviewed: 2026-10-09 (Company Comparison Phase 5 session) against the repository (`main`, latest commit **"Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"**). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
@@ -26,6 +26,10 @@ AI quotas onto the durable ledger.
 
 Earlier phases (committed): Phase 4 research checklist, Phase 3 historical comparison, Phase 2 guided interpretation, Phase 1
 review. Their pending device walkthroughs and authorized REAL runs still apply (see the root `PROJECT_HANDOFF.md`).
+
+**Financial API Phase 3 audit (2026-10-09, read-only, committed as "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark")**: done — `docs/FINANCIAL_API_PHASE3_AUDIT.md` (+ cost model,
+implementation plan, decisions). Key finding: a screener bug stops re-warming expired fundamentals (financial filters match nothing after
+≈ 12–18 h); warm-up costs ≈ 328 requests/hour/instance while active. Nothing implemented. Next: Phase 3 milestone 3B-0 (re-warm fix).
 
 **Financial API cost optimization Phase 2 (shared financial data cache & request reuse, 2026-10-09)**: committed as **"Add financial API cost audit and Phase 2 shared provider cache with request reuse"**
 (`docs/FINANCIAL_API_CACHE_IMPLEMENTATION.md`). Server only: failure-safe single-flight cache core, duplicate fetch paths removed

@@ -1,6 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add financial API cost audit and Phase 2 shared provider cache with request reuse"** on `main`.
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"** on `main`.
+Includes the Phase 3 financial API audit documents and benchmark test (next section).
+Previous commit: **"Add financial API cost audit and Phase 2 shared provider cache with request reuse"**.
 Includes the Phase 1 financial API audit documents and Phase 2 shared provider cache (next sections).
 Previous commit: **"Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"**.
 Includes Company Comparison Phase 5 and the authentication UI redesign (next section).
@@ -34,6 +36,22 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Financial API — Phase 3 audit (2026-10-09, read-only) — commit "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"
+
+Audit of `75760ab` ("Add financial API cost audit and Phase 2 shared provider cache with request reuse"). Documents:
+`docs/FINANCIAL_API_PHASE3_AUDIT.md`, `…_PHASE3_COST_MODEL.md`, `…_PHASE3_IMPLEMENTATION_PLAN.md`, `…_PHASE3_DECISIONS.md`.
+Test added (measurement only, no assertions): `server/src/test/.../service/Phase3AuditBenchmarkTest.kt`. No production code changed.
+- **Findings (measured with REAL adapters on a MockEngine)**: screener warm-up 328 requests in the first hour per instance (3 universe
+  + 25 × 13); **bug**: expired screener fundamentals are never re-warmed (`ScreenerService.warm` skips stale map entries) — financial
+  filters evaluate 15 → 0 companies after 7 h; Comparison 1Y history 12 requests for 4 companies where 4 suffice; TTM ratios refetch
+  every 5 min when markets are closed; new quarterly statements invisible for up to 24 h; single flight held 50 users/10 symbols to 15
+  requests per symbol; premium history/summary/AI added 0 requests after a comparison. Details/Financials need all 11 datasets;
+  screener/Comparison P1 need 10 of 11.
+- **Validation**: `./gradlew :server:test` → 385 tests, 0 failures, 3 skipped.
+- **Not implemented**: everything in the Phase 3 plan.
+- **Next**: 3B-0 (fix the screener re-warm bug + dataset cache capacity), then 3A (statement accessors for history/summaries), 3C
+  (market-aware TTLs reusing `UsMarketCalendar`/`TsxMarketCalendar`), 3B-1, 3D, 3E; owner decisions D1–D8.
 
 ## Financial API cost optimization — Phase 2: shared financial data cache & request reuse (2026-10-09) — commit "Add financial API cost audit and Phase 2 shared provider cache with request reuse"
 
