@@ -1,9 +1,110 @@
 # Earnings Intelligence & Earnings Calendar
 
 > **Earnings Intelligence Lite — Phase 1 (Earnings Calendar)** was added on top of the earlier
-> Earnings Center (2026-10-08, commit "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"). See the Phase 1 section right
+> Earnings Center (2026-10-08, commit "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS").
+> **Phase 2 (Earnings Results & Beginner Explanations)** follows directly below (2026-10-08, commit "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"). See the Phase 1 section right
 > below; the rest of this document describes the earlier Earnings Details/results work, which is
 > unchanged.
+
+## Phase 2: Earnings Results & Beginner Explanations
+
+A free **Earnings Results** screen for one company's fiscal period (route
+`EarningsResultsRoute(symbol, fiscalYear, fiscalQuarter)`, report id `SYMBOL:YYYY-Qn`, deep link
+`earnings-results:<reportId>`). Entry points: Earnings Calendar "View Results" on verified reported
+events, Earnings Event Details "View Results", Company Details "Latest results" preview → View
+Results, Daily Brief watchlist "Reported quarterly results" highlights. An unpublished period shows
+"Results for this period haven't been published yet." — never a placeholder result.
+
+Sections: header (company, ticker/exchange, fiscal quarter/year, period end, report date, source
+publication time or "not provided", revised flag, sample/freshness labels) → EPS card → Revenue card
+(one shared `FinancialComparisonCard`, expandable "What is EPS?/revenue?") → "Is the Business
+Growing?" (YoY) → previous-quarter card (QoQ) → Beginner Takeaway (+ comparison warnings) → Learn
+More (existing `BeginnerEducation` lessons; a missing lesson falls back to the Learn tab) → sources.
+The old Earnings Details screen (history, reaction, AI) is unchanged and still reachable from
+Company Details "Earnings history".
+
+### Calculations (core `earnings/EarningsResults.kt`, computed on the server)
+- **Exact decimals:** provider numbers are read as decimals from their shortest decimal form
+  (`EarningsMath.decimal`, 8 places, so `0.1 + 0.2` is `0.3`); money and percentages travel as
+  decimal strings; rounding happens only for display.
+- **Classification policy (changed from the earlier ±0.5% tolerance):** BEAT / MISS / MET /
+  UNAVAILABLE from the exact difference. MET only when equal; no tolerance. `Classification.IN_LINE`
+  was renamed `MET`, and the older Earnings Details screen, insights and reminder wording use the
+  same rule.
+- **EPS:** surprise = actual − estimate; % = (actual − estimate) / |estimate| × 100. Zero estimate →
+  amount only; negative estimate (loss expected) → amount only, explained. Unavailable when either
+  side is missing, bases differ or are unknown (adjusted vs GAAP), currencies differ, or the estimate
+  covers a full year.
+- **Revenue:** same, with a positive estimate required; never quarterly vs annual or across currencies.
+- **YoY:** same fiscal quarter of the previous fiscal year; **QoQ:** the previous fiscal quarter
+  (Q1 → Q4 of the prior fiscal year). Suppressed with a reason when the base is missing, zero or
+  negative, in another currency, a different period length, or when the period-end spacing shows a
+  fiscal-calendar change (YoY 350–380 days, QoQ 80–100 days). No year-to-date subtraction.
+- **Takeaway:** deterministic text per (EPS, revenue) combination — the four spec sentences, a
+  miss/miss sentence, and a composed sentence for MET/unavailable mixes. Tested to contain no advice
+  words; never an overall "earnings beat".
+
+### API (free, rate-limited like the calendar)
+| Endpoint | Notes |
+| --- | --- |
+| `GET /api/v1/earnings/reports/{reportId}` | Report + insights + freshness. 400 invalid id, 404 `NOT_FOUND` / `NOT_REPORTED`. |
+| `GET /api/v1/earnings/reports/{reportId}/insights` | Insights only. |
+| `GET /api/v1/earnings/company/{symbol}/latest` | Latest reported fiscal period; 404 `NO_REPORT`. |
+| `GET /api/v1/earnings/company/{symbol}/reports` | Every reported period, newest first, with both classifications. |
+Calendar items now carry `reportId` (only when figures exist); Daily Brief highlights carry `reportId`.
+
+### Providers, caching, freshness
+- REAL: the existing Finnhub `/calendar/earnings` rows supply EPS/revenue actual and estimate per
+  fiscal period from one record (so they're comparable; EPS labelled ADJUSTED on both sides). Finnhub
+  gives no publication time, no revision flag, no estimate period type and no revenue definition, so
+  REAL shows "Publication time not provided", never "Revised", and only quarterly comparisons. FMP's
+  quarterly statements are **not** mixed in (different source and basis). Canadian coverage unverified.
+- Server: per-symbol history cache (6 h) with one retry for transient failures; the last real copy is
+  served as STALE when the provider fails; otherwise 503 (never sample data). Revised figures replace
+  the cached version when the history refreshes. Insights are recomputed per request (cheap, deterministic).
+- Device: each opened report is saved (public data, per environment) in the existing user-data cache;
+  offline, the saved copy is shown with "You're seeing a copy saved on this device."
+- MOCK scenarios: `?scenario=provider-timeout` (503), `?scenario=stale-cache` (STALE).
+
+### MOCK fixtures (Phase 2)
+| Scenario | Fixture |
+| --- | --- |
+| EPS beat & revenue beat (spec example $1.45 vs $1.20, $8.5B vs $8.2B, YoY +7.6%, QoQ +4.9%) | SSRV Q3 FY2026 (also revised + no publication time) |
+| Beat/beat · beat/miss · miss/beat · miss/miss | NVDA · AAPL Q3, RY.TO (Canadian) · TD · KO Q2 |
+| EPS met / revenue met | SSFC Q3 FY2026 / SSRM Q1 FY2027 |
+| EPS estimate missing / revenue estimate missing / both missing | CSU.TO Q2 / CNR.TO Q2 / SSNE Q3 |
+| Zero EPS estimate / negative estimate / negative actual | RIVN Q2 / BB.TO, SSLL / SSLL, SSNE |
+| Loss smaller / larger than expected | SSLL Q2 FY2026 / SSLL Q3 FY2026 |
+| Zero / missing previous-year revenue, missing previous quarter | SSNE / SSAN / SSNE |
+| Positive / negative / flat revenue growth | SSRV / SSLL / SSRM |
+| Fiscal-year rollover, non-calendar fiscal year | SSRM (June FY: Q1 FY2027 vs Q4 FY2026), NVDA, AAPL, MSFT |
+| Currency mismatch / adjusted vs GAAP / quarterly vs annual | CSU.TO / JNJ Q2 / SSAN Q3 |
+| Fiscal calendar changed (no YoY) | SSFC |
+| Partial provider response | BB.TO Q2 FY2027 (no revenue) |
+| Provider timeout / stale cache | MOCK scenarios above |
+| No report available | GOOGL, scheduled AAPL Q4 |
+
+`SS*` companies are fictional ("StockSteps Demo …"; `DEMO_RESULTS` in the generator).
+
+### Tests
+- Core `EarningsResultsTest` (13): decimal conversion and percent, exact classification, EPS
+  (beat, zero/negative estimates, losses, basis/currency/annual mismatch), revenue independence,
+  YoY/QoQ and suppression rules, fiscal-year rollover mapping, takeaways (deterministic, no advice),
+  presenter formatting/accessibility, offline saved copy + retry, unpublished and failure states.
+- Server `EarningsResultsServiceTest` (9): spec example, every fixture classification, growth
+  rules, latest/list/missing/invalid ids and calendar `reportId`, retry + stale + no sample in REAL,
+  MOCK scenarios, revised figures after cache refresh, routes, rate limit.
+- Existing tolerance tests were updated to the exact policy.
+- No Compose UI / XCUITest automation (no UI-test setup in the repo).
+
+### Limitations
+- REAL: no source publication time, revision flag or estimate period type from Finnhub; TSX
+  coverage and plan limits not verified live; no paid calls were made.
+- Results are free for every reported period (the older Earnings Details history list keeps its
+  StockSteps+ limit).
+- Not done in Phase 2 by design: price reaction, AI analysis, notifications.
+
+---
 
 ## Phase 1: Earnings Calendar
 
@@ -204,6 +305,9 @@ server-enforced; free users get 403 `PLUS_REQUIRED`.
 - Year over year: the same fiscal quarter of the prior fiscal year, same currency only.
 - Quarter over quarter: the previous fiscal quarter, shown as context with a seasonality note.
 - Nothing is interpolated.
+
+> Phase 2 note: the tolerance rules described in this older section were replaced by the exact
+> policy (MET only when equal); see "Phase 2" above.
 
 **Status (from data, not the clock)**
 - Reported: EPS and revenue.

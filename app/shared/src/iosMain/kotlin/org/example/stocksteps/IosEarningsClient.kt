@@ -56,6 +56,11 @@ class IosEarningsClient(baseUrl: () -> String, account: IosAccountClient?) {
     val summary: EarningsSummaryPresenter by lazy { EarningsSummaryPresenter(remote, scope, session) }
     fun observeSummary(onChange: (EarningsSummaryState) -> Unit) = observe(summary.state, onChange)
 
+    // Earnings Results (Phase 2): server-calculated, saved on the device for offline viewing.
+    fun results(reportId: String): EarningsResultsPresenter = owned { s -> EarningsResultsPresenter(reportId, remote, s, accounts?.earningsResultsCache) }
+    fun observeResults(presenter: EarningsResultsPresenter, onChange: (EarningsResultsState) -> Unit) = observe(presenter.state, onChange)
+    fun symbolOf(reportId: String): String = EarningsReportMapper.parse(reportId)?.first ?: reportId.substringBefore(':')
+
     // Earnings Details (results and history for one company).
     fun details(symbol: String): EarningsDetailsPresenter = owned { s -> EarningsDetailsPresenter(symbol, remote, s, accounts?.alerts) }
     fun observeDetails(presenter: EarningsDetailsPresenter, onChange: (EarningsDetailsState) -> Unit) = observe(presenter.state, onChange)

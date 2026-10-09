@@ -22,7 +22,9 @@ data class EarningsEstimate(
     val currency: String? = null,
     val analysts: Int? = null,
     val source: String,
-    val asOf: String? = null
+    val asOf: String? = null,
+    /** The period the consensus covers; an annual estimate is never compared with a quarterly result. */
+    val periodType: PeriodType = PeriodType.QUARTER
 )
 
 /** What the company reported for one fiscal period, from one provider. */
@@ -84,7 +86,8 @@ data class EarningsEvent(
     UPCOMING("Upcoming"), REPORTED("Reported"), PARTIALLY_REPORTED("Partially reported"), DATA_PENDING("Results pending"), UNAVAILABLE("Unavailable")
 }
 
-@Serializable enum class Classification(val label: String) { BEAT("Beat"), MISS("Miss"), IN_LINE("In line"), UNAVAILABLE("Not comparable") }
+/** Exact comparison of actual vs estimate (see [EarningsMath]): MET only when equal; no tolerance. */
+@Serializable enum class Classification(val label: String) { BEAT("Beat"), MISS("Miss"), MET("Met"), UNAVAILABLE("Not comparable") }
 
 @Serializable
 data class SurpriseResult(
@@ -196,7 +199,9 @@ data class EarningsCalendarItem(
     /** Shares currently held across the user's portfolio accounts (Following only). */
     val sharesHeld: Double? = null,
     /** Calendar status from source data (never "reported" just because the date passed). */
-    val eventStatus: EarningsEventStatus = EarningsEventStatus.UNKNOWN
+    val eventStatus: EarningsEventStatus = EarningsEventStatus.UNKNOWN,
+    /** The published report for this fiscal period ("SYMBOL:YYYY-Qn"); null until figures exist. */
+    val reportId: String? = null
 )
 
 @OptIn(ExperimentalSerializationApi::class)

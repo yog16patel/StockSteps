@@ -20,6 +20,7 @@ struct CompanyDetailsScene: View {
     @State private var nextEarnings: CompanyEarningsModel?
     /// Opens the app-level Earnings Calendar on a date (nil = today); nil hides the action.
     var onEarningsCalendar: ((String?) -> Void)? = nil
+    var onEarningsResults: ((String) -> Void)? = nil
     @State private var portfolioModel = PortfolioViewModel()
     var learning: LearningModel?
     var onSearch: () -> Void = {}
@@ -33,8 +34,10 @@ struct CompanyDetailsScene: View {
          onSearch: @escaping () -> Void = {}, onLearn: @escaping () -> Void = {}, onUpgrade: @escaping () -> Void = {},
          onPracticeBuy: @escaping (String) -> Void = { _ in },
          onEarningsCalendar: ((String?) -> Void)? = nil,
+         onEarningsResults: ((String) -> Void)? = nil,
          baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
         self.onEarningsCalendar = onEarningsCalendar
+        self.onEarningsResults = onEarningsResults
         self.symbol = symbol
         self.accounts = accounts
         self.watchlists = watchlists
@@ -81,7 +84,8 @@ struct CompanyDetailsScene: View {
             onPracticeBuy: { onPracticeBuy(symbol) },
             nextEarnings: nextEarnings?.state,
             onEarningsCalendar: onEarningsCalendar.map { open in { open(nextEarnings?.state?.date) } },
-            onRetryEarnings: { nextEarnings?.presenter.refresh() }
+            onRetryEarnings: { nextEarnings?.presenter.refresh() },
+            onLatestResults: onEarningsResults.map { open in { if let id = nextEarnings?.state?.latestReportId { open(id) } } }
         )
         .navigationDestination(item: $research) { target in
             if let learning {

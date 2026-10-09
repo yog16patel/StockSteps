@@ -24,6 +24,10 @@ interface EarningsRemote {
     suspend fun event(id: String): EarningsEventInfo
     /** A company's next announcement (public). */
     suspend fun next(symbol: String): NextEarnings
+    /** One published report with server-calculated insights (public, free). */
+    suspend fun results(reportId: String): EarningsResultsResponse
+    /** The latest published report (404 when there's none). */
+    suspend fun latestResults(symbol: String): EarningsResultsResponse
 }
 
 /** Public calls for everyone; signed-in calls (following, tier-aware details, AI) through [user]. */
@@ -34,6 +38,8 @@ class RemoteEarnings(private val api: StockStepsApi, private val user: UserApi?)
     override suspend fun ask(symbol: String, question: String) = requireNotNull(user) { "Sign in first." }.askEarnings(symbol, question)
     override suspend fun event(id: String) = api.earningsEvent(id)
     override suspend fun next(symbol: String) = api.nextEarnings(symbol)
+    override suspend fun results(reportId: String) = api.earningsResults(reportId)
+    override suspend fun latestResults(symbol: String) = api.latestEarningsResults(symbol)
 }
 
 // ---------- Formatting (display only) ----------

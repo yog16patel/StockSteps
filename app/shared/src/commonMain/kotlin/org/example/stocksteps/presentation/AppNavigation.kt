@@ -122,6 +122,7 @@ internal fun AppNavigation(
         notificationLinks?.collect { link ->
             when {
                 link.startsWith("brief:") -> navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefRoute(link.removePrefix("brief:").takeIf { it.isNotBlank() }))
+                link.startsWith("earnings-results:") -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(link.removePrefix("earnings-results:"))?.let { navController.navigate(it) }
                 link.startsWith("earnings:") -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(link.removePrefix("earnings:")))
                 link == "earnings-calendar" -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute())
                 else -> navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(link))
@@ -137,7 +138,7 @@ internal fun AppNavigation(
     val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true || destination?.hasRoute<PortfolioInsightsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCalendarRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true ||
-        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true ||
+        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsResultsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeOrderRoute>() == true
@@ -166,6 +167,7 @@ internal fun AppNavigation(
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true -> "Compare"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCalendarRoute>() == true -> "Earnings"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true -> "Earnings event"
+                        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsResultsRoute>() == true -> "Earnings results"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true -> "Earnings details"
                         destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true -> "Research"
                         destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true -> "Practice"
@@ -345,7 +347,8 @@ internal fun AppNavigation(
                     onLearn = { openTab(MainDestination.LEARN) },
                     onSignIn = { navController.navigate(AuthRoute()) },
                     onUpgrade = { navController.navigate(SettingsRoute) },
-                    onOpenEarnings = { id -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(id)) })
+                    onOpenEarnings = { id -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(id)) },
+                    onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } })
             }
             composable<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute> {
                 if (accounts != null) org.example.stocksteps.presentation.brief.DailyBriefHistoryScene(accounts.dailyBrief, hinge,
@@ -355,14 +358,19 @@ internal fun AppNavigation(
             composable<org.example.stocksteps.presentation.earnings.EarningsCalendarRoute> { entry ->
                 org.example.stocksteps.presentation.earnings.EarningsCalendarScene(entry.toRoute(), backend, environment, accounts, hinge,
                     onOpenEvent = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(it)) },
-                    onSignIn = { navController.navigate(AuthRoute()) })
+                    onSignIn = { navController.navigate(AuthRoute()) },
+                    onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } })
             }
             composable<org.example.stocksteps.presentation.earnings.EarningsEventRoute> { entry ->
                 org.example.stocksteps.presentation.earnings.EarningsEventScene(entry.toRoute(), backend, environment, accounts, hinge,
                     onOpenCompany = openStock,
                     onOpenCalendar = { date -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(date)) },
-                    onOpenResults = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
+                    onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } },
                     onSignIn = { navController.navigate(AuthRoute()) })
+            }
+            composable<org.example.stocksteps.presentation.earnings.EarningsResultsRoute> { entry ->
+                org.example.stocksteps.presentation.earnings.EarningsResultsScene(entry.toRoute(), backend, environment, accounts, hinge,
+                    onOpenCompany = openStock, onLearn = { openTab(MainDestination.LEARN) })
             }
             composable<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute> { entry ->
                 org.example.stocksteps.presentation.earnings.EarningsDetailsScene(entry.toRoute(), backend, environment, accounts, hinge,
@@ -476,6 +484,7 @@ internal fun AppNavigation(
                     },
                     onEarnings = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
                     onEarningsCalendar = { date -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(date)) },
+                    onEarningsResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } },
                     onResearch = openResearch,
                     onPracticeBuy = { symbol -> practiceTrade(symbol, "BUY") }
                 )

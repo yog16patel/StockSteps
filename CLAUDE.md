@@ -13,7 +13,7 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-08)
 
-Latest commit: "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS" (pushed), after `c92ec89` (Daily Market Brief). No feature in progress; nothing uncommitted (see the top of `PROJECT_HANDOFF.md`). Next steps and
+Latest commit: "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS" (pushed), after `b5e2b9e` (Earnings Calendar, Phase 1). No feature in progress; nothing uncommitted (see the top of `PROJECT_HANDOFF.md`). Next steps and
 production dependencies are in `docs/project-status.md` §0 and §4. A local MOCK server may still be
 running on :8081 (restart after server changes; stop with `./gradlew :server:stopMock`).
 

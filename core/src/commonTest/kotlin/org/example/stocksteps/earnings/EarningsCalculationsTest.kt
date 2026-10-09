@@ -39,7 +39,8 @@ class EarningsCalculationsTest {
         assertNull(r.percent)
         assertEquals(Classification.BEAT, r.classification)
         assertNotNull(r.reason)
-        assertEquals(Classification.IN_LINE, EarningsCalculator.eps(est(0.0), act(0.004)).classification)
+        assertEquals(Classification.BEAT, EarningsCalculator.eps(est(0.0), act(0.004)).classification) // no tolerance
+        assertEquals(Classification.MET, EarningsCalculator.eps(est(0.0), act(0.0)).classification)
     }
 
     @Test fun missingValuesAreNotComparable() {
@@ -48,10 +49,14 @@ class EarningsCalculationsTest {
         assertEquals(Classification.UNAVAILABLE, EarningsCalculator.eps(est(eps = null), act(1.0)).classification)
     }
 
-    @Test fun roundingToleranceProducesInLine() {
-        assertEquals(Classification.IN_LINE, EarningsCalculator.eps(est(1.50), act(1.504)).classification) // under half a cent
-        assertEquals(Classification.IN_LINE, EarningsCalculator.eps(est(10.00), act(10.04)).classification) // 0.4% of estimate
-        assertEquals(Classification.BEAT, EarningsCalculator.eps(est(1.00), act(1.01)).classification)
+    @Test fun exactDecimalPolicyHasNoHiddenTolerance() {
+        assertEquals(Classification.BEAT, EarningsCalculator.eps(est(1.50), act(1.504)).classification)  // any difference counts
+        assertEquals(Classification.MISS, EarningsCalculator.eps(est(10.00), act(9.99)).classification)
+        assertEquals(Classification.MET, EarningsCalculator.eps(est(0.30), act(0.30)).classification)
+        // A binary floating-point artifact (0.30000000000000004) isn't a "beat": values are read as decimals to 8 places.
+        assertEquals(Classification.MET, EarningsCalculator.eps(est(0.30), act(0.1 + 0.2)).classification)
+        close(0.25, EarningsCalculator.eps(est(1.20), act(1.45)).absolute)                                 // exact, no 0.2499999…
+        assertEquals("0.25", EarningsCalculator.eps(est(1.20), act(1.45)).absolute.toString())
     }
 
     @Test fun basisAndCurrencyMismatchesAreNeverCompared() {
@@ -64,10 +69,11 @@ class EarningsCalculationsTest {
 
     // ---------- Revenue ----------
 
-    @Test fun revenueSurpriseAndTolerance() {
+    @Test fun revenueSurpriseExact() {
         val r = EarningsCalculator.revenue(est(revenue = 10e9), act(revenue = 10.4e9))
         assertEquals(Classification.BEAT, r.classification); close(4.0, r.percent); close(0.4e9, r.absolute)
-        assertEquals(Classification.IN_LINE, EarningsCalculator.revenue(est(revenue = 10e9), act(revenue = 10.04e9)).classification)
+        assertEquals(Classification.BEAT, EarningsCalculator.revenue(est(revenue = 10e9), act(revenue = 10.04e9)).classification)
+        assertEquals(Classification.MET, EarningsCalculator.revenue(est(revenue = 10e9), act(revenue = 10e9)).classification)
         assertEquals(Classification.MISS, EarningsCalculator.revenue(est(revenue = 10e9), act(revenue = 9.8e9)).classification)
         assertEquals(Classification.UNAVAILABLE, EarningsCalculator.revenue(est(revenue = 0.0), act(revenue = 1e9)).classification)
         assertEquals(Classification.UNAVAILABLE, EarningsCalculator.revenue(est(revenue = 1e9, currency = "CAD"), act(revenue = 1e9, currency = "USD")).classification)
@@ -175,6 +181,8 @@ class EarningsCalculationsTest {
         override suspend fun ask(symbol: String, question: String): EarningsAnswer { asked++; return EarningsAnswer("answer") }
         override suspend fun event(id: String): EarningsEventInfo = throw UnsupportedOperationException()
         override suspend fun next(symbol: String): NextEarnings = throw UnsupportedOperationException()
+        override suspend fun results(reportId: String): EarningsResultsResponse = throw UnsupportedOperationException()
+        override suspend fun latestResults(symbol: String): EarningsResultsResponse = throw UnsupportedOperationException()
     }
 
     @Test fun aiRequiresSignInAndPlusBeforeAnyRequest(): Unit = runBlocking {

@@ -41,6 +41,8 @@ internal sealed interface CalendarAction {
     data class Query(val text: String) : CalendarAction
     data object ClearQuery : CalendarAction
     data class Open(val eventId: String) : CalendarAction
+    /** Opens Earnings Results for a verified reported event. */
+    data class OpenResults(val reportId: String) : CalendarAction
     data object LoadMore : CalendarAction
     data object Retry : CalendarAction
     data object SignIn : CalendarAction
@@ -113,7 +115,7 @@ internal fun EarningsCalendarScreen(state: EarningsCalendarState, modifier: Modi
                 Text(EarningsFormatter.date(date), Modifier.padding(top = spacing.sm).semantics { heading(); contentDescription = EarningsFormatter.spokenDate(date) },
                     style = typography.label, color = colors.textSecondary)
             }
-            items(rows, key = { it.id }) { row -> EventCard(row) { onAction(CalendarAction.Open(row.id)) } }
+            items(rows, key = { it.id }) { row -> EventCard(row, onResults = row.reportId?.let { id -> { onAction(CalendarAction.OpenResults(id)) } }) { onAction(CalendarAction.Open(row.id)) } }
         }
         if (state.loadingMore) item(key = "more") { LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading more earnings" }) }
         item(key = "notes") {
@@ -175,7 +177,7 @@ private fun DayCell(day: WeekDayView, modifier: Modifier, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EventCard(row: EarningsEventRow, onClick: () -> Unit) {
+private fun EventCard(row: EarningsEventRow, onResults: (() -> Unit)?, onClick: () -> Unit) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = row.accessibility }, onClick = onClick, onClickLabel = "Open ${row.symbol} earnings event") {
@@ -194,6 +196,8 @@ private fun EventCard(row: EarningsEventRow, onClick: () -> Unit) {
             Icon(StockIcons.Star, null, Modifier.size(StockStepsTheme.dimensions.iconSmall), tint = colors.primary)
             Text("On your watchlist", style = typography.caption, color = colors.textSecondary)
         }
+        // Only verified reported events with a published report link to results.
+        onResults?.let { StockButton("View Results", onClick = it, variant = StockButtonVariant.TEXT) }
     }
 }
 
@@ -242,8 +246,8 @@ internal fun EarningsEventScreen(state: EarningsEventState, watched: Boolean, wa
                     Line(MetricLine("Status", state.statusText.orEmpty()))
                     state.previousDate?.let { Text("Date moved from ${EarningsFormatter.date(it)}", style = typography.caption, color = colors.cautionText) }
                     state.statusExplanation?.let { Text(it, style = typography.small, color = colors.textBody) }
-                    // Phase 2 extension point: reported figures live on Earnings Details, never invented here.
-                    if (state.reported) StockButton("See reported results", onClick = { onAction(EventAction.Results) }, variant = StockButtonVariant.OUTLINED)
+                    // Only a verified report links to Earnings Results; never a placeholder.
+                    if (state.reportId != null) StockButton("View Results", onClick = { onAction(EventAction.Results) }, variant = StockButtonVariant.OUTLINED)
                 }
             }
             item(key = "explain") {
@@ -500,4 +504,154 @@ private fun ReminderDialog(state: EarningsDetailsState, onDismiss: () -> Unit, o
             if (current != null) TextButton(onClick = { onSave(null, null, false, null) }) { Text("Turn off") }
             TextButton(onClick = onDismiss) { Text("Cancel") }
         } })
+}
+
+// ---------- Earnings Results (Phase 2) ----------
+
+internal sealed interface ResultsAction {
+    data object Retry : ResultsAction
+    data class Toggle(val key: String) : ResultsAction
+    data object Company : ResultsAction
+    data object Learn : ResultsAction
+}
+
+/**
+ * Earnings Results: header → EPS → revenue → growth → previous quarter → takeaway → learn → sources.
+ * Every number and sentence comes from the server's calculations via the presenter; this only renders.
+ */
+@Composable
+internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifier, onAction: (ResultsAction) -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    var lesson by remember { mutableStateOf<LearnLink?>(null) }
+    LazyColumn(modifier.background(colors.appBackground), contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
+        verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        if (state.loading || state.refreshing) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading earnings results" }) }
+        if (state.notPublished) item(key = "unavailable") { EarningsUnavailableState(state.error ?: "Results for this period haven't been published yet.", onCompany = { onAction(ResultsAction.Company) }) }
+        else state.error?.let { item(key = "error") { StockErrorState(it, { onAction(ResultsAction.Retry) }) } }
+        if (state.response != null) {
+            item(key = "header") { EarningsResultHeader(state) }
+            state.eps?.let { item(key = "eps") { FinancialComparisonCard(it, it.key in state.expanded) { onAction(ResultsAction.Toggle(it.key)) } } }
+            state.revenue?.let { item(key = "revenue") { FinancialComparisonCard(it, it.key in state.expanded) { onAction(ResultsAction.Toggle(it.key)) } } }
+            state.yearOverYear?.let { item(key = "yoy") { RevenueGrowthCard(it) } }
+            state.quarterOverQuarter?.let { item(key = "qoq") { RevenueGrowthCard(it) } }
+            state.takeaway?.let { takeaway -> item(key = "takeaway") { EarningsTakeawayCard(takeaway, state.warnings) } }
+            item(key = "learn") {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    Text("Learn More", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
+                    state.learn.forEach { link ->
+                        // An existing lesson opens in place; a missing one falls back to the Learn tab (never a broken link).
+                        StockButton(link.title, onClick = { if (link.body != null) lesson = link else onAction(ResultsAction.Learn) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb)
+                    }
+                    StockButton("View Company Details", onClick = { onAction(ResultsAction.Company) }, variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth())
+                }
+            }
+            item(key = "sources") { EarningsSourceFooter(state.sources) }
+        }
+    }
+    lesson?.let { l -> AlertDialog(onDismissRequest = { lesson = null }, title = { Text(l.title) }, text = { Text(l.body.orEmpty()) },
+        confirmButton = { TextButton(onClick = { lesson = null }) { Text("Got it") } }, dismissButton = { TextButton(onClick = { lesson = null; onAction(ResultsAction.Learn) }) { Text("Open Learn") } }) }
+}
+
+@Composable
+private fun EarningsResultHeader(state: EarningsResultsState) {
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+            StockTickerAvatar(state.symbolLine.substringBefore(" ·"), logoUrl = state.logoUrl, size = StockStepsTheme.dimensions.logo)
+            Column(Modifier.weight(1f)) {
+                Text(state.companyName, style = typography.bodySemiBold, color = colors.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(state.symbolLine, style = typography.caption, color = colors.textSecondary)
+            }
+        }
+        Text(state.title, Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
+        state.periodLines.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
+        if (state.sampleData) StockSampleDataBanner("Sample earnings data for development, not real results.")
+        state.freshnessText?.let { Text(it, style = typography.caption, color = colors.cautionText) }
+    }
+}
+
+/** One card for EPS and revenue: numbers, classification in words, explanation, expandable definition. */
+@Composable
+private fun FinancialComparisonCard(card: ComparisonCardView, expanded: Boolean, onToggle: () -> Unit) {
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        Column(Modifier.semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(card.title, Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+                SurpriseIndicator(card.classificationText, card.classification)
+            }
+            card.lines.forEach { Line(it) }
+            card.explanation?.let { Text(it, style = typography.small, color = colors.textBody) }
+            card.reason?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+            card.basisNote?.let { Text(it, style = typography.caption, color = colors.textTertiary) }
+        }
+        FinancialTermInfo(card.infoTitle, card.infoBody, expanded, onToggle)
+    }
+}
+
+/** The classification as a labelled pill: the word carries the meaning; colour is secondary. */
+@Composable
+private fun SurpriseIndicator(text: String, classification: Classification) {
+    val colors = StockStepsTheme.colors
+    val (background, content) = when (classification) {
+        Classification.BEAT -> colors.positiveContainer to colors.positiveText
+        Classification.MISS -> colors.negativeContainer to colors.negativeText
+        Classification.MET -> colors.surfaceSecondary to colors.textPrimary
+        Classification.UNAVAILABLE -> colors.surfaceSecondary to colors.textSecondary
+    }
+    Text(text, Modifier.clip(StockStepsTheme.shapes.pill).background(background).padding(horizontal = StockStepsTheme.spacing.sm, vertical = StockStepsTheme.spacing.xxs),
+        style = StockStepsTheme.typography.label, color = content)
+}
+
+@Composable
+private fun FinancialTermInfo(title: String, body: String, expanded: Boolean, onToggle: () -> Unit) {
+    Column {
+        Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
+            .clickable(onClickLabel = if (expanded) "Hide explanation" else "Show explanation", onClick = onToggle)
+            .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }, verticalAlignment = Alignment.CenterVertically) {
+            Icon(StockIcons.Info, null, Modifier.size(StockStepsTheme.dimensions.iconSmall), tint = StockStepsTheme.colors.primary)
+            Text(title, Modifier.padding(start = StockStepsTheme.spacing.xs).weight(1f), style = StockStepsTheme.typography.label, color = StockStepsTheme.colors.primaryText)
+            Icon(StockIcons.ChevronRight, null, Modifier.rotate(if (expanded) 90f else 0f), tint = StockStepsTheme.colors.iconSecondary)
+        }
+        if (expanded) Text(body, style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textBody)
+    }
+}
+
+@Composable
+private fun RevenueGrowthCard(card: GrowthCardView) {
+    val colors = StockStepsTheme.colors
+    StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        Text(card.title, Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
+        card.lines.forEach { Line(it) }
+        Text(card.explanation, style = StockStepsTheme.typography.small, color = colors.textBody)
+        card.reason?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
+    }
+}
+
+@Composable
+private fun EarningsTakeawayCard(takeaway: String, warnings: List<String>) {
+    val colors = StockStepsTheme.colors
+    StockCard(Modifier.fillMaxWidth(), containerColor = colors.educationContainer, bordered = false, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        Text("Beginner Takeaway", Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
+        Text(takeaway, style = StockStepsTheme.typography.body, color = colors.textBody)
+        warnings.forEach { Text(it, style = StockStepsTheme.typography.caption, color = colors.cautionText) }
+        Text("This is education, not investment advice.", style = StockStepsTheme.typography.caption, color = colors.textSecondary)
+    }
+}
+
+@Composable
+private fun EarningsSourceFooter(lines: List<String>) {
+    Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+        Text("Sources", style = StockStepsTheme.typography.label, color = StockStepsTheme.colors.textSecondary)
+        lines.forEach { Text(it, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary) }
+    }
+}
+
+@Composable
+private fun EarningsUnavailableState(message: String, onCompany: () -> Unit) {
+    StockEmptyState(message, actionText = "View Company Details", onAction = onCompany)
 }

@@ -1,8 +1,9 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **"Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"** on `main` (pushed).
-Includes Earnings Intelligence Lite Phase 1 — Earnings Calendar (next section, `docs/EARNINGS.md` "Phase 1").
-Previous commit: **c92ec89 "Add Daily Market Brief on Android and iOS"**. Includes the Daily Market Brief (next section, `docs/DAILY_MARKET_BRIEF.md`); see also `CLAUDE.md` and `docs/project-status.md`.
+Last updated: 2026-10-08 (America/Toronto). Current commit: **"Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"** on `main` (pushed).
+Includes Earnings Intelligence Lite Phase 2 — Earnings Results (next section, `docs/EARNINGS.md` "Phase 2").
+Previous commit: **"Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"** (`b5e2b9e`), Earnings Calendar (Phase 1).
+Earlier commit: **c92ec89 "Add Daily Market Brief on Android and iOS"**. Includes the Daily Market Brief (next section, `docs/DAILY_MARKET_BRIEF.md`); see also `CLAUDE.md` and `docs/project-status.md`.
 Previous commit: **Add Practice Portfolio simulator with free tier, 14-day trial and StockSteps+ on Android and iOS** (`a4a4aeb`).
 Includes the Practice Portfolio (`docs/PRACTICE_PORTFOLIO.md`).
 Previous commit: **Add Guided Stock Research and beginner learning on Android and iOS**.
@@ -19,6 +20,24 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Earnings Intelligence Lite Phase 2: Earnings Results (2026-10-08) — commit "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"
+
+Committed and pushed on top of `b5e2b9e` ("Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS").
+Details: `docs/EARNINGS.md` → "Phase 2".
+- New Earnings Results screen (Android `EarningsResultsRoute` + `EarningsResultsScene/Screen`, iOS
+  `EarningsResultsScene`), core `earnings/EarningsResults.kt` (exact-decimal report, insights, takeaways,
+  presenter with offline saved copy), server `/earnings/reports/{id}`, `/reports/{id}/insights`,
+  `/company/{symbol}/latest`, `/company/{symbol}/reports`; entry points from calendar, event details,
+  Company Details and Daily Brief; `DEMO_RESULTS` fixtures.
+- **Behaviour change:** earnings classification is now exact (MET only when equal; the ±0.5%/half-cent
+  tolerance was removed and `IN_LINE` renamed `MET`), shared by the old Earnings Details screen.
+- Also fixed a race in `DailyBriefTest.offlineShowsOnlyBriefsThisDeviceDownloaded` (test-only; it
+  failed intermittently on the iOS simulator).
+- Validation: core JVM 322, core iOS 322, server 266, shared Android host 55, shared iOS 49 — 0 failures;
+  `assembleDebug` OK; iOS xcodebuild BUILD SUCCEEDED (default DerivedData — the previous session's
+  scratch derived data had been partly purged); live MOCK checks OK (server restarted on :8081).
+- Not done: UI automation, device walkthrough, REAL provider verification.
 
 ## Earnings Intelligence Lite Phase 1: Earnings Calendar (2026-10-08) — commit "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"
 

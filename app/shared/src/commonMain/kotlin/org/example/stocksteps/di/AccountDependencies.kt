@@ -106,6 +106,10 @@ class AccountDependencies(
     /** StockSteps+ research questions (the backend enforces the plan). */
     val researchAsk: org.example.stocksteps.learning.ResearchAsk = org.example.stocksteps.learning.ResearchAsk { symbol, question -> userApi.askResearch(symbol, question) }
     val watchData: WatchDataRepository = graph.koin.get()
+    /** Saved copies of opened earnings reports (public data), so Earnings Results can show them offline. */
+    val earningsResultsCache: org.example.stocksteps.earnings.EarningsResultsCache by lazy {
+        org.example.stocksteps.earnings.UserDataResultsCache(graph.koin.get()) { environment.value }
+    }
     val devices: DeviceRegistrar = graph.koin.get()
     val environment: StateFlow<String> = environment
     val home: org.example.stocksteps.home.PersonalDashboardStore = graph.koin.get()

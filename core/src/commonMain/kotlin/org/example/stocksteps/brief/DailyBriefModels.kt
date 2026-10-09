@@ -150,7 +150,9 @@ data class WatchlistHighlight(
     val text: String,
     val url: String? = null,
     val publisher: String? = null,
-    val at: String? = null
+    val at: String? = null,
+    /** EARNINGS_RESULT: the published report, for opening Earnings Results. */
+    val reportId: String? = null
 )
 
 @Serializable

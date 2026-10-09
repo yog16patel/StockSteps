@@ -314,7 +314,8 @@ class DailyBriefService(
                 if (kotlin.math.abs(pct) >= 2.0) highlights += kotlin.math.abs(pct) to WatchlistHighlight(r.symbol, r.name, HighlightKind.PRICE_MOVE,
                     "${BriefWording.move(r.symbol, pct)} in the ${shortDate.format(LocalDate.parse(date))} session.", at = Instant.ofEpochSecond(q.timestamp!!).toString())
             }
-            r.result?.let { e -> highlights += 50.0 to WatchlistHighlight(r.symbol, r.name, HighlightKind.EARNINGS_RESULT, "Reported quarterly results on ${shortDate.format(LocalDate.parse(e.date))}.", at = e.date) }
+            r.result?.let { e -> highlights += 50.0 to WatchlistHighlight(r.symbol, r.name, HighlightKind.EARNINGS_RESULT, "Reported quarterly results on ${shortDate.format(LocalDate.parse(e.date))}.", at = e.date,
+                reportId = e.id.takeIf { e.actual?.let { a -> a.eps != null || a.revenue != null } == true }) }
             r.upcoming?.takeIf { runCatching { LocalDate.parse(it.date) <= localDate(now).plusDays(7) }.getOrDefault(false) }?.let { u ->
                 highlights += 40.0 to WatchlistHighlight(r.symbol, r.name, HighlightKind.EARNINGS_UPCOMING,
                     "Expected to report on ${shortDate.format(LocalDate.parse(u.date))} (${u.status.name.lowercase()} date${timing(u.time)?.let { t -> ", $t" } ?: ""}).", at = u.date)

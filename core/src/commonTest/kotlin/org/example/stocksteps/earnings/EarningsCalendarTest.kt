@@ -117,6 +117,8 @@ class EarningsCalendarTest {
             val e = events.filter { it.symbol == symbol && it.date >= "2026-10-07" }.minByOrNull { it.date }
             return NextEarnings(symbol, e, e?.let { EarningsCalendarRules.status(it, "2026-10-07") }, "now")
         }
+        override suspend fun results(reportId: String): EarningsResultsResponse = throw StockStepsApiException(404, ApiError("NOT_REPORTED", "Not published"))
+        override suspend fun latestResults(symbol: String): EarningsResultsResponse = throw StockStepsApiException(404, ApiError("NO_REPORT", "None"))
     }
 
     private val sample = listOf(

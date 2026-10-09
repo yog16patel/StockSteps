@@ -31,6 +31,7 @@ internal fun CompanyDetailsScene(
     onCompare: (symbol: String, name: String) -> Unit = { _, _ -> },
     onEarnings: (String) -> Unit = {},
     onEarningsCalendar: (String?) -> Unit = {},
+    onEarningsResults: (String) -> Unit = {},
     onResearch: (symbol: String, name: String) -> Unit = { _, _ -> },
     onPracticeBuy: (String) -> Unit = {}
 ) {
@@ -70,6 +71,7 @@ internal fun CompanyDetailsScene(
                 CompanyDetailsAction.Earnings -> onEarnings(route.symbol)
                 CompanyDetailsAction.EarningsCalendar -> onEarningsCalendar(earnings.date)
                 CompanyDetailsAction.RetryEarnings -> earningsModel.presenter.refresh()
+                CompanyDetailsAction.LatestResults -> earnings.latestReportId?.let(onEarningsResults)
                 CompanyDetailsAction.PracticeBuy -> onPracticeBuy(route.symbol)
                 CompanyDetailsAction.Research -> state.overview.listing(route.symbol).let { onResearch(it.symbol, it.name) }
                 CompanyDetailsAction.Back -> onBack()

@@ -179,7 +179,9 @@ data class EarningsEventRow(
     val status: EarningsEventStatus,
     val statusText: String,
     val watchlisted: Boolean,
-    val previousDate: String?
+    val previousDate: String?,
+    /** Published report for "View Results"; null until the source has reported figures. */
+    val reportId: String? = null
 ) {
     val accessibility: String get() = buildString {
         append("$name, $symbol").append(exchange?.let { ", $it" } ?: "").append(". ")
@@ -193,7 +195,7 @@ fun EarningsCalendarItem.eventRow(watched: Set<String>): EarningsEventRow {
     val e = event
     return EarningsEventRow(e.id, e.symbol, e.name, e.exchange, e.logoUrl, e.date, EarningsFormatter.date(e.date), EarningsCalendarRules.timing(e),
         eventStatus, EarningsCalendarRules.statusText(eventStatus, e.dateStatus),
-        FollowReason.WATCHLIST in following || e.symbol.uppercase() in watched, e.previousDate)
+        FollowReason.WATCHLIST in following || e.symbol.uppercase() in watched, e.previousDate, reportId.takeIf { eventStatus == EarningsEventStatus.REPORTED })
 }
 
 /** Restorable selection (route arguments and saved state). */
@@ -444,7 +446,9 @@ data class EarningsEventState(
     val sampleData: Boolean = false,
     val notes: List<String> = emptyList(),
     /** Exchange-local date, for opening the calendar on it. */
-    val date: String? = null
+    val date: String? = null,
+    /** Published report for "View Results" (verified reported events only). */
+    val reportId: String? = null
 ) {
     val reported: Boolean get() = status == EarningsEventStatus.REPORTED
 }
@@ -466,7 +470,8 @@ class EarningsEventPresenter(val eventId: String, private val remote: EarningsRe
                 EarningsFormatter.spokenDate(e.date), EarningsCalendarRules.timing(e), info.item.eventStatus,
                 EarningsCalendarRules.statusText(info.item.eventStatus, e.dateStatus), EarningsCalendarRules.statusExplanation(info.item.eventStatus), e.previousDate,
                 e.sourceUpdatedAt?.let { "Source updated ${EarningsFormatter.date(it.take(10))}" } ?: "The source didn't say when this was last updated.",
-                "Source: ${e.source}", EarningsCalendarRules.freshnessText(info.freshness, info.fetchedAt), info.sampleData, info.notes, e.date)
+                "Source: ${e.source}", EarningsCalendarRules.freshnessText(info.freshness, info.fetchedAt), info.sampleData, info.notes, e.date,
+                info.item.reportId.takeIf { info.item.eventStatus == EarningsEventStatus.REPORTED })
         } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
             mutable.update { it.copy(loading = false, error = (cause as? StockStepsApiException)?.let { e -> if (e.status == 404) "This earnings event isn't available. It may have been removed by the data source." else e.error.message }
@@ -489,7 +494,13 @@ data class CompanyEarningsState(
     val spokenDate: String? = null,
     val timingText: String? = null,
     val statusText: String? = null,
-    val sampleData: Boolean = false
+    val sampleData: Boolean = false,
+    /** Latest published results (Phase 2 preview); null when none or it couldn't be loaded. */
+    val latestReportId: String? = null,
+    /** "Latest results: Q3 FY2026". */
+    val latestTitle: String? = null,
+    /** "EPS Beat · Revenue Miss" (only comparable measures). */
+    val latestSummary: String? = null
 ) {
     val message: String? get() = if (!loading && error == null && date == null) "Next earnings date not available." else null
 }
@@ -502,14 +513,22 @@ class CompanyEarningsPresenter(val symbol: String, private val remote: EarningsR
 
     init { scope.launch { refreshes.collectLatest { load() } } }
 
-    private suspend fun load() {
+    private suspend fun load() = coroutineScope {
         mutable.update { it.copy(loading = true, error = null) }
+        // The latest results preview is optional: a missing report (404) or failure just hides it.
+        val latest = async { runCatching { remote.latestResults(symbol) }.getOrNull() }
         try {
             val next = remote.next(symbol)
             val e = next.event
-            mutable.value = if (e == null) CompanyEarningsState(loading = false, sampleData = next.sampleData) else CompanyEarningsState(false, null, e.date, e.id,
+            val base = if (e == null) CompanyEarningsState(loading = false, sampleData = next.sampleData) else CompanyEarningsState(false, null, e.date, e.id,
                 EarningsFormatter.date(e.date) + ", " + e.date.take(4), EarningsFormatter.spokenDate(e.date), EarningsCalendarRules.timing(e),
                 EarningsCalendarRules.statusText(next.eventStatus ?: EarningsEventStatus.SCHEDULED, e.dateStatus), next.sampleData)
+            val r = latest.await()
+            mutable.value = if (r == null) base else base.copy(latestReportId = r.report.reportId, latestTitle = "Latest results: ${r.report.period}",
+                latestSummary = listOfNotNull(
+                    r.insights.eps.classification.takeIf { it != Classification.UNAVAILABLE }?.let { "EPS ${it.label}" },
+                    r.insights.revenue.classification.takeIf { it != Classification.UNAVAILABLE }?.let { "Revenue ${it.label}" }
+                ).joinToString(" · ").ifEmpty { "Estimates not comparable" })
         } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
             mutable.update { it.copy(loading = false, error = "Earnings dates couldn't be loaded.") }

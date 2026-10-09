@@ -159,6 +159,15 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}:\\d{4}-Q[1-4]").matches(id))
         return request { url("$baseUrl/api/v1/earnings/events/${id.encodeURLPathPart()}") }
     }
+    /** One published report ("AAPL:2026-Q3") with server-calculated insights. */
+    suspend fun earningsResults(reportId: String): org.example.stocksteps.earnings.EarningsResultsResponse {
+        require(org.example.stocksteps.earnings.EarningsReportMapper.parse(reportId) != null)
+        return request { url("$baseUrl/api/v1/earnings/reports/${reportId.encodeURLPathPart()}") }
+    }
+    suspend fun latestEarningsResults(symbol: String): org.example.stocksteps.earnings.EarningsResultsResponse {
+        require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
+        return request { url("$baseUrl/api/v1/earnings/company/${symbol.uppercase()}/latest") }
+    }
     suspend fun nextEarnings(symbol: String): org.example.stocksteps.earnings.NextEarnings {
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return request { url("$baseUrl/api/v1/earnings/company/${symbol.uppercase()}/next") }

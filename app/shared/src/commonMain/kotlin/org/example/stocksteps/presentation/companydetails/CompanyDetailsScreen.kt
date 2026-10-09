@@ -604,6 +604,15 @@ private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarnin
                 }
                 else -> Text(state.message.orEmpty(), style = typography.small, color = colors.textSecondary)
             }
+            // Latest published results (comparable measures only), linking to the full Earnings Results.
+            state.latestTitle?.let { title ->
+                StockDivider()
+                Column(Modifier.semantics(mergeDescendants = true) { contentDescription = "$title. ${state.latestSummary.orEmpty()}." }) {
+                    Text(title, style = typography.label, color = colors.textSecondary)
+                    state.latestSummary?.let { Text(it, style = typography.bodySemiBold, color = colors.textPrimary) }
+                }
+                StockButton("View Results", onClick = { onAction(CompanyDetailsAction.LatestResults) }, variant = StockButtonVariant.OUTLINED)
+            }
             if (state.sampleData) Text("Sample earnings data.", style = typography.caption, color = colors.cautionText)
             Row(horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
                 StockButton("View Earnings Calendar", onClick = { onAction(CompanyDetailsAction.EarningsCalendar) }, variant = StockButtonVariant.TEXT)

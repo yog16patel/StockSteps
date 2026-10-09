@@ -27,6 +27,8 @@ struct AppScene: View {
     @State private var earningsEventId: String?
     /// Earnings Details (results and history) for a company.
     @State private var earningsSymbol: String?
+    /// Earnings Results for one published report ("SYMBOL:YYYY-Qn").
+    @State private var earningsResultsId: String?
     @State private var learningModel: LearningModel
     @State private var researchTarget: ResearchTarget?
     @State private var practiceModel: PracticeModel?
@@ -117,14 +119,15 @@ struct AppScene: View {
                 CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel, learning: learningModel,
                                     onSearch: { initialStock = nil; showingSearch = true }, onLearn: { detailsSymbol = nil; selectedTab = .learn },
                                     onUpgrade: { showingSettings = true }, onPracticeBuy: { practiceTrade(PracticeOrderTarget(symbol: $0, sell: false)) },
-                                    onEarningsCalendar: { earningsCalendar = EarningsCalendarTarget(date: $0) })
+                                    onEarningsCalendar: { earningsCalendar = EarningsCalendarTarget(date: $0) },
+                                    onEarningsResults: { earningsResultsId = $0 })
             }
             .navigationDestination(item: $briefTarget) { target in
                 if let briefModel {
                     DailyBriefScene(target: target, model: briefModel, onOpenStock: explore, onHistory: { showingBriefHistory = true },
                                     onWatchlist: { briefTarget = nil; selectedTab = .watchlist }, onLearn: { briefTarget = nil; selectedTab = .learn },
                                     onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true },
-                                    onOpenEarnings: { earningsEventId = $0 })
+                                    onOpenEarnings: { earningsEventId = $0 }, onOpenResults: { earningsResultsId = $0 })
                 }
             }
             .navigationDestination(isPresented: $showingBriefHistory) {
@@ -159,7 +162,8 @@ struct AppScene: View {
                                     onUpgrade: { showingSettings = true })
             }
             .navigationDestination(item: $earningsCalendar) { target in
-                EarningsCalendarScene(target: target, client: earningsModel.client, onOpen: { earningsEventId = $0 }, onSignIn: { showingAuth = true })
+                EarningsCalendarScene(target: target, client: earningsModel.client, onOpen: { earningsEventId = $0 }, onSignIn: { showingAuth = true },
+                                      onOpenResults: { earningsResultsId = $0 })
                     .id(target.id)
             }
             .navigationDestination(item: $earningsEventId) { id in
@@ -170,7 +174,15 @@ struct AppScene: View {
                                        earningsEventId = nil
                                        if !open { earningsCalendar = EarningsCalendarTarget(date: date) }
                                    },
-                                   onResults: { earningsSymbol = $0 }, onSignIn: { showingAuth = true })
+                                   onResults: { earningsResultsId = $0 }, onSignIn: { showingAuth = true })
+            }
+            .navigationDestination(item: $earningsResultsId) { id in
+                EarningsResultsScene(reportId: id, client: earningsModel.client, onCompany: explore,
+                                     onLearn: { earningsResultsId = nil; selectedTab = .learn })
+                    .id(id)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsResults)) { note in
+                if let id = note.object as? String, !id.isEmpty { earningsResultsId = id }
             }
             .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsEvent)) { note in
                 if let id = note.object as? String, !id.isEmpty { earningsEventId = id }

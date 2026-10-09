@@ -69,7 +69,11 @@ final class PushCoordinator: NSObject, UNUserNotificationCenterDelegate {
             await MainActor.run { NotificationCenter.default.post(name: .stockStepsOpenBrief, object: id) }
             return
         }
-        // Reserved for a later phase (no earnings notifications are sent yet): opens the event.
+        // Reserved for a later phase (no earnings notifications are sent yet): opens results or the event.
+        if info["type"] as? String == "earnings-results", let id = info["reportId"] as? String {
+            await MainActor.run { NotificationCenter.default.post(name: .stockStepsOpenEarningsResults, object: id) }
+            return
+        }
         if info["type"] as? String == "earnings-event", let id = info["eventId"] as? String {
             await MainActor.run { NotificationCenter.default.post(name: .stockStepsOpenEarningsEvent, object: id) }
             return

@@ -39,6 +39,41 @@ internal class EarningsDetailsViewModel(symbol: String, remote: EarningsRemote, 
     override fun onCleared() = close()
 }
 
+internal class EarningsResultsViewModel(reportId: String, remote: EarningsRemote, cache: EarningsResultsCache?, private val close: () -> Unit) : ViewModel() {
+    val presenter = EarningsResultsPresenter(reportId, remote, viewModelScope, cache)
+    override fun onCleared() = close()
+}
+
+/** Owns one report's presenter (keyed by report and Mock/Real); route arguments restore it after process death. */
+@Composable
+internal fun EarningsResultsScene(
+    route: EarningsResultsRoute,
+    backend: BackendRouter,
+    environment: BackendEnvironment,
+    accounts: AccountDependencies?,
+    hinge: WindowHinge?,
+    onOpenCompany: (String) -> Unit,
+    onLearn: () -> Unit
+) {
+    val model = viewModel(key = "earnings-results:${route.reportId}:$environment") {
+        val data = StockStepsDependencies(backend::currentUrl)
+        EarningsResultsViewModel(route.reportId, data.earningsRemote(accounts), accounts?.earningsResultsCache, data::close)
+    }
+    val state by model.presenter.state.collectAsStateWithLifecycle()
+    AdaptiveSinglePane(hinge) { region ->
+        Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            EarningsResultsScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize()) { action ->
+                when (action) {
+                    ResultsAction.Retry -> model.presenter.refresh()
+                    is ResultsAction.Toggle -> model.presenter.toggle(action.key)
+                    ResultsAction.Company -> onOpenCompany(route.symbol)
+                    ResultsAction.Learn -> onLearn()
+                }
+            }
+        }
+    }
+}
+
 /** Company Details' next earnings date (one cached request per company). */
 internal class CompanyEarningsViewModel(symbol: String, remote: EarningsRemote, private val close: () -> Unit) : ViewModel() {
     val presenter = CompanyEarningsPresenter(symbol, remote, viewModelScope)
@@ -66,7 +101,8 @@ internal fun EarningsCalendarScene(
     accounts: AccountDependencies?,
     hinge: WindowHinge?,
     onOpenEvent: (String) -> Unit,
-    onSignIn: () -> Unit
+    onSignIn: () -> Unit,
+    onOpenResults: (String) -> Unit = {}
 ) {
     var saved by rememberSaveable { mutableStateOf<String?>(null) }
     val model = viewModel(key = "earnings-calendar:$route:$environment") {
@@ -91,6 +127,7 @@ internal fun EarningsCalendarScene(
                     is CalendarAction.Query -> p.setQuery(action.text)
                     CalendarAction.ClearQuery -> p.clearQuery()
                     is CalendarAction.Open -> onOpenEvent(action.eventId)
+                    is CalendarAction.OpenResults -> onOpenResults(action.reportId)
                     CalendarAction.LoadMore -> p.loadMore()
                     CalendarAction.Retry -> p.refresh()
                     CalendarAction.SignIn -> onSignIn()
@@ -128,7 +165,7 @@ internal fun EarningsEventScene(
                 when (action) {
                     EventAction.Company -> onOpenCompany(state.symbol)
                     EventAction.Calendar -> onOpenCalendar(state.date)
-                    EventAction.Results -> onOpenResults(state.symbol)
+                    EventAction.Results -> state.reportId?.let(onOpenResults)
                     EventAction.Retry -> model.presenter.refresh()
                     EventAction.SignIn -> onSignIn()
                     EventAction.ToggleWatchlist -> watchlistModel?.toggle(StockSearchResult(state.symbol, state.name, exchange = state.exchange))

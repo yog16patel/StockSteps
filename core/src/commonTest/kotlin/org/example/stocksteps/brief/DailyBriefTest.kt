@@ -201,7 +201,8 @@ class DailyBriefPresenterTest {
             val s = offline.state.await { it.offline }
             assertEquals("2026-10-07-after-close", s.latest!!.id)
             offline.open("2026-09-15-after-close")
-            assertTrue(offline.state.await { it.error != null && !it.loading }.error!!.contains("Previously opened"))
+            // Wait for open()'s own message: the offline presenter already holds an earlier error from its first load.
+            assertTrue(offline.state.await { it.error?.contains("Previously opened") == true && !it.loading }.error!!.contains("Previously opened"))
             val empty = DailyBriefPresenter(remote, Auth(null), InMemoryUserDataCache(), MutableStateFlow("mock"), scope).also { it.start() }
             val none = empty.state.await { it.error != null }
             assertNull(none.latest, "no offline copy is promised when none was downloaded")

@@ -146,7 +146,7 @@ class EarningsService(
         return EarningsCalendarItem(event, status,
             if (reported) EarningsCalculator.eps(event.estimate, event.actual) else null,
             if (reported) EarningsCalculator.revenue(event.estimate, event.actual) else null, following, shares,
-            EarningsCalendarRules.status(event, todayFor(event)))
+            EarningsCalendarRules.status(event, todayFor(event)), event.id.takeIf { reported })
     }
 
     private fun sorted(items: List<EarningsCalendarItem>) = items.sortedWith(
@@ -293,11 +293,74 @@ class EarningsService(
         return NextEarnings(symbol.uppercase(), next, next?.let { EarningsCalendarRules.status(it, todayFor(it)) }, clock.instant().toString(), loaded.freshness, sampleData)
     }
 
+    // ---------- Phase 2: Earnings Results (free for every reported period) ----------
+    // Reports and insights are calculated here; the apps only format them. Revisions appear when the
+    // cached history refreshes (6 h); a report keeps the source's publication time and our fetch time.
+
+    private suspend fun resultsHistory(symbol: String, scenario: String?): Loaded {
+        if (sampleData) when (scenario) {
+            "provider-timeout" -> throw EarningsRequestException(503, "EARNINGS_UNAVAILABLE", "The earnings data provider didn't respond in time. Try again shortly. (Sample scenario)")
+            "stale-cache" -> return Loaded(source.history(symbol), DataFreshness.STALE, clock.instant().minusSeconds(3 * 3600))
+        }
+        return history(symbol)
+    }
+
+    private suspend fun response(event: EarningsEvent, loaded: Loaded): EarningsResultsResponse {
+        val report = EarningsReportMapper.report(enrich(listOf(event)).single(), loaded.events, loaded.fetchedAt.toString())
+            ?: throw EarningsRequestException(404, "NOT_REPORTED", "Results for this period haven't been published yet.")
+        return EarningsResultsResponse(report, EarningsResultsCalculator.insights(report), clock.instant().toString(), loaded.freshness, loaded.fetchedAt.toString(),
+            listOfNotNull("Estimates are analysts' consensus. EPS and revenue are judged separately, using the exact reported numbers.",
+                if (sampleData) "Sample earnings data for development, not real results." else null), sampleData)
+    }
+
+    /** One fiscal period's report and insights ("SYMBOL:YYYY-Qn"). 404 when there's no such period or it isn't reported yet. */
+    suspend fun resultsFor(reportId: String, scenario: String? = null): EarningsResultsResponse {
+        val (symbol, year, quarter) = EarningsReportMapper.parse(reportId) ?: throw EarningsRequestException(400, "INVALID_REPORT", "Invalid earnings report id.")
+        val loaded = resultsHistory(symbol, scenario)
+        val event = loaded.events.firstOrNull { it.fiscalYear == year && it.fiscalQuarter == quarter && it.symbol.equals(symbol, ignoreCase = true) }
+            ?: throw EarningsRequestException(404, "NOT_FOUND", "There's no earnings report for this period.")
+        return response(event, loaded)
+    }
+
+    /** The most recent reported fiscal period. 404 NO_REPORT when the company has none. */
+    suspend fun latestResults(symbol: String, scenario: String? = null): EarningsResultsResponse {
+        if (!Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol)) throw EarningsRequestException(400, "INVALID_SYMBOL", "Invalid symbol.")
+        val loaded = resultsHistory(symbol, scenario)
+        val latest = loaded.events.filter { it.actual?.let { a -> a.eps != null || a.revenue != null } == true }
+            .maxWithOrNull(compareBy<EarningsEvent> { it.fiscalYear }.thenBy { it.fiscalQuarter })
+            ?: throw EarningsRequestException(404, "NO_REPORT", "No published earnings results are available for this company.")
+        return response(latest, loaded)
+    }
+
+    /** Every reported period, newest first, with the two independent classifications. */
+    suspend fun reports(symbol: String): EarningsReportsPage {
+        if (!Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol)) throw EarningsRequestException(400, "INVALID_SYMBOL", "Invalid symbol.")
+        val loaded = history(symbol)
+        val rows = loaded.events.mapNotNull { e -> EarningsReportMapper.report(e, loaded.events, null)?.let { r ->
+            val i = EarningsResultsCalculator.insights(r)
+            EarningsReportSummary(r.reportId, r.fiscalYear, r.fiscalQuarter, r.reportDate, i.eps.classification, i.revenue.classification)
+        } }.sortedWith(compareByDescending<EarningsReportSummary> { it.fiscalYear }.thenByDescending { it.fiscalQuarter })
+        return EarningsReportsPage(symbol.uppercase(), rows, clock.instant().toString(), loaded.freshness, sampleData)
+    }
+
+    /** Up to [attempts] tries for transient provider failures (no retry on cancellation). */
+    private suspend fun <T> retrying(attempts: Int = 2, block: suspend () -> T): T {
+        var last: Exception? = null
+        repeat(attempts) { i ->
+            try { return block() } catch (cause: Exception) {
+                if (cause is CancellationException) throw cause
+                last = cause
+                if (i < attempts - 1) kotlinx.coroutines.delay(250L * (i + 1))
+            }
+        }
+        throw last!!
+    }
+
     /** A symbol's events with freshness; an old copy (STALE) if the source fails. */
     private suspend fun history(symbol: String): Loaded {
         val key = "history:${symbol.uppercase()}"
         return try {
-            val w = cache.getOrLoad("$key:w", 21_600_000L) { Window(source.history(symbol), clock.instant()) }
+            val w = cache.getOrLoad("$key:w", 21_600_000L) { Window(retrying { source.history(symbol) }, clock.instant()) }
             lastGood[key] = w
             Loaded(w.events, if (w.fetchedAt.isAfter(clock.instant().minusSeconds(5))) DataFreshness.FRESH else DataFreshness.CACHED, w.fetchedAt)
         } catch (cause: Exception) {
@@ -420,6 +483,10 @@ fun Route.earningsRoutes(service: EarningsService, auth: UserAuthenticator, limi
     }
     get("/api/v1/earnings/events/{eventId}") { guarded { service.event(call.parameters["eventId"].orEmpty()) } }
     get("/api/v1/earnings/company/{symbol}/next") { guarded { service.nextEvent(call.parameters["symbol"].orEmpty()) } }
+    get("/api/v1/earnings/company/{symbol}/latest") { guarded { service.latestResults(call.parameters["symbol"].orEmpty(), call.request.queryParameters["scenario"]) } }
+    get("/api/v1/earnings/company/{symbol}/reports") { guarded { service.reports(call.parameters["symbol"].orEmpty()) } }
+    get("/api/v1/earnings/reports/{reportId}") { guarded { service.resultsFor(call.parameters["reportId"].orEmpty(), call.request.queryParameters["scenario"]) } }
+    get("/api/v1/earnings/reports/{reportId}/insights") { guarded { service.resultsFor(call.parameters["reportId"].orEmpty(), call.request.queryParameters["scenario"]).insights } }
     get("/api/v1/earnings/{symbol}") { guarded { service.details(call.parameters["symbol"].orEmpty(), null) } }
     route("/api/v1/me/earnings") {
         get("/following") { user(auth) { uid -> guarded { service.following(uid, query()) } } }

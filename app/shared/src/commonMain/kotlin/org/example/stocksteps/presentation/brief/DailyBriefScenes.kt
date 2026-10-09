@@ -29,7 +29,8 @@ internal fun DailyBriefScene(
     onLearn: () -> Unit,
     onSignIn: () -> Unit,
     onUpgrade: () -> Unit,
-    onOpenEarnings: (String) -> Unit = {}
+    onOpenEarnings: (String) -> Unit = {},
+    onOpenResults: (String) -> Unit = {}
 ) {
     val state by presenter.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
@@ -37,7 +38,7 @@ internal fun DailyBriefScene(
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             DailyBriefScreen(state, briefNow(), Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize()) { action ->
-                handle(action, presenter, { runCatching { uriHandler.openUri(it) } }, onOpenStock, onHistory, onOpenBrief, onWatchlist, onLearn, onSignIn, onUpgrade, onOpenEarnings)
+                handle(action, presenter, { runCatching { uriHandler.openUri(it) } }, onOpenStock, onHistory, onOpenBrief, onWatchlist, onLearn, onSignIn, onUpgrade, onOpenEarnings, onOpenResults)
             }
         }
     }
@@ -63,13 +64,15 @@ internal fun DailyBriefHistoryScene(presenter: DailyBriefPresenter, hinge: Windo
 
 private fun handle(
     action: BriefAction, presenter: DailyBriefPresenter, openUrl: (String) -> Unit, onOpenStock: (String) -> Unit, onHistory: () -> Unit,
-    onOpenBrief: (String) -> Unit, onWatchlist: () -> Unit, onLearn: () -> Unit, onSignIn: () -> Unit, onUpgrade: () -> Unit, onOpenEarnings: (String) -> Unit
+    onOpenBrief: (String) -> Unit, onWatchlist: () -> Unit, onLearn: () -> Unit, onSignIn: () -> Unit, onUpgrade: () -> Unit, onOpenEarnings: (String) -> Unit,
+    onOpenResults: (String) -> Unit
 ) {
     when (action) {
         BriefAction.Retry -> presenter.loadLatest()
         is BriefAction.OpenUrl -> openUrl(action.url)
         is BriefAction.OpenStock -> onOpenStock(action.symbol)
         is BriefAction.OpenEarnings -> onOpenEarnings(action.eventId)
+        is BriefAction.OpenResults -> onOpenResults(action.reportId)
         is BriefAction.Explain -> presenter.explain(action.storyId)
         is BriefAction.Ask -> presenter.ask(action.question)
         BriefAction.History -> onHistory()

@@ -28,6 +28,7 @@ struct CompanyDetailsScreen: View {
     var nextEarnings: CompanyEarningsState? = nil
     var onEarningsCalendar: (() -> Void)? = nil
     var onRetryEarnings: () -> Void = {}
+    var onLatestResults: (() -> Void)? = nil
     @State private var education: GlanceMetric?
     @State private var showEvidence = false
     @State private var showSources = false
@@ -56,6 +57,16 @@ struct CompanyDetailsScreen: View {
                     .accessibilityLabel("Next earnings: \(e.spokenDate ?? dateText). \(e.timingText ?? ""). \(e.statusText ?? "").")
                 } else {
                     Text(e.message ?? "").font(.subheadline).foregroundStyle(colors.textSecondary)
+                }
+                // Latest published results (comparable measures only), linking to the full Earnings Results.
+                if let title = e.latestTitle {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title).font(.caption).foregroundStyle(colors.textSecondary)
+                        if let summary = e.latestSummary { Text(summary).font(.headline).foregroundStyle(colors.textPrimary) }
+                    }
+                    .accessibilityElement(children: .combine)
+                    if let onLatestResults { Button("View Results", action: onLatestResults).buttonStyle(.bordered).frame(minHeight: 48) }
                 }
                 if e.sampleData { Text("Sample earnings data.").font(.caption).foregroundStyle(colors.cautionText) }
                 HStack {

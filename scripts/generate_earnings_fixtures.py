@@ -79,6 +79,48 @@ CALENDAR_DEMO = [
          eps_est=2.05, rev_est=14.9e9, currency="CAD", zone="America/Toronto"),                    # same company and ticker as NYSE "TD", other listing
 ]
 
+# Earnings Results (Phase 2) demo companies: fictional, each with the quarters its comparisons need.
+# Quarter tuple: (fy, q, period_end, report_date, eps_actual, eps_estimate, revenue_actual, revenue_estimate, extras)
+# extras: annual_estimate, restated, no_published_at. None means the source didn't provide the value.
+DEMO_RESULTS = [
+    # Spec example: EPS $1.45 vs $1.20 (beat), revenue $8.5B vs $8.2B (beat), YoY +7.6% vs Q3 FY2025, QoQ +4.9%;
+    # the latest report was revised by the source and has no publication time.
+    dict(symbol="SSRV", name="StockSteps Demo Results Co.", exchange="NYSE", quarters=[
+        (2025, 3, "2025-09-30", "2025-10-21", 1.10, 1.05, 7.9e9, 7.8e9, {}),
+        (2026, 2, "2026-06-30", "2026-07-21", 1.30, 1.25, 8.1e9, 8.0e9, {}),
+        (2026, 3, "2026-09-30", "2026-10-06", 1.45, 1.20, 8.5e9, 8.2e9, dict(restated=True, no_published_at=True)),
+    ]),
+    # Fiscal year ends in June (non-calendar): Q1 FY2027 = Jul–Sep 2026. Revenue met exactly, EPS beat,
+    # flat year over year, quarter over quarter across the fiscal-year rollover (Q4 FY2026).
+    dict(symbol="SSRM", name="StockSteps Demo Revenue Met Co.", exchange="NASDAQ", quarters=[
+        (2026, 1, "2025-09-30", "2025-10-03", 0.38, 0.36, 500e6, 495e6, {}),
+        (2026, 4, "2026-06-30", "2026-08-05", 0.35, 0.37, 480e6, 485e6, {}),
+        (2027, 1, "2026-09-30", "2026-10-02", 0.42, 0.40, 500e6, 500e6, {}),
+    ]),
+    # Losses: smaller than expected (Q2, beat) then larger than expected (Q3, miss); revenue falling.
+    dict(symbol="SSLL", name="StockSteps Demo Losses Corp.", exchange="NASDAQ", quarters=[
+        (2025, 3, "2025-09-30", "2025-10-29", -0.35, -0.33, 90e6, 91e6, {}),
+        (2026, 2, "2026-06-30", "2026-07-29", -0.20, -0.28, 85e6, 84e6, {}),
+        (2026, 3, "2026-09-30", "2026-10-01", -0.45, -0.30, 80e6, 82e6, {}),
+    ]),
+    # No analyst estimates at all; zero revenue a year ago; previous quarter missing.
+    dict(symbol="SSNE", name="StockSteps Demo New Revenue Inc.", exchange="NYSE", quarters=[
+        (2025, 3, "2025-09-30", "2025-11-05", -0.50, None, 0.0, None, {}),
+        (2026, 3, "2026-09-30", "2026-09-29", -0.30, None, 12e6, None, {}),
+    ]),
+    # Only a full-year consensus exists: never compared with the quarter. No prior-year quarter.
+    dict(symbol="SSAN", name="StockSteps Demo Annual Estimate Co.", exchange="NYSE", quarters=[
+        (2026, 2, "2026-06-30", "2026-07-28", 0.76, 0.74, 505e6, 500e6, {}),
+        (2026, 3, "2026-09-30", "2026-09-30", 0.80, 3.10, 520e6, 2.0e9, dict(annual_estimate=True)),
+    ]),
+    # Fiscal calendar changed (prior-year "Q3" ended in June): no year-over-year comparison. EPS met exactly.
+    dict(symbol="SSFC", name="StockSteps Demo Fiscal Change Ltd.", exchange="NASDAQ", quarters=[
+        (2025, 3, "2025-06-30", "2025-07-24", 0.18, 0.17, 300e6, 298e6, {}),
+        (2026, 2, "2026-06-30", "2026-07-23", 0.20, 0.19, 310e6, 305e6, {}),
+        (2026, 3, "2026-09-30", "2026-10-05", 0.21, 0.21, 320e6, 325e6, {}),
+    ]),
+]
+
 # Scenario overrides keyed by (symbol, fiscal_year, quarter).
 OVERRIDES = {
     # Upcoming
@@ -264,6 +306,21 @@ def main():
         if d.get("source_updated", UPDATED) is not None:
             event["sourceUpdatedAt"] = d.get("source_updated", UPDATED)
         events.append(event)
+    for d in DEMO_RESULTS:
+        for fy, q, end, date, eps, eps_est, rev, rev_est, x in d["quarters"]:
+            event = {"id": f"{d['symbol']}:{fy}-Q{q}", "symbol": d["symbol"], "name": d["name"], "exchange": d["exchange"], "country": "US",
+                     "fiscalYear": fy, "fiscalQuarter": q, "periodEnd": end, "date": date, "session": "AFTER_CLOSE", "dateStatus": "CONFIRMED",
+                     "source": SOURCE, "updatedAt": UPDATED}
+            if eps_est is not None or rev_est is not None:
+                event["estimate"] = {k: v for k, v in {"eps": eps_est, "epsBasis": "GAAP_DILUTED", "revenue": rev_est, "currency": "USD", "analysts": 6,
+                                     "source": SOURCE, "asOf": UPDATED, "periodType": "ANNUAL" if x.get("annual_estimate") else None}.items() if v is not None}
+            actual = {"eps": eps, "epsBasis": "GAAP_DILUTED", "revenue": rev, "currency": "USD", "source": SOURCE}
+            if not x.get("no_published_at"):
+                actual["reportedAt"] = f"{date}T21:00:00Z"
+            if x.get("restated"):
+                actual["restated"] = True
+            event["actual"] = actual
+            events.append(event)
     for e in events:
         if "sourceUpdatedAt" not in e and not any(e["symbol"] == d["symbol"] for d in CALENDAR_DEMO):
             e["sourceUpdatedAt"] = e["updatedAt"]
@@ -273,7 +330,7 @@ def main():
         json.dump(events, f, indent=2)
         f.write("\n")
     upcoming = [e for e in events if "actual" not in e and e["date"] >= TODAY.isoformat()]
-    print(f"Wrote {len(events)} events ({len(upcoming)} upcoming) for {len(COMPANIES) + len(UPCOMING_ONLY) + len(CALENDAR_DEMO)} companies.")
+    print(f"Wrote {len(events)} events ({len(upcoming)} upcoming) for {len(COMPANIES) + len(UPCOMING_ONLY) + len(CALENDAR_DEMO) + len(DEMO_RESULTS)} companies.")
 
 
 if __name__ == "__main__":

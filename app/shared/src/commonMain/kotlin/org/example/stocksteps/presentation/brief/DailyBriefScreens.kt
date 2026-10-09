@@ -29,6 +29,8 @@ internal sealed interface BriefAction {
     data class OpenStock(val symbol: String) : BriefAction
     /** Opens Earnings Event Details for a calendar event id. */
     data class OpenEarnings(val eventId: String) : BriefAction
+    /** Opens Earnings Results for a reported highlight. */
+    data class OpenResults(val reportId: String) : BriefAction
     data class Explain(val storyId: String) : BriefAction
     data class Ask(val question: String) : BriefAction
     data object History : BriefAction
@@ -282,8 +284,9 @@ private fun WatchlistSection(state: DailyBriefUiState, onAction: (BriefAction) -
             personal.watchlistHighlights.isEmpty() -> Text("Nothing notable from the ${personal.watchlistCount} companies you follow in this session.", style = typography.small, color = colors.textSecondary)
             else -> {
                 personal.watchlistHighlights.forEach { h ->
-                    StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { }, onClick = { h.url?.let { onAction(BriefAction.OpenUrl(it)) } ?: onAction(BriefAction.OpenStock(h.symbol)) },
-                        onClickLabel = if (h.url != null) "Read the article" else "Open ${h.symbol}") {
+                    StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { }, onClick = {
+                        h.url?.let { onAction(BriefAction.OpenUrl(it)) } ?: h.reportId?.let { onAction(BriefAction.OpenResults(it)) } ?: onAction(BriefAction.OpenStock(h.symbol))
+                    }, onClickLabel = if (h.url != null) "Read the article" else if (h.reportId != null) "View ${h.symbol} earnings results" else "Open ${h.symbol}") {
                         Text("${h.symbol}${h.name?.let { " · $it" } ?: ""}", style = typography.label, color = colors.textSecondary)
                         Text(h.text, style = typography.body, color = colors.textPrimary)
                         h.publisher?.let { Text(it, style = typography.caption, color = colors.textSecondary) }

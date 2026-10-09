@@ -11,6 +11,8 @@ extension Notification.Name {
     static let stockStepsOpenBrief = Notification.Name("StockStepsOpenBrief")
     /// Opens Earnings Event Details (object: the event id, e.g. "AAPL:2026-Q4").
     static let stockStepsOpenEarningsEvent = Notification.Name("StockStepsOpenEarningsEvent")
+    /// Opens Earnings Results (object: the report id, e.g. "AAPL:2026-Q3").
+    static let stockStepsOpenEarningsResults = Notification.Name("StockStepsOpenEarningsResults")
 }
 
 /// Mirrors the shared Kotlin Daily Brief presenter (one instance for Home, Markets and the reader).
@@ -89,9 +91,10 @@ struct DailyBriefScene: View {
     var onSignIn: () -> Void = {}
     var onUpgrade: () -> Void = {}
     var onOpenEarnings: (String) -> Void = { _ in }
+    var onOpenResults: (String) -> Void = { _ in }
 
     var body: some View {
-        DailyBriefScreen(state: model.state, client: model.client, onOpenStock: onOpenStock, onOpenEarnings: onOpenEarnings, onHistory: onHistory, onWatchlist: onWatchlist,
+        DailyBriefScreen(state: model.state, client: model.client, onOpenStock: onOpenStock, onOpenEarnings: onOpenEarnings, onOpenResults: onOpenResults, onHistory: onHistory, onWatchlist: onWatchlist,
                          onLearn: onLearn, onSignIn: onSignIn, onUpgrade: { model.presenter.dismissUpgrade(); onUpgrade() })
             .navigationTitle("Daily Brief")
             .navigationBarTitleDisplayMode(.inline)
@@ -105,6 +108,7 @@ struct DailyBriefScreen: View {
     let client: IosBriefClient
     let onOpenStock: (String) -> Void
     var onOpenEarnings: (String) -> Void = { _ in }
+    var onOpenResults: (String) -> Void = { _ in }
     let onHistory: () -> Void
     let onWatchlist: () -> Void
     let onLearn: () -> Void
@@ -282,7 +286,11 @@ struct DailyBriefScreen: View {
                     Text("Nothing notable from the \(p.watchlistCount) companies you follow in this session.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
                 } else {
                     ForEach(Array(p.watchlistHighlights.enumerated()), id: \.offset) { _, h in
-                        Button { if let u = h.url, let url = URL(string: u) { openURL(url) } else { onOpenStock(h.symbol) } } label: {
+                        Button {
+                            if let u = h.url, let url = URL(string: u) { openURL(url) }
+                            else if let id = h.reportId { onOpenResults(id) }
+                            else { onOpenStock(h.symbol) }
+                        } label: {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("\(h.symbol)\(h.name.map { " · \($0)" } ?? "")").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
                                 Text(h.text).foregroundStyle(colors.textPrimary).multilineTextAlignment(.leading)

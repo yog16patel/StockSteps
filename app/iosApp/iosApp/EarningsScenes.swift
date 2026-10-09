@@ -130,15 +130,18 @@ struct EarningsCalendarScene: View {
     @State private var model: EarningsCalendarModel
     let onOpen: (String) -> Void
     var onSignIn: () -> Void = {}
+    var onOpenResults: (String) -> Void = { _ in }
 
-    init(target: EarningsCalendarTarget, client: IosEarningsClient, onOpen: @escaping (String) -> Void, onSignIn: @escaping () -> Void = {}) {
+    init(target: EarningsCalendarTarget, client: IosEarningsClient, onOpen: @escaping (String) -> Void, onSignIn: @escaping () -> Void = {},
+         onOpenResults: @escaping (String) -> Void = { _ in }) {
         _model = State(initialValue: EarningsCalendarModel(target: target, client: client))
         self.onOpen = onOpen
         self.onSignIn = onSignIn
+        self.onOpenResults = onOpenResults
     }
 
     var body: some View {
-        EarningsCalendarScreen(state: model.state, presenter: model.presenter, client: model.client, onOpen: onOpen, onSignIn: onSignIn)
+        EarningsCalendarScreen(state: model.state, presenter: model.presenter, client: model.client, onOpen: onOpen, onSignIn: onSignIn, onOpenResults: onOpenResults)
             .navigationTitle("Earnings")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { model.presenter.refresh() }
@@ -153,6 +156,7 @@ struct EarningsCalendarScreen: View {
     let client: IosEarningsClient
     let onOpen: (String) -> Void
     let onSignIn: () -> Void
+    var onOpenResults: (String) -> Void = { _ in }
     @Environment(\.colorScheme) private var scheme
     @State private var showHelp = false
     @State private var picking = false
@@ -220,6 +224,11 @@ struct EarningsCalendarScreen: View {
                                 .accessibilityLabel(row.accessibility)
                                 .accessibilityHint("Opens the earnings event")
                                 .onAppear { if row.id == state.rows.last?.id && state.hasMore { presenter.loadMore() } }
+                            // Only verified reported events with a published report link to results.
+                            if let reportId = row.reportId {
+                                Button("View Results") { onOpenResults(reportId) }.frame(minHeight: 48)
+                                    .accessibilityLabel("View \(row.symbol) earnings results")
+                            }
                         }
                     }
                     if state.loadingMore { ProgressView().accessibilityLabel("Loading more earnings") }
@@ -390,8 +399,8 @@ struct EarningsEventScreen: View {
             line("Status", state.statusText ?? "", colors)
             if let previous = state.previousDate { Text("Date moved from \(client.date(date: previous))").font(.caption).foregroundStyle(colors.cautionText) }
             if let explanation = state.statusExplanation { Text(explanation).font(.subheadline).foregroundStyle(colors.textBody) }
-            // Phase 2 extension point: reported figures live on Earnings Details, never invented here.
-            if state.reported { Button("See reported results") { onResults(state.symbol) }.buttonStyle(.bordered).frame(minHeight: 48) }
+            // Only a verified report links to Earnings Results; never a placeholder.
+            if let reportId = state.reportId { Button("View Results") { onResults(reportId) }.buttonStyle(.bordered).frame(minHeight: 48) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .stockCard()
@@ -651,6 +660,181 @@ private struct ReminderSheet: View {
                 timing = state.reminder?.earningsTiming?.name ?? "BOTH"
                 lead = Int(truncating: state.reminder?.earningsLeadDays ?? 1)
                 results = state.reminder?.earningsResults ?? false
+            }
+        }
+    }
+}
+
+// MARK: - Earnings Results (Phase 2)
+
+/// One report's shared presenter (calculations come from the server).
+@MainActor @Observable
+final class EarningsResultsModel {
+    private(set) var state: EarningsResultsState?
+    @ObservationIgnored let presenter: EarningsResultsPresenter
+    @ObservationIgnored let client: IosEarningsClient
+    @ObservationIgnored private var subscription: (any AccountSubscription)?
+
+    init(reportId: String, client: IosEarningsClient) {
+        self.client = client
+        presenter = client.results(reportId: reportId)
+        subscription = client.observeResults(presenter: presenter) { [weak self] in self?.state = $0 }
+    }
+    deinit {
+        subscription?.cancel()
+        client.release(presenter: presenter)
+    }
+}
+
+struct EarningsResultsScene: View {
+    @State private var model: EarningsResultsModel
+    let reportId: String
+    let onCompany: (String) -> Void
+    let onLearn: () -> Void
+
+    init(reportId: String, client: IosEarningsClient, onCompany: @escaping (String) -> Void, onLearn: @escaping () -> Void) {
+        _model = State(initialValue: EarningsResultsModel(reportId: reportId, client: client))
+        self.reportId = reportId
+        self.onCompany = onCompany
+        self.onLearn = onLearn
+    }
+
+    var body: some View {
+        EarningsResultsScreen(state: model.state, onRetry: { model.presenter.refresh() }, onToggle: { model.presenter.toggle(key: $0) },
+                              onCompany: { onCompany(model.client.symbolOf(reportId: reportId)) }, onLearn: onLearn)
+            .navigationTitle("Earnings results")
+            .navigationBarTitleDisplayMode(.inline)
+            .refreshable { model.presenter.refresh() }
+    }
+}
+
+/// Header → EPS → revenue → growth → previous quarter → takeaway → learn → sources. Renders only.
+struct EarningsResultsScreen: View {
+    let state: EarningsResultsState?
+    let onRetry: () -> Void
+    let onToggle: (String) -> Void
+    let onCompany: () -> Void
+    let onLearn: () -> Void
+    @Environment(\.colorScheme) private var scheme
+    @State private var lesson: LearnLink?
+
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: CGFloat(space.md)) {
+                if let state {
+                    if state.loading || state.refreshing { ProgressView().accessibilityLabel("Loading earnings results") }
+                    if state.notPublished {
+                        StockSectionMessage(message: state.error ?? "Results for this period haven't been published yet.", actionTitle: "View Company Details", action: onCompany)
+                    } else if let error = state.error {
+                        StockSectionMessage(message: error, actionTitle: "Try again", action: onRetry)
+                    }
+                    if state.response != nil { content(state, colors) }
+                }
+            }
+            .padding(.horizontal, CGFloat(space.screen))
+            .padding(.vertical, CGFloat(space.md))
+        }
+        .background(colors.appBackground)
+        .alert(lesson?.title ?? "", isPresented: Binding(get: { lesson != nil }, set: { if !$0 { lesson = nil } })) {
+            Button("Got it", role: .cancel) { lesson = nil }
+            Button("Open Learn") { lesson = nil; onLearn() }
+        } message: { Text(lesson?.body ?? "") }
+    }
+
+    @ViewBuilder private func content(_ state: EarningsResultsState, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: CGFloat(space.sm)) {
+                StockTickerAvatar(symbol: state.symbolLine.components(separatedBy: " ·").first ?? "", logoUrl: state.logoUrl)
+                VStack(alignment: .leading) {
+                    Text(state.companyName).font(.headline).foregroundStyle(colors.textPrimary).lineLimit(2)
+                    Text(state.symbolLine).font(.caption).foregroundStyle(colors.textSecondary)
+                }
+            }
+            Text(state.title).font(StockStepsTheme.font(type.screenTitle, relativeTo: .title1)).accessibilityAddTraits(.isHeader)
+            ForEach(state.periodLines, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.textSecondary) }
+            if state.sampleData { Text("Sample earnings data for development, not real results.").font(.caption).foregroundStyle(colors.cautionText) }
+            if let f = state.freshnessText { Text(f).font(.caption).foregroundStyle(colors.cautionText) }
+        }
+        if let eps = state.eps { comparison(eps, expanded: state.expanded.contains(eps.key), colors) }
+        if let revenue = state.revenue { comparison(revenue, expanded: state.expanded.contains(revenue.key), colors) }
+        if let yoy = state.yearOverYear { growth(yoy, colors) }
+        if let qoq = state.quarterOverQuarter { growth(qoq, colors) }
+        if let takeaway = state.takeaway {
+            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                Text("Beginner Takeaway").font(.headline).accessibilityAddTraits(.isHeader)
+                Text(takeaway).foregroundStyle(colors.textBody)
+                ForEach(state.warnings, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.cautionText) }
+                Text("This is education, not investment advice.").font(.caption).foregroundStyle(colors.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(CGFloat(space.cardPadding))
+            .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
+        }
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Learn More").font(.headline).accessibilityAddTraits(.isHeader)
+            ForEach(state.learn, id: \.title) { link in
+                // An existing lesson opens in place; a missing one falls back to the Learn tab.
+                Button(link.title, systemImage: "lightbulb") { if link.body != nil { lesson = link } else { onLearn() } }.frame(minHeight: 48)
+            }
+            Button { onCompany() } label: { Text("View Company Details").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.bordered)
+        }
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Sources").font(.caption.weight(.semibold)).foregroundStyle(colors.textSecondary)
+            ForEach(state.sources, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.textSecondary) }
+        }
+    }
+
+    /// One card for EPS and revenue; the classification is a word, colour is secondary.
+    private func comparison(_ card: ComparisonCardView, expanded: Bool, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                HStack {
+                    Text(card.title).font(.headline).foregroundStyle(colors.textPrimary)
+                    Spacer()
+                    Text(card.classificationText).font(.caption.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 3)
+                        .foregroundStyle(card.classification.name == "BEAT" ? colors.positiveText : card.classification.name == "MISS" ? colors.negativeText : colors.textPrimary)
+                        .background(card.classification.name == "BEAT" ? colors.positiveContainer : card.classification.name == "MISS" ? colors.negativeContainer : colors.surfaceSecondary, in: Capsule())
+                }
+                ForEach(card.lines, id: \.label) { line(line: $0, colors) }
+                if let e = card.explanation { Text(e).font(.subheadline).foregroundStyle(colors.textBody) }
+                if let r = card.reason { Text(r).font(.caption).foregroundStyle(colors.textSecondary) }
+                if let b = card.basisNote { Text(b).font(.caption).foregroundStyle(colors.textTertiary) }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(card.accessibility)
+            Button { onToggle(card.key) } label: {
+                HStack { Image(systemName: "info.circle"); Text(card.infoTitle); Spacer(); Image(systemName: expanded ? "chevron.down" : "chevron.right") }
+                    .frame(minHeight: 48).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).foregroundStyle(colors.primaryText)
+            .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+            if expanded { Text(card.infoBody).font(.subheadline).foregroundStyle(colors.textBody) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .stockCard()
+    }
+
+    private func growth(_ card: GrowthCardView, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Text(card.title).font(.headline).foregroundStyle(colors.textPrimary)
+            ForEach(card.lines, id: \.label) { line(line: $0, colors) }
+            Text(card.explanation).font(.subheadline).foregroundStyle(colors.textBody)
+            if let r = card.reason { Text(r).font(.caption).foregroundStyle(colors.textSecondary) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .stockCard()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(card.accessibility)
+    }
+
+    private func line(line: MetricLine, _ colors: StockColors) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(line.label).font(.subheadline).foregroundStyle(colors.textSecondary)
+            Spacer()
+            VStack(alignment: .trailing) {
+                Text(line.value).font(.subheadline.weight(.semibold)).foregroundStyle(colors.textPrimary)
+                if let d = line.detail { Text(d).font(.caption2).foregroundStyle(colors.textTertiary) }
             }
         }
     }

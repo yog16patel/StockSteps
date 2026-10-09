@@ -8,18 +8,15 @@ import kotlin.math.round
 /**
  * Earnings surprise calculations. Pure and deterministic; the server and apps share them.
  *
- * Tolerance policy (documented in [EarningsEducation] "inline"):
- * - EPS: in line when |actual − estimate| < $0.005 (rounding to the cent) or the surprise is
- *   within ±0.5% of |estimate|.
- * - Revenue: in line when the surprise is within ±0.5% of the estimate.
+ * Classification policy (shared with Earnings Results, [EarningsMath]): actual and estimate are
+ * compared exactly as reported, as decimals — MET only when equal, otherwise BEAT or MISS. There is
+ * no percentage tolerance.
  * - EPS percent surprise = (actual − estimate) / |estimate| × 100, shown only when |estimate| ≥ $0.01;
  *   a negative estimate still uses |estimate|, so "above estimate" is always positive.
  * - Revenue percent surprise = (actual − estimate) / estimate × 100, only for a positive estimate.
- * - Nothing is compared across different currencies, fiscal periods or EPS bases.
+ * - Nothing is compared across different currencies, fiscal periods, period lengths or EPS bases.
  */
 object EarningsCalculator {
-    const val EPS_ROUNDING = 0.005
-    const val IN_LINE_PERCENT = 0.5
     const val MIN_EPS_FOR_PERCENT = 0.01
 
     fun eps(estimate: EarningsEstimate?, actual: EarningsActual?): SurpriseResult {
@@ -31,15 +28,15 @@ object EarningsCalculator {
         if (a == null && e == null) return unavailable("Neither reported EPS nor an estimate is available.")
         if (a == null) return unavailable("Reported EPS isn't available yet.")
         if (e == null) return unavailable("No analyst EPS estimate is available, so there's nothing to compare with.")
+        if (estimate.periodType != PeriodType.QUARTER) return unavailable("The estimate covers a full year, so it isn't compared with a quarter.")
         if (estimate.currency != null && actual.currency != null && estimate.currency != actual.currency)
             return unavailable("The estimate (${estimate.currency}) and the result (${actual.currency}) are in different currencies.")
         if (estimate.epsBasis == EpsBasis.UNKNOWN || actual.epsBasis == EpsBasis.UNKNOWN || estimate.epsBasis != actual.epsBasis)
             return unavailable("The estimate (${estimate.epsBasis.label}) and the result (${actual.epsBasis.label}) aren't measured the same way.")
-        val diff = a - e
-        val percent = if (abs(e) >= MIN_EPS_FOR_PERCENT) diff / abs(e) * 100 else null
-        val inLine = abs(diff) < EPS_ROUNDING || (percent != null && abs(percent) <= IN_LINE_PERCENT)
-        val classification = when { inLine -> Classification.IN_LINE; diff > 0 -> Classification.BEAT; else -> Classification.MISS }
-        return SurpriseResult(a, e, diff, percent, classification,
+        val da = EarningsMath.decimal(a)!!; val de = EarningsMath.decimal(e)!!
+        val diff = (da - de).toString().toDouble()
+        val percent = if (abs(e) >= MIN_EPS_FOR_PERCENT) EarningsMath.percent(da, de)?.toString()?.toDouble() else null
+        return SurpriseResult(a, e, diff, percent, EarningsMath.classify(da, de),
             if (percent == null) "The estimate was close to zero, so a percentage surprise isn't meaningful." else null, currency, basis)
     }
 
@@ -51,13 +48,12 @@ object EarningsCalculator {
         if (a == null && e == null) return unavailable("Neither reported revenue nor an estimate is available.")
         if (a == null) return unavailable("Reported revenue isn't available yet.")
         if (e == null) return unavailable("No analyst revenue estimate is available, so there's nothing to compare with.")
+        if (estimate.periodType != PeriodType.QUARTER) return unavailable("The estimate covers a full year, so it isn't compared with a quarter.")
         if (estimate.currency != null && actual.currency != null && estimate.currency != actual.currency)
             return unavailable("The estimate (${estimate.currency}) and the result (${actual.currency}) are in different currencies.")
         if (e <= 0) return unavailable("The revenue estimate isn't positive, so a surprise can't be calculated.")
-        val diff = a - e
-        val percent = diff / e * 100
-        val classification = when { abs(percent) <= IN_LINE_PERCENT -> Classification.IN_LINE; diff > 0 -> Classification.BEAT; else -> Classification.MISS }
-        return SurpriseResult(a, e, diff, percent, classification, null, currency)
+        val da = EarningsMath.decimal(a)!!; val de = EarningsMath.decimal(e)!!
+        return SurpriseResult(a, e, (da - de).toString().toDouble(), EarningsMath.percent(da, de)!!.toString().toDouble(), EarningsMath.classify(da, de), null, currency)
     }
 
     /** Growth between two reported revenues in the same currency; null when not comparable. */
@@ -101,11 +97,11 @@ object EarningsCalculator {
     /** "EPS beat, revenue miss" plus a plain explanation built from the classifications. */
     fun summary(eps: SurpriseResult, revenue: SurpriseResult): Pair<String, String>? {
         if (eps.classification == Classification.UNAVAILABLE && revenue.classification == Classification.UNAVAILABLE) return null
-        fun word(c: Classification) = when (c) { Classification.BEAT -> "beat"; Classification.MISS -> "miss"; Classification.IN_LINE -> "in line"; Classification.UNAVAILABLE -> "not comparable" }
+        fun word(c: Classification) = when (c) { Classification.BEAT -> "beat"; Classification.MISS -> "miss"; Classification.MET -> "met"; Classification.UNAVAILABLE -> "not comparable" }
         fun phrase(metric: String, c: Classification) = when (c) {
             Classification.BEAT -> "$metric above analyst expectations"
             Classification.MISS -> "$metric below analyst expectations"
-            Classification.IN_LINE -> "$metric in line with analyst expectations"
+            Classification.MET -> "$metric matching analyst expectations"
             Classification.UNAVAILABLE -> null
         }
         val headline = "EPS ${word(eps.classification)}, revenue ${word(revenue.classification)}"
@@ -185,9 +181,9 @@ object EarningsEducation {
         Topic("eps", "What is EPS?", MetricEducation.find("eps")?.explanation ?: "Earnings per share: profit divided by the number of shares."),
         Topic("revenue", "What is revenue?", MetricEducation.find("revenue")?.explanation ?: "Money earned from selling products and services, before expenses."),
         Topic("estimates", "What are analyst estimates?", "Analysts who follow a company forecast its EPS and revenue. The average of those forecasts is the consensus estimate. Estimates can change right up to the report and can be wrong."),
-        Topic("beat", "What is an earnings beat?", "A result above the consensus estimate. StockSteps calls it a beat only when the difference is bigger than rounding: more than half a cent and more than 0.5% for EPS, more than 0.5% for revenue."),
-        Topic("miss", "What is an earnings miss?", "A result below the consensus estimate by more than the same rounding tolerance. A miss doesn't mean the business is doing badly; expectations may simply have been high."),
-        Topic("inline", "What does 'in line' mean?", "The result was within rounding of the estimate: less than half a cent or within 0.5% for EPS, within 0.5% for revenue."),
+        Topic("beat", "What is an earnings beat?", "A result above the consensus estimate. StockSteps compares the exact reported numbers: any amount above the estimate is a beat, and EPS and revenue are judged separately."),
+        Topic("miss", "What is an earnings miss?", "A result below the consensus estimate. A miss doesn't mean the business is doing badly; expectations may simply have been high."),
+        Topic("inline", "What does 'met expectations' mean?", "The reported number was exactly equal to the consensus estimate. StockSteps doesn't treat a small difference as a match, so even a one-cent difference is shown as a beat or a miss."),
         Topic("surprise", "What is earnings surprise?", "The difference between the result and the estimate. For EPS it's (actual − estimate) ÷ |estimate| × 100; it isn't shown when the estimate is close to zero, because the percentage would be meaningless."),
         Topic("fall-after-beat", "Why can a stock fall after beating earnings?", "Prices reflect expectations. Investors may have expected an even bigger beat, focused on weaker revenue or guidance, or reacted to other market news on the same day. A beat or miss doesn't determine the price move."),
         Topic("guidance", "What is forward guidance?", "A company's own forecast for future quarters. StockSteps only shows guidance when a reliable source provides it; it never invents it."),

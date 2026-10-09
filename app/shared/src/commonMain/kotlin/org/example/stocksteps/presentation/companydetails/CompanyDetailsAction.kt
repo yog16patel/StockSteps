@@ -10,6 +10,8 @@ internal sealed interface CompanyDetailsAction {
     /** Earnings Calendar opened on the next earnings date (or today). */
     data object EarningsCalendar : CompanyDetailsAction
     data object RetryEarnings : CompanyDetailsAction
+    /** Full Earnings Results for the latest published report. */
+    data object LatestResults : CompanyDetailsAction
     /** Opens a simulated order in the Practice Portfolio (virtual money). */
     data object PracticeBuy : CompanyDetailsAction
     /** "Understand This Stock": the five-step Guided Research for this company. */
