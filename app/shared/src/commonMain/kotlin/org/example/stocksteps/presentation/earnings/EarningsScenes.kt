@@ -120,9 +120,13 @@ internal fun EarningsCalendarScene(
     }
     val state by model.presenter.state.collectAsStateWithLifecycle()
     LaunchedEffect(state.selection) { saved = model.presenter.currentSelection.encode() }
+    val reminders by (accounts?.earningsReminders?.state ?: remember { MutableStateFlow(EarningsRemindersState()) }).collectAsStateWithLifecycle()
+    var sheet by remember { mutableStateOf<ReminderTarget?>(null) }
+    ReminderSheetHost(accounts, sheet, onDismiss = { sheet = null }, onSignIn = onSignIn)
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            EarningsCalendarScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize()) { action ->
+            EarningsCalendarScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize(),
+                reminder = { id -> if (reminders.signedIn) reminders.control(id) else ReminderControl.OFF }) { action ->
                 val p = model.presenter
                 when (action) {
                     CalendarAction.PreviousWeek -> p.previousWeek()
@@ -136,6 +140,7 @@ internal fun EarningsCalendarScene(
                     CalendarAction.ClearQuery -> p.clearQuery()
                     is CalendarAction.Open -> onOpenEvent(action.eventId)
                     is CalendarAction.OpenResults -> onOpenResults(action.reportId)
+                    is CalendarAction.Remind -> sheet = action.row.let { r -> ReminderTarget(r.id, r.symbol, r.name, r.dateText, r.timingText, r.statusText.substringAfter(" · ", "").ifBlank { null }) }
                     CalendarAction.LoadMore -> p.loadMore()
                     CalendarAction.Retry -> p.refresh()
                     CalendarAction.SignIn -> onSignIn()
@@ -166,10 +171,17 @@ internal fun EarningsEventScene(
     val state by model.presenter.state.collectAsStateWithLifecycle()
     val watchlistModel = accounts?.let { owner -> viewModel(key = "stock-watchlist") { owner.stockWatchlistViewModel() } }
     val watchlist by (watchlistModel?.state ?: MutableStateFlow(StockWatchlistState())).collectAsStateWithLifecycle()
+    val reminders by (accounts?.earningsReminders?.state ?: remember { MutableStateFlow(EarningsRemindersState()) }).collectAsStateWithLifecycle()
+    var sheet by remember { mutableStateOf<ReminderTarget?>(null) }
+    ReminderSheetHost(accounts, sheet, onDismiss = { sheet = null }, onSignIn = onSignIn)
+    val control = if (reminders.signedIn) reminders.control(route.eventId) else ReminderControl.OFF
+    val note = reminders.reminderFor(route.eventId)?.let { r -> r.statusMessage ?: r.nextDeliveryText?.let { "Notification: $it" } }
+        ?: reminders.autoFor(route.eventId)?.let { "On automatically from your watchlist." }
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             EarningsEventScreen(state, watched = state.symbol.uppercase() in watchlist.symbols, watchlistEnabled = watchlist.enabled,
-                modifier = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize()) { action ->
+                modifier = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize(),
+                reminder = control, reminderNote = listOfNotNull(note, reminders.deliveryWarning.takeIf { control == ReminderControl.ON }).joinToString(" ").ifBlank { null }) { action ->
                 when (action) {
                     EventAction.Company -> onOpenCompany(state.symbol)
                     EventAction.Calendar -> onOpenCalendar(state.date)
@@ -177,6 +189,8 @@ internal fun EarningsEventScene(
                     EventAction.Retry -> model.presenter.refresh()
                     EventAction.SignIn -> onSignIn()
                     EventAction.ToggleWatchlist -> watchlistModel?.toggle(StockSearchResult(state.symbol, state.name, exchange = state.exchange))
+                    EventAction.Remind -> sheet = ReminderTarget(route.eventId, state.symbol, state.name, state.dateText.orEmpty(), state.timingText,
+                        state.statusText?.substringAfter(" · ", "")?.ifBlank { null })
                 }
             }
         }
@@ -204,10 +218,14 @@ internal fun EarningsDetailsScene(
         EarningsDetailsViewModel(route.symbol, data.earningsRemote(accounts), accounts, data::close)
     }
     val state by model.presenter.state.collectAsStateWithLifecycle()
+    var sheet by remember { mutableStateOf<ReminderTarget?>(null) }
+    ReminderSheetHost(accounts, sheet, onDismiss = { sheet = null }, onSignIn = onSignIn)
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             EarningsDetailsScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize(),
-                onReminder = model.presenter::setReminder, onAsk = model.presenter::ask, onRetry = model.presenter::refresh,
+                onRemind = { state.details?.next?.let { n -> sheet = ReminderTarget(n.id, n.symbol, state.details?.name ?: n.name, EarningsFormatter.date(n.date),
+                    EarningsCalendarRules.timing(n), EarningsFormatter.dateStatus(n.dateStatus)) } },
+                onAsk = model.presenter::ask, onRetry = model.presenter::refresh,
                 onCompany = { onOpenCompany(route.symbol) }, onSignIn = onSignIn,
                 onUpgrade = { model.presenter.dismissUpgrade(); onUpgrade() }, onDismissUpgrade = model.presenter::dismissUpgrade,
                 onDismissMessage = model.presenter::dismissMessage)

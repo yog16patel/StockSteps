@@ -18,7 +18,8 @@ internal fun WatchListScene(
     onOpenStock: (String) -> Unit,
     onAddPortfolio: (InstrumentRef) -> Unit,
     onOpenAlerts: (String?) -> Unit,
-    onEarnings: () -> Unit = {}
+    onEarnings: () -> Unit = {},
+    onEarningsReminders: () -> Unit = {}
 ) {
     val model = viewModel(key = "watchlist") {
         WatchListViewModel(accounts.auth, accounts.watchlists, accounts.alerts, accounts.watchData, accounts.watchlist, accounts.environment)
@@ -47,6 +48,7 @@ internal fun WatchListScene(
             is WatchListAction.AddAlert -> editor = action.instrument to action.price
             WatchListAction.DismissMessage -> model.dismissMessage()
             WatchListAction.Earnings -> onEarnings()
+            WatchListAction.EarningsReminders -> onEarningsReminders()
         }
     }
     editor?.let { (instrument, price) ->

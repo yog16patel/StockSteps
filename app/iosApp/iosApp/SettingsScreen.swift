@@ -15,6 +15,8 @@ struct SettingsScreen: View {
     let onSignOut: () -> Void
     /// Nil hides Security & Sign-In (guests).
     var appLock: AppLockModel?
+    /// Opens Earnings Reminders settings.
+    var onEarningsReminders: (() -> Void)? = nil
     @State private var confirmSignOut = false
     @State private var securityMessage: String?
     @State private var securityBusy = false
@@ -48,6 +50,9 @@ struct SettingsScreen: View {
                     StockSettingsRow(title: "Price Alerts", subtitle: "Watchlist price updates", systemImage: "bell.fill", comingSoon: true)
                     divider
                     StockSettingsRow(title: "Market News", subtitle: "Important market updates", systemImage: "newspaper.fill", comingSoon: true)
+                    divider
+                    StockSettingsRow(title: "Earnings Reminders", subtitle: "Before reports, and when results are out", systemImage: "calendar.badge.clock",
+                                     comingSoon: onEarningsReminders == nil, action: onEarningsReminders)
                 }
                 if let backendEnvironment {
                     section("Development") {

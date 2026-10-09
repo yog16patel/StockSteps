@@ -80,6 +80,46 @@ class FirestoreUserDataStore(private val db: Firestore) : UserDataStore {
             .mapNotNull { it.getString("data")?.let { text -> runCatching { decode(org.example.stocksteps.brief.BriefPreferenceRecord.serializer(), text) }.getOrNull() } }
     }
 
+    // Earnings reminders (Phase 4). `earningsReminders/{uid}`: active flag + JSON; `earningsDeliveries/{sha(key)}`:
+    // status, dueAt, uid + JSON. Needs a composite index on earningsDeliveries (status ASC, dueAt ASC).
+    private val reminderDocs get() = db.collection("earningsReminders")
+    private val deliveryDocs get() = db.collection("earningsDeliveries")
+    private fun deliveryDoc(d: EarningsNotificationDelivery) = mapOf("uid" to d.uid, "status" to d.status.name, "dueAt" to d.dueAt,
+        "leaseUntil" to d.leaseUntil, "data" to encode(EarningsNotificationDelivery.serializer(), d))
+    override suspend fun <T> updateEarningsReminders(uid: String, block: (EarningsReminderDocument?) -> Pair<EarningsReminderDocument?, T>): T = io {
+        val reference = reminderDocs.document(uid)
+        db.runTransaction { tx ->
+            val current = tx.get(reference).get().getString("data")?.let { decode(EarningsReminderDocument.serializer(), it) }
+            val (next, result) = block(current)
+            if (next == null) { if (current != null) tx.delete(reference) }
+            else if (next != current) tx.set(reference, mapOf("active" to next.active, "data" to encode(EarningsReminderDocument.serializer(), next)))
+            result
+        }.await()
+    }
+    override suspend fun earningsReminderUsers(limit: Int): List<EarningsReminderDocument> = io {
+        reminderDocs.whereEqualTo("active", true).limit(limit).get().await().documents
+            .mapNotNull { it.getString("data")?.let { text -> runCatching { decode(EarningsReminderDocument.serializer(), text) }.getOrNull() } }
+    }
+    override suspend fun updateEarningsDelivery(key: String, block: (EarningsNotificationDelivery?) -> EarningsNotificationDelivery?): EarningsNotificationDelivery? = io {
+        val reference = deliveryDocs.document(docId(key))
+        db.runTransaction { tx ->
+            val current = tx.get(reference).get().getString("data")?.let { decode(EarningsNotificationDelivery.serializer(), it) }
+            val next = block(current)
+            if (next != null && next != current) tx.set(reference, deliveryDoc(next))
+            next ?: current
+        }.await()
+    }
+    override suspend fun dueEarningsDeliveries(now: Long, limit: Int): List<EarningsNotificationDelivery> = io {
+        val pending = deliveryDocs.whereEqualTo("status", "PENDING").whereLessThanOrEqualTo("dueAt", now).limit(limit).get().await().documents
+        val stuck = deliveryDocs.whereEqualTo("status", "PROCESSING").whereLessThanOrEqualTo("leaseUntil", now).limit(limit).get().await().documents
+        (pending + stuck).mapNotNull { it.getString("data")?.let { text -> runCatching { decode(EarningsNotificationDelivery.serializer(), text) }.getOrNull() } }.take(limit)
+    }
+    override suspend fun earningsDeliveries(uid: String, limit: Int): List<EarningsNotificationDelivery> = io {
+        deliveryDocs.whereEqualTo("uid", uid).limit(limit).get().await().documents
+            .mapNotNull { it.getString("data")?.let { text -> runCatching { decode(EarningsNotificationDelivery.serializer(), text) }.getOrNull() } }
+            .sortedByDescending { it.scheduledFor }
+    }
+
     override suspend fun <T> updatePractice(uid: String, block: (org.example.stocksteps.practice.PracticeAccountData) -> Pair<org.example.stocksteps.practice.PracticeAccountData, T>): T = io {
         val reference = db.collection("users").document(uid).collection("practice").document("account")
         val serializer = org.example.stocksteps.practice.PracticeAccountData.serializer()

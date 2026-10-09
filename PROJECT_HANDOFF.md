@@ -1,8 +1,9 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **"Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"** on `main` (pushed).
-Includes Earnings Intelligence Lite Phase 3 — Price Reaction (next section, `docs/EARNINGS.md` "Phase 3").
-Previous commit: **"Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"** (`5219e13`), Earnings Results (Phase 2).
+Last updated: 2026-10-08 (America/Toronto). Current commit: **"Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"** on `main` (pushed).
+Includes Earnings Intelligence Lite Phase 4 — Earnings Reminders (next section, `docs/EARNINGS.md` "Phase 4").
+Previous commit: **"Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"** (`dc9843d`), Price Reaction (Phase 3).
+Earlier commit: **"Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"** (`5219e13`), Earnings Results (Phase 2).
 Earlier commit: **"Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"** (`b5e2b9e`), Earnings Calendar (Phase 1).
 Earlier commit: **c92ec89 "Add Daily Market Brief on Android and iOS"**. Includes the Daily Market Brief (next section, `docs/DAILY_MARKET_BRIEF.md`); see also `CLAUDE.md` and `docs/project-status.md`.
 Previous commit: **Add Practice Portfolio simulator with free tier, 14-day trial and StockSteps+ on Android and iOS** (`a4a4aeb`).
@@ -21,6 +22,20 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Earnings Intelligence Lite Phase 4: Earnings Reminders (2026-10-08) — commit "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"
+
+Committed and pushed on top of `dc9843d` (Phase 3). Details: `docs/EARNINGS.md` → "Phase 4".
+- Backend-scheduled earnings reminders (server `EarningsReminderService.kt`: planner, reconciliation,
+  dispatch, routes, `MockScenarioPushSender`; store methods in InMemory/Firestore/Unavailable), core
+  `EarningsReminders.kt` (models, presenter), Android/iOS reminder sheet, bells, settings screens, deep links,
+  `earnings_reminders` Android channel.
+- Behaviour changes: per-company EARNINGS alert rules are migrated to reminders and no longer evaluated by
+  `AlertEvaluator`; creating EARNINGS alerts returns 400; editors no longer offer Earnings; reminder lead
+  days and results notifications are free; the Earnings Details reminder dialog uses the new sheet.
+- Validation: core JVM 329, core iOS 329, server 297, shared Android host 55, shared iOS 49 — 0 failures;
+  `assembleDebug` OK; iOS xcodebuild BUILD SUCCEEDED; live MOCK reminder flow OK (MOCK restarted on :8081).
+- Not verified: real FCM/APNs delivery, Cloud Scheduler, Firestore indexes; no UI automation.
 
 ## Earnings Intelligence Lite Phase 3: Price Reaction (2026-10-08) — commit "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"
 

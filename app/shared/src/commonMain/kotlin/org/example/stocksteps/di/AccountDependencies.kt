@@ -8,6 +8,8 @@ import org.koin.dsl.onClose
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import org.example.stocksteps.createBackendClient
 import org.example.stocksteps.data.SqlUserDataCache
 import org.example.stocksteps.data.SqlWatchlistStore
@@ -106,6 +108,11 @@ class AccountDependencies(
     /** StockSteps+ research questions (the backend enforces the plan). */
     val researchAsk: org.example.stocksteps.learning.ResearchAsk = org.example.stocksteps.learning.ResearchAsk { symbol, question -> userApi.askResearch(symbol, question) }
     val watchData: WatchDataRepository = graph.koin.get()
+    /** Earnings reminders (Phase 4): one account-wide presenter; the backend schedules and sends. */
+    val earningsReminders: org.example.stocksteps.earnings.EarningsRemindersPresenter by lazy {
+        org.example.stocksteps.earnings.EarningsRemindersPresenter(org.example.stocksteps.earnings.RemoteEarningsReminders(userApi), scope,
+            auth.session.filter { !it.initializing }.map { it.user?.id }, { org.example.stocksteps.presentation.earnings.deviceTimeZoneId() }).also { it.start() }
+    }
     /** Saved copies of opened earnings reports (public data), so Earnings Results can show them offline. */
     val earningsResultsCache: org.example.stocksteps.earnings.EarningsResultsCache by lazy {
         org.example.stocksteps.earnings.UserDataResultsCache(graph.koin.get()) { environment.value }

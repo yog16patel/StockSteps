@@ -2,9 +2,120 @@
 
 > **Earnings Intelligence Lite — Phase 1 (Earnings Calendar)** was added on top of the earlier
 > Earnings Center (2026-10-08, commit "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS").
-> **Phase 3 (Post-Earnings Price Reaction)** is directly below (2026-10-08, commit "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"), then **Phase 2** (commit "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"). See the Phase 1 section right
+> **Phase 4 (Earnings Reminders & Smart Notifications)** is directly below (2026-10-08, commit "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"), then **Phase 3** (commit "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"), then **Phase 2** (commit "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"). See the Phase 1 section right
 > below; the rest of this document describes the earlier Earnings Details/results work, which is
 > unchanged.
+
+## Phase 4: Earnings Reminders & Smart Notifications
+
+Free earnings reminders, scheduled by the backend (the source of truth across devices), delivered
+through the existing push stack. Entry points (no new tab): Earnings Calendar cards (bell: Remind /
+Reminder On / Saving… / Couldn't save · Retry), Earnings Event Details ("Remind Me" / "Reminder On" +
+edit timing), Company Details → Earnings (next event), Earnings Details ("Remind me"), Watchlist
+("Earnings Reminders" shortcut), Settings → Notifications → Earnings Reminders.
+
+### What users can do
+- "Remind Me About Earnings" sheet: company, symbol, event date (+ estimated/confirmed), reporting time
+  only if known ("Not confirmed" otherwise), 1 / 3 / 7 calendar days before (default 1), "also tell me
+  when results are published", the delivery time and zone, permission warning. Saving is confirmed by
+  the server; a failure shows "Couldn't save · Retry" and nothing is shown as saved.
+- Settings: earnings notifications (master), **automatic watchlist reminders (opt-in, off by default)**,
+  default timing, results available, date changes (optional, off), canceled reports, delivery time,
+  quiet hours (10 PM–7 AM), time-zone explanation, device permission status + Allow, every reminder with
+  its status, and the user's scheduled/sent notifications (inspection; "Submitted" ≠ shown on device).
+
+### Preference hierarchy
+Device permission (refreshed from the OS, never stored) → earnings notifications master switch → each
+reminder (manual) / automatic watchlist reminders → results / date-change / cancellation options → quiet
+hours and delivery time. A lower level never overrides a higher one; nothing is re-enabled on update.
+Reminders can be saved while permission is off; the UI says notifications won't appear.
+
+### Models (core `earnings/EarningsReminders.kt`, server `userdata/UserDataStore.kt`)
+- `EarningsReminder` (id, canonical instrument, event id — or null for "every upcoming report" from
+  migrated alerts — source MANUAL/WATCHLIST_AUTO, offset, enabled, results, last known event date, computed
+  status ACTIVE/PAUSED/WAITING_FOR_DATE/CANCELED/COMPLETED/FAILED, next delivery).
+- `EarningsReminderPreferences`, `EarningsReminderDocument` (per user, atomic).
+- `EarningsNotificationDelivery` (unique idempotency key, type PRE_EARNINGS/RESULTS_AVAILABLE/
+  DATE_CHANGED/EVENT_CANCELED, scheduledFor, attempts, nextAttemptAt, lease, accepted devices, provider
+  message id, status PENDING/PROCESSING/SUBMITTED/FAILED/CANCELED, failure reason).
+
+### API (`/api/v1/me/earnings/reminders`, signed in; identity from the verified token only)
+`GET` · `POST {eventId, offsetDays, results, idempotencyKey}` (idempotent per event) · `PUT /{id}` ·
+`DELETE /{id}` · `PUT /preferences` · `GET /deliveries`. Another user's reminder id answers 404.
+Validation: event id format and existence (not reported/canceled), offsets 1/3/7, `HH:mm`, IANA zone,
+quiet hours pairs, request size ≤ 8 KB, per-user rate limit (`REMINDER_REQUESTS_PER_MINUTE`, 60).
+Devices reuse the existing `POST/DELETE /api/v1/me/devices`. Scheduler: `POST
+/internal/earnings-reminders/dispatch` (header `X-StockSteps-Scheduler-Token` = `ALERTS_EVALUATOR_TOKEN`
+in REAL; open locally in MOCK; MOCK also runs it every `STOCKSTEPS_MOCK_ALERT_SECONDS`).
+
+### Scheduling (server `earnings/EarningsReminderService.kt` → `ReminderPlanner`)
+- Pre-earnings: event's exchange-local date − offset calendar days, at the delivery time in the user's
+  IANA zone → UTC. DST: a non-existent time moves forward by the gap (02:30 → 03:30); an ambiguous time
+  uses the first occurrence. Quiet hours move it to their end. The device zone is sent on load and
+  with every preference save, so travel/time-zone changes reschedule pending reminders.
+- Late policy: sent up to 2 h after its time, otherwise skipped ("Delivery window passed"); never an
+  outdated "tomorrow". One-off notices (results, date change, cancellation) are scheduled when detected.
+- Unknown/postponed dates → WAITING_FOR_DATE, nothing scheduled. Canceled (explicit source flag) →
+  CANCELED, pending reminders canceled, optional notice. A reported period → one results notification
+  (manual reminders for that event; automatic/company ones only if published within 3 days), then
+  COMPLETED; a later revision doesn't resend.
+- Rescheduled: the event id is the fiscal period, the dedup key includes the event date, so the old
+  pending reminder is canceled and a new one created; optional "Earnings Date Updated" once per new date.
+- Pass: one event fetch per company per pass (shared cached history), bounded users/batches,
+  reconcile (create / reschedule / revive / cancel), then dispatch. Structured log line per pass with
+  counts (users, symbols, created, rescheduled, canceled, due, submitted, retried, failed, late, invalid
+  tokens, data errors); tokens are never logged.
+
+### Deduplication and delivery
+Key = user | type | event | offset | event date (pre-earnings) or user | type | event (one-offs). Manual
++ automatic with the same offset, duplicate watchlists, repeated saves/passes and retries all map to one
+delivery; different offsets stay distinct. Deliveries are claimed atomically with a 60 s lease
+(concurrent workers can't both send; a crashed worker's claim expires). Sent to every registered device;
+`acceptedDevices` prevents resending to a device on retry. Retryable errors (429/5xx/network) back off
+30 s × 2ⁿ (max 30 min), up to 5 attempts; permanent errors stop; invalid tokens are removed. No device →
+FAILED "No registered device".
+
+### Notifications and deep links
+Payload v1 (identifiers only): `type` (`earnings-reminder` | `earnings-results` | `earnings-date-changed` |
+`earnings-canceled`), `eventId`, `reportId` (results), `instrumentId`, `notificationId`, `payloadVersion`.
+Results → Earnings Results; others → Earnings Event Details; a missing/unknown event → the Earnings
+Calendar (event screen also offers "Open Earnings Calendar"). Screens re-fetch everything; event and
+results screens are public, so links work signed out. Android: `earnings_reminders` channel, FCM
+background notifications carry the data on the launch intent (cold start / background), foreground ones
+are shown by `StockStepsMessagingService` with the same extras. iOS: `PushCoordinator` routes taps by type.
+
+### Migration of earnings alerts
+Pre-Phase-4 per-company earnings alert rules are converted once into company reminders (lead days →
+nearest of 1/3/7; results kept; the surprise threshold is dropped) and removed, so nobody gets two
+notifications. `AlertEvaluator` no longer evaluates EARNINGS rules; creating one returns 400
+`EARNINGS_REMINDERS`; the alert editors no longer offer "Earnings". Lead days and results notifications,
+previously StockSteps+, are now free.
+
+### MOCK
+`MockScenarioPushSender` wraps the simulated sender (nothing reaches Firebase): token prefix `invalid-`
+→ invalid token, `ratelimit-` → retryable, `fail-` → permanent. Live check (MOCK clock Oct 7 17:15 ET):
+delivery time 17:00 + CRBU (Oct 8, 1 day) and JPM (Oct 14, 7 days) → both submitted, an `invalid-` device
+removed. Scenario coverage: planner/service/presenter tests (offsets, DST, quiet hours, late, tz change,
+reschedule, cancel, results, duplicates, manual+auto, watchlist add/remove, multiple devices, retries,
+rate limit, invalid token, concurrency, migration, sign-out/account switch, permission states).
+
+### Tests
+- Server `ReminderPlannerTest` (10) and `EarningsReminderServiceTest` (12); legacy earnings-alert tests
+  replaced.
+- Core `EarningsRemindersPresenterTest` (4).
+- No Compose UI / XCUITest automation (no UI-test setup in the repo).
+
+### Production configuration (not verified)
+- FCM: `FIREBASE_PROJECT_ID` (existing `FcmPushSender`, Application Default Credentials), Cloud Run service account with "Firebase Cloud
+  Messaging API Admin". iOS: APNs auth key uploaded in the Firebase console, Push Notifications +
+  Background Modes (remote notifications) capabilities, `GoogleService-Info.plist`.
+- Cloud Scheduler: `POST /internal/earnings-reminders/dispatch` every 5 minutes with the scheduler token.
+- Firestore: composite indexes on `earningsDeliveries` (status ASC, dueAt ASC) and (status ASC,
+  leaseUntil ASC); `earningsReminders` filtered by `active`.
+- **Real push delivery on devices has not been verified** (no signed builds, devices or entitlements in
+  this environment); MOCK submission is simulated.
+
+---
 
 ## Phase 3: Post-Earnings Price Reaction
 
@@ -483,6 +594,8 @@ server-enforced; free users get 403 `PLUS_REQUIRED`.
 - **Caching:** cached for 7 days once complete, 10 minutes otherwise.
 
 ## Reminders
+
+> Superseded by Phase 4 (Earnings Reminders); the alert-based rules below are historical.
 
 - **Free:**
   - Day before and/or day of, within the existing alert limit.

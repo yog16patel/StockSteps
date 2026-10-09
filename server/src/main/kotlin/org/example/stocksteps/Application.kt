@@ -16,6 +16,7 @@ import org.example.stocksteps.screener.SavedScreensService
 import org.example.stocksteps.screener.savedScreenRoutes
 import org.example.stocksteps.screener.screenerRoutes
 import org.example.stocksteps.earnings.earningsRoutes
+import org.example.stocksteps.earnings.earningsReminderRoutes
 import org.example.stocksteps.learning.learningRoutes
 import org.example.stocksteps.practice.practiceRoutes
 import org.example.stocksteps.brief.dailyBriefRoutes
@@ -125,6 +126,10 @@ fun Application.module() {
         val watchMarket = org.example.stocksteps.userdata.WatchMarketData(stockService, earningsCalendar, sources.news)
         val alertRules = org.example.stocksteps.userdata.AlertRules()
         val evaluator = org.example.stocksteps.userdata.AlertEvaluator(userData, watchMarket, sources.pushSender(), alertRules, sources.marketClock)
+        // Earnings reminders (Phase 4): backend-scheduled; MOCK uses the simulated sender with debug token scenarios.
+        val earningsReminders = org.example.stocksteps.earnings.EarningsReminderService(userData, earnings,
+            if (dataMode == DataMode.MOCK) org.example.stocksteps.earnings.MockScenarioPushSender(sources.pushSender()) else sources.pushSender(),
+            sources.marketClock, sampleData = dataMode == DataMode.MOCK)
         run {
             watchDataRoutes(WatchDataService(watchMarket, alertRules, org.example.stocksteps.service.UsMarketCalendar(), sources.marketClock,
                 if (dataMode == DataMode.MOCK) "Sample data, not live prices." else "Quotes may be delayed. Times show when each price was last updated."))
@@ -171,8 +176,11 @@ fun Application.module() {
                 sampleData = dataMode == DataMode.MOCK
             ), mock = dataMode == DataMode.MOCK)
             alertEvaluationRoutes(evaluator, System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
+            earningsReminderRoutes(earningsReminders, sources.userAuth,
+                RequestRateLimiter(System.getenv("REMINDER_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 60),
+                System.getenv("ALERTS_EVALUATOR_TOKEN")?.takeIf { it.length >= 32 }, mock = dataMode == DataMode.MOCK)
         }
-        if (dataMode == DataMode.MOCK) startMockAlertLoop(evaluator)
+        if (dataMode == DataMode.MOCK) startMockAlertLoop(evaluator, earningsReminders)
         val marketsService = org.example.stocksteps.service.MarketsService(
             movers = sources.marketData,
             quotes = sources.stockProvider,
@@ -542,13 +550,14 @@ fun Route.marketsRoutes(markets: org.example.stocksteps.service.MarketsService) 
  * alerts can trigger locally. REAL never runs a background loop: Cloud Run can stop idle instances,
  * so Cloud Scheduler calls `POST /internal/alerts/evaluate` instead.
  */
-private fun Application.startMockAlertLoop(evaluator: org.example.stocksteps.userdata.AlertEvaluator) {
+private fun Application.startMockAlertLoop(evaluator: org.example.stocksteps.userdata.AlertEvaluator, reminders: org.example.stocksteps.earnings.EarningsReminderService) {
     val seconds = System.getenv("STOCKSTEPS_MOCK_ALERT_SECONDS")?.toLongOrNull() ?: 60
     if (seconds <= 0) return
     val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default).launch {
         while (true) {
             kotlinx.coroutines.delay(seconds * 1_000)
             runCatching { evaluator.run() }.onFailure { log.warn("Mock alert evaluation failed") }
+            runCatching { reminders.runPass() }.onFailure { log.warn("Mock earnings reminder pass failed") }
         }
     }
     monitor.subscribe(ApplicationStopped) { job.cancel() }

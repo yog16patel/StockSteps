@@ -57,6 +57,8 @@ internal fun CompanyDetailsScreen(
     researchCompleted: Int? = null,
     /** Next earnings date (null hides the section, e.g. previews). */
     earnings: org.example.stocksteps.earnings.CompanyEarningsState? = null,
+    /** Reminder state for the next earnings event (null hides the control). */
+    earningsReminder: org.example.stocksteps.earnings.ReminderControl? = null,
     onAction: (CompanyDetailsAction) -> Unit
 ) {
     val spacing = StockStepsTheme.spacing
@@ -114,7 +116,7 @@ internal fun CompanyDetailsScreen(
                 item(key = "research") {
                     org.example.stocksteps.presentation.research.UnderstandStockCard(researchCompleted, { onAction(CompanyDetailsAction.Research) }, section)
                 }
-                earnings?.let { e -> item(key = "earnings") { EarningsSection(e, onAction, section) } }
+                earnings?.let { e -> item(key = "earnings") { EarningsSection(e, earningsReminder, onAction, section) } }
                 // Hidden while loading and when the backend has no source-backed explanation.
                 when (val why = state.whyMoving) {
                     is Section.Content -> why.value?.let { value ->
@@ -584,7 +586,7 @@ private fun NewsSection(news: Section<List<NewsUiModel>>, onOpen: (String) -> Un
 
 /** Next earnings date, timing and status; never an invented date. */
 @Composable
-private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarningsState, onAction: (CompanyDetailsAction) -> Unit, modifier: Modifier) {
+private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarningsState, reminder: org.example.stocksteps.earnings.ReminderControl?, onAction: (CompanyDetailsAction) -> Unit, modifier: Modifier) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val error = state.error
@@ -604,6 +606,7 @@ private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarnin
                 }
                 else -> Text(state.message.orEmpty(), style = typography.small, color = colors.textSecondary)
             }
+            reminder?.let { org.example.stocksteps.presentation.earnings.ReminderButton(it, compact = true) { onAction(CompanyDetailsAction.RemindEarnings) } }
             // Latest published results (comparable measures only), linking to the full Earnings Results.
             state.latestTitle?.let { title ->
                 StockDivider()

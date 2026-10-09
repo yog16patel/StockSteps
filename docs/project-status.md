@@ -1,6 +1,6 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-08 against the repository (`main`, latest commit **"Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"**, pushed). Verify with
+Last reviewed: 2026-10-08 against the repository (`main`, latest commit **"Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"**, pushed). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
@@ -19,7 +19,8 @@ BUILD SUCCEEDED and live MOCK checks passed before the commit (not re-run since)
 was running the committed code at session end.
 
 Next steps:
-0. Price Reaction (Phase 3) is committed and pushed ("Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS").
+0. Earnings Reminders (Phase 4) is committed and pushed ("Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"); real push delivery still unverified.
+   Price Reaction (Phase 3) is committed and pushed ("Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS").
    Earnings Results (Phase 2) is committed and pushed ("Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS").
    Earnings Calendar (Phase 1) is committed and pushed ("Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"); Phase 2
    (EPS/revenue vs estimates on the event screen) is the next earnings phase.
@@ -35,6 +36,7 @@ Next steps:
 
 | Feature | Commit (title) | Doc | Notes |
 |---|---|---|---|
+| Earnings reminders & smart notifications — Earnings Intelligence Lite Phase 4 (backend scheduling, opt-in watchlist reminders, results/date-change notices, deep links) | "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS" | `docs/EARNINGS.md` (Phase 4) | Free; earnings alerts migrated; real FCM/APNs delivery and Cloud Scheduler not verified. |
 | Post-earnings price reaction — Earnings Intelligence Lite Phase 3 (calendar-aware First/3/5-session windows, chart, explanations) | "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS" | `docs/EARNINGS.md` (Phase 3) | Free; regular-session closes only; no corporate-action feed in REAL. |
 | Earnings Results & beginner explanations — Earnings Intelligence Lite Phase 2 (exact EPS/revenue comparisons, YoY/QoQ, takeaways) | "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS" | `docs/EARNINGS.md` (Phase 2) | Free; classification now exact (MET only when equal); REAL lacks publication/revision metadata. |
 | Earnings Calendar — Earnings Intelligence Lite Phase 1 (calendar, event details, Markets/Company Details/Brief/Watchlist entries) | "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS" | `docs/EARNINGS.md` (Phase 1) | Free; no UI automation; REAL TSX coverage unverified. |
@@ -105,7 +107,7 @@ None.
 
 1. **Deploy the backend** (Cloud Run) with Practice, Learning and Brief routes; Practice/Learning/Brief
    don't work in REAL until then (404). Firestore credentials required (else 503).
-2. **Cloud Scheduler** jobs: `POST /internal/daily-brief/dispatch` (and existing
+2. **Cloud Scheduler** jobs: `POST /internal/earnings-reminders/dispatch` (every 5 min), `POST /internal/daily-brief/dispatch` (and existing
    `/internal/alerts/evaluate`) with header `X-StockSteps-Scheduler-Token` = `ALERTS_EVALUATOR_TOKEN`.
 3. **StockSteps+ billing**: Play Billing / StoreKit + server receipt validation writing the entitlement
    record; restore/pending/cancelled states.

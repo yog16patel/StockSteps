@@ -19,7 +19,8 @@ import org.example.stocksteps.model.EarningsTime
 import org.example.stocksteps.model.UpcomingEarnings
 import java.util.concurrent.CopyOnWriteArrayList
 
-data class PushMessage(val token: String, val title: String, val body: String, val data: Map<String, String>)
+/** [channel] is the Android notification channel ("stock_alerts", "earnings_reminders"). */
+data class PushMessage(val token: String, val title: String, val body: String, val data: Map<String, String>, val channel: String = "stock_alerts")
 
 sealed interface PushResult {
     /** The provider accepted the message. This is not proof the user saw it. */
@@ -61,7 +62,7 @@ class FcmPushSender(
                 put("token", message.token)
                 putJsonObject("notification") { put("title", message.title); put("body", message.body) }
                 putJsonObject("data") { message.data.forEach { (key, value) -> put(key, value) } }
-                putJsonObject("android") { put("priority", "high"); putJsonObject("notification") { put("channel_id", "stock_alerts") } }
+                putJsonObject("android") { put("priority", "high"); putJsonObject("notification") { put("channel_id", message.channel) } }
                 putJsonObject("apns") { putJsonObject("payload") { putJsonObject("aps") { put("sound", "default") } } }
             }
         }

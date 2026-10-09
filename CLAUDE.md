@@ -13,7 +13,7 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-08)
 
-Latest commit: "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS" (pushed), after `5219e13` (Earnings Results, Phase 2). No feature in progress; nothing uncommitted (see the top of `PROJECT_HANDOFF.md`). Next steps and
+Latest commit: "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS" (pushed), after `dc9843d` (Price Reaction, Phase 3). No feature in progress; nothing uncommitted (see the top of `PROJECT_HANDOFF.md`). Next steps and
 production dependencies are in `docs/project-status.md` §0 and §4. A local MOCK server may still be
 running on :8081 (restart after server changes; stop with `./gradlew :server:stopMock`).
 

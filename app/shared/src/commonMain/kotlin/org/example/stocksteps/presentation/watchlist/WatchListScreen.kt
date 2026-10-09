@@ -50,6 +50,8 @@ internal sealed interface WatchListAction {
     data object DismissMessage : WatchListAction
     /** Earnings Calendar filtered to the user's watchlists. */
     data object Earnings : WatchListAction
+    /** Earnings Reminders settings (incl. automatic reminders for watchlist companies). */
+    data object EarningsReminders : WatchListAction
 }
 
 private sealed interface Sheet {
@@ -169,7 +171,10 @@ private fun Header(state: WatchListState, model: WatchlistModel?, modifier: Modi
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
             Text(stringResource(Res.string.watchlist_title), Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
             Text(stringResource(Res.string.watchlist_subtitle), style = StockStepsTheme.typography.small, color = colors.textSecondary)
-            if (state.signedIn) StockButton("Earnings dates for your watchlists", onClick = { onAction(WatchListAction.Earnings) }, variant = StockButtonVariant.TEXT)
+            if (state.signedIn) Row(Modifier.horizontalScroll(rememberScrollState())) {
+                StockButton("Earnings dates for your watchlists", onClick = { onAction(WatchListAction.Earnings) }, variant = StockButtonVariant.TEXT)
+                StockButton("Earnings Reminders", onClick = { onAction(WatchListAction.EarningsReminders) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Bell)
+            }
         }
         IconButton(onClick = { onAction(WatchListAction.Search) }) { Icon(StockIcons.Search, stringResource(Res.string.markets_search), tint = colors.textPrimary) }
         if (state.signedIn) {

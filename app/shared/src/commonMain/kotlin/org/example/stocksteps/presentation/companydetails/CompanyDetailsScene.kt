@@ -32,6 +32,7 @@ internal fun CompanyDetailsScene(
     onEarnings: (String) -> Unit = {},
     onEarningsCalendar: (String?) -> Unit = {},
     onEarningsResults: (String) -> Unit = {},
+    onSignIn: () -> Unit = {},
     onResearch: (symbol: String, name: String) -> Unit = { _, _ -> },
     onPracticeBuy: (String) -> Unit = {}
 ) {
@@ -45,6 +46,9 @@ internal fun CompanyDetailsScene(
         org.example.stocksteps.presentation.earnings.CompanyEarningsViewModel(route.symbol, data.earningsRemote(accounts), data::close)
     }
     val earnings by earningsModel.presenter.state.collectAsStateWithLifecycle()
+    val reminders by (accounts?.earningsReminders?.state ?: remember { MutableStateFlow(org.example.stocksteps.earnings.EarningsRemindersState()) }).collectAsStateWithLifecycle()
+    var reminderSheet by remember { mutableStateOf<org.example.stocksteps.presentation.earnings.ReminderTarget?>(null) }
+    org.example.stocksteps.presentation.earnings.ReminderSheetHost(accounts, reminderSheet, onDismiss = { reminderSheet = null }, onSignIn = onSignIn)
     LaunchedEffect(route.symbol, environment, accounts) {
         accounts?.home?.recordViewed(org.example.stocksteps.model.InstrumentRef(route.symbol))
     }
@@ -61,6 +65,7 @@ internal fun CompanyDetailsScene(
         backIcon = backIcon,
         researchCompleted = learning.journey(route.symbol)?.completedCount,
         earnings = earnings,
+        earningsReminder = earnings.eventId?.let { id -> if (reminders.signedIn) reminders.control(id) else org.example.stocksteps.earnings.ReminderControl.OFF },
         onAction = { action ->
             when (action) {
                 CompanyDetailsAction.AddPortfolio -> {
@@ -72,6 +77,9 @@ internal fun CompanyDetailsScene(
                 CompanyDetailsAction.EarningsCalendar -> onEarningsCalendar(earnings.date)
                 CompanyDetailsAction.RetryEarnings -> earningsModel.presenter.refresh()
                 CompanyDetailsAction.LatestResults -> earnings.latestReportId?.let(onEarningsResults)
+                CompanyDetailsAction.RemindEarnings -> earnings.eventId?.let { id -> reminderSheet = org.example.stocksteps.presentation.earnings.ReminderTarget(
+                    id, route.symbol, (state.overview as? Section.Content)?.value?.name ?: route.symbol, earnings.dateText.orEmpty(), earnings.timingText,
+                    earnings.statusText?.substringAfter(" · ", "")?.ifBlank { null }) }
                 CompanyDetailsAction.PracticeBuy -> onPracticeBuy(route.symbol)
                 CompanyDetailsAction.Research -> state.overview.listing(route.symbol).let { onResearch(it.symbol, it.name) }
                 CompanyDetailsAction.Back -> onBack()

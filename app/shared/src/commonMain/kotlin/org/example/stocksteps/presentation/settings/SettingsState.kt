@@ -4,7 +4,7 @@ import org.example.stocksteps.settings.BackendEnvironment
 import org.example.stocksteps.settings.ThemeMode
 
 /** Settings destinations; a row is tappable only when its destination is available. */
-internal enum class SettingsLink { ACCOUNT, PRICE_ALERTS, MARKET_NEWS, ABOUT, PRIVACY, TERMS, HELP }
+internal enum class SettingsLink { ACCOUNT, PRICE_ALERTS, MARKET_NEWS, EARNINGS_REMINDERS, ABOUT, PRIVACY, TERMS, HELP }
 
 internal sealed interface SettingsAccount {
     data object Loading : SettingsAccount

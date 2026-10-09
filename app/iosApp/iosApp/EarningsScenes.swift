@@ -12,8 +12,11 @@ final class EarningsModel {
     @ObservationIgnored let client: IosEarningsClient
     @ObservationIgnored private var subscription: (any AccountSubscription)?
 
+    @ObservationIgnored let reminders: EarningsRemindersModel
+
     init(accounts: AccountViewModel, baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
         client = IosEarningsClient(baseUrl: baseURL, account: accounts.client)
+        reminders = EarningsRemindersModel(client: client)
     }
     /// Starts the Markets "Earnings Center" counts on first use.
     func startSummary() {
@@ -131,17 +134,19 @@ struct EarningsCalendarScene: View {
     let onOpen: (String) -> Void
     var onSignIn: () -> Void = {}
     var onOpenResults: (String) -> Void = { _ in }
+    var reminders: EarningsRemindersModel? = nil
 
     init(target: EarningsCalendarTarget, client: IosEarningsClient, onOpen: @escaping (String) -> Void, onSignIn: @escaping () -> Void = {},
-         onOpenResults: @escaping (String) -> Void = { _ in }) {
+         onOpenResults: @escaping (String) -> Void = { _ in }, reminders: EarningsRemindersModel? = nil) {
         _model = State(initialValue: EarningsCalendarModel(target: target, client: client))
         self.onOpen = onOpen
         self.onSignIn = onSignIn
         self.onOpenResults = onOpenResults
+        self.reminders = reminders
     }
 
     var body: some View {
-        EarningsCalendarScreen(state: model.state, presenter: model.presenter, client: model.client, onOpen: onOpen, onSignIn: onSignIn, onOpenResults: onOpenResults)
+        EarningsCalendarScreen(state: model.state, presenter: model.presenter, client: model.client, onOpen: onOpen, onSignIn: onSignIn, onOpenResults: onOpenResults, reminders: reminders)
             .navigationTitle("Earnings")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { model.presenter.refresh() }
@@ -157,8 +162,10 @@ struct EarningsCalendarScreen: View {
     let onOpen: (String) -> Void
     let onSignIn: () -> Void
     var onOpenResults: (String) -> Void = { _ in }
+    var reminders: EarningsRemindersModel? = nil
     @Environment(\.colorScheme) private var scheme
     @State private var showHelp = false
+    @State private var reminderTarget: ReminderTargetInfo?
     @State private var picking = false
     @State private var pickedDate = Date()
 
@@ -229,6 +236,13 @@ struct EarningsCalendarScreen: View {
                                 Button("View Results") { onOpenResults(reportId) }.frame(minHeight: 48)
                                     .accessibilityLabel("View \(row.symbol) earnings results")
                             }
+                            if let reminders, row.status.name == "SCHEDULED" {
+                                ReminderControlButton(control: reminders.control(row.id), compact: true) {
+                                    reminderTarget = ReminderTargetInfo(eventId: row.id, symbol: row.symbol, name: row.name, dateText: row.dateText, timingText: row.timingText,
+                                                                        dateNote: row.statusText.components(separatedBy: " · ").dropFirst().first)
+                                }
+                                .accessibilityLabel("Earnings reminder for \(row.symbol): \(reminders.control(row.id) == "ON" ? "on" : "off")")
+                            }
                         }
                     }
                     if state.loadingMore { ProgressView().accessibilityLabel("Loading more earnings") }
@@ -241,6 +255,7 @@ struct EarningsCalendarScreen: View {
         }
         .background(colors.appBackground)
         .alert("What are earnings?", isPresented: $showHelp) { Button("Got it", role: .cancel) {} } message: { Text(client.whatAreEarnings) }
+        .sheet(item: $reminderTarget) { target in if let reminders { EarningsReminderSheet(target: target, model: reminders, onSignIn: onSignIn) { reminderTarget = nil } } }
         .sheet(isPresented: $picking) {
             NavigationStack {
                 DatePicker("Date", selection: $pickedDate, displayedComponents: .date).datePickerStyle(.graphical).padding()
@@ -329,10 +344,13 @@ struct EarningsEventScene: View {
     let onCalendar: (String?) -> Void
     let onResults: (String) -> Void
     var onSignIn: () -> Void = {}
+    var reminders: EarningsRemindersModel? = nil
+    @State private var reminderTarget: ReminderTargetInfo?
 
     init(eventId: String, client: IosEarningsClient, accounts: AccountViewModel, onCompany: @escaping (String) -> Void,
-         onCalendar: @escaping (String?) -> Void, onResults: @escaping (String) -> Void, onSignIn: @escaping () -> Void = {}) {
+         onCalendar: @escaping (String?) -> Void, onResults: @escaping (String) -> Void, onSignIn: @escaping () -> Void = {}, reminders: EarningsRemindersModel? = nil) {
         _model = State(initialValue: EarningsEventModel(eventId: eventId, client: client))
+        self.reminders = reminders
         self.accounts = accounts
         self.onCompany = onCompany
         self.onCalendar = onCalendar
@@ -342,7 +360,14 @@ struct EarningsEventScene: View {
 
     var body: some View {
         EarningsEventScreen(state: model.state, client: model.client, accounts: accounts, onRetry: { model.presenter.refresh() },
-                            onCompany: onCompany, onCalendar: onCalendar, onResults: onResults, onSignIn: onSignIn)
+                            onCompany: onCompany, onCalendar: onCalendar, onResults: onResults, onSignIn: onSignIn,
+                            reminderControl: reminders.map { $0.control(model.presenter.eventId) },
+                            reminderNote: reminders.flatMap { r in [r.note(model.presenter.eventId), r.state?.deliveryWarning].compactMap { $0 }.joined(separator: " ") }.flatMap { $0.isEmpty ? nil : $0 },
+                            onRemind: {
+                                if let st = model.state { reminderTarget = ReminderTargetInfo(eventId: model.presenter.eventId, symbol: st.symbol, name: st.name,
+                                    dateText: st.dateText ?? "", timingText: st.timingText, dateNote: st.statusText?.components(separatedBy: " · ").dropFirst().first) }
+                            })
+            .sheet(item: $reminderTarget) { target in if let reminders { EarningsReminderSheet(target: target, model: reminders, onSignIn: onSignIn) { reminderTarget = nil } } }
             .navigationTitle("Earnings event")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { model.presenter.refresh() }
@@ -359,6 +384,9 @@ struct EarningsEventScreen: View {
     let onCalendar: (String?) -> Void
     let onResults: (String) -> Void
     let onSignIn: () -> Void
+    var reminderControl: String? = nil
+    var reminderNote: String? = nil
+    var onRemind: () -> Void = {}
     @Environment(\.colorScheme) private var scheme
     @State private var topic: EarningsEducation.Topic?
 
@@ -368,7 +396,11 @@ struct EarningsEventScreen: View {
             LazyVStack(alignment: .leading, spacing: CGFloat(space.md)) {
                 if let state {
                     if state.loading { ProgressView().accessibilityLabel("Loading earnings event") }
-                    if let error = state.error { StockSectionMessage(message: error, actionTitle: "Try again", action: onRetry) }
+                    if let error = state.error {
+                        StockSectionMessage(message: error, actionTitle: "Try again", action: onRetry)
+                        // A missing event (e.g. from an old notification) falls back to the calendar.
+                        Button("Open Earnings Calendar") { onCalendar(nil) }.frame(minHeight: 48)
+                    }
                     if state.status != nil { content(state, colors) }
                 }
             }
@@ -412,6 +444,10 @@ struct EarningsEventScreen: View {
         .padding(CGFloat(space.cardPadding))
         .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            if let reminderControl, state.status?.name == "SCHEDULED" {
+                ReminderControlButton(control: reminderControl, action: onRemind)
+                if let reminderNote { Text(reminderNote).font(.caption).foregroundStyle(colors.textSecondary) }
+            }
             Button { onCompany(state.symbol) } label: { Text("View Company Details").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.borderedProminent)
             // The same watchlist as Company Details and the Watchlist tab.
             if !accounts.state.initializing {
@@ -495,7 +531,12 @@ struct EarningsDetailsScreen: View {
             NavigationStack { ScrollView { Text(item.topic.body).padding() }.navigationTitle(item.topic.title).navigationBarTitleDisplayMode(.inline) }
                 .presentationDetents([.medium])
         }
-        .sheet(isPresented: $showReminder) { if let state { ReminderSheet(state: state, presenter: presenter, client: client) { showReminder = false } } }
+        .sheet(isPresented: $showReminder) {
+            if let next = state?.details?.next {
+                EarningsReminderSheet(target: ReminderTargetInfo(eventId: next.id, symbol: next.symbol, name: state?.details?.name ?? next.name, dateText: client.date(date: next.date)),
+                                      model: EarningsRemindersModel(client: client), onSignIn: onSignIn) { showReminder = false }
+            }
+        }
         .alert("StockSteps+", isPresented: Binding(get: { state?.upgradeRequired == true }, set: { if !$0 { presenter.dismissUpgrade() } })) {
             Button("See StockSteps+") { presenter.dismissUpgrade(); onUpgrade() }
             Button("Not now", role: .cancel) { presenter.dismissUpgrade() }
@@ -517,8 +558,7 @@ struct EarningsDetailsScreen: View {
             if d?.sampleData == true { Text("Sample earnings data for development, not real results.").font(.caption).foregroundStyle(colors.textSecondary) }
             if d?.stale == true { Text("The next date hasn't been updated recently and may have changed.").font(.caption).foregroundStyle(colors.cautionText) }
             HStack {
-                Button(state.reminder != nil ? "Reminder on" : "Remind me") { if state.signedIn { showReminder = true } else { onSignIn() } }
-                    .buttonStyle(.bordered).disabled(state.reminderBusy)
+                if state.details?.next != nil { Button("Remind me") { showReminder = true }.buttonStyle(.bordered) }
                 Button("Company details", action: onCompany)
             }
         }
@@ -620,50 +660,6 @@ struct EarningsDetailsScreen: View {
     }
 }
 
-private struct ReminderSheet: View {
-    let state: EarningsDetailsState
-    let presenter: EarningsDetailsPresenter
-    let client: IosEarningsClient
-    let onDone: () -> Void
-    @State private var timing = "BOTH"
-    @State private var lead = 1
-    @State private var results = false
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Picker("Remind me", selection: $timing) {
-                    Text("Day before").tag("DAY_BEFORE"); Text("On the day").tag("DAY_OF"); Text("Both").tag("BOTH")
-                }
-                Section("StockSteps+ options") {
-                    Stepper("Days before: \(lead)", value: $lead, in: 1...7).disabled(!state.plus)
-                    Toggle("Notify when results are out", isOn: $results).disabled(!state.plus)
-                    if !state.plus { Text("Day-before and day-of reminders are free. Earlier reminders and results notifications are part of StockSteps+.").font(.caption) }
-                }
-                Section {
-                    Text("If the date is only estimated or the time isn't announced, reminders use the date and may move if the company changes it. You won't get a reminder for both the old and new date.")
-                        .font(.caption)
-                }
-                if state.reminder != nil {
-                    Button("Turn off reminder", role: .destructive) { client.setReminder(presenter: presenter, timing: nil, leadDays: 1, results: false); onDone() }
-                }
-            }
-            .navigationTitle("Earnings reminder")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onDone) }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { client.setReminder(presenter: presenter, timing: timing, leadDays: Int32(state.plus ? lead : 1), results: state.plus && results); onDone() }
-                }
-            }
-            .onAppear {
-                timing = state.reminder?.earningsTiming?.name ?? "BOTH"
-                lead = Int(truncating: state.reminder?.earningsLeadDays ?? 1)
-                results = state.reminder?.earningsResults ?? false
-            }
-        }
-    }
-}
 
 // MARK: - Earnings Results (Phase 2)
 

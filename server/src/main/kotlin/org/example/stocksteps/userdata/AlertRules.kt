@@ -49,8 +49,8 @@ data class InstrumentSnapshot(
  *   Event key: rule + trigger cycle, so retries and duplicate workers can't fire twice.
  * - Daily move: |price / previous close − 1| ≥ threshold in the chosen direction, regular session
  *   only (quotes outside 9:30–close+5min are ignored). Event key: rule + session date (once per session).
- * - Earnings: day before (from 9:00 ET) and/or day of (from 7:00 ET). Event key: rule + date + timing,
- *   so a rescheduled date gets its own reminder and the same date never repeats.
+ * - Earnings: not evaluated here. Earnings notifications are scheduled by EarningsReminderService
+ *   (Phase 4), which converts older earnings rules into reminders.
  * - News: a concrete company event in a headline naming the company (same rules as "Why did it
  *   move?"), published after the rule was created and within 24 hours; similar headlines (syndicated
  *   copies) are grouped and only the first notifies.
@@ -61,7 +61,7 @@ class AlertRules(private val calendar: UsMarketCalendar = UsMarketCalendar()) {
         return when (rule.type) {
             AlertType.PRICE_ABOVE, AlertType.PRICE_BELOW -> price(rule, data, now)
             AlertType.DAILY_MOVE -> move(rule, data, now)
-            AlertType.EARNINGS -> earnings(rule, data, now)
+            AlertType.EARNINGS -> AlertDecision.None
             AlertType.NEWS -> news(rule, data, now, recentTitles)
         }
     }
@@ -137,71 +137,6 @@ class AlertRules(private val calendar: UsMarketCalendar = UsMarketCalendar()) {
             val next = current.copy(triggerCount = current.triggerCount + 1, lastTriggeredAt = time, updatedAt = time)
             if (current.repeat == RepeatPolicy.ONCE) next.copy(status = AlertStatus.TRIGGERED) else next
         }
-    }
-
-    /**
-     * Earnings reminders. Keys use the event's stable fiscal-period id when known, so a moved date
-     * never sends the same reminder again; results notifications fire once per event.
-     */
-    private fun earnings(rule: AlertRule, data: InstrumentSnapshot, now: Instant): AlertDecision {
-        if (rule.earningsResults) results(rule, data)?.let { return it }
-        val earnings = data.earnings ?: return AlertDecision.None
-        val date = runCatching { LocalDate.parse(earnings.date) }.getOrNull() ?: return AlertDecision.None
-        val local = now.atZone(calendar.zone)
-        val today = local.toLocalDate()
-        val timing = rule.earningsTiming ?: EarningsTiming.BOTH
-        val lead = (rule.earningsLeadDays ?: 1).toLong().coerceIn(1, 7)
-        val which = when {
-            today == date.minusDays(lead) && timing != EarningsTiming.DAY_OF && !local.toLocalTime().isBefore(LocalTime.of(9, 0)) -> EarningsTiming.DAY_BEFORE
-            today == date && timing != EarningsTiming.DAY_BEFORE && !local.toLocalTime().isBefore(LocalTime.of(7, 0)) -> EarningsTiming.DAY_OF
-            else -> return AlertDecision.None
-        }
-        val whenText = if (which == EarningsTiming.DAY_OF) "today" else if (lead == 1L) "tomorrow" else "in $lead days"
-        val timeText = when (earnings.time) {
-            EarningsTime.BEFORE_OPEN -> " before the market opens"
-            EarningsTime.AFTER_CLOSE -> " after the market closes"
-            EarningsTime.DURING_MARKET -> " during market hours"
-            EarningsTime.UNKNOWN -> ""
-        }
-        val certainty = when (earnings.status) {
-            EarningsDateStatus.CONFIRMED -> "The company has confirmed the date."
-            EarningsDateStatus.TENTATIVE -> "The date is tentative and may change."
-            else -> "The date is estimated and may change."
-        }
-        val identity = earnings.eventId ?: earnings.date
-        return AlertDecision.Trigger(
-            eventKey = "${rule.id}:earnings-$identity-${which.name}",
-            title = "${rule.instrument.symbol} earnings $whenText",
-            body = "${display(data)} is expected to report earnings $whenText$timeText. $certainty",
-            observedValue = null,
-            sessionDate = earnings.date
-        ) { current ->
-            val time = now.toEpochMilli()
-            current.copy(triggerCount = current.triggerCount + 1, lastTriggeredAt = time, updatedAt = time)
-        }
-    }
-
-    /** Results available (StockSteps+): once per event; optional verified-surprise threshold. */
-    private fun results(rule: AlertRule, data: InstrumentSnapshot): AlertDecision.Trigger? {
-        val event = data.earningsResult ?: return null
-        val eps = org.example.stocksteps.earnings.EarningsCalculator.eps(event.estimate, event.actual)
-        val revenue = org.example.stocksteps.earnings.EarningsCalculator.revenue(event.estimate, event.actual)
-        rule.earningsSurprisePercent?.let { threshold ->
-            val biggest = listOfNotNull(eps.percent, revenue.percent).maxOfOrNull { kotlin.math.abs(it) } ?: return null
-            if (biggest < threshold) return null
-        }
-        fun part(label: String, r: org.example.stocksteps.earnings.SurpriseResult) = when (r.classification) {
-            org.example.stocksteps.earnings.Classification.UNAVAILABLE -> null
-            else -> "$label ${r.classification.label.lowercase()}" + (r.percent?.let { " (${if (it >= 0) "+" else ""}${"%.1f".format(java.util.Locale.US, it)}%)" } ?: "")
-        }
-        val summary = listOfNotNull(part("EPS", eps), part("revenue", revenue)).joinToString(", ").ifBlank { "Results are available" }
-        return AlertDecision.Trigger(
-            eventKey = "${rule.id}:earnings-results-${event.id}",
-            title = "${rule.instrument.symbol} reported ${event.period} results",
-            body = "${display(data)}: $summary versus analyst estimates. Results don't determine how the stock moves.",
-            observedValue = null,
-            sessionDate = event.date
-        ) { current -> current.copy(triggerCount = current.triggerCount + 1, lastTriggeredAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()) }
     }
 
     private fun news(rule: AlertRule, data: InstrumentSnapshot, now: Instant, recentTitles: List<String>): AlertDecision {

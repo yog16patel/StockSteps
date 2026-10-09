@@ -239,30 +239,6 @@ class EarningsDetailsPresenter(
 
     fun refresh() { refreshes.value++ }
 
-    /** Basic reminders are free (day before / day of); lead days and results are StockSteps+ (server-enforced). */
-    fun setReminder(timing: EarningsTiming?, leadDays: Int? = null, results: Boolean = false, surprisePercent: Double? = null) {
-        val repository = alerts ?: return
-        val current = mutable.value
-        scope.launch {
-            mutable.update { it.copy(reminderBusy = true) }
-            try {
-                val existing = current.reminder
-                when {
-                    timing == null && existing != null -> repository.delete(existing.id)
-                    timing == null -> Unit
-                    existing != null -> repository.update(existing.id, UpdateAlertRequest(status = AlertStatus.ACTIVE, earningsTiming = timing,
-                        earningsLeadDays = leadDays, earningsResults = results, earningsSurprisePercent = surprisePercent))
-                    else -> repository.create(CreateAlertRequest(InstrumentRef(symbol.uppercase(), current.details?.name, current.details?.event?.exchange),
-                        AlertType.EARNINGS, earningsTiming = timing, earningsLeadDays = leadDays, earningsResults = results.takeIf { it }, earningsSurprisePercent = surprisePercent))
-                }
-                mutable.update { it.copy(reminderBusy = false, message = if (timing == null) "Earnings reminder turned off." else "Earnings reminder saved.") }
-            } catch (cause: Exception) {
-                if (cause is CancellationException) throw cause
-                mutable.update { it.copy(reminderBusy = false, message = (cause as? StockStepsApiException)?.error?.message ?: "The reminder couldn't be saved.") }
-            }
-        }
-    }
-
     /** StockSteps+ only: free users get the upgrade experience and nothing is sent. */
     fun ask(question: String) {
         val current = mutable.value

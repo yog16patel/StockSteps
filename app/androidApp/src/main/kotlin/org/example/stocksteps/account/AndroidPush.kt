@@ -49,6 +49,10 @@ internal object AndroidPushTokens : PushTokenSource {
 
 internal object AlertNotifications {
     const val CHANNEL = "stock_alerts"
+    /** Earnings reminders, results, date changes and cancellations (users can mute it separately). */
+    const val EARNINGS_CHANNEL = "earnings_reminders"
+    const val EXTRA_EVENT = "eventId"
+    const val EXTRA_REPORT = "reportId"
     const val EXTRA_SYMBOL = "symbol"
     const val EXTRA_TYPE = "type"
     const val EXTRA_BRIEF = "briefId"
@@ -59,19 +63,25 @@ internal object AlertNotifications {
         manager.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.alerts_channel_name), NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = context.getString(R.string.alerts_channel_description)
         })
+        manager.createNotificationChannel(NotificationChannel(EARNINGS_CHANNEL, context.getString(R.string.earnings_channel_name), NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = context.getString(R.string.earnings_channel_description)
+        })
     }
 
     /** Opens the app on that stock's alerts (same extras FCM puts on background notifications). */
-    fun show(context: Context, title: String, body: String, symbol: String?, type: String = "alert", briefId: String? = null) {
+    fun show(context: Context, title: String, body: String, symbol: String?, type: String = "alert", briefId: String? = null,
+             eventId: String? = null, reportId: String? = null) {
         if (!AndroidPushTokens.notificationsAllowed(context)) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(EXTRA_TYPE, type)
             symbol?.let { putExtra(EXTRA_SYMBOL, it) }
             briefId?.let { putExtra(EXTRA_BRIEF, it) }
+            eventId?.let { putExtra(EXTRA_EVENT, it) }
+            reportId?.let { putExtra(EXTRA_REPORT, it) }
         }
-        val pending = PendingIntent.getActivity(context, (briefId ?: symbol).hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val notification = NotificationCompat.Builder(context, CHANNEL)
+        val pending = PendingIntent.getActivity(context, (briefId ?: reportId ?: eventId ?: symbol).hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val notification = NotificationCompat.Builder(context, if (type.startsWith("earnings-")) EARNINGS_CHANNEL else CHANNEL)
             .setSmallIcon(R.drawable.ic_markets)
             .setContentTitle(title)
             .setContentText(body)
@@ -91,6 +101,7 @@ class StockStepsMessagingService : FirebaseMessagingService() {
         // Background notification messages are shown by the system; foreground ones arrive here.
         val notification = message.notification ?: return
         AlertNotifications.show(applicationContext, notification.title ?: "StockSteps alert", notification.body.orEmpty(), message.data[AlertNotifications.EXTRA_SYMBOL],
-            type = message.data[AlertNotifications.EXTRA_TYPE] ?: "alert", briefId = message.data[AlertNotifications.EXTRA_BRIEF])
+            type = message.data[AlertNotifications.EXTRA_TYPE] ?: "alert", briefId = message.data[AlertNotifications.EXTRA_BRIEF],
+            eventId = message.data[AlertNotifications.EXTRA_EVENT], reportId = message.data[AlertNotifications.EXTRA_REPORT])
     }
 }

@@ -33,6 +33,54 @@ data class OutboxItem(
     val lastError: String? = null
 )
 
+/** One user's earnings reminders and preferences (Phase 4); written atomically. */
+@Serializable
+data class EarningsReminderDocument(
+    val uid: String,
+    val reminders: List<org.example.stocksteps.earnings.EarningsReminder> = emptyList(),
+    val preferences: org.example.stocksteps.earnings.EarningsReminderPreferences = org.example.stocksteps.earnings.EarningsReminderPreferences(),
+    /** Automatic (watchlist) reminders have no stored row; their last scheduled event date lives here. */
+    val autoDates: Map<String, String> = emptyMap(),
+    /** Per-company earnings alerts from before Phase 4 have been converted to reminders. */
+    val migratedLegacy: Boolean = false,
+    val updatedAt: Long = 0
+) {
+    /** Included in scheduler passes only when something can be scheduled. */
+    val active: Boolean get() = preferences.enabled && (reminders.any { it.enabled } || preferences.watchlistAuto)
+}
+
+/**
+ * One logical earnings notification. [idempotencyKey] is unique (user, event, type, offset, event date):
+ * retries, repeated passes, duplicate watchlist entries and several workers can't create a second one.
+ * It is sent to every registered device; [acceptedDevices] prevents resending to a device on retry.
+ */
+@Serializable
+data class EarningsNotificationDelivery(
+    val idempotencyKey: String,
+    val uid: String,
+    val reminderId: String? = null,
+    val earningsEventId: String,
+    val reportId: String? = null,
+    val instrumentId: String,
+    val type: org.example.stocksteps.earnings.EarningsNotificationType,
+    val scheduledFor: Long,
+    val title: String,
+    val body: String,
+    val data: Map<String, String>,
+    val status: org.example.stocksteps.earnings.NotificationDeliveryStatus = org.example.stocksteps.earnings.NotificationDeliveryStatus.PENDING,
+    val attempts: Int = 0,
+    val nextAttemptAt: Long = 0,
+    val leaseUntil: Long = 0,
+    val attemptedAt: Long? = null,
+    val providerMessageId: String? = null,
+    val acceptedDevices: List<String> = emptyList(),
+    val failureReason: String? = null,
+    val createdAt: Long
+) {
+    /** When the dispatcher may next pick it up. */
+    val dueAt: Long get() = maxOf(scheduledFor, nextAttemptAt)
+}
+
 @Serializable data class DeviceRecord(val uid: String, val deviceId: String, val token: String, val platform: String, val updatedAt: Long)
 
 /**
@@ -91,6 +139,16 @@ interface UserDataStore {
 
     /** Guided Research progress (per company), atomically per user. */
     suspend fun <T> updateLearning(uid: String, block: (org.example.stocksteps.learning.LearningProgressDocument) -> Pair<org.example.stocksteps.learning.LearningProgressDocument, T>): T
+
+    /** Earnings reminders (Phase 4): one atomic document per user. */
+    suspend fun <T> updateEarningsReminders(uid: String, block: (EarningsReminderDocument?) -> Pair<EarningsReminderDocument?, T>): T
+    /** Users with anything schedulable (indexed by an `active` flag), for the batched scheduler pass. */
+    suspend fun earningsReminderUsers(limit: Int): List<EarningsReminderDocument>
+    /** Atomic read-modify-write of one delivery by its unique key (null result = leave absent). */
+    suspend fun updateEarningsDelivery(key: String, block: (EarningsNotificationDelivery?) -> EarningsNotificationDelivery?): EarningsNotificationDelivery?
+    /** PENDING deliveries due by [now], and PROCESSING ones whose lease expired (crash recovery). */
+    suspend fun dueEarningsDeliveries(now: Long, limit: Int): List<EarningsNotificationDelivery>
+    suspend fun earningsDeliveries(uid: String, limit: Int): List<EarningsNotificationDelivery>
 }
 
 /** What the backend stores per user; [EntitlementService] derives tier and status from it. */
@@ -223,6 +281,22 @@ class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>>
     override suspend fun devices(uid: String) = lock.withLock { devices.values.filter { it.uid == uid } }
     override suspend fun removeToken(token: String) = lock.withLock { devices.entries.removeAll { it.value.token == token }; Unit }
 
+    private val reminderDocs = HashMap<String, EarningsReminderDocument>()
+    private val deliveries = LinkedHashMap<String, EarningsNotificationDelivery>()
+    override suspend fun <T> updateEarningsReminders(uid: String, block: (EarningsReminderDocument?) -> Pair<EarningsReminderDocument?, T>): T = lock.withLock {
+        val (next, result) = block(reminderDocs[uid])
+        if (next == null) reminderDocs.remove(uid) else reminderDocs[uid] = next
+        result
+    }
+    override suspend fun earningsReminderUsers(limit: Int) = lock.withLock { reminderDocs.values.filter { it.active }.take(limit) }
+    override suspend fun updateEarningsDelivery(key: String, block: (EarningsNotificationDelivery?) -> EarningsNotificationDelivery?) = lock.withLock {
+        block(deliveries[key])?.also { deliveries[key] = it } ?: deliveries[key]
+    }
+    override suspend fun dueEarningsDeliveries(now: Long, limit: Int) = lock.withLock {
+        deliveries.values.filter { (it.status == org.example.stocksteps.earnings.NotificationDeliveryStatus.PENDING && it.dueAt <= now) ||
+            (it.status == org.example.stocksteps.earnings.NotificationDeliveryStatus.PROCESSING && it.leaseUntil <= now) }.sortedBy { it.dueAt }.take(limit)
+    }
+    override suspend fun earningsDeliveries(uid: String, limit: Int) = lock.withLock { deliveries.values.filter { it.uid == uid }.sortedByDescending { it.scheduledFor }.take(limit) }
     /** Test/diagnostic view of the outbox. */
     suspend fun outboxSnapshot(): List<OutboxItem> = lock.withLock { outbox.values.toList() }
 
@@ -262,4 +336,9 @@ object UnavailableUserDataStore : UserDataStore {
     override suspend fun unregisterDevice(uid: String, deviceId: String) = unavailable()
     override suspend fun devices(uid: String): List<DeviceRecord> = unavailable()
     override suspend fun removeToken(token: String) = unavailable()
+    override suspend fun <T> updateEarningsReminders(uid: String, block: (EarningsReminderDocument?) -> Pair<EarningsReminderDocument?, T>): T = unavailable()
+    override suspend fun earningsReminderUsers(limit: Int): List<EarningsReminderDocument> = unavailable()
+    override suspend fun updateEarningsDelivery(key: String, block: (EarningsNotificationDelivery?) -> EarningsNotificationDelivery?): EarningsNotificationDelivery? = unavailable()
+    override suspend fun dueEarningsDeliveries(now: Long, limit: Int): List<EarningsNotificationDelivery> = unavailable()
+    override suspend fun earningsDeliveries(uid: String, limit: Int): List<EarningsNotificationDelivery> = unavailable()
 }

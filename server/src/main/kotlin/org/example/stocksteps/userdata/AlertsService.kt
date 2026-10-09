@@ -45,6 +45,8 @@ class AlertsService(
     )
 
     suspend fun create(uid: String, request: CreateAlertRequest): AlertsResponse {
+        // Earnings notifications are scheduled by EarningsReminderService (Phase 4), not alert rules.
+        if (request.type == AlertType.EARNINGS) fail(400, "EARNINGS_REMINDERS", "Earnings notifications are set up in Earnings Reminders.")
         val instrument = WatchlistsService.validInstrument(request.instrument)
         val type = request.type
         var threshold = request.threshold

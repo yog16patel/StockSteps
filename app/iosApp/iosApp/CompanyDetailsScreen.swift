@@ -29,6 +29,9 @@ struct CompanyDetailsScreen: View {
     var onEarningsCalendar: (() -> Void)? = nil
     var onRetryEarnings: () -> Void = {}
     var onLatestResults: (() -> Void)? = nil
+    /// Reminder control for the next earnings event (nil hides it).
+    var earningsReminder: String? = nil
+    var onRemindEarnings: () -> Void = {}
     @State private var education: GlanceMetric?
     @State private var showEvidence = false
     @State private var showSources = false
@@ -68,6 +71,7 @@ struct CompanyDetailsScreen: View {
                     .accessibilityElement(children: .combine)
                     if let onLatestResults { Button("View Results", action: onLatestResults).buttonStyle(.bordered).frame(minHeight: 48) }
                 }
+                if let earningsReminder, e.eventId != nil { ReminderControlButton(control: earningsReminder, compact: true, action: onRemindEarnings) }
                 if e.sampleData { Text("Sample earnings data.").font(.caption).foregroundStyle(colors.cautionText) }
                 HStack {
                     if let onEarningsCalendar { Button("View Earnings Calendar", action: onEarningsCalendar).frame(minHeight: 48) }

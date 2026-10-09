@@ -456,6 +456,9 @@ class EarningsService(
         }
     }
 
+    /** Every known event for a company (shared, cached history), for the reminder scheduler. */
+    suspend fun reminderEvents(symbol: String): List<EarningsEvent> = history(symbol).events
+
     /** The calendar event behind a published report (404/400 exactly as Earnings Results). */
     private suspend fun reportEvent(reportId: String): Pair<EarningsEvent, EarningsResultsResponse> {
         val results = resultsFor(reportId)

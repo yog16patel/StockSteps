@@ -32,7 +32,7 @@ interface NotificationAccess {
 
 private enum class AlertKind(val label: String, val type: AlertType) {
     ABOVE("Price above", AlertType.PRICE_ABOVE), BELOW("Price below", AlertType.PRICE_BELOW),
-    MOVE("Daily move", AlertType.DAILY_MOVE), EARNINGS("Earnings", AlertType.EARNINGS), NEWS("News", AlertType.NEWS)
+    MOVE("Daily move", AlertType.DAILY_MOVE), NEWS("News", AlertType.NEWS)
 }
 
 /**
@@ -77,7 +77,7 @@ internal fun AlertEditorSheet(
             threshold = if (needsNumber) number else null,
             currency = if (kind == AlertKind.ABOVE || kind == AlertKind.BELOW) currency else null,
             direction = if (kind == AlertKind.MOVE) direction else null,
-            earningsTiming = if (kind == AlertKind.EARNINGS) timing else null,
+            earningsTiming = null,
             repeat = if (kind == AlertKind.ABOVE || kind == AlertKind.BELOW) (if (repeat) RepeatPolicy.REPEAT else RepeatPolicy.ONCE) else null,
             whenAlreadyMet = choice
         )
@@ -134,10 +134,6 @@ internal fun AlertEditorSheet(
                         placeholder = "5", keyboardType = KeyboardType.Decimal, error = error, supporting = stringResource(Res.string.alert_move_help))
                     StockPillSelector(MoveDirection.entries, direction, label = { when (it) { MoveDirection.UP -> "Up"; MoveDirection.DOWN -> "Down"; MoveDirection.EITHER -> "Either way" } }, onSelect = { direction = it })
                 }
-                AlertKind.EARNINGS -> {
-                    StockPillSelector(EarningsTiming.entries, timing, label = { when (it) { EarningsTiming.DAY_BEFORE -> "Day before"; EarningsTiming.DAY_OF -> "Day of"; EarningsTiming.BOTH -> "Both" } }, onSelect = { timing = it })
-                    Text(stringResource(Res.string.alert_earnings_help), style = StockStepsTheme.typography.caption, color = colors.textSecondary)
-                }
                 AlertKind.NEWS -> Text(stringResource(Res.string.alert_news_help), style = StockStepsTheme.typography.caption, color = colors.textSecondary)
             }
             if (notifications != null && !pushAllowed) {
@@ -147,6 +143,7 @@ internal fun AlertEditorSheet(
                         modifier = Modifier.padding(top = spacing.sm), variant = StockButtonVariant.SECONDARY)
                 }
             }
+            Text("Earnings reminders are set from an earnings event (\"Remind Me\") or in Earnings Reminders.", style = StockStepsTheme.typography.caption, color = colors.textSecondary)
             deliveryNote?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textTertiary) }
             if (kind != AlertKind.ABOVE && kind != AlertKind.BELOW) error?.let { Text(it, style = StockStepsTheme.typography.small, color = colors.negativeText) }
             val met = alreadyMet

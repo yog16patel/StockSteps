@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.flowOf
 import org.example.stocksteps.data.account.AccountSubscription
 import org.example.stocksteps.di.StockStepsDependencies
 import org.example.stocksteps.earnings.*
-import org.example.stocksteps.model.EarningsTiming
 
 /**
  * Earnings Calendar, Earnings Event Details and Earnings Details for SwiftUI: the same shared
@@ -69,8 +68,26 @@ class IosEarningsClient(baseUrl: () -> String, account: IosAccountClient?) {
     // Earnings Details (results and history for one company).
     fun details(symbol: String): EarningsDetailsPresenter = owned { s -> EarningsDetailsPresenter(symbol, remote, s, accounts?.alerts) }
     fun observeDetails(presenter: EarningsDetailsPresenter, onChange: (EarningsDetailsState) -> Unit) = observe(presenter.state, onChange)
-    fun setReminder(presenter: EarningsDetailsPresenter, timing: String?, leadDays: Int, results: Boolean) =
-        presenter.setReminder(timing?.let { t -> EarningsTiming.entries.firstOrNull { it.name == t } }, leadDays.takeIf { it > 1 }, results, null)
+
+    // Earnings reminders (Phase 4): the account-wide presenter (null without accounts); the server schedules and sends.
+    private val reminderPresenter: EarningsRemindersPresenter? get() = accounts?.earningsReminders
+    fun observeReminders(onChange: (EarningsRemindersState) -> Unit): AccountSubscription? = reminderPresenter?.let { observe(it.state, onChange) }
+    fun reminderControl(state: EarningsRemindersState, eventId: String): String = if (state.signedIn) state.control(eventId).name else ReminderControl.OFF.name
+    fun reminderNote(state: EarningsRemindersState, eventId: String): String? = (state.reminderFor(eventId)?.let { r -> r.statusMessage ?: r.nextDeliveryText?.let { "Notification: $it" } }
+        ?: state.autoFor(eventId)?.let { "On automatically from your watchlist." })
+    fun reminderOffset(state: EarningsRemindersState, eventId: String): Int = state.reminderFor(eventId)?.offsetDays ?: state.preferences.defaultOffsetDays
+    val reminderOffsets: List<Int> get() = ReminderPolicy.OFFSETS
+    fun remind(eventId: String, offsetDays: Int, results: Boolean) { reminderPresenter?.remind(eventId, offsetDays, results) }
+    fun turnOffReminder(eventId: String) { reminderPresenter?.turnOff(eventId) }
+    fun deleteReminder(reminderId: String) { reminderPresenter?.delete(reminderId) }
+    fun refreshReminders() { reminderPresenter?.refresh() }
+    fun setNotificationPermission(granted: Boolean) { reminderPresenter?.setPermission(granted) }
+    fun updateReminderPreferences(enabled: Boolean, watchlistAuto: Boolean, defaultOffsetDays: Int, resultsAvailable: Boolean, dateChanges: Boolean, cancellations: Boolean,
+                                  deliveryTime: String, quietHours: Boolean) {
+        reminderPresenter?.updatePreferences { it.copy(enabled = enabled, watchlistAuto = watchlistAuto, defaultOffsetDays = defaultOffsetDays, resultsAvailable = resultsAvailable,
+            dateChanges = dateChanges, cancellations = cancellations, deliveryTime = deliveryTime,
+            quietStart = if (quietHours) "22:00" else null, quietEnd = if (quietHours) "07:00" else null) }
+    }
 
     val topics: List<EarningsEducation.Topic> get() = EarningsEducation.topics
     fun topic(key: String): EarningsEducation.Topic? = EarningsEducation.topic(key)

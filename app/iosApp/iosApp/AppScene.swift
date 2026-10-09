@@ -29,6 +29,9 @@ struct AppScene: View {
     @State private var earningsSymbol: String?
     /// Earnings Results for one published report ("SYMBOL:YYYY-Qn").
     @State private var earningsResultsId: String?
+    /// Earnings Reminders settings (from Settings or the Watchlist shortcut).
+    @State private var showingReminderSettings = false
+    @State private var showingEarningsReminders = false
     @State private var learningModel: LearningModel
     @State private var researchTarget: ResearchTarget?
     @State private var practiceModel: PracticeModel?
@@ -102,7 +105,8 @@ struct AppScene: View {
 
                 WatchListScene(accounts: accounts, model: watchlistsModel, onSignIn: { showingAuth = true }, onSearch: { initialStock = nil; showingSearch = true },
                                onExplore: explore, onOpenAlerts: { alertsTarget = $0 ?? "" },
-                               onEarnings: { earningsCalendar = EarningsCalendarTarget(filter: "WATCHLIST") })
+                               onEarnings: { earningsCalendar = EarningsCalendarTarget(filter: "WATCHLIST") },
+                               onEarningsReminders: { showingEarningsReminders = true })
                     .tabItem { Label("Watchlist", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 
@@ -163,7 +167,7 @@ struct AppScene: View {
             }
             .navigationDestination(item: $earningsCalendar) { target in
                 EarningsCalendarScene(target: target, client: earningsModel.client, onOpen: { earningsEventId = $0 }, onSignIn: { showingAuth = true },
-                                      onOpenResults: { earningsResultsId = $0 })
+                                      onOpenResults: { earningsResultsId = $0 }, reminders: earningsModel.reminders)
                     .id(target.id)
             }
             .navigationDestination(item: $earningsEventId) { id in
@@ -174,7 +178,10 @@ struct AppScene: View {
                                        earningsEventId = nil
                                        if !open { earningsCalendar = EarningsCalendarTarget(date: date) }
                                    },
-                                   onResults: { earningsResultsId = $0 }, onSignIn: { showingAuth = true })
+                                   onResults: { earningsResultsId = $0 }, onSignIn: { showingAuth = true }, reminders: earningsModel.reminders)
+            }
+            .navigationDestination(isPresented: $showingEarningsReminders) {
+                EarningsRemindersSettingsScene(model: earningsModel.reminders, onSignIn: { showingAuth = true }, onOpenEvent: { earningsEventId = $0 })
             }
             .navigationDestination(item: $earningsResultsId) { id in
                 EarningsResultsScene(reportId: id, client: earningsModel.client, onCompany: explore,
@@ -185,7 +192,8 @@ struct AppScene: View {
                 if let id = note.object as? String, !id.isEmpty { earningsResultsId = id }
             }
             .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsEvent)) { note in
-                if let id = note.object as? String, !id.isEmpty { earningsEventId = id }
+                // A notification without a usable event falls back to the calendar.
+                if let id = note.object as? String, !id.isEmpty { earningsEventId = id } else { earningsCalendar = EarningsCalendarTarget() }
             }
             .navigationDestination(item: $earningsSymbol) { symbol in
                 EarningsDetailsScene(symbol: symbol, client: earningsModel.client, onCompany: { explore(symbol) },
@@ -213,8 +221,11 @@ struct AppScene: View {
         }
         .sheet(isPresented: $showingSettings) {
             NavigationStack {
-                SettingsScene(model: accounts, onSignIn: { showingAuth = true }, appLock: appLock)
+                SettingsScene(model: accounts, onSignIn: { showingAuth = true }, appLock: appLock, onEarningsReminders: { showingReminderSettings = true })
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingSettings = false } } }
+                    .navigationDestination(isPresented: $showingReminderSettings) {
+                        EarningsRemindersSettingsScene(model: earningsModel.reminders, onSignIn: { showingSettings = false; showingAuth = true })
+                    }
             }
         }
         .sheet(isPresented: $showingAuth) {

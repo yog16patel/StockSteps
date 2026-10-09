@@ -75,6 +75,20 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             intent.removeExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_TYPE)
             return
         }
+        // Earnings notifications (payloadVersion 1): identifiers only; the screens re-fetch everything.
+        // Results open Earnings Results; reminders, date changes and cancellations open the event.
+        val type = intent?.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_TYPE)
+        if (type != null && type.startsWith("earnings-")) {
+            val report = intent.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_REPORT)
+            val event = intent.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_EVENT)
+            when {
+                type == "earnings-results" && report != null -> notificationLinks.trySend("earnings-results:$report")
+                event != null -> notificationLinks.trySend("earnings:$event")
+                else -> notificationLinks.trySend("earnings-calendar")
+            }
+            intent.removeExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_TYPE)
+            return
+        }
         val symbol = intent?.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_SYMBOL)
         if (intent?.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_TYPE) == "alert" && symbol != null) {
             notificationLinks.trySend(symbol)

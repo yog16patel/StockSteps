@@ -99,7 +99,8 @@ class AlertEvaluator(
     }
 
     private suspend fun evaluate(now: Instant): EvaluationReport {
-        val active = store.activeAlerts(maxRules)
+        // Earnings rules moved to EarningsReminderService (Phase 4), which migrates them; never evaluated here.
+        val active = store.activeAlerts(maxRules).filter { it.rule.type != AlertType.EARNINGS }
         val bySymbol = active.groupBy { it.rule.instrument.symbol }.entries.take(maxSymbols)
         var report = EvaluationReport(now.toString(), rules = active.size, symbols = bySymbol.size)
         val snapshots = coroutineScope {

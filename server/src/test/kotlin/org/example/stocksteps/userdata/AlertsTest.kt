@@ -77,21 +77,9 @@ class AlertsTest {
 
     // --- earnings ---
 
-    private fun earnings(date: String, status: EarningsDateStatus = EarningsDateStatus.ESTIMATED, time: EarningsTime = EarningsTime.UNKNOWN) = UpcomingEarnings("AAPL", date, time, status, "test")
-
-    @Test fun earningsRemindersRespectTimingStatusAndRescheduling() {
-        val both = rule(AlertType.EARNINGS, timing = EarningsTiming.BOTH)
-        val dayBefore = rules.decide(both, snapshot(earnings = earnings("2026-10-08")), open) as AlertDecision.Trigger
-        assertEquals("r1:earnings-2026-10-08-DAY_BEFORE", dayBefore.eventKey)
-        assertTrue(dayBefore.body.contains("tomorrow") && dayBefore.body.contains("estimated and may change"))
-        assertFalse(dayBefore.body.contains("before the market"), "no invented time")
-        val dayOf = rules.decide(both, snapshot(earnings = earnings("2026-10-07", EarningsDateStatus.CONFIRMED, EarningsTime.AFTER_CLOSE)), open) as AlertDecision.Trigger
-        assertTrue(dayOf.body.contains("today after the market closes") && dayOf.body.contains("confirmed"))
-        assertEquals(AlertDecision.None, rules.decide(rule(AlertType.EARNINGS, timing = EarningsTiming.DAY_OF), snapshot(earnings = earnings("2026-10-08")), open))
-        val moved = rules.decide(both, snapshot(earnings = earnings("2026-10-08")), open) as AlertDecision.Trigger
-        assertEquals(dayBefore.eventKey, moved.eventKey, "same date → same key (no duplicate)")
-        assertNotEquals(dayBefore.eventKey, (rules.decide(both, snapshot(earnings = earnings("2026-10-07")), open) as AlertDecision.Trigger).eventKey, "a rescheduled date gets its own reminder")
-        assertEquals(AlertDecision.None, rules.decide(both, snapshot(), open), "no date known")
+    @Test fun earningsRulesAreNoLongerEvaluatedHere() {
+        // Earnings notifications are scheduled by EarningsReminderService (Phase 4).
+        assertEquals(AlertDecision.None, rules.decide(rule(AlertType.EARNINGS, timing = EarningsTiming.BOTH), snapshot(), open))
     }
 
     // --- news ---

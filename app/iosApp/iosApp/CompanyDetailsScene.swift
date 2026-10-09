@@ -18,6 +18,7 @@ struct CompanyDetailsScene: View {
     @State private var earningsModel: EarningsModel?
     @State private var showEarnings = false
     @State private var nextEarnings: CompanyEarningsModel?
+    @State private var reminderTarget: ReminderTargetInfo?
     /// Opens the app-level Earnings Calendar on a date (nil = today); nil hides the action.
     var onEarningsCalendar: ((String?) -> Void)? = nil
     var onEarningsResults: ((String) -> Void)? = nil
@@ -85,8 +86,18 @@ struct CompanyDetailsScene: View {
             nextEarnings: nextEarnings?.state,
             onEarningsCalendar: onEarningsCalendar.map { open in { open(nextEarnings?.state?.date) } },
             onRetryEarnings: { nextEarnings?.presenter.refresh() },
-            onLatestResults: onEarningsResults.map { open in { if let id = nextEarnings?.state?.latestReportId { open(id) } } }
+            onLatestResults: onEarningsResults.map { open in { if let id = nextEarnings?.state?.latestReportId { open(id) } } },
+            earningsReminder: nextEarnings?.state?.eventId.flatMap { id in earningsModel?.reminders.control(id) },
+            onRemindEarnings: {
+                if let e = nextEarnings?.state, let id = e.eventId {
+                    reminderTarget = ReminderTargetInfo(eventId: id, symbol: symbol, name: model.overview.value?.name ?? symbol, dateText: e.dateText ?? "",
+                                                        timingText: e.timingText, dateNote: e.statusText?.components(separatedBy: " · ").dropFirst().first)
+                }
+            }
         )
+        .sheet(item: $reminderTarget) { target in
+            if let reminders = earningsModel?.reminders { EarningsReminderSheet(target: target, model: reminders) { reminderTarget = nil } }
+        }
         .navigationDestination(item: $research) { target in
             if let learning {
                 GuidedResearchScene(target: target, learning: learning, accounts: accounts, onCompany: { _ in research = nil },

@@ -58,6 +58,15 @@ class UserApi(
         require(Regex("[A-Za-z0-9][A-Za-z0-9.-]{0,19}").matches(symbol))
         return send(HttpMethod.Post, "earnings/${symbol.uppercase()}/ask", org.example.stocksteps.earnings.EarningsQuestion(question))
     }
+    // Earnings reminders (Phase 4): identity comes from the token on the server, never from the client.
+    suspend fun earningsReminders(): org.example.stocksteps.earnings.EarningsRemindersResponse = send(HttpMethod.Get, "earnings/reminders")
+    suspend fun createEarningsReminder(request: org.example.stocksteps.earnings.CreateEarningsReminder): org.example.stocksteps.earnings.EarningsRemindersResponse =
+        send(HttpMethod.Post, "earnings/reminders", request)
+    suspend fun updateEarningsReminder(id: String, request: org.example.stocksteps.earnings.UpdateEarningsReminder): org.example.stocksteps.earnings.EarningsRemindersResponse =
+        send(HttpMethod.Put, "earnings/reminders/${id.segment()}", request)
+    suspend fun deleteEarningsReminder(id: String): org.example.stocksteps.earnings.EarningsRemindersResponse = send(HttpMethod.Delete, "earnings/reminders/${id.segment()}")
+    suspend fun earningsReminderPreferences(preferences: org.example.stocksteps.earnings.EarningsReminderPreferences): org.example.stocksteps.earnings.EarningsRemindersResponse =
+        send(HttpMethod.Put, "earnings/reminders/preferences", preferences)
     // Daily Market Brief (signed in): overlay, history, preferences and StockSteps+ AI. Plans are enforced by the server.
     suspend fun brief(id: String, expectedOwner: String? = null): org.example.stocksteps.brief.DailyBrief = send(HttpMethod.Get, "daily-brief/${id.segment()}", expectedOwner = expectedOwner)
     suspend fun briefHistory(expectedOwner: String? = null): org.example.stocksteps.brief.BriefHistory = send(HttpMethod.Get, "daily-brief/history", expectedOwner = expectedOwner)

@@ -27,7 +27,6 @@ import org.example.stocksteps.designsystem.icons.StockIcons
 import org.example.stocksteps.designsystem.components.*
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.earnings.*
-import org.example.stocksteps.model.EarningsTiming
 
 // ---------- Earnings Calendar ----------
 
@@ -44,6 +43,8 @@ internal sealed interface CalendarAction {
     data class Open(val eventId: String) : CalendarAction
     /** Opens Earnings Results for a verified reported event. */
     data class OpenResults(val reportId: String) : CalendarAction
+    /** Opens the reminder sheet for an upcoming event. */
+    data class Remind(val row: EarningsEventRow) : CalendarAction
     data object LoadMore : CalendarAction
     data object Retry : CalendarAction
     data object SignIn : CalendarAction
@@ -63,7 +64,7 @@ private fun dateOf(millis: Long): String = org.example.stocksteps.portfolio.anal
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun EarningsCalendarScreen(state: EarningsCalendarState, modifier: Modifier, onAction: (CalendarAction) -> Unit) {
+internal fun EarningsCalendarScreen(state: EarningsCalendarState, modifier: Modifier, reminder: (String) -> ReminderControl? = { null }, onAction: (CalendarAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -116,7 +117,10 @@ internal fun EarningsCalendarScreen(state: EarningsCalendarState, modifier: Modi
                 Text(EarningsFormatter.date(date), Modifier.padding(top = spacing.sm).semantics { heading(); contentDescription = EarningsFormatter.spokenDate(date) },
                     style = typography.label, color = colors.textSecondary)
             }
-            items(rows, key = { it.id }) { row -> EventCard(row, onResults = row.reportId?.let { id -> { onAction(CalendarAction.OpenResults(id)) } }) { onAction(CalendarAction.Open(row.id)) } }
+            items(rows, key = { it.id }) { row ->
+                EventCard(row, onResults = row.reportId?.let { id -> { onAction(CalendarAction.OpenResults(id)) } },
+                    reminder = reminder(row.id).takeIf { row.status == EarningsEventStatus.SCHEDULED }, onRemind = { onAction(CalendarAction.Remind(row)) }) { onAction(CalendarAction.Open(row.id)) }
+            }
         }
         if (state.loadingMore) item(key = "more") { LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading more earnings" }) }
         item(key = "notes") {
@@ -178,7 +182,7 @@ private fun DayCell(day: WeekDayView, modifier: Modifier, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EventCard(row: EarningsEventRow, onResults: (() -> Unit)?, onClick: () -> Unit) {
+private fun EventCard(row: EarningsEventRow, onResults: (() -> Unit)?, reminder: ReminderControl? = null, onRemind: () -> Unit = {}, onClick: () -> Unit) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = row.accessibility }, onClick = onClick, onClickLabel = "Open ${row.symbol} earnings event") {
@@ -199,6 +203,7 @@ private fun EventCard(row: EarningsEventRow, onResults: (() -> Unit)?, onClick: 
         }
         // Only verified reported events with a published report link to results.
         onResults?.let { StockButton("View Results", onClick = it, variant = StockButtonVariant.TEXT) }
+        reminder?.let { ReminderButton(it, compact = true, onClick = onRemind) }
     }
 }
 
@@ -211,11 +216,13 @@ internal sealed interface EventAction {
     data object Retry : EventAction
     data object SignIn : EventAction
     data object ToggleWatchlist : EventAction
+    data object Remind : EventAction
 }
 
 /** One event: date, timing, status and provenance, a beginner explanation, and existing actions. No figures. */
 @Composable
-internal fun EarningsEventScreen(state: EarningsEventState, watched: Boolean, watchlistEnabled: Boolean, modifier: Modifier, onAction: (EventAction) -> Unit) {
+internal fun EarningsEventScreen(state: EarningsEventState, watched: Boolean, watchlistEnabled: Boolean, modifier: Modifier, reminder: ReminderControl? = null, reminderNote: String? = null,
+                                  onAction: (EventAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -223,7 +230,13 @@ internal fun EarningsEventScreen(state: EarningsEventState, watched: Boolean, wa
     LazyColumn(modifier.background(colors.appBackground), contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         if (state.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading earnings event" }) }
-        state.error?.let { item(key = "error") { StockErrorState(it, { onAction(EventAction.Retry) }) } }
+        state.error?.let { item(key = "error") {
+            Column {
+                StockErrorState(it, { onAction(EventAction.Retry) })
+                // A missing event (e.g. from an old notification) falls back to the calendar.
+                StockButton("Open Earnings Calendar", onClick = { onAction(EventAction.Calendar) }, variant = StockButtonVariant.TEXT)
+            }
+        } }
         val status = state.status
         if (status != null) {
             item(key = "header") {
@@ -259,6 +272,10 @@ internal fun EarningsEventScreen(state: EarningsEventState, watched: Boolean, wa
             }
             item(key = "actions") {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    if (status == EarningsEventStatus.SCHEDULED && reminder != null) {
+                        ReminderButton(reminder, Modifier.fillMaxWidth()) { onAction(EventAction.Remind) }
+                        reminderNote?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+                    }
                     StockButton("View Company Details", onClick = { onAction(EventAction.Company) }, modifier = Modifier.fillMaxWidth())
                     if (watchlistEnabled) StockButton(if (watched) "Remove from Watchlist" else "Add to Watchlist", onClick = { onAction(EventAction.ToggleWatchlist) },
                         modifier = Modifier.fillMaxWidth(), variant = StockButtonVariant.OUTLINED, icon = if (watched) StockIcons.Star else StockIcons.StarOutline)
@@ -296,7 +313,7 @@ private fun EducationDialog(topic: EarningsEducation.Topic, onDismiss: () -> Uni
 internal fun EarningsDetailsScreen(
     state: EarningsDetailsState,
     modifier: Modifier,
-    onReminder: (EarningsTiming?, Int?, Boolean, Double?) -> Unit,
+    onRemind: () -> Unit,
     onAsk: (String) -> Unit,
     onRetry: () -> Unit,
     onCompany: () -> Unit,
@@ -311,7 +328,6 @@ internal fun EarningsDetailsScreen(
     val d = state.details
     var education by remember { mutableStateOf<EarningsEducation.Topic?>(null) }
     var expanded by rememberSaveable { mutableStateOf(setOf<String>()) }
-    var reminderSheet by rememberSaveable { mutableStateOf(false) }
     var question by rememberSaveable { mutableStateOf("") }
     LazyColumn(modifier.background(colors.appBackground), contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.md)) {
@@ -332,9 +348,7 @@ internal fun EarningsDetailsScreen(
                 if (d?.sampleData == true) StockSampleDataBanner("Sample earnings data for development, not real results.")
                 if (d?.stale == true) Text("The next date hasn't been updated recently and may have changed.", style = typography.caption, color = colors.cautionText)
                 Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                    OutlinedButton(onClick = { if (state.signedIn) reminderSheet = true else onSignIn() }, enabled = !state.reminderBusy) {
-                        Text(if (state.reminder != null) "Reminder on" else "Remind me")
-                    }
+                    if (d?.next != null) OutlinedButton(onClick = onRemind) { Text("Remind me") }
                     TextButton(onClick = onCompany) { Text("Company details") }
                 }
             }
@@ -441,7 +455,6 @@ internal fun EarningsDetailsScreen(
         }
     }
     education?.let { topic -> EducationDialog(topic) { education = null } }
-    if (reminderSheet) ReminderDialog(state, onDismiss = { reminderSheet = false }) { timing, lead, results, surprise -> onReminder(timing, lead, results, surprise); reminderSheet = false }
     if (state.upgradeRequired) AlertDialog(onDismissRequest = onDismissUpgrade, title = { Text("StockSteps+") },
         text = { Text("AI earnings research is part of StockSteps+. Nothing was sent.") },
         confirmButton = { TextButton(onClick = onUpgrade) { Text("See StockSteps+") } }, dismissButton = { TextButton(onClick = onDismissUpgrade) { Text("Not now") } })
@@ -474,38 +487,6 @@ private fun ResultCardView(card: ResultCard, onLearn: () -> Unit) {
     }
 }
 
-@Composable
-private fun ReminderDialog(state: EarningsDetailsState, onDismiss: () -> Unit, onSave: (EarningsTiming?, Int?, Boolean, Double?) -> Unit) {
-    val current = state.reminder
-    var timing by remember { mutableStateOf(current?.earningsTiming ?: EarningsTiming.BOTH) }
-    var lead by remember { mutableStateOf(current?.earningsLeadDays ?: 1) }
-    var results by remember { mutableStateOf(current?.earningsResults ?: false) }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Earnings reminder") }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-            listOf(EarningsTiming.DAY_BEFORE to "Day before", EarningsTiming.DAY_OF to "On the day", EarningsTiming.BOTH to "Both").forEach { (value, label) ->
-                Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable { timing = value }, verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(timing == value, { timing = value }); Text(label)
-                }
-            }
-            Text("StockSteps+ options", style = StockStepsTheme.typography.label)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Days before: $lead", Modifier.weight(1f))
-                TextButton(onClick = { lead = (lead - 1).coerceAtLeast(1) }, enabled = state.plus) { Text("−") }
-                TextButton(onClick = { lead = (lead + 1).coerceAtMost(7) }, enabled = state.plus) { Text("+") }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Notify when results are out", Modifier.weight(1f)); Switch(results, { results = it }, enabled = state.plus)
-            }
-            if (!state.plus) Text("Day before and day-of reminders are free. Earlier reminders and results notifications are part of StockSteps+.", style = StockStepsTheme.typography.caption)
-            Text("If the date is only estimated or the time isn't announced, reminders use the date and may move if the company changes it. You won't get a reminder for both the old and new date.",
-                style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary)
-        }
-    }, confirmButton = { TextButton(onClick = { onSave(timing, lead.takeIf { state.plus && it != 1 }, results && state.plus, null) }) { Text("Save") } },
-        dismissButton = { Row {
-            if (current != null) TextButton(onClick = { onSave(null, null, false, null) }) { Text("Turn off") }
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        } })
-}
 
 // ---------- Earnings Results (Phase 2) ----------
 
