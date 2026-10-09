@@ -54,7 +54,7 @@ class MarketsService(
     private val calendar: UsMarketCalendar = UsMarketCalendar(),
     private val clock: Clock = Clock.systemUTC(),
     /** Uses a monotonic clock: [clock] only decides the session (MOCK pins it to the fixture time). */
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 128),
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 128, name = "markets"),
     private val callTimeoutMillis: Long = 8_000,
     val usage: MarketsUsage = MarketsUsage()
 ) {

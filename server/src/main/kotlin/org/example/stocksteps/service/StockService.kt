@@ -12,11 +12,17 @@ import org.example.stocksteps.repository.StockProviderException
 class StockService(
     val stockProvider: StockProviderRepository,
     private val quoteProvider: StockQuoteProviderRepository = stockProvider,
-    private val profileCache: CompanyFinancialCache = CompanyFinancialCache(capacity = 512)
+    private val profileCache: CompanyFinancialCache = CompanyFinancialCache(capacity = 512, name = "profiles"),
+    /** Search results by normalized query (reference data; failures aren't cached). */
+    private val searchCache: CompanyFinancialCache = CompanyFinancialCache(capacity = 512, name = "search")
 ) {
     private class ProfileOutcome(val profile: CompanyProfile?, val failure: StockProviderException?)
 
+    /** Equivalent queries ("Apple", " apple ") share one cached provider result for [FinancialCachePolicy.SEARCH]. */
     suspend fun searchStocks(query: String): List<StockSearchResult> =
+        searchCache.getOrLoad(query.trim().lowercase(Locale.ROOT), FinancialCachePolicy.SEARCH) { search(query.trim()) }
+
+    private suspend fun search(query: String): List<StockSearchResult> =
         stockProvider.searchStocks(query)
             .filter { it.currency.equals("USD", ignoreCase = true) &&
                 it.exchange?.uppercase(Locale.ROOT) in US_EXCHANGES

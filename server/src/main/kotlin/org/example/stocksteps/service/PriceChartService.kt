@@ -13,7 +13,7 @@ import java.time.LocalDate
  */
 class PriceChartService(
     private val provider: PriceHistoryProvider,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256)
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256, name = "price-chart")
 ) {
     private class Outcome(val points: List<PricePoint>, val failure: StockProviderException?)
 

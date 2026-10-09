@@ -30,15 +30,26 @@ internal class GeminiJsonCall(private val client: HttpClient, private val apiKey
                 put("temperature", 0.1)
             }
         }
-        val response = client.post("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent") {
-            header("x-goog-api-key", apiKey)
-            contentType(ContentType.Application.Json)
-            setBody(body.toString())
-            timeout { requestTimeoutMillis = timeoutMillis }
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent"
+        val started = System.nanoTime()
+        val response = try {
+            client.post(url) {
+                header("x-goog-api-key", apiKey)
+                contentType(ContentType.Application.Json)
+                setBody(body.toString())
+                timeout { requestTimeoutMillis = timeoutMillis }
+            }
+        } catch (cause: Exception) {
+            org.example.stocksteps.httpclient.ProviderCalls.record(url, if (cause is kotlinx.coroutines.CancellationException) "cancelled" else if (cause is io.ktor.client.plugins.HttpRequestTimeoutException) "timeout" else "error", started)
+            throw cause
         }
+        org.example.stocksteps.httpclient.ProviderCalls.record(url, if (response.status.isSuccess()) "ok" else if (response.status.value == 429) "rateLimited" else "error", started)
         check(response.status.isSuccess()) { "AI provider unavailable (${response.status.value})" }
         val envelope = Json.parseToJsonElement(response.bodyAsText()).jsonObject
         val usage = envelope["usageMetadata"]?.jsonObject?.let { u -> AiTokenUsage(u["promptTokenCount"]?.jsonPrimitive?.intOrNull, u["candidatesTokenCount"]?.jsonPrimitive?.intOrNull) }
+        // Provider-reported tokens for every Gemini caller (no prompt or output content is recorded).
+        usage?.input?.let { org.example.stocksteps.service.ProviderUsageMeter.shared.event("provider.gemini.inputTokens", it.toLong()) }
+        usage?.output?.let { org.example.stocksteps.service.ProviderUsageMeter.shared.event("provider.gemini.outputTokens", it.toLong()) }
         val candidate = envelope["candidates"]?.jsonArray?.singleOrNull()?.jsonObject ?: error("Invalid AI response")
         check(candidate["finishReason"]?.jsonPrimitive?.content == "STOP") { "Incomplete AI response" }
         val text = candidate["content"]?.jsonObject?.get("parts")?.jsonArray

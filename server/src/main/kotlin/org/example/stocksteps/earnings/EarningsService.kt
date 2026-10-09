@@ -70,7 +70,7 @@ class EarningsService(
     private val sampleData: Boolean,
     private val research: EarningsResearchProvider?,
     private val aiDailyLimit: Int = 20,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 512),
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 512, name = "earnings"),
     /** Phase 5: the shared earnings AI quota (questions here and on Earnings Results count together). */
     var aiQuota: EarningsAiQuotaLedger? = null
 ) {
@@ -118,12 +118,8 @@ class EarningsService(
         }
     }
 
-    private suspend fun events(symbol: String): List<EarningsEvent> = try {
-        cache.getOrLoad("history:${symbol.uppercase()}", 21_600_000L) { source.history(symbol) }
-    } catch (cause: Exception) {
-        if (cause is CancellationException) throw cause
-        throw EarningsRequestException(503, "EARNINGS_UNAVAILABLE", "Earnings data isn't available right now. Try again shortly.")
-    }
+    /** A symbol's events from the one shared history cache (the same entry as [history]: one provider request per 6 h). */
+    private suspend fun events(symbol: String): List<EarningsEvent> = history(symbol).events
 
     /** Provider names/logos for display (from the shared, cached profiles), bounded concurrency. */
     private suspend fun enrich(events: List<EarningsEvent>): List<EarningsEvent> = coroutineScope {
@@ -346,11 +342,14 @@ class EarningsService(
     }
 
     /** Up to [attempts] tries for transient provider failures (no retry on cancellation). */
+    /** One retry for transient failures only: rate limits (429) and denied access (402/403) are never retried. */
     private suspend fun <T> retrying(attempts: Int = 2, block: suspend () -> T): T {
         var last: Exception? = null
         repeat(attempts) { i ->
             try { return block() } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
+                val provider = cause as? org.example.stocksteps.repository.StockProviderException
+                if (provider != null && (provider.failure == org.example.stocksteps.repository.StockProviderException.Failure.RATE_LIMITED || provider.upstreamStatus in listOf(402, 403))) throw cause
                 last = cause
                 if (i < attempts - 1) kotlinx.coroutines.delay(250L * (i + 1))
             }
@@ -526,6 +525,7 @@ class EarningsService(
             } catch (cause: Throwable) { quota.release(reservation); throw cause }
         }
         val key = "$uid:${today()}"
+        if (aiUsage.size > 5_000) aiUsage.keys.removeIf { !it.endsWith(":${today()}") } // earlier days only
         val used = aiUsage.merge(key, 1, Int::plus)!!
         if (used > aiDailyLimit) { aiUsage.merge(key, -1, Int::plus); throw EarningsRequestException(429, "AI_LIMIT", "You've reached today's limit of $aiDailyLimit questions.") }
         // Only public earnings data is sent; portfolio holdings are never included.

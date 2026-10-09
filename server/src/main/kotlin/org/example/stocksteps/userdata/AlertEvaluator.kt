@@ -21,7 +21,7 @@ class WatchMarketData(
     private val stocks: StockService,
     private val earnings: EarningsCalendarSource?,
     private val news: NewsService,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 2_048),
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 2_048, name = "watch"),
     private val timeoutMillis: Long = 8_000
 ) : AlertMarketData {
     private class Box<T>(val value: T?)

@@ -17,7 +17,7 @@ import java.util.Locale
 class NewsService(
     private val provider: NewsProviderRepository,
     private val simplification: NewsSimplificationService? = null,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256),
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256, name = "company-news"),
     private val now: () -> Instant = Instant::now
 ) {
     suspend fun getCompanyNews(symbol: String): List<NewsArticle> = getCompanyNews(symbol, category = null, page = 0, limit = MAX_LIMIT)

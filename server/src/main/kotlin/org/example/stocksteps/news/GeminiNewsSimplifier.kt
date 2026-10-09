@@ -58,12 +58,19 @@ class GeminiNewsSimplifier(
                 put("temperature", 0.1)
             }
         }
-        val response = client.post("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent") {
-            header("x-goog-api-key", apiKey)
-            contentType(ContentType.Application.Json)
-            setBody(body.toString())
-            timeout { requestTimeoutMillis = 8_000 }
+        val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent"
+        val started = System.nanoTime()
+        val response = try {
+            client.post(url) {
+                header("x-goog-api-key", apiKey)
+                contentType(ContentType.Application.Json)
+                setBody(body.toString())
+                timeout { requestTimeoutMillis = 8_000 }
+            }
+        } catch (cause: Exception) {
+            org.example.stocksteps.httpclient.ProviderCalls.record(url, if (cause is kotlinx.coroutines.CancellationException) "cancelled" else "error", started); throw cause
         }
+        org.example.stocksteps.httpclient.ProviderCalls.record(url, if (response.status.isSuccess()) "ok" else if (response.status.value == 429) "rateLimited" else "error", started)
         check(response.status.isSuccess()) { "AI provider unavailable" }
         val envelope = Json.parseToJsonElement(response.bodyAsText()).jsonObject
         val candidate = envelope["candidates"]?.jsonArray?.singleOrNull()?.jsonObject ?: error("Invalid AI response")

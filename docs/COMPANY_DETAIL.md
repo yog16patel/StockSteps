@@ -187,6 +187,10 @@ https://site.financialmodelingprep.com/developer/docs/stable/cashflow-statement
 - A bounded process-local keyed cache coalesces identical requests. Quote/profile
   caches are shared with their existing endpoints. Transient failed datasets receive
   a 30s cooldown; access-denied (402/403) datasets receive a one-hour cooldown; successful dataset TTLs remain separate. No Redis/database.
+- Phase 2 cost work (`docs/FINANCIAL_API_CACHE_IMPLEMENTATION.md`): concurrent callers share one in-flight load *and* its failure
+  (nothing failed is stored); quarterly income uses the same 24-quarter request as Valuation (newest 8 shown); the market status
+  comes from the NYSE calendar (`UsMarketCalendar`) instead of FMP `exchange-market-hours`; every upstream request is metered once
+  in `apiCall` (`/internal/metrics/usage`).
 - Nullable/flexible FMP decoders accept string/numeric fiscal years and preserve
   other fields when an optional financial number is malformed.
 

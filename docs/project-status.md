@@ -1,6 +1,6 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (Company Comparison Phase 5 session) against the repository (`main`, latest commit **"Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"**). Verify with
+Last reviewed: 2026-10-09 (Company Comparison Phase 5 session) against the repository (`main`, latest commit **"Add financial API cost audit and Phase 2 shared provider cache with request reuse"**). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
@@ -26,6 +26,17 @@ AI quotas onto the durable ledger.
 
 Earlier phases (committed): Phase 4 research checklist, Phase 3 historical comparison, Phase 2 guided interpretation, Phase 1
 review. Their pending device walkthroughs and authorized REAL runs still apply (see the root `PROJECT_HANDOFF.md`).
+
+**Financial API cost optimization Phase 2 (shared financial data cache & request reuse, 2026-10-09)**: committed as **"Add financial API cost audit and Phase 2 shared provider cache with request reuse"**
+(`docs/FINANCIAL_API_CACHE_IMPLEMENTATION.md`). Server only: failure-safe single-flight cache core, duplicate fetch paths removed
+(earnings history, quarterly income, 5-min bars, BoC FX), local market status, search cache, upstream/Gemini metering at one boundary,
+narration hourly budget, AI usage map pruning. Measured with REAL adapters on a MockEngine: company research 26 → 20 upstream requests,
+4-company comparison 74 → 72, outage stampede 30 → 1. Server tests 384/0 (3 skipped). Next: Phase 3 (lazy per-screen fundamentals,
+session/earnings-aware TTLs, screener warm-up) and a client-identity decision before rate-limiting public routes.
+
+**Financial API audit (Phase 1, read-only, 2026-10-09)**: done; findings and the roadmap are in `docs/FINANCIAL_API_AUDIT_SUMMARY.md`
+(plus the architecture, cost and roadmap documents). Nothing from the roadmap is implemented. Next: Phase 2a (metering for all
+providers/AI + rate limits on public provider-backed routes). Audit documents are committed in the same commit.
 
 ## 1. Feature status
 

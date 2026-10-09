@@ -37,7 +37,7 @@ class ComparisonHistoryService(
     private val clock: Clock,
     private val sampleData: Boolean,
     private val source: String,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256),
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256, name = "comparison-history"),
     private val ttl: Long = 21_600_000L,
     private val timeoutMillis: Long = 20_000L,
     private val meter: org.example.stocksteps.service.ProviderUsageMeter = org.example.stocksteps.service.ProviderUsageMeter.shared,

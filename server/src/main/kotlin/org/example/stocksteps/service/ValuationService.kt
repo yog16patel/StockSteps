@@ -18,7 +18,7 @@ class ValuationService(
     private val provider: StockProviderRepository,
     private val charts: PriceChartService,
     private val earnings: QuarterlyEarningsSource,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(),
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(name = "valuation"),
     private val today: () -> LocalDate = { LocalDate.now(ZoneOffset.UTC) }
 ) {
     suspend fun history(symbol: String): ValuationHistory = cache.getOrLoad("valuation:$symbol", TTL) { build(symbol) }

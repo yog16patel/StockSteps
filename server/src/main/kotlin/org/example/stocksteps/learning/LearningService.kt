@@ -84,6 +84,7 @@ class LearningService(
         if (!symbolPattern.matches(key)) throw UserDataException(400, "INVALID_SYMBOL", "Invalid symbol.")
         val provider = research ?: throw UserDataException(503, "AI_UNAVAILABLE", "StockSteps AI isn't available yet.")
         val day = "$uid:${LocalDate.now(clock.withZone(ZoneOffset.UTC))}"
+        if (aiUsage.size > 5_000) aiUsage.keys.removeIf { !it.endsWith(":" + day.substringAfterLast(':')) } // earlier days only
         val used = aiUsage.merge(day, 1, Int::plus)!!
         if (used > aiDailyLimit) { aiUsage.merge(day, -1, Int::plus); throw UserDataException(429, "AI_LIMIT", "You've reached today's limit of $aiDailyLimit questions.") }
         // Only public company data is sent; learning progress and holdings are never included.

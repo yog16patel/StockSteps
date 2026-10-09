@@ -10,7 +10,7 @@ import org.example.stocksteps.repository.StockProviderException
  */
 class SparklineService(
     private val provider: PriceHistoryProvider,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256)
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256, name = "sparklines")
 ) {
     private class Outcome(val sparkline: Sparkline?, val failure: StockProviderException?)
 

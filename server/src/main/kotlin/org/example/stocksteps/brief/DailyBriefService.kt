@@ -370,6 +370,7 @@ class DailyBriefService(
         val provider = ai?.takeUnless { s?.aiUnavailable == true } ?: throw BriefRequestException(503, "AI_UNAVAILABLE", "AI explanations aren't available right now.")
         val limit = if (s?.aiQuota == true) 0 else aiDailyLimit
         val key = "$uid:${LocalDate.now(clock.withZone(ZoneOffset.UTC))}"
+        if (aiUsage.size > 5_000) aiUsage.keys.removeIf { !it.endsWith(":" + key.substringAfterLast(':')) } // earlier days only
         val used = aiUsage.merge(key, 1, Int::plus)!!
         if (used > limit) { aiUsage.merge(key, -1, Int::plus); throw BriefRequestException(429, "AI_LIMIT", "You've reached today's limit of $limit AI explanations.") }
         val context = BriefAiContext(brief.summaryLine, brief.marketSnapshot, stories, question)

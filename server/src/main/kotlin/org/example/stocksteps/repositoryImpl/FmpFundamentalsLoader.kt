@@ -48,8 +48,7 @@ internal class FmpFundamentalsLoader(
         }) {
             try {
                 cache.getOrLoad(successKey, ttl) {
-                    onUpstream()
-                    meter.record("fmp", endpoint, feature, "upstream")
+                    onUpstream()   // `apiCall` records the upstream request itself (ProviderCalls)
                     val rows = client.apiCall<List<T>>(
                         url = "https://financialmodelingprep.com/stable/$endpoint",
                         apiKey = apiKey
@@ -68,7 +67,6 @@ internal class FmpFundamentalsLoader(
             } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
                 if (cause !is StockProviderException) throw cause
-                meter.record("fmp", endpoint, feature, if (cause.upstreamStatus == 429) "rateLimited" else "error")
                 FinancialDataset(
                     emptyList(),
                     FinancialAvailability.TEMPORARILY_UNAVAILABLE,
@@ -100,7 +98,10 @@ internal class FmpFundamentalsLoader(
 
     suspend fun load(symbol: String, period: String, quote: suspend () -> Pair<StockQuote?, CompanyProfile?>): CompanyFundamentals = supervisorScope {
         val annual = async { dataset<FmpIncomeStatement>("income-statement", symbol, "annual") }
-        val income = if (period == "annual") annual else async { dataset<FmpIncomeStatement>("income-statement", symbol, "quarter", 8) }
+        // Quarterly: the same 24-quarter request Valuation uses (one cached dataset), newest 8 shown here.
+        val income = if (period == "annual") annual else async {
+            dataset<FmpIncomeStatement>("income-statement", symbol, "quarter", QUARTERS_FOR_VALUATION).let { d -> d.copy(rows = d.rows.sortedByDescending { it.date.orEmpty() }.take(8)) }
+        }
         // Same depth as income/cash flow so every history row can carry its balance sheet.
         val balance = async { dataset<FmpBalanceSheetStatement>("balance-sheet-statement", symbol, period, if (period == "quarter") 8 else 6) }
         val cash = async { dataset<FmpCashFlowStatement>("cash-flow-statement", symbol, period, if (period == "quarter") 8 else 6) }

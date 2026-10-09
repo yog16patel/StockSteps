@@ -71,7 +71,9 @@ class MovementService(
     private val narrator: MovementNarrator? = null,
     private val version: String = "movement-template-v1",
     private val narratorTimeoutMillis: Long = 8_000,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 512),
+    /** Cost cap for AI narration on this public route (per instance, rolling hour); the deterministic summary is used beyond it. */
+    private val narrationsPerHour: Int = 300,
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 512, name = "movement"),
     private val now: () -> Instant = Instant::now
 ) {
     private class Window(
@@ -174,15 +176,30 @@ class MovementService(
         )
     }
 
+    private val narrationWindow = java.util.ArrayDeque<Long>()
+
+    /** Public route: at most [narrationsPerHour] AI narrations start per hour on this instance; beyond that the template is used. */
+    private fun narrationAllowed(): Boolean = synchronized(narrationWindow) {
+        val t = System.currentTimeMillis()
+        while (narrationWindow.isNotEmpty() && t - narrationWindow.first() >= 3_600_000L) narrationWindow.removeFirst()
+        if (narrationWindow.size >= narrationsPerHour) false else { narrationWindow.addLast(t); true }
+    }
+
+    private class Narration(val text: String?, val denied: Boolean)
+
     private suspend fun narrate(narrator: MovementNarrator, facts: MovementFacts): String? {
         val key = "narration|$version|" + digest(facts.toJson().toString())
-        return cached(key, NARRATION_TTL) {
-            try {
-                MovementNarrativeValidator.validate(withTimeoutOrNull(narratorTimeoutMillis) { narrator.narrate(facts) }, facts)
-            } catch (cause: Exception) {
-                if (cause is CancellationException) throw cause
-                null
-            }
+        // A budget denial is remembered briefly (so it can be narrated later); results and failures as before (24 h).
+        return cache.getOrLoad(key, NARRATION_TTL, resultTtl = { if (it.denied) FAILURE_TTL else NARRATION_TTL }) { narration(narrator, facts) }.text
+    }
+
+    private suspend fun narration(narrator: MovementNarrator, facts: MovementFacts): Narration {
+        if (!narrationAllowed()) return Narration(null, denied = true)
+        return try {
+            Narration(MovementNarrativeValidator.validate(withTimeoutOrNull(narratorTimeoutMillis) { narrator.narrate(facts) }, facts), denied = false)
+        } catch (cause: Exception) {
+            if (cause is CancellationException) throw cause
+            Narration(null, denied = false)
         }
     }
 

@@ -13,7 +13,7 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-09)
 
-Latest commit: "Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS". It adds **Company Comparison
+Latest commit: "Add financial API cost audit and Phase 2 shared provider cache with request reuse" (Phase 1 audit docs `docs/FINANCIAL_API_*.md` + Phase 2 server cache work, `docs/FINANCIAL_API_CACHE_IMPLEMENTATION.md`). Previous: "Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS", which adds **Company Comparison
 Phase 5 (AI Comparison Assistant, StockSteps+)** — core
 `screener/ComparisonAi*.kt` (evidence registry, grounding, validator, presenter), server `screener/ComparisonAiService.kt` (Gemini/
 template providers, durable `ComparisonAiQuota` via `UserDataStore.updateAiUsage`, routes `/api/v1/me/compare/ai/…`), Android

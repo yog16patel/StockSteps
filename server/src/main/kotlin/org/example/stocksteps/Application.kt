@@ -14,6 +14,7 @@ import org.example.stocksteps.userdata.WatchDataService
 import org.example.stocksteps.screener.comparisonHistoryRoutes
 import org.example.stocksteps.screener.comparisonResearchRoutes
 import org.example.stocksteps.screener.comparisonAiRoutes
+import org.example.stocksteps.service.marketStatusAt
 import org.example.stocksteps.service.usageMetricsRoutes
 import org.example.stocksteps.service.ProviderUsageMeter
 import org.example.stocksteps.screener.RequestRateLimiter
@@ -151,12 +152,14 @@ fun Application.module() {
             if (dataMode == DataMode.MOCK) org.example.stocksteps.earnings.MockScenarioPushSender(sources.pushSender()) else sources.pushSender(),
             sources.marketClock, sampleData = dataMode == DataMode.MOCK, digests = earningsDigests)
         run {
+            // One USD/CAD source (and one 6 h cache) for Portfolio, Practice and Comparison instead of three.
+            val fx = if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client)
             watchDataRoutes(WatchDataService(watchMarket, alertRules, org.example.stocksteps.service.UsMarketCalendar(), sources.marketClock,
                 if (dataMode == DataMode.MOCK) "Sample data, not live prices." else "Quotes may be delayed. Times show when each price was last updated."))
             val portfolios = org.example.stocksteps.userdata.PortfolioService(userData, portfolioClock::millis)
             val portfolioMarket = org.example.stocksteps.userdata.PortfolioMarketService(
                 portfolios, sources.priceHistory, watchMarket,
-                if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client),
+                fx,
                 portfolioClock, dailyCloses = charts::getDailyCloses)
             portfolioRoutes(sources.userAuth, portfolios, portfolioMarket)
             portfolioAnalyticsRoutes(sources.userAuth, PortfolioAnalyticsService(
@@ -164,7 +167,7 @@ fun Application.module() {
                 sources.indexData?.takeIf { dataMode == DataMode.MOCK }?.let { MockBenchmarkHistory(it) } ?: ChartBenchmarkHistory(charts::getDailyCloses),
                 entitlements, portfolioClock, sampleData = dataMode == DataMode.MOCK), entitlements)
             // One FX source for comparisons (its 6 h cache is reused). The rate's date and source are disclosed to users.
-            val comparisonFx = if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client)
+            val comparisonFx = fx
             suspend fun latestUsdPerCad(): org.example.stocksteps.screener.FxConversion? {
                 val today = java.time.LocalDate.now(sources.marketClock.withZone(java.time.ZoneOffset.UTC))
                 val (date, usdCad) = runCatching { comparisonFx.rates(today.minusDays(10).toString(), today.toString()) }.getOrNull()
@@ -240,7 +243,7 @@ fun Application.module() {
             practiceRoutes(sources.userAuth, org.example.stocksteps.practice.PracticeService(
                 store = userData, entitlements = entitlements,
                 market = org.example.stocksteps.practice.WatchPracticeMarket(watchMarket, charts::getDailyCloses),
-                fx = if (dataMode == DataMode.MOCK) org.example.stocksteps.userdata.MockPortfolioFx else org.example.stocksteps.userdata.BankOfCanadaPortfolioFx(HttpClientProvider.client),
+                fx = fx,
                 clock = java.time.Clock.systemUTC(), marketClock = sources.marketClock,
                 corporateActions = if (dataMode == DataMode.MOCK) org.example.stocksteps.practice.MockCorporateActions else null,
                 sampleData = dataMode == DataMode.MOCK
@@ -278,7 +281,9 @@ fun Application.module() {
             stocks = stockService,
             financials = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider),
             marketData = sources.marketData,
-            valuation = valuation
+            valuation = valuation,
+            // Computed from the exchange calendar: no FMP `exchange-market-hours` request per Company Details open.
+            marketStatus = org.example.stocksteps.service.UsMarketCalendar().let { calendar -> { calendar.marketStatusAt(sources.marketClock.instant()) } }
         )
         // Guided Research: progress sync for signed-in users and the StockSteps+ research assistant.
         learningRoutes(sources.userAuth, org.example.stocksteps.learning.LearningService(

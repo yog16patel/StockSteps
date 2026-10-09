@@ -1,6 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"** on `main`.
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add financial API cost audit and Phase 2 shared provider cache with request reuse"** on `main`.
+Includes the Phase 1 financial API audit documents and Phase 2 shared provider cache (next sections).
+Previous commit: **"Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"**.
 Includes Company Comparison Phase 5 and the authentication UI redesign (next section).
 Previous commit: **"Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS"**.
 Includes Company Comparison Phase 4 — Guided Research Checklist.
@@ -32,6 +34,45 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Financial API cost optimization — Phase 2: shared financial data cache & request reuse (2026-10-09) — commit "Add financial API cost audit and Phase 2 shared provider cache with request reuse"
+
+On top of `e27991d`; committed together with the Phase 1 audit documents. Spec and results: `docs/FINANCIAL_API_CACHE_IMPLEMENTATION.md`.
+- **Completed (server only; no API, model or app changes)**: `CompanyFinancialCache` rewritten in place (per-key single flight via an
+  in-flight deferred; failures shared with joined callers and never stored; cancellation hand-over; expired-first then LRU trimming;
+  `invalidate`, `purgeExpired`, stats, optional `cache.<name>.*` metrics); `EarningsService.events` reads the one `history:SYM:w` entry
+  and `retrying` no longer retries 429/402/403; `FmpFundamentalsLoader` quarterly income = the shared 24-quarter request (newest 8);
+  `FmpPriceHistoryProvider` caches raw 5-min bars once for chart + sparkline; one `BankOfCanadaPortfolioFx` in `Application`;
+  `CompanyDetailsService(marketStatus)` wired to `UsMarketCalendar.marketStatusAt`; `StockService` search cache (6 h, normalized
+  query); `ProviderCalls` metering in `apiCall` + BoC + both Gemini paths (tokens for all Gemini callers), loader double counting
+  removed; `MovementService(narrationsPerHour = 300)`; Brief/Learning/Earnings-ask AI usage maps pruned; named caches.
+- **Tests added**: `server/.../service/FinancialCacheTest.kt` (17), `ProviderRequestBenchmarkTest.kt` (1, writes
+  `server/build/provider-benchmark.txt`).
+- **Validation**: `./gradlew :server:test` → 384 tests, 0 failures, 3 skipped; `FinancialCacheTest` re-run 3× green. Before/after
+  (benchmark on an untouched `e27991d` worktree vs this tree): 26 → 20, 74 → 72, 15 → 14, 30 → 1 upstream requests. Core/Android/iOS
+  not re-run (no changes there).
+- **Not done / limits**: per-instance caches only (no global dedup); no per-client rate limiting of public routes (likely proxy IP as
+  `remoteHost` on Cloud Run — needs a client-identity decision; this may also affect the existing screener/compare limiters);
+  lazy fundamentals, screener warm-up, session-aware TTLs → Phase 3; durable AI quotas and shared L2 → Phase 4 (D1–D4). Phase 1
+  correction: the Finnhub name map was already bounded.
+- **Next**: Phase 3 (P1-2 lazy per-screen fundamentals bundles, session/earnings-aware TTLs, screener warm-up budget).
+
+## Financial API architecture and cost audit — Phase 1 (2026-10-09, read-only) — committed in "Add financial API cost audit and Phase 2 shared provider cache with request reuse"
+
+Audit of `e27991d` ("Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS").
+No application code, providers, Firestore data or deployments were touched; no paid calls. Deliverables:
+`docs/FINANCIAL_API_AUDIT_SUMMARY.md`, `docs/FINANCIAL_API_ARCHITECTURE_AUDIT.md`, `docs/FINANCIAL_API_COST_ANALYSIS.md`,
+`docs/FINANCIAL_API_OPTIMIZATION_ROADMAP.md`.
+- **Key findings**: public provider/Gemini routes without auth or rate limits (article insight, movement narration, details, search,
+  watch-data, markets); per-instance AI quotas except Comparison P5; all caches per instance; 11–14 FMP datasets per fundamentals load
+  even for income-only callers; screener warm-up ≈ 300+ FMP/hour/instance; duplicate fetches (Finnhub history under two keys, 5-min bars
+  in two caches, quarterly income ×8 and ×24, three BoC FX caches); failures not single-flighted in some caches; market status fetched
+  from FMP instead of `UsMarketCalendar`; TTM ratios refreshed every 5 min even when closed; partial metering.
+- **Not improved yet**: none of the roadmap items are implemented.
+- **Next recommended action**: Phase 2a — extend `ProviderUsageMeter` to all provider and Gemini calls and rate-limit public
+  provider-backed routes; then Phase 2b (remove duplicate fetch paths, failure-safe single-flight, local market status, search cache).
+  Owner decisions D1–D7 are listed in the summary (licensing, Cloud Run settings, public AI routes, AI allowance policy, screener
+  budget, legacy routes, provider plans).
 
 ## Company Comparison Phase 5 + authentication UI redesign (2026-10-09) — commit "Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS"
 

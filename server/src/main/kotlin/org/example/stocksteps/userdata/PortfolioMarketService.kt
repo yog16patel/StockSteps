@@ -23,11 +23,16 @@ interface PortfolioFxSource {
 }
 
 class BankOfCanadaPortfolioFx(private val client: HttpClient) : PortfolioFxSource {
-    private val cache = CompanyFinancialCache(capacity = 64)
+    private val cache = CompanyFinancialCache(capacity = 64, name = "fx")
     override suspend fun rates(from: String, through: String): Map<String, String> = cache.getOrLoad("$from:$through", 21_600_000) {
-        val body = client.get("https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json") {
-            parameter("start_date", from); parameter("end_date", through)
-        }.body<JsonObject>()
+        val url = "https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json"
+        val started = System.nanoTime()
+        val body = try {
+            client.get(url) { parameter("start_date", from); parameter("end_date", through) }.body<JsonObject>()
+                .also { org.example.stocksteps.httpclient.ProviderCalls.record(url, "ok", started) }
+        } catch (cause: Exception) {
+            org.example.stocksteps.httpclient.ProviderCalls.record(url, if (cause is kotlinx.coroutines.CancellationException) "cancelled" else "error", started); throw cause
+        }
         body["observations"]?.jsonArray.orEmpty().mapNotNull { element ->
             val row = element.jsonObject
             val date = row["d"]?.jsonPrimitive?.contentOrNull

@@ -17,12 +17,17 @@ class CompanyDetailsService(
     private val marketData: MarketDataProvider,
     private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 4),
     /** When set, the P/E comparison uses the same monthly series as the Valuation screen. */
-    private val valuation: ValuationService? = null
+    private val valuation: ValuationService? = null,
+    /**
+     * Market status without a provider call (REAL wires `UsMarketCalendar`, the same rules the Markets screen
+     * uses). Null keeps the provider's status (cached 60 s).
+     */
+    private val marketStatus: (suspend () -> MarketStatus)? = null
 ) {
     suspend fun getDetails(symbol: String): CompanyDetails = coroutineScope {
         val profile = async { section("profile") { stocks.getProfile(symbol) } }
         val quote = async { section("quote") { stocks.getStock(symbol) } }
-        val status = async { section("marketStatus") { cache.getOrLoad("status", STATUS_TTL) { marketData.getMarketStatus() } } }
+        val status = async { section("marketStatus") { marketStatus?.invoke() ?: cache.getOrLoad("status", STATUS_TTL) { marketData.getMarketStatus() } } }
         val fundamentals = async { section("fundamentals") { financials.getFundamentals(symbol, "annual") } }
         val history = async { valuation?.let { service -> section("valuation") { service.history(symbol) }.value } }
         val results = listOf(profile, quote, status, fundamentals).map { it.await() }
@@ -75,4 +80,14 @@ class CompanyDetailsService(
         const val STATUS_TTL = 60_000L
         const val COMPARISON_YEARS = 5
     }
+}
+
+/** The regular US session from the exchange calendar (holidays, early closes, pre-market, after-hours); no provider call. */
+fun UsMarketCalendar.marketStatusAt(at: java.time.Instant): MarketStatus = when (session(at).status) {
+    org.example.stocksteps.model.MarketSessionStatus.OPEN -> MarketStatus.OPEN
+    org.example.stocksteps.model.MarketSessionStatus.PRE_MARKET -> MarketStatus.PRE_MARKET
+    org.example.stocksteps.model.MarketSessionStatus.AFTER_HOURS -> MarketStatus.AFTER_HOURS
+    org.example.stocksteps.model.MarketSessionStatus.CLOSED, org.example.stocksteps.model.MarketSessionStatus.WEEKEND,
+    org.example.stocksteps.model.MarketSessionStatus.HOLIDAY -> MarketStatus.CLOSED
+    org.example.stocksteps.model.MarketSessionStatus.UNKNOWN -> MarketStatus.UNKNOWN
 }
