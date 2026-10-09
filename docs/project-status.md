@@ -21,6 +21,11 @@ report `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`. Server tests 481/0 (3 ski
 (report §6a: non-root, no secrets, fail-fast config, JSON logs, probes, SIGTERM, `--network none`; 203 MB compressed). Verdict: READY WITH CONDITIONS for Phase 5B (staging deploy). Next: image vulnerability scan;
 owner inputs in `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1; then Phase 5B only on explicit request.
 
+**Phase 5C.1 (committed: "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs") — current state**: verification closure on top of the 5C commit: iOS walkthroughs A–G done, critical iOS
+navigation hang and stuck search fixed, launch requests 19–21 → 13, duplicate screen requests removed, minor findings #1–#4/#6 fixed, #7/#8 deferred
+(MOCK fixtures). Report `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §9–§16; handoff `docs/PROJECT_HANDOFF.md` §0000. **Next**: re-run the interrupted matrix
+(core iOS, assembleDebug, xcodebuild) → redeploy LAN backend (brief wording) → physical devices / screen readers.
+
 **Phase 5C (committed: "Fix Phase 5C mobile integration bugs and add end-to-end verification report") — current state**: Android & iOS end-to-end tests against the LAN MOCK backend; report
 `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md`, verdict PASS WITH CONDITIONS. 8 bugs fixed (MOCK learning sync, iOS search recursion, iOS banner over
 tab titles, "1 shares", holding and research-step a11y labels, iOS Settings sign-in, iOS duplicate launch requests). Matrix: server 482/0 (3 skipped),

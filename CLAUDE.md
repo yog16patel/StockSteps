@@ -13,11 +13,12 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-09, end of session)
 
-HEAD: "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks" (pushed). **Phase 5C (Android & iOS
-end-to-end testing against the LAN MOCK backend) is committed** as "Fix Phase 5C mobile integration bugs and add end-to-end verification report": 8 integration bugs fixed, report `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md`,
-verdict PASS WITH CONDITIONS. Next: commit/push only when asked; redeploy the LAN backend (`deploy/local/deploy.sh deploy`); finish the iOS walkthroughs
-marked NOT RUN. Cloud Run staging remains deferred. Read `docs/PROJECT_HANDOFF.md` §000 first. A MOCK server started by the user may be running on
-the Mac's :8081; the LAN MOCK backend runs on the Ubuntu host (address in git-ignored `deploy/local/server.env`).
+HEAD: "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs" (pushed; on top of the Phase 5C commit). **Phase 5C.1
+(verification closure) is committed**: iOS walkthroughs A–G, critical iOS navigation hang + stuck search fixed, launch requests 19–21 → 13, minor
+fixes; report `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §9–§16. Next: re-run the interrupted test matrix (core iOS, assembleDebug, iOS xcodebuild); redeploy the LAN backend
+(`deploy/local/deploy.sh deploy`, approval); physical devices and screen readers. Cloud Run staging remains deferred. Read `docs/PROJECT_HANDOFF.md`
+§0000 first. A MOCK server started by the user may be running on the Mac's :8081; the LAN MOCK backend runs on the Ubuntu host (address in git-ignored
+`deploy/local/server.env`).
 
 ## Repository layout
 
@@ -118,5 +119,8 @@ Restart the mock server after changing server code or fixtures. Test results: `*
   their `init` — use `start: false` + `activate()` from `.task` (see `AppScene`).
 - iOS simulator builds that sign in with Firebase Auth must be ad-hoc signed (`CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES`); unsigned builds fail with
   keychain error 17995. Test sign-in only with the Firebase Auth emulator (`--firebase-emulators`; Android `-PfirebaseEmulators=true` + `adb reverse tcp:9099`).
+- SwiftUI re-runs scene `init`s and evaluates `navigationDestination` builders on parent updates: models created there must not start presenters or
+  clients in `init` (create on first use, subscribe from `.task`); scenes owning destinations must not declare `@Environment(\.openURL)` (render loop —
+  use `ExternalURLOpener`).
 - SwiftUI `Text("you@example.com")` (a string literal) is parsed as Markdown and auto-links emails/URLs — use `Text(verbatim:)` for
   placeholders and data.

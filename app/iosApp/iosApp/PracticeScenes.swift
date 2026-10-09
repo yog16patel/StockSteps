@@ -29,14 +29,32 @@ final class PracticeModel {
 @MainActor @Observable
 final class PracticeOrderModel {
     private(set) var state: PracticeOrderState?
-    @ObservationIgnored let order: PracticeOrderPresenter
+    @ObservationIgnored private let target: PracticeOrderTarget
+    @ObservationIgnored private let client: IosPracticeClient
+    @ObservationIgnored private var made: PracticeOrderPresenter?
     @ObservationIgnored private var subscription: (any AccountSubscription)?
 
+    /// Created on first use (the screen renders it), not in `init`: SwiftUI re-runs the scene `init` on every parent update and each
+    /// discarded copy requested a preview (3 per open, Phase 5C.1). Released with the model.
+    var order: PracticeOrderPresenter {
+        if let made { return made }
+        let created = client.order(symbol: target.symbol, sell: target.sell)
+        made = created
+        return created
+    }
+
     init(target: PracticeOrderTarget, client: IosPracticeClient) {
-        order = client.order(symbol: target.symbol, sell: target.sell)
+        self.target = target
+        self.client = client
+    }
+    func activate() {
+        guard subscription == nil else { return }
         subscription = client.observeOrder(order: order) { [weak self] in self?.state = $0 }
     }
-    deinit { subscription?.cancel() }
+    deinit {
+        subscription?.cancel()
+        if let made { client.release(order: made) }
+    }
 }
 
 struct PracticeOrderTarget: Hashable, Identifiable {
@@ -623,6 +641,7 @@ struct PracticeOrderScene: View {
                             onExplore: onExplore, onLearn: onLearn)
             .navigationTitle("Practice order")
             .navigationBarTitleDisplayMode(.inline)
+            .task { model.activate() }
             .onChange(of: model.state?.result?.transaction.id) { _, id in if id != nil { practice.presenter.refresh() } }
     }
 }

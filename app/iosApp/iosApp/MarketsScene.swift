@@ -78,7 +78,8 @@ final class MarketsModel {
 /// Markets dashboard: session, indices, top movers, sector performance (ETF proxies), market news and a daily lesson.
 struct MarketsScene: View {
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.openURL) private var openURL
+    /// Not `@Environment(\.openURL)`: see `ExternalURLOpener` (that environment value re-rendered this scene in a loop once a destination was pushed).
+    private let openURL = ExternalURLOpener()
     let model: MarketsModel
     let onOpenStock: (String) -> Void
     let onSearch: () -> Void

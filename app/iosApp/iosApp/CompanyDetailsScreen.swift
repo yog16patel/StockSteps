@@ -291,6 +291,7 @@ struct CompanyDetailsScreen: View {
                     ForEach(Array(why.sources.enumerated()), id: \.offset) { _, source in
                         Button(source.publisher ?? source.title) { if let url = URL(string: source.url) { onOpenURL(url) } }
                             .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText).lineLimit(1)
+                            .accessibilityLabel(source.accessibilityLabel)
                     }
                 }
             }

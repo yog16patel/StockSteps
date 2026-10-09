@@ -6,7 +6,9 @@ import Combine
 @MainActor
 @Observable
 final class StockSearchViewModel {
-    var query = ""
+    /// Every write (the search field's binding) schedules the search here. A view-level `.onChange(of:)` missed the last keystroke of fast typing
+    /// (Phase 5C.1: "microsoft" stayed on "Searching…" because only "microsof" was queued, and the debounce dropped it as stale).
+    var query = "" { didSet { scheduleSearch() } }
     private(set) var fundamentals: CompanyFundamentals?
     private(set) var isLoadingFundamentals = false
     private(set) var fundamentalsError: String?

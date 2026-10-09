@@ -47,6 +47,15 @@ item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
 
+## Phase 5C.1 — verification closure (2026-10-09) — commit "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs"
+
+iOS walkthroughs A–G against the LAN MOCK backend, startup/screen request audit (launch 19–21 → 13 requests), and fixes: critical iOS hang opening
+Earnings history / price-move breakdown from Company Details (`@Environment(\.openURL)` render loop → `ExternalURLOpener`), stuck iOS search after fast
+typing, search focus, duplicate requests from presenters created in SwiftUI `init`s (earnings, comparison, practice order), shared repository loading
+race (watchlists/alerts 2×), portfolio digit grouping, source-link a11y labels, brief card at 1.3× font, stale iOS auth error, brief grammar, comparison
+axis labels. Deferred: MOCK fixture artefacts #7/#8. Report: `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §9–§16; handoff `docs/PROJECT_HANDOFF.md` §0000.
+The 5C.1 server change (brief wording) is not yet deployed to the LAN host. Final matrix interrupted by the user: server 482/0 (3 skipped), core JVM 429/0, shared Android 55/0, shared iOS 51/0; core iOS, assembleDebug and iOS xcodebuild not completed (report §15).
+
 ## Phase 5C — Android & iOS end-to-end integration (2026-10-09) — commit "Fix Phase 5C mobile integration bugs and add end-to-end verification report"
 
 Phase 5C (committed as "Fix Phase 5C mobile integration bugs and add end-to-end verification report", not pushed at commit time): Android & iOS end-to-end tests against the LAN MOCK backend — report `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md`, verdict PASS WITH CONDITIONS; 8 bugs fixed (MOCK learning sync rejected, iOS search recursion, iOS banner over tab titles, "1 shares", holding/step a11y labels, iOS Settings sign-in, iOS duplicate launch requests).

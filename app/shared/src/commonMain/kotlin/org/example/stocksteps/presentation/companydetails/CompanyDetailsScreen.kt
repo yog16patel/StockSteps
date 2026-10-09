@@ -333,7 +333,8 @@ private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (Str
                 why.sources.forEach { source ->
                     Text(
                         source.publisher ?: source.title,
-                        modifier = Modifier.clickable(role = Role.Button) { onOpen(source.url) }.padding(vertical = spacing.xs),
+                        modifier = Modifier.clickable(role = Role.Button) { onOpen(source.url) }.padding(vertical = spacing.xs)
+                            .semantics { contentDescription = source.accessibilityLabel },
                         style = StockStepsTheme.typography.label,
                         color = colors.primaryText,
                         maxLines = 1

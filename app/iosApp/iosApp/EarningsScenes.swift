@@ -42,18 +42,30 @@ struct EarningsCalendarTarget: Hashable, Identifiable {
 @MainActor @Observable
 final class EarningsCalendarModel {
     private(set) var state: EarningsCalendarState?
-    @ObservationIgnored let presenter: EarningsCalendarPresenter
     @ObservationIgnored let client: IosEarningsClient
+    @ObservationIgnored private let target: EarningsCalendarTarget
+    @ObservationIgnored private var made: EarningsCalendarPresenter?
     @ObservationIgnored private var subscription: (any AccountSubscription)?
+
+    /// Created on first use, not in `init`: SwiftUI re-runs the scene `init` on every parent update while it is shown, and each discarded copy loaded the calendar (5 identical requests per open, Phase 5C.1).
+    var presenter: EarningsCalendarPresenter {
+        if let made { return made }
+        let created = client.calendar(date: target.date, filter: target.filter)
+        made = created
+        return created
+    }
 
     init(target: EarningsCalendarTarget, client: IosEarningsClient) {
         self.client = client
-        presenter = client.calendar(date: target.date, filter: target.filter)
+        self.target = target
+    }
+    func activate() {
+        guard subscription == nil else { return }
         subscription = client.observeCalendar(presenter: presenter) { [weak self] in self?.state = $0 }
     }
     deinit {
         subscription?.cancel()
-        client.release(presenter: presenter)
+        if let made { client.release(presenter: made) }
     }
 }
 
@@ -61,18 +73,30 @@ final class EarningsCalendarModel {
 @MainActor @Observable
 final class EarningsEventModel {
     private(set) var state: EarningsEventState?
-    @ObservationIgnored let presenter: EarningsEventPresenter
     @ObservationIgnored let client: IosEarningsClient
+    @ObservationIgnored private let eventId: String
+    @ObservationIgnored private var made: EarningsEventPresenter?
     @ObservationIgnored private var subscription: (any AccountSubscription)?
+
+    /// Created on first use, not in `init`: see `EarningsCalendarModel` (Phase 5C.1).
+    var presenter: EarningsEventPresenter {
+        if let made { return made }
+        let created = client.event(id: eventId)
+        made = created
+        return created
+    }
 
     init(eventId: String, client: IosEarningsClient) {
         self.client = client
-        presenter = client.event(id: eventId)
+        self.eventId = eventId
+    }
+    func activate() {
+        guard subscription == nil else { return }
         subscription = client.observeEvent(presenter: presenter) { [weak self] in self?.state = $0 }
     }
     deinit {
         subscription?.cancel()
-        client.release(presenter: presenter)
+        if let made { client.release(presenter: made) }
     }
 }
 
@@ -99,18 +123,31 @@ final class CompanyEarningsModel {
 @MainActor @Observable
 final class EarningsDetailsModel {
     private(set) var state: EarningsDetailsState?
-    @ObservationIgnored let presenter: EarningsDetailsPresenter
     @ObservationIgnored let client: IosEarningsClient
+    @ObservationIgnored private let symbol: String
+    @ObservationIgnored private var made: EarningsDetailsPresenter?
     @ObservationIgnored private var subscription: (any AccountSubscription)?
+
+    /// The presenter (which loads as soon as it exists) is created on first use, i.e. when the screen renders — not in `init`: SwiftUI builds
+    /// `navigationDestination` content eagerly, which loaded `/me/earnings/{symbol}` twice for every Company Details visit (Phase 5C.1).
+    var presenter: EarningsDetailsPresenter {
+        if let made { return made }
+        let created = client.details(symbol: symbol)
+        made = created
+        return created
+    }
 
     init(symbol: String, client: IosEarningsClient) {
         self.client = client
-        presenter = client.details(symbol: symbol)
+        self.symbol = symbol
+    }
+    func activate() {
+        guard subscription == nil else { return }
         subscription = client.observeDetails(presenter: presenter) { [weak self] in self?.state = $0 }
     }
     deinit {
         subscription?.cancel()
-        client.release(presenter: presenter)
+        if let made { client.release(presenter: made) }
     }
 }
 
@@ -154,6 +191,7 @@ struct EarningsCalendarScene: View {
                                onDigest: onDigest)
             .navigationTitle("Earnings")
             .navigationBarTitleDisplayMode(.inline)
+            .task { model.activate() }
             .refreshable { model.presenter.refresh() }
     }
 }
@@ -398,6 +436,7 @@ struct EarningsEventScene: View {
             .sheet(item: $reminderTarget) { target in if let reminders { EarningsReminderSheet(target: target, model: reminders, onSignIn: onSignIn) { reminderTarget = nil } } }
             .navigationTitle("Earnings event")
             .navigationBarTitleDisplayMode(.inline)
+            .task { model.activate() }
             .refreshable { model.presenter.refresh() }
     }
 }
@@ -528,6 +567,7 @@ struct EarningsDetailsScene: View {
         EarningsDetailsScreen(state: model.state, presenter: model.presenter, client: model.client, onCompany: onCompany, onSignIn: onSignIn, onUpgrade: onUpgrade)
             .navigationTitle("Earnings")
             .navigationBarTitleDisplayMode(.inline)
+            .task { model.activate() }
             .refreshable { model.presenter.refresh() }
     }
 }
@@ -696,22 +736,34 @@ struct EarningsDetailsScreen: View {
 final class EarningsResultsModel {
     private(set) var state: EarningsResultsState?
     private(set) var reaction: EarningsPriceReactionState?
-    @ObservationIgnored let presenter: EarningsResultsPresenter
-    @ObservationIgnored let reactionPresenter: EarningsPriceReactionPresenter
     @ObservationIgnored let client: IosEarningsClient
+    @ObservationIgnored private let reportId: String
+    @ObservationIgnored private var made: (EarningsResultsPresenter, EarningsPriceReactionPresenter)?
     @ObservationIgnored private var subscriptions: [any AccountSubscription] = []
+
+    /// Presenters load as soon as they exist, so they're created on first use (`activate()` from `.task`), not in `init`: SwiftUI re-runs the
+    /// scene's `init` on every `AppScene` update while it's shown, which loaded the report, price reaction and premium state 3× (Phase 5C.1).
+    private var presenters: (EarningsResultsPresenter, EarningsPriceReactionPresenter) {
+        if let made { return made }
+        let created = (client.results(reportId: reportId), client.reaction(reportId: reportId))
+        made = created
+        return created
+    }
+    var presenter: EarningsResultsPresenter { presenters.0 }
+    var reactionPresenter: EarningsPriceReactionPresenter { presenters.1 }
 
     init(reportId: String, client: IosEarningsClient) {
         self.client = client
-        presenter = client.results(reportId: reportId)
-        reactionPresenter = client.reaction(reportId: reportId)
+        self.reportId = reportId
+    }
+    func activate() {
+        guard subscriptions.isEmpty else { return }
         subscriptions = [client.observeResults(presenter: presenter) { [weak self] in self?.state = $0 },
                          client.observeReaction(presenter: reactionPresenter) { [weak self] in self?.reaction = $0 }]
     }
     deinit {
         subscriptions.forEach { $0.cancel() }
-        client.release(presenter: presenter)
-        client.release(presenter: reactionPresenter)
+        if let made { client.release(presenter: made.0); client.release(presenter: made.1) }
     }
 }
 
@@ -745,6 +797,7 @@ struct EarningsResultsScene: View {
                               onPremium: { premium.handle($0, onUpgrade: onUpgrade, onSignIn: onSignIn) })
             .navigationTitle("Earnings results")
             .navigationBarTitleDisplayMode(.inline)
+            .task { model.activate(); premium.activate() }
             .refreshable { model.presenter.refresh() }
             .onReceive(NotificationCenter.default.publisher(for: .stockStepsPlanMayHaveChanged)) { _ in premium.presenter.refresh() }
             .premiumUpgradeAlert(premium.state?.upgrade, benefits: model.client.premiumBenefits, fairUse: model.client.fairUse, onUpgrade: onUpgrade,

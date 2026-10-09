@@ -29,7 +29,8 @@ struct CompanyDetailsScene: View {
     var onUpgrade: () -> Void = {}
     var onPracticeBuy: (String) -> Void = { _ in }
     @State private var research: ResearchTarget?
-    @Environment(\.openURL) private var openURL
+    /// Not `@Environment(\.openURL)`: see `ExternalURLOpener` (that environment value re-rendered this scene in a loop once a destination was pushed).
+    private let openURL = ExternalURLOpener()
 
     init(symbol: String, accounts: AccountViewModel, watchlists: WatchlistsModel? = nil, learning: LearningModel? = nil,
          onSearch: @escaping () -> Void = {}, onLearn: @escaping () -> Void = {}, onUpgrade: @escaping () -> Void = {},

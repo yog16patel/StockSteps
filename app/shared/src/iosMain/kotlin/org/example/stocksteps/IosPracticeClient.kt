@@ -18,8 +18,15 @@ class IosPracticeClient(account: IosAccountClient) {
         return object : AccountSubscription { override fun cancel() { job.cancel() } }
     }
 
-    fun order(symbol: String, sell: Boolean): PracticeOrderPresenter =
-        accounts.practiceOrder(symbol, if (sell) OrderSide.SELL else OrderSide.BUY, scope).also { it.start() }
+    private val orderJobs = HashMap<PracticeOrderPresenter, Job>()
+
+    /** Each order runs in its own child scope so `release` stops it when the order screen goes away (it used to live as long as the client). */
+    fun order(symbol: String, sell: Boolean): PracticeOrderPresenter {
+        val child = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
+        return accounts.practiceOrder(symbol, if (sell) OrderSide.SELL else OrderSide.BUY, child)
+            .also { orderJobs[it] = child.coroutineContext[Job]!!; it.start() }
+    }
+    fun release(order: PracticeOrderPresenter) { orderJobs.remove(order)?.cancel() }
 
     fun observeOrder(order: PracticeOrderPresenter, onChange: (PracticeOrderState) -> Unit): AccountSubscription {
         val job = scope.launch { order.state.collect(onChange) }

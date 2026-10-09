@@ -24,18 +24,30 @@ enum PremiumAction {
 @MainActor @Observable
 final class EarningsPremiumModel {
     private(set) var state: EarningsPremiumState?
-    @ObservationIgnored let presenter: EarningsPremiumPresenter
     @ObservationIgnored let client: IosEarningsClient
+    @ObservationIgnored private let reportId: String
+    @ObservationIgnored private var made: EarningsPremiumPresenter?
     @ObservationIgnored private var subscription: (any AccountSubscription)?
+
+    /// Created on first use (`activate()` from the scene's `.task`), not in `init` — see `EarningsResultsModel` (Phase 5C.1).
+    var presenter: EarningsPremiumPresenter {
+        if let made { return made }
+        let created = client.premium(reportId: reportId)
+        made = created
+        return created
+    }
 
     init(reportId: String, client: IosEarningsClient) {
         self.client = client
-        presenter = client.premium(reportId: reportId)
+        self.reportId = reportId
+    }
+    func activate() {
+        guard subscription == nil else { return }
         subscription = client.observePremium(presenter: presenter) { [weak self] in self?.state = $0 }
     }
     deinit {
         subscription?.cancel()
-        client.release(presenter: presenter)
+        if let made { client.release(presenter: made) }
     }
 
     func handle(_ action: PremiumAction, onUpgrade: () -> Void, onSignIn: () -> Void) {
@@ -397,10 +409,16 @@ final class EarningsDigestModel {
     @ObservationIgnored let client: IosEarningsClient
     @ObservationIgnored private var subscription: (any AccountSubscription)?
 
+    /// Loads nothing until `activate()`: SwiftUI evaluates `navigationDestination` builders (and their `init`s) on every `AppScene` update even
+    /// when the screen isn't shown, which sent up to 7 digest-preferences requests per launch (Phase 5C.1). The scenes activate from `.task`.
     init(client: IosEarningsClient, loadDigest: Bool) {
         self.client = client
-        presenter = client.digest(loadDigest: loadDigest)
+        presenter = client.digest(loadDigest: loadDigest, start: false)
+    }
+    func activate() {
+        guard subscription == nil else { return }
         subscription = client.observeDigest(presenter: presenter) { [weak self] in self?.state = $0 }
+        presenter.start()
     }
     deinit {
         subscription?.cancel()
@@ -429,6 +447,7 @@ struct EarningsDigestScene: View {
                              onSettings: onSettings, onUpgrade: onUpgrade, onSignIn: onSignIn, onRecentWatchlist: onRecentWatchlist)
             .navigationTitle("Earnings digest")
             .navigationBarTitleDisplayMode(.inline)
+            .task { model.activate() }
             .refreshable { model.presenter.refresh() }
             .onReceive(NotificationCenter.default.publisher(for: .stockStepsPlanMayHaveChanged)) { _ in model.presenter.refresh() }
             .premiumUpgradeAlert(model.state?.upgrade, benefits: model.client.premiumBenefits, fairUse: model.client.fairUse, onUpgrade: onUpgrade,
@@ -602,6 +621,7 @@ struct EarningsDigestSettingsScene: View {
         .background(colors.appBackground)
         .navigationTitle("Earnings Digest & AI")
         .navigationBarTitleDisplayMode(.inline)
+        .task { model.activate() }
         .onReceive(NotificationCenter.default.publisher(for: .stockStepsPlanMayHaveChanged)) { _ in model.presenter.refresh() }
         .premiumUpgradeAlert(model.state?.upgrade, benefits: model.client.premiumBenefits, fairUse: model.client.fairUse, onUpgrade: onUpgrade,
                              onDismiss: { model.presenter.dismissUpgrade() })

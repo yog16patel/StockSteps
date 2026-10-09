@@ -107,5 +107,12 @@ class Decimal private constructor(private val magnitude: String, private val neg
 }
 
 object PortfolioFormat {
-    fun amount(value: String?): String = value?.let { runCatching { Decimal.parse(it).display() }.getOrNull() } ?: "—"
+    /** Two decimals with thousands separators ("2,145.53", "-1,200.00"); "—" when missing. Display only: never parse it back. */
+    fun amount(value: String?): String = value?.let { runCatching { grouped(Decimal.parse(it).display()) }.getOrNull() } ?: "—"
+
+    private fun grouped(text: String): String {
+        val sign = if (text.startsWith("-")) "-" else ""
+        val (whole, fraction) = text.removePrefix("-").split('.').let { it[0] to it.getOrNull(1) }
+        return sign + whole.reversed().chunked(3).joinToString(",").reversed() + (fraction?.let { ".$it" } ?: "")
+    }
 }

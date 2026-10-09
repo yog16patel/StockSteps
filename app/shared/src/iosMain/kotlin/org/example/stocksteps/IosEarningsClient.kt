@@ -108,7 +108,9 @@ class IosEarningsClient(baseUrl: () -> String, account: IosAccountClient?) {
     fun digestQuota(digest: PersonalizedEarningsDigest): String? = PremiumCopy.quotaText(digest.usage?.quota(EarningsAiCategory.DIGEST))
     fun planStatus(status: org.example.stocksteps.portfolio.analytics.EntitlementStatus): String? = PremiumCopy.status(status)
 
-    fun digest(loadDigest: Boolean): EarningsDigestPresenter = owned { s -> EarningsDigestPresenter(premiumRemote, s, session, loadDigest).also { it.start() } }
+    /** `start = false` leaves loading to `presenter.start()`: SwiftUI builds digest scenes it may never show (Phase 5C.1 launch audit). */
+    fun digest(loadDigest: Boolean, start: Boolean): EarningsDigestPresenter =
+        owned { s -> EarningsDigestPresenter(premiumRemote, s, session, loadDigest).also { if (start) it.start() } }
     fun observeDigest(presenter: EarningsDigestPresenter, onChange: (EarningsDigestState) -> Unit) = observe(presenter.state, onChange)
     fun setDigestWeekly(presenter: EarningsDigestPresenter, weekly: Boolean) = presenter.updatePreferences { it.copy(cadence = if (weekly) DigestCadence.WEEKLY else DigestCadence.NONE) }
     fun setDigestDay(presenter: EarningsDigestPresenter, day: String) = presenter.updatePreferences { it.copy(dayOfWeek = day) }

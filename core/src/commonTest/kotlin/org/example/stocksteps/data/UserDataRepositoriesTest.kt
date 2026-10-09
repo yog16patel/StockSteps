@@ -83,6 +83,27 @@ class UserDataRepositoriesTest {
         val lists = UserWatchlistsRepository(auth, api, cache, environment, scope).also { it.start() }
     }
 
+    /** Phase 5C.1 regression: while the first cache read is pending the repository already reports loading, so Home doesn't fetch a second time. */
+    @Test fun repositoryIsLoadingFromTheMomentTheAccountIsKnown() = real { backgroundScope ->
+        val server = FakeServer()
+        val gate = CompletableDeferred<Unit>()
+        val cache = object : UserDataCache by InMemoryUserDataCache() {
+            override suspend fun read(owner: String, key: String): Pair<String, Long>? { gate.await(); return null }
+        }
+        val auth = FakeAuth("alice")
+        val api = UserApi(HttpClient(server.engine) { configureStockStepsClient() }, { "https://stocksteps.test" }, auth::idToken)
+        val lists = UserWatchlistsRepository(auth, api, cache, MutableStateFlow("mock"), backgroundScope).also { it.start() }
+        settle()
+        val during = lists.state.value
+        assertEquals("alice", during.uid)
+        assertTrue(during.loading, "the pending initial load must be visible to callers")
+        if (!during.loading) lists.refresh()   // what Home's onVisible does when it sees an idle repository
+        gate.complete(Unit)
+        settle()
+        assertEquals(listOf("GET /api/v1/me/watchlists"), server.requests)
+        assertFalse(lists.state.value.loading)
+    }
+
     @Test fun accountsAndEnvironmentsNeverShareData() = real { backgroundScope ->
         val setup = Setup(backgroundScope, "alice")
         setup.server.lists["alice"] = mutableListOf("AAPL")

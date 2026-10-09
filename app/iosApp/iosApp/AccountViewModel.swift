@@ -57,6 +57,8 @@ final class AccountViewModel {
             return false
         }
     }
+    /// The previous attempt's message no longer applies once the user edits the form or switches mode (Phase 5C.1).
+    func clearError() { if state.error != nil { state.error = nil } }
     func signInWithGoogle() async -> Bool {
         guard !state.busy else { return false }
         state.busy = true

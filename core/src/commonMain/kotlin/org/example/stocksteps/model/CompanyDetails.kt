@@ -47,7 +47,13 @@ data class PriceChart(
 )
 
 @Serializable
-data class WhyMovingSource(val title: String, val url: String, val publisher: String? = null)
+data class WhyMovingSource(val title: String, val url: String, val publisher: String? = null) {
+    /**
+     * Screen-reader label for the compact source link: the visible text is only the publisher, so several articles from one publisher read
+     * as identical links ("Yahoo, Yahoo, Yahoo"); the article title tells them apart (Phase 5C.1, both platforms).
+     */
+    val accessibilityLabel: String get() = publisher?.takeIf { it.isNotBlank() && it != title }?.let { "Source: $it, $title" } ?: "Source: $title"
+}
 
 /**
  * Source-backed explanation of a recent price move. Facts come from normalized data; the text

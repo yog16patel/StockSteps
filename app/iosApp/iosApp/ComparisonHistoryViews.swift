@@ -123,6 +123,8 @@ struct HistoricalComparisonView: View {
             }
         }
         .chartXAxis(.hidden)
+        // Compact labels ("150B"): the default axis printed revenue as "1.5E11" (Phase 5C.1).
+        .chartYAxis { AxisMarks { AxisGridLine(); AxisValueLabel(format: FloatingPointFormatStyle<Double>.number.notation(.compactName)) } }
         .frame(height: 180)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(view.description_)

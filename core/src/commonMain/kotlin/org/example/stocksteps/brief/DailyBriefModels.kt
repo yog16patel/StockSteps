@@ -349,4 +349,11 @@ object BriefWording {
             else -> "$name was about unchanged"
         }
     }
+    /** StockSteps+ insight: how many followed companies have recent news, in correct English for any count ("1 of the 1 companies … have" before Phase 5C.1). */
+    fun recentNews(withNews: Int, followed: Int): String = when {
+        followed == 1 -> if (withNews > 0) "The company you follow has news from the last two days." else "The company you follow has no news from the last two days."
+        withNews == 0 -> "None of the $followed companies you follow have news from the last two days."
+        withNews == followed -> "All $followed companies you follow have news from the last two days."
+        else -> "$withNews of the $followed companies you follow ${if (withNews == 1) "has" else "have"} news from the last two days."
+    }
 }

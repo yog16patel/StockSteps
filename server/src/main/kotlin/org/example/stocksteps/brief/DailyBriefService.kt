@@ -342,7 +342,7 @@ class DailyBriefService(
         } else safe { earnings?.calendar(query.copy(to = today.plusDays(7).toString())) }?.items.orEmpty().take(3).map { earningsRow(it.event, "general") })
         val premium: List<String>? = if (access != BriefAccess.PLUS) null else buildList<String> {
             val moved = sorted.filter { it.kind == HighlightKind.PRICE_MOVE }
-            if (symbols.isNotEmpty()) add("${rows.count { r: Row -> r.news.any { StoryRanker.valid(it) && StoryRanker.ageHours(it.publishedAt, now.epochSecond, ::parseInstant) <= 48 } }} of the ${symbols.size} companies you follow have news from the last two days.")
+            if (symbols.isNotEmpty()) add(BriefWording.recentNews(rows.count { r: Row -> r.news.any { StoryRanker.valid(it) && StoryRanker.ageHours(it.publishedAt, now.epochSecond, ::parseInstant) <= 48 } }, symbols.size))
             moved.firstOrNull()?.let { add("The largest move among companies you follow: ${it.text}" + (sp?.changePercent?.let { change -> " The S&P 500's change in that session was ${if (change >= 0) "+" else "−"}${BriefWording.pct(change)}." } ?: "")) }
             val soon = earningsRows.filter { it.reason != "general" }
             if (soon.isNotEmpty()) add("${soon.size} compan${if (soon.size == 1) "y you follow reports" else "ies you follow report"} earnings in the next two weeks: ${soon.joinToString { it.symbol }}. Results are compared with analysts' estimates, which can move prices either way.")

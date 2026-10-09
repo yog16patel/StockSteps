@@ -13,12 +13,24 @@ final class ScreenerModel {
     private(set) var comparison: ComparisonUiState?
     private(set) var research: ResearchUiState?
     private(set) var ai: ComparisonAiUiState?
-    @ObservationIgnored let client: IosScreenerClient
+    @ObservationIgnored private let accounts: AccountViewModel
+    @ObservationIgnored private let baseURL: () -> String
+    @ObservationIgnored private var made: IosScreenerClient?
     @ObservationIgnored private var subscriptions: [any AccountSubscription] = []
+
+    /// Created on first use: the client's comparison presenter observes the shared selection from construction, so every copy of this model
+    /// SwiftUI discarded (AppScene re-runs its init) still answered selection changes — 2× compare/performance/history requests (Phase 5C.1).
+    var client: IosScreenerClient {
+        if let made { return made }
+        let created = IosScreenerClient(baseUrl: baseURL, account: accounts.client)
+        made = created
+        return created
+    }
 
     /// `start: false` defers observing and loading to `activate()` (AppScene: SwiftUI re-runs its init and keeps only the first model).
     init(accounts: AccountViewModel, baseURL: @escaping () -> String = { BackendSettings.currentURL }, start: Bool = true) {
-        client = IosScreenerClient(baseUrl: baseURL, account: accounts.client)
+        self.accounts = accounts
+        self.baseURL = baseURL
         if start { activate() }
     }
     func activate() {
@@ -33,7 +45,7 @@ final class ScreenerModel {
     }
     deinit {
         subscriptions.forEach { $0.cancel() }
-        client.close()
+        made?.close()
     }
 }
 

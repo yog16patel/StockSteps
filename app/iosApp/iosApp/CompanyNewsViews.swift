@@ -43,7 +43,8 @@ final class CompanyNewsViewModel {
 
 struct CompanyNewsScene: View {
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.openURL) private var openURL
+    /// Not `@Environment(\.openURL)`: see `ExternalURLOpener` (that environment value re-rendered this scene in a loop once a destination was pushed).
+    private let openURL = ExternalURLOpener()
     @State private var model: CompanyNewsViewModel
     @State private var insightArticle: String?
     @State private var showMovement = false

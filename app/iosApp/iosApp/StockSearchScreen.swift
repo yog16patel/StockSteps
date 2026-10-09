@@ -5,9 +5,10 @@ struct StockSearchScreen: View {
     @Environment(\.colorScheme) private var colorScheme
     let state: StockSearchUiState
     @Binding var query: String
-    let onQueryChanged: () -> Void
     let onRetry: () -> Void
     let onSelect: (StockSearchResult) -> Void
+    /// The sheet opens with the search field active (keyboard up), so the first tap isn't lost to the presentation animation (Phase 5C.1).
+    @State private var searchActive = false
     private var palette: ThemePalette { StockStepsTheme.palette(colorScheme) }
 
     var body: some View {
@@ -48,8 +49,8 @@ struct StockSearchScreen: View {
         .scrollContentBackground(.hidden)
         .background(StockStepsTheme.color(palette.background))
         .tint(StockStepsTheme.color(palette.primary))
-        .searchable(text: $query, prompt: "Company or ticker")
-        .onChange(of: state.query) { _, _ in onQueryChanged() }
+        .searchable(text: $query, isPresented: $searchActive, prompt: "Company or ticker")
+        .task { if query.isEmpty { searchActive = true } }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Text("USD · CAD").font(StockStepsTheme.font(StockStepsTheme.typography.caption, relativeTo: .caption1))

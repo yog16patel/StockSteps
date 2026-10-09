@@ -1,8 +1,44 @@
-# StockSteps — session handoff (2026-10-09, end of session: Phase 5C mobile end-to-end testing, after Phases 5A/5B and the Phase 3/4 sessions)
+# StockSteps — session handoff (2026-10-09, end of session: Phase 5C.1 verification closure, after Phase 5C, 5A/5B and the Phase 3/4 sessions)
 
-Read order for a new session: `CLAUDE.md` → **§000 below** → `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md`
+Read order for a new session: `CLAUDE.md` → **§0000 below** → §000 → `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md`
 → §00 (Phase 5B Local) → §0 (Phase 5A) → the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## 0000. Phase 5C.1 — verification closure (read first)
+
+### Repository state
+- Branch `main`. Phase 5C committed as "Fix Phase 5C mobile integration bugs and add end-to-end verification report" (`a50a2e3`) on top of the pushed
+  Phase 5B Local commit; pushed. **Phase 5C.1 is committed and pushed** as "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs" (list below). The final test matrix was interrupted — see report §15.
+- LAN backend runs `stocksteps-local:a50a2e3cc833` (= the 5C commit). The 5C.1 server change (`BriefWording.recentNews` used by `DailyBriefService`)
+  is **not deployed** yet: after committing, `deploy/local/deploy.sh deploy` + `smoke` (needs the user's approval).
+
+### What 5C.1 did (details: `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §9–§16)
+- iOS walkthroughs A–G (Company Details, Screener, Comparison, Portfolio, Practice, Daily Brief, Earnings) on the spare iPhone 16 Simulator
+  against the LAN MOCK backend through a counting proxy; results in report §10.
+- Fixed: **critical iOS hang** opening Earnings history / price-move breakdown from Company Details (`@Environment(\.openURL)` render loop →
+  `ExternalURLOpener`); stuck iOS search after fast typing; search field focus; launch requests 19–21 → 13; duplicate earnings/comparison/practice
+  requests from presenters created in SwiftUI `init`s (lazy creation + `.task` activation); shared repository loading race (watchlists/alerts 2×,
+  Android too); minor #1 (portfolio grouping), #2 (source link a11y labels), #3 (brief card at 1.3× font), #4 (stale iOS auth error),
+  #6 (brief grammar); comparison chart axis "1.5E11". Deferred: #7/#8 MOCK fixture artefacts and the observations in report §14.
+- New tests: `PortfolioFormatTest`, `WhyMovingSourceTest`, `BriefWordingTest`, `UserDataRepositoriesTest.repositoryIsLoadingFromTheMomentTheAccountIsKnown`.
+
+### Files changed (in commit "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs")
+- Core: `data/userdata/UserDataRepositories.kt`, `portfolio/Decimal.kt` (`PortfolioFormat`), `model/CompanyDetails.kt`, `brief/DailyBriefModels.kt`;
+  tests above. Server: `brief/DailyBriefService.kt`. Shared: `presentation/brief/DailyBriefScreens.kt`, `presentation/companydetails/CompanyDetailsScreen.kt`,
+  `iosMain/IosEarningsClient.kt`, `iosMain/IosPracticeClient.kt`.
+- iOS: new `ExternalURLOpener.swift`; `AccountViewModel`, `AuthScene`, `CompanyDetailsScene`, `CompanyDetailsScreen`, `CompanyNewsViews`,
+  `ComparisonHistoryViews`, `EarningsPremiumViews`, `EarningsScenes`, `MarketsScene`, `PracticeScenes`, `ScreenerScenes`, `StockSearchScene`,
+  `StockSearchScreen`, `StockSearchViewModel`.
+- Docs: report (§9–§16), this file, `docs/project-status.md`, root `PROJECT_HANDOFF.md`, `CLAUDE.md`.
+
+### Rules learned (keep)
+- SwiftUI evaluates `navigationDestination` builders and re-runs scene `init`s on parent updates: **never start presenters/clients in a model `init`**
+  that a scene creates for `@State` — create on first use and subscribe from `.task` (pattern: `EarningsDetailsModel`, `ScreenerModel.client`).
+- Scenes that own `navigationDestination`s must not declare `@Environment(\.openURL)` (render loop) — use `ExternalURLOpener`.
+- Drive iOS searches from the model property (`didSet`), not a view `onChange`.
+
+### Next steps
+1. Re-run the interrupted matrix (core iOS, assembleDebug) and the iOS xcodebuild; verify #17–#20/#22 in the apps. 2. Redeploy LAN backend + smoke (approval). 3. Physical devices, VoiceOver/TalkBack, real Firebase. 4. #7/#8 fixture refresh.
 
 ## 000. Phase 5C — where the latest session stopped (read first)
 

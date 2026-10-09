@@ -30,6 +30,10 @@ struct AuthScene: View {
             },
             onGuest: { password = ""; onDone() }
         )
+        // A stale "wrong password" / "stronger password" message stayed on screen while the user corrected it.
+        .onChange(of: email) { _, _ in model.clearError() }
+        .onChange(of: password) { _, _ in model.clearError() }
+        .onChange(of: signup) { _, _ in model.clearError() }
         .onDisappear { password = "" }
     }
 }

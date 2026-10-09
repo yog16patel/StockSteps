@@ -80,7 +80,9 @@ abstract class ServerBackedRepository<T : Any>(
             combine(auth.session.filter { !it.initializing }.map { it.user?.id }, environment) { uid, env -> uid to env }
                 .distinctUntilChanged()
                 .collectLatest { (uid, env) ->
-                    mutable.value = State(uid = uid, environment = env)
+                    // Loading from the moment the account is known: callers that skip a refresh while one is running (Home's onVisible) must not
+                    // see an idle repository during the cache read and fetch the same data a second time (Phase 5C.1: 2× watchlists/alerts per launch).
+                    mutable.value = State(uid = uid, environment = env, loading = uid != null)
                     if (uid == null) return@collectLatest
                     cache.read(userCacheOwner(env, uid), cacheKey)?.let { (text, savedAt) ->
                         runCatching { json.decodeFromString(serializer, text) }.getOrNull()?.let { cached ->

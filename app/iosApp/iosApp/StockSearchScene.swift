@@ -20,7 +20,6 @@ struct StockSearchScene: View {
             StockSearchScreen(
                 state: model.uiState,
                 query: $model.query,
-                onQueryChanged: model.scheduleSearch,
                 onRetry: model.search
             ) { stock in
                 if let onOpenStock { onOpenStock(stock); return }
