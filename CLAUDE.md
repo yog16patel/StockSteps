@@ -13,10 +13,10 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-09, end of session)
 
-HEAD: "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback". Phase 3 of the financial API cost program is implemented (3B-0, 3A, 3B-1, 3C, 3D, 3E; see
-`docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`). **Next**: produce the Phase 3 before/after benchmark (extend `Phase3AuditBenchmarkTest`),
-run the iOS build and shared/iOS test suites (shared `CompanyFundamentals` and Financials UI changed), then Phase 4. Read the root
-`PROJECT_HANDOFF.md` top section first. No local MOCK server is running (start with `./gradlew :server:runMock`; stop with `./gradlew :server:stopMock`).
+HEAD: "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage". Phase 3 of the financial API cost program is implemented and verified (benchmark A–H in `Phase3AuditBenchmarkTest`;
+results and readiness in `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`). **Next: Phase 4** — durable AI quotas (Brief/Earnings/article
+insights), per-provider global budgets, public-route protection (owner decisions D1/D2), production cost monitoring. Read the root
+`PROJECT_HANDOFF.md` top section first. No local MOCK server is running.
 
 ## Repository layout
 

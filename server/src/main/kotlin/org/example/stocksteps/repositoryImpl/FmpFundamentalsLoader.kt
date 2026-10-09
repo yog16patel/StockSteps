@@ -68,6 +68,12 @@ internal class FmpFundamentalsLoader(
     init {
         // A newly reported quarter invalidates that symbol's cached statements once (annual ones only for Q4).
         signals?.onNewReport { symbol, report ->
+            // The newest periods cached when the report arrived: the new period must be newer than these.
+            fun newest(key: String): String? = cache.lastValue<FinancialDataset<*>>("success:$key", FinancialCachePolicy.STATEMENTS)?.rows
+                ?.mapNotNull { row -> when (row) { is FmpIncomeStatement -> row.date; is FmpBalanceSheetStatement -> row.date; is FmpCashFlowStatement -> row.date; else -> null } }?.maxOrNull()
+            signals.setBaseline(symbol, "quarter", report, newest("income-statement:$symbol:quarter:$QUARTERS_FOR_VALUATION"))
+            signals.setBaseline(symbol, "ttm", report, newest("income-statement-ttm:$symbol:null:1"))
+            signals.setBaseline(symbol, "annual", report, newest("income-statement:$symbol:annual:6"))
             buildList {
                 add("income-statement:$symbol:quarter:$QUARTERS_FOR_VALUATION"); add("balance-sheet-statement:$symbol:quarter:8"); add("cash-flow-statement:$symbol:quarter:8")
                 add("income-statement-ttm:$symbol:null:1"); add("cash-flow-statement-ttm:$symbol:null:1")
@@ -109,11 +115,10 @@ internal class FmpFundamentalsLoader(
         var upstream = false
         val kind = statementPeriod(endpoint, period)
         val ttlOf: ((FinancialDataset<T>) -> Long)? = if (signals == null || kind == null || periodEnd == null) null else { data ->
-            signals.statementTtl(symbol, kind, data.rows.mapNotNull(periodEnd).maxOrNull(), ttl)
+            signals.statementTtl(symbol, kind, data.rows.mapNotNull(periodEnd).maxOrNull(), ttl).also { if (it < ttl) signals.countRefresh() }
         }
         return cachedDataset<T>(key, successKey, endpoint, symbol, period, limit, ttl, feature, ttlOf) {
             upstream = true
-            if (kind != null && signals?.awaiting(symbol, kind) != null) signals.countRefresh()
         }.also {
             meter.record("fmp", endpoint, feature, if (upstream) "cacheMiss" else "cacheHit")
         }

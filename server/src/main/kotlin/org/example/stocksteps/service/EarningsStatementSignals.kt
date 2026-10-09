@@ -16,8 +16,8 @@ import java.util.concurrent.CopyOnWriteArrayList
  * proof that the provider has the statements yet (filings lag press releases), so it only *shortens* the statement
  * lifetime for that symbol to [acceleratedTtl] until rows for the reported period appear, then the normal lifetime
  * returns. "Rows for the reported period" means: a row ending on/after the event's `periodEnd` when the source gives one;
- * otherwise (Finnhub calendars have no period end) a row whose period ended within [MAX_REPORT_LAG_DAYS] days before the
- * announcement. Annual statements are only accelerated for fiscal Q4 reports. Empty responses never count as the new
+ * otherwise (Finnhub calendars have no period end) a row newer than the newest period available when the report arrived
+ * (see [covers]). Annual statements are only accelerated for fiscal Q4 reports. Empty responses never count as the new
  * period. A newer report triggers one invalidation of that symbol's cached statements ([onNewReport] listeners); repeat
  * observations of the same report don't. Corrections have no reliable signal and keep the normal lifetime.
  */
@@ -59,16 +59,37 @@ class EarningsStatementSignals(
         return e
     }
 
-    private fun prune() = expected.entries.removeIf { ChronoUnit.DAYS.between(it.value.reportDate, today()) > window }
+    private fun prune() {
+        expected.entries.removeIf { ChronoUnit.DAYS.between(it.value.reportDate, today()) > window }
+        baselines.keys.removeIf { key -> expected[key.substringBefore('|')] == null }
+    }
 
-    /** Counts an upstream statement load made while a report is awaited (extra cost of the accelerated lifetime). */
+    /** Counts a statement load that still lacked the reported period and so got the accelerated lifetime (one more refresh). */
     fun countRefresh() = meter.event("fmp.statements.earningsRefresh")
 
-    /** True when the newest statement row (period end [newestDate]) already covers the report. */
-    fun covers(report: Expected, newestDate: String?): Boolean {
-        val end = newestDate?.take(10)?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return false
+    /** Newest period end seen per symbol, frequency and report when the report arrived (or first loaded after it). */
+    private val baselines = ConcurrentHashMap<String, LocalDate>()
+    private fun baselineKey(symbol: String, kind: String?, report: Expected) = "${symbol.uppercase()}|$kind|${report.reportDate}|${report.fiscalYear}Q${report.fiscalQuarter}"
+
+    /** Records the newest period end already cached when [report] arrived (first value wins). */
+    fun setBaseline(symbol: String, kind: String?, report: Expected, newestDate: String?) {
+        parse(newestDate)?.let { baselines.putIfAbsent(baselineKey(symbol, kind, report), it) }
+    }
+
+    private fun parse(date: String?) = date?.take(10)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+    /**
+     * True when the newest statement row (period end [newestDate]) covers the report: on/after the event's period end
+     * when the source gives one; otherwise strictly newer than the newest period that was available when the report
+     * arrived (its baseline; the first load after the report sets it when nothing was cached, and isn't counted as
+     * covered). Announcement-to-period-end gaps vary too much (a fast reporter's previous quarter can end < 105 days
+     * before the announcement) for a date-distance rule, and fiscal labels differ between providers, so neither is used.
+     */
+    fun covers(symbol: String, kind: String?, report: Expected, newestDate: String?): Boolean {
+        val end = parse(newestDate) ?: return false
         report.periodEnd?.let { return end >= it }
-        return end < report.reportDate && ChronoUnit.DAYS.between(end, report.reportDate) <= MAX_REPORT_LAG_DAYS
+        val base = baselines.putIfAbsent(baselineKey(symbol, kind, report), end) ?: return false
+        return end > base
     }
 
     /** Whether [symbol]'s statements of [period] ("quarter", "annual", "ttm") are awaiting a reported period. */
@@ -80,12 +101,10 @@ class EarningsStatementSignals(
      */
     fun statementTtl(symbol: String, period: String?, newestDate: String?, normal: Long): Long {
         val report = awaiting(symbol, period) ?: return normal
-        return if (covers(report, newestDate)) normal else minOf(normal, acceleratedTtl)
+        return if (covers(symbol, period, report, newestDate)) normal else minOf(normal, acceleratedTtl)
     }
 
     companion object {
-        /** A quarter's statements are expected to end at most this many days before its announcement. */
-        const val MAX_REPORT_LAG_DAYS = 105L
         const val MAX_SYMBOLS = 5_000
     }
 }

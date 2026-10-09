@@ -101,12 +101,12 @@ class EarningsAwareStatementsTest {
         val signals = EarningsStatementSignals({ Instant.parse("2026-10-30T12:00:00Z") })
         signals.observe(listOf(event(periodEnd = "2026-09-27")))
         val report = signals.awaiting("AAPL", "quarter")!!
-        assertFalse(signals.covers(report, "2026-06-27")); assertTrue(signals.covers(report, "2026-09-27"))
-        assertFalse(signals.covers(report, null), "an empty response is never the new period")
+        assertFalse(signals.covers("AAPL", "quarter", report, "2026-06-27")); assertTrue(signals.covers("AAPL", "quarter", report, "2026-09-27"))
+        assertFalse(signals.covers("AAPL", "quarter", report, null), "an empty response is never the new period")
         assertEquals(2 * hour, signals.statementTtl("AAPL", "quarter", "2026-06-27", 24 * hour))
         assertEquals(24 * hour, signals.statementTtl("AAPL", "quarter", "2026-09-27", 24 * hour))
         assertEquals(24 * hour, signals.statementTtl("MSFT", "quarter", "2026-06-27", 24 * hour), "other companies aren't polled")
-        // Without a period end (Finnhub calendars): a row ending within 105 days before the announcement counts.
+        // Without a period end (Finnhub calendars): the first load after the report is the baseline; a newer period covers it.
         val approx = EarningsStatementSignals({ Instant.parse("2026-10-30T12:00:00Z") }).also { it.observe(listOf(event())) }
         assertEquals(2 * hour, approx.statementTtl("AAPL", "quarter", "2026-06-27", 24 * hour))
         assertEquals(24 * hour, approx.statementTtl("AAPL", "quarter", "2026-09-27", 24 * hour))
@@ -140,5 +140,63 @@ class EarningsAwareStatementsTest {
         earnings.next("AAPL"); earnings.next("AAPL")
         assertNotNull(signals.awaiting("AAPL", "quarter"))
         assertEquals(1, source.calls, "no extra earnings requests: evidence comes from the cached history")
+    }
+
+    @Test fun aFastReportersPreviousQuarterIsNeverTakenForTheReportedOne() {
+        // Quarter ends Sep 30, announced Oct 9 (9 days later); the previous quarter ended Jun 30, only 101 days earlier.
+        val signals = EarningsStatementSignals({ Instant.parse("2026-10-09T22:00:00Z") })
+        signals.observe(listOf(event(date = "2026-10-09")))
+        assertEquals(2 * hour, signals.statementTtl("AAPL", "quarter", "2026-06-30", 24 * hour), "Jun 30 is not the reported quarter")
+        assertEquals(2 * hour, signals.statementTtl("AAPL", "quarter", "2026-06-30", 24 * hour), "still awaited on later loads")
+        assertEquals(24 * hour, signals.statementTtl("AAPL", "quarter", "2026-09-30", 24 * hour), "covered once a newer period arrives")
+    }
+
+    @Test fun irregularFiscalPeriodsUseTheExactPeriodEndWhenGiven() {
+        // 52/53-week year: the quarter ends on a Saturday (Sep 26), not a month end.
+        val signals = EarningsStatementSignals({ Instant.parse("2026-10-29T22:00:00Z") })
+        signals.observe(listOf(event(periodEnd = "2026-09-26")))
+        val report = signals.awaiting("AAPL", "quarter")!!
+        assertTrue(signals.covers("AAPL", "quarter", report, "2026-09-26"))
+        assertFalse(signals.covers("AAPL", "quarter", report, "2026-09-25"))
+        assertFalse(signals.covers("AAPL", "quarter", report, "2026-06-27"))
+    }
+
+    @Test fun withNothingCachedTheFirstLoadAfterTheReportIsTheBaseline() = runBlocking {
+        val w = World()
+        w.signals!!.observe(listOf(event()))                                   // the report arrives before anyone viewed AAPL
+        assertEquals("2026-06-27", w.newest())
+        w.up.newQuarter = "2026-09-27" to "2026-10-30 06:00:00"
+        w.advance(2 * hour + 1_000)
+        assertEquals("2026-09-27", w.newest(), "the old quarter wasn't taken for the new one: it was polled again after 2 h")
+        w.advance(3 * hour); w.newest()
+        assertEquals(2, w.quarterly, "covered: back to 24 h")
+    }
+
+    @Test fun aFilingLaterThanTheWindowFallsBackToTheNormalLifetime() = runBlocking {
+        val w = World()
+        w.newest(); w.signals!!.observe(listOf(event()))
+        var duringWindow = 0
+        for (step in 1..(12 * 12)) {                                             // a request every 2 h for 12 days
+            w.advance(2 * hour + 1_000); w.newest()
+            if (step == 10 * 12) duringWindow = w.quarterly
+            if (step == 12 * 12 - 6) w.up.newQuarter = "2026-09-27" to "2026-11-10 06:00:00"   // published on day 11.5
+        }
+        assertTrue(duringWindow in 115..125, "≈ 12 refreshes a day for this one company inside the 10-day window: $duringWindow")
+        assertTrue(w.quarterly - duringWindow <= 3, "after the window: the normal 24 h lifetime (${w.quarterly - duringWindow} more)")
+        w.advance(24 * hour); assertEquals("2026-09-27", w.newest(), "a late filing still appears within 24 h")
+    }
+
+    @Test fun correctionsKeepTheNormalLifetime() = runBlocking {
+        val w = World()
+        w.newest(); w.signals!!.observe(listOf(event()))
+        w.up.newQuarter = "2026-09-27" to "2026-10-30 06:00:00"
+        w.advance(hour); w.newest()
+        val revenue = { runBlocking { w.fmp.getFundamentals("AAPL", "quarter").history.first().revenue } }
+        val original = revenue()
+        w.up.correction = 7.0
+        w.advance(3 * hour)
+        assertEquals(original, revenue(), "a revision of an already-present period isn't a new report: 24 h lifetime")
+        w.advance(21 * hour)
+        assertEquals(original!! + 7.0, revenue(), "the correction appears with the normal refresh")
     }
 }

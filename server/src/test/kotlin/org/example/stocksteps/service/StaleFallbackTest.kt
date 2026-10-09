@@ -121,5 +121,28 @@ class StaleFallbackTest {
         assertEquals("AAPL", client.decodeFromString(LegacyFundamentals.serializer(), encoded).symbol)
     }
 
+    @Test fun comparisonLabelsStaleCompaniesAndKeepsTheirRetrievalDate() = runBlocking {
+        val up = FmpMock(); val ms = AtomicLong(0)
+        val clock = object : java.time.Clock() {
+            override fun getZone() = java.time.ZoneOffset.UTC
+            override fun withZone(zone: java.time.ZoneId?) = this
+            override fun instant(): Instant = Instant.parse("2026-10-07T18:00:00Z").plusMillis(ms.get())
+        }
+        val fmp = org.example.stocksteps.repositoryImpl.FmpStockProviderRepositoryImpl(up.client, "k", cacheNow = { ms.get() }, wallClock = { clock.instant() }) { LocalDate.parse("2026-10-07") }
+        val stocks = StockService(fmp, fmp)
+        val screener = org.example.stocksteps.screener.ScreenerService({ org.example.stocksteps.screener.UniverseDefinition("t", emptyList()) }, stocks,
+            { CompanyFinancialService(fmp).getFundamentals(it, "annual") }, PriceChartService(org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(up.client, "k")),
+            { 0.73 }, clock, sampleData = false, fundamentalsPerHour = 0, fullRecords = false)
+        val fresh = screener.compare("AAPL,MSFT")
+        assertTrue(fresh.notes.none { "couldn't be reached" in it })
+        ms.addAndGet(25 * hour)
+        up.status["income-statement"] = 503; up.status["balance-sheet-statement"] = 503; up.status["cash-flow-statement"] = 503
+        val stale = screener.compare("AAPL,MSFT")
+        assertTrue(stale.notes.any { "AAPL, MSFT: the data provider couldn't be reached" in it }, stale.notes.toString())
+        assertEquals(listOf("2026-10-07T18:00:00Z", "2026-10-07T18:00:00Z"), stale.companies.map { it.record?.fundamentalsAsOf }, "dated by the original retrieval")
+        assertEquals(fresh.companies.map { it.record?.fundamentalsAsOf }, stale.companies.map { it.record?.fundamentalsAsOf })
+        assertEquals(fresh.companies.map { it.annual }, stale.companies.map { it.annual }, "same reported figures, nothing estimated")
+    }
+
     @kotlinx.serialization.Serializable private data class LegacyFundamentals(val symbol: String, val retrievedAt: String? = null)
 }

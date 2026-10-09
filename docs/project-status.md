@@ -1,22 +1,20 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (end of the Comparison Phase 5 / sign-in redesign / financial API cost session) against the repository (`main`, HEAD **`e4ba2be` "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"**). Verify with
+Last reviewed: 2026-10-09 (Phase 3 verification) against the repository (`main`, HEAD **"Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"**). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-HEAD: **`e4ba2be` "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"**; working
-tree clean apart from the end-of-session documentation update. Full session handoff: `docs/PROJECT_HANDOFF.md` (top section).
+HEAD: **"Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"** (Phase 3 verification: benchmark A–H, earnings-aware coverage fix, extra tests, docs), on top of
+`517a46b` "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback".
 
-**Current objective**: financial API cost optimization — reduce paid FMP/Finnhub/Gemini/BoC usage without losing correctness or freshness.
-Phase 1 audit, Phase 2 shared cache and Phase 3 audit are committed; **Phase 3 implementation has not started**.
+**Current objective**: financial API cost optimization. Phase 1 audit, Phase 2 shared cache, Phase 3 audit and Phase 3 implementation are
+done; Phase 3 verification results are in `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md` (§3 benchmark table, §7 validation, §8 limits).
 
-**Exact next task — Phase 3 milestone 3B-0**: fix the screener re-warm bug (`ScreenerService.warm()` never reloads expired fundamentals,
-so financial filters match nothing ≈ 12–18 h after first use per instance; measured 15 → 0 in `Phase3AuditBenchmarkTest`) and size
-the FMP dataset cache (`FmpStockProviderRepositoryImpl.financialCache`, 512 entries) for the screener universe. Then 3A (statement-only
-loading for comparison history/summaries), 3C (market-aware TTLs with `UsMarketCalendar`/`TsxMarketCalendar`), 3B-1, 3D, 3E — see
-`docs/FINANCIAL_API_PHASE3_IMPLEMENTATION_PLAN.md`. Owner decisions D1–D8: `docs/FINANCIAL_API_PHASE3_DECISIONS.md`.
+**Next task**: **Phase 4** — durable AI quotas (Brief/Earnings/article insights), per-provider
+global budgets, public-route protection (needs owner decisions D1/D2), production cost monitoring. Owner decisions D1–D8:
+`docs/FINANCIAL_API_PHASE3_DECISIONS.md`.
 
 Other open follow-ups (unchanged by this session's cost work): Comparison Phase 5 AI device walkthrough and authorized REAL Gemini run;
 real-Firestore check of `users/{uid}/meta/aiUsage` and the Phase 4 research paths; billing; deploy + Cloud Scheduler; push verification;
@@ -28,7 +26,8 @@ per-client rate limiting once client identity behind Cloud Run is decided.
 
 | Feature | Commit (title) | Doc | Notes |
 |---|---|---|---|
-| Financial API Phase 3 audit (selective loading, screener warm-up, freshness, earnings invalidation, budgets) + `Phase3AuditBenchmarkTest` | `e4ba2be` "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark" | `docs/FINANCIAL_API_PHASE3_*.md` | Read-only; found the screener re-warm bug. Nothing implemented. |
+| Financial API Phase 3 implementation (screener re-warm fix, 150-company universe, selective statements, market-/earnings-aware freshness, stale fallback) | `517a46b` "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback" | `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md` | Verified in "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage" (benchmark A–H); per-instance only; no REAL calls. |
+| Financial API Phase 3 audit (selective loading, screener warm-up, freshness, earnings invalidation, budgets) + `Phase3AuditBenchmarkTest` | `e4ba2be` "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark" | `docs/FINANCIAL_API_PHASE3_*.md` | Read-only; found the screener re-warm bug (fixed in `517a46b`). |
 | Financial API Phase 1 audit + Phase 2 shared provider cache (failure-safe single flight, duplicate-path removal, local market status, search cache, `ProviderCalls` metering, narration budget) | `75760ab` "Add financial API cost audit and Phase 2 shared provider cache with request reuse" | `docs/FINANCIAL_API_*.md`, `docs/FINANCIAL_API_CACHE_IMPLEMENTATION.md` | Server only; measured 26→20, 74→72, 15→14, 30→1 upstream requests (MockEngine). |
 | Company Comparison Phase 5 — AI Comparison Assistant (StockSteps+; `/api/v1/me/compare/ai/*`, durable quota `users/{uid}/meta/aiUsage`) **and** sign-in/create-account redesign on `StockStepsTheme` | `e27991d` "Add Company Comparison Phase 5 AI comparison assistant (StockSteps+) and redesign sign-in screens on Android and iOS" | `docs/SCREENER_AND_COMPARISON.md` (Phase 5) | REAL Gemini not live-verified; no billing; auth behaviour unchanged, no password-reset flow exists. |
 | Company Comparison Phase 4 — Guided Research Checklist (free + StockSteps+) | `423f44a` "Add Company Comparison Phase 4 guided research checklist (free + StockSteps+) on Android and iOS" | `docs/SCREENER_AND_COMPARISON.md` (Phase 4) | Firestore path not run against a real project. |
@@ -156,9 +155,8 @@ None.
     `netIncome` semantics) unverified; Company Details still exposes raw statements for free (product decision if that should change).
     Phase 4 committed: real-Firestore run, device pass, cross-instance cache decision pending. Phase 5 committed (`e27991d`): device
     walkthrough, authorized REAL Gemini run and real-Firestore `aiUsage` check pending.
-15. **Financial API Phase 3 implementation** (`docs/FINANCIAL_API_PHASE3_IMPLEMENTATION_PLAN.md`): 3B-0 screener re-warm fix + FMP dataset
-    cache capacity (next), 3A statement-only loading, 3C market-aware TTLs, 3B-1 screener dataset set/budget, 3D earnings-aware statement
-    TTL, 3E labelled stale fallback.
+15. **Financial API Phase 3**: implemented (`517a46b`) and verified ("Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"). Remaining: stale fallback for profiles/daily closes,
+    market-aware watch-data quotes, weekend/multi-instance cost measurement in production metrics (`docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md` §8).
 16. **Security track** (needs owner decisions D1/D2): client identity behind Cloud Run (trusted proxy hops / App Check), per-client and
     per-route limits on public provider routes, sign-in for AI explanation routes.
 17. **Phase 4 of the cost program**: durable AI quotas for Brief/Earnings/article insights (reuse `ComparisonAiQuota`), per-provider global
@@ -191,8 +189,9 @@ None.
 - Disk space on the dev machine is tight. The previous session's scratch iOS derived data is broken; use
   the default DerivedData.
 - Phase 1–4 screens have no device walkthrough or accessibility audit yet; there are no UI automation tests.
-- **Screener re-warm bug** (open): expired screener fundamentals are never reloaded (`ScreenerService.warm`), so financial filters match
-  nothing ≈ 12–18 h after first use per instance; fix is Phase 3 milestone 3B-0.
+- Screener: default universe 150 (50 per exchange); with 25 warm-ups/h coverage is full after 6 h and needs every hourly slot to stay full
+  (U / T exactly); a smaller budget or failures show partial coverage ("X of 150"). Re-warm bug fixed in `517a46b`.
+- Earnings-aware statement refresh without a source `periodEnd` uses a baseline rule (worst case: 2 h polling for one company for ≤ 10 days).
 - All provider caches, single flight and most budgets are per Cloud Run instance; Cloud Run instance counts are unknown (no deploy config
   in the repo). Route limiters keyed on `remoteHost` likely see the proxy on Cloud Run (unverified).
 - Public provider-backed routes (stocks, news, article insight, movement, markets, watch-data) have no per-client rate limits.

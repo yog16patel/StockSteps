@@ -35,6 +35,8 @@ class FmpStockProviderRepositoryImpl(
     private val freshness: org.example.stocksteps.service.MarketFreshnessPolicy = org.example.stocksteps.service.MarketFreshnessPolicy.FIXED,
     /** Phase 3D: earnings evidence that shortens statement lifetimes after a report (null: fixed lifetimes). */
     statementSignals: org.example.stocksteps.service.EarningsStatementSignals? = null,
+    /** Wall clock for provider retrieval times shown to users (tests use a fake one). */
+    wallClock: () -> java.time.Instant = java.time.Instant::now,
     private val today: () -> java.time.LocalDate = { java.time.LocalDate.now(java.time.ZoneOffset.UTC) }
 ) : StockProviderRepository, org.example.stocksteps.service.QuarterlyEarningsSource {
     companion object {
@@ -43,7 +45,7 @@ class FmpStockProviderRepositoryImpl(
     private val financialCache = org.example.stocksteps.service.CompanyFinancialCache(capacity = datasetCacheEntries, now = cacheNow, name = "fmp")
     /** Entries currently held by the dataset cache (diagnostics and tests). */
     val datasetCacheSize: Int get() = financialCache.size
-    private val fundamentalsLoader = FmpFundamentalsLoader(client, apiKey, financialCache, today, freshness = freshness, signals = statementSignals)
+    private val fundamentalsLoader = FmpFundamentalsLoader(client, apiKey, financialCache, today, freshness = freshness, signals = statementSignals, clock = wallClock)
 
     override suspend fun getFundamentals(symbol: String, period: String) =
         fundamentalsLoader.load(symbol, period) {

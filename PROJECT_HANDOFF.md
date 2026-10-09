@@ -1,7 +1,9 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback"** on `main`.
-Includes the Phase 3 financial API implementation (next section, `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`).
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"** on `main`.
+Includes the Phase 3 verification (next section, "Phase 3 verification"): benchmark A–H, earnings coverage fix, tests, docs.
+Previous commit: **"Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback"**.
+Includes the Phase 3 financial API implementation (`docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`).
 Previous commit: **"Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"**.
 Includes the Phase 3 financial API audit documents and benchmark test.
 Previous commit: **"Add financial API cost audit and Phase 2 shared provider cache with request reuse"**.
@@ -56,10 +58,24 @@ Details: `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md`. Owner decision: default 
 - Tests: new `ScreenerWarmupTest`, `ScreenerUniverseOptimizationTest`, `SelectiveStatementsTest`, `MarketFreshnessTest`, `EarningsAwareStatementsTest`,
   `StaleFallbackTest`, shared `FmpMock`; core `FinancialStatementsPresenterTest` stale case.
 
-Validation: `./gradlew :server:test` → **431 tests, 0 failures, 3 skipped**; `:core:jvmTest` and `:app:shared:compileAndroidMain` pass.
-Not run: iOS `xcodebuild`, `:core:iosSimulatorArm64Test`, `:app:shared` host/iOS tests, `assembleDebug`, device/simulator checks; no REAL provider calls.
-Not done (next): Phase 3 before/after benchmark table (scenarios A–H, extend `Phase3AuditBenchmarkTest`); iOS build + shared tests; stale fallback for
-profiles/daily closes; `docs/project-status.md` feature rows for this commit; then Phase 4 (durable quotas, global provider budgets, public-route protection D1/D2, cost monitoring).
+Validation at commit time: `./gradlew :server:test` → 431 tests, 0 failures, 3 skipped; `:core:jvmTest` and `:app:shared:compileAndroidMain` pass.
+
+### Phase 3 verification (2026-10-09) — commit "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"
+- `Phase3AuditBenchmarkTest` rewritten as the before/after benchmark A–H (`server/build/phase3-benchmark.txt`); pre-Phase 3 numbers re-measured
+  on `e4ba2be` in a temporary worktree (removed). Results: A 17 → 17; B 72 → 64 (1Y history 12 → 4); C 0 extra; D first hour 328 → 278;
+  150-company day: coverage 75-peak-then-0 → 150 every hour, 1,953 → 4,353 requests (512-entry cache would be 6,603); F Saturday/holiday 39 → 16;
+  G new quarter visible 19 h → 30 min after publication; H 15 → 0 fixed to 15 → 15. Table: `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md` §3.
+- **Fix**: `EarningsStatementSignals.covers` — the 105-day fallback could mark a fast reporter's previous quarter as covered; now exact `periodEnd`
+  or "newer than the baseline cached when the report arrived" (`FmpFundamentalsLoader` captures baselines before invalidating).
+- `FmpStockProviderRepositoryImpl(wallClock = …)` for deterministic retrieval times; accelerated-refresh counter now counts loads that still lack
+  the reported period.
+- New tests: 5 more in `EarningsAwareStatementsTest` (fast reporter, 52/53-week, nothing cached, late filing, corrections), comparison stale label in
+  `StaleFallbackTest`, history stale note in `SelectiveStatementsTest`, `market/Phase3MockSeparationTest`; `FmpMock` gained failing symbols,
+  Finnhub events and realistic Q4/TTM publication.
+- Validation: full KMP/server/Android suite BUILD SUCCESSFUL (core JVM 414/0, core iOS 414/0, shared Android host 55/0, shared iOS 49/0,
+  `assembleDebug` OK); `:server:test` 438/0 (3 skipped); iOS `xcodebuild` BUILD SUCCEEDED. Not run: device walkthrough, REAL providers.
+- Readiness: Phase 3 ready for Phase 4. Next: Phase 4 (durable AI quotas, global provider budgets, public-route protection
+  D1/D2, cost monitoring). Remaining limits: `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md` §8.
 
 ## Financial API — Phase 3 audit (2026-10-09, read-only) — commit "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark"
 
