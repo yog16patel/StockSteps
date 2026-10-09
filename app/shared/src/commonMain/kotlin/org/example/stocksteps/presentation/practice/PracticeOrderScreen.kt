@@ -80,7 +80,7 @@ private fun Entry(state: PracticeOrderState, onAction: (OrderAction) -> Unit) {
             Text(p.priceBasis + (p.quoteAsOf?.let { " · ${PracticeFormat.isoDate(it)}" } ?: ""), style = typography.caption, color = colors.textSecondary)
             if (p.priceCurrency != p.baseCurrency && p.fxRate != "0") Text("1 ${p.priceCurrency} = ${p.fxRate} ${p.baseCurrency}" + (p.fxAsOf?.let { " (Bank of Canada, $it)" } ?: ""),
                 style = typography.caption, color = colors.textSecondary)
-            if (state.side == OrderSide.SELL) Detail("You own", "${PracticeFormat.shares(p.ownedQuantity)} shares")
+            if (state.side == OrderSide.SELL) Detail("You own", PracticeFormat.shareCount(p.ownedQuantity))
         }
     }
     if (state.side == OrderSide.BUY) StockSegmentedControl(listOf(StockSegment(OrderInput.SHARES, "Shares"), StockSegment(OrderInput.AMOUNT, "Amount (${p?.baseCurrency ?: "CAD"})")),
@@ -90,7 +90,7 @@ private fun Entry(state: PracticeOrderState, onAction: (OrderAction) -> Unit) {
         supportingText = { Text(if (state.mode == OrderInput.SHARES) "Up to 4 decimal places (fractional shares are simulated)." else "Converted to whole 0.0001 shares at the server's price.") },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true)
     if (p != null && p.quantity != "0") StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        Detail("Quantity", "${PracticeFormat.shares(p.quantity)} shares")
+        Detail("Quantity", PracticeFormat.shareCount(p.quantity))
         Detail(if (state.side == OrderSide.BUY) "Estimated cost" else "Estimated proceeds", PracticeFormat.money(p.estimatedTotal, p.baseCurrency))
         Detail("Available virtual cash", PracticeFormat.money(p.cashAvailable, p.baseCurrency))
         Detail("Cash after this trade", PracticeFormat.money(p.cashAfter, p.baseCurrency))
@@ -115,12 +115,12 @@ private fun Review(state: PracticeOrderState, onAction: (OrderAction) -> Unit) {
     InstrumentHeader(state)
     Text("Review your ${verb(state.side).lowercase()}", Modifier.semantics { heading() }, style = StockStepsTheme.typography.sectionTitle)
     StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-        contentDescription = "${verb(state.side)} of ${PracticeFormat.shares(p.quantity)} shares of ${state.symbol} at about ${PracticeFormat.price(p.price, p.priceCurrency)}. " +
+        contentDescription = "${verb(state.side)} of ${PracticeFormat.shareCount(p.quantity)} of ${state.symbol} at about ${PracticeFormat.price(p.price, p.priceCurrency)}. " +
             "Estimated total ${PracticeFormat.money(p.estimatedTotal, p.baseCurrency)}. Cash remaining ${PracticeFormat.money(p.cashAfter, p.baseCurrency)}. Simulated trade."
     }, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Detail("Instrument", "${p.instrument.name ?: state.symbol} (${state.symbol})")
         Detail("Action", verb(state.side))
-        Detail("Quantity", "${PracticeFormat.shares(p.quantity)} shares")
+        Detail("Quantity", PracticeFormat.shareCount(p.quantity))
         Detail("Indicative price", PracticeFormat.price(p.price, p.priceCurrency))
         Detail("Estimated total", PracticeFormat.money(p.estimatedTotal, p.baseCurrency))
         Detail("Cash remaining", PracticeFormat.money(p.cashAfter, p.baseCurrency))
@@ -142,7 +142,7 @@ private fun Done(state: PracticeOrderState, onAction: (OrderAction) -> Unit) {
     Text("${verb(state.side)} complete", Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite }, style = StockStepsTheme.typography.sectionTitle, color = StockStepsTheme.colors.positiveText)
     StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Detail("Instrument", "${t.instrument.name ?: t.instrument.symbol} (${t.instrument.symbol})")
-        Detail("Quantity", "${PracticeFormat.shares(t.quantity)} shares")
+        Detail("Quantity", PracticeFormat.shareCount(t.quantity))
         Detail("Simulated price", PracticeFormat.price(t.price, t.priceCurrency))
         Detail("Total", PracticeFormat.money(t.amount, r.baseCurrency))
         Detail("Virtual cash now", PracticeFormat.money(r.cashAfter, r.baseCurrency))

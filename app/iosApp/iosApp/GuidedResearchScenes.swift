@@ -13,8 +13,13 @@ final class LearningModel {
     @ObservationIgnored let client: IosLearningClient
     @ObservationIgnored private var subscription: (any AccountSubscription)?
 
-    init(accounts: AccountViewModel, baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
+    /// `start: false` defers observing progress to `activate()` (see ScreenerModel).
+    init(accounts: AccountViewModel, baseURL: @escaping () -> String = { BackendSettings.currentURL }, start: Bool = true) {
         client = IosLearningClient(baseUrl: baseURL, account: accounts.client)
+        if start { activate() }
+    }
+    func activate() {
+        guard subscription == nil else { return }
         subscription = client.observeProgress { [weak self] in self?.progress = $0 }
     }
     deinit {
@@ -190,7 +195,7 @@ struct GuidedResearchScreen: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Step \(number) of \(client.stepCount): \(step.question). \(done ? "Completed" : current ? "In progress" : "Not started")")
+            .accessibilityLabel(client.stepAccessibilityLabel(number: Int32(number), question: step.question, status: done ? "Completed" : current ? "In progress" : "Not started"))
             .accessibilityAddTraits(.isButton)
         }
         Button(state.primaryLabel) { presenter.startOrContinue() }.buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)

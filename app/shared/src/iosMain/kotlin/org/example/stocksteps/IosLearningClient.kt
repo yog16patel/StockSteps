@@ -42,6 +42,7 @@ class IosLearningClient(baseUrl: () -> String, account: IosAccountClient?) {
 
     // Swift-friendly helpers.
     val stepCount: Int get() = ResearchStep.COUNT
+    fun stepAccessibilityLabel(number: Int, question: String, status: String) = ResearchStep.accessibilityLabel(number, question, status)
     val terms: List<EducationEntry> get() = BeginnerEducation.entries
     fun term(id: String): EducationEntry? = BeginnerEducation.entry(id)
     val quickPickSymbols: List<String> get() = listOf("AAPL", "KO", "JPM", "MSFT")

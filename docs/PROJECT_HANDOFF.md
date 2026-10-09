@@ -1,8 +1,106 @@
-# StockSteps — session handoff (2026-10-09: Phase 5B Local LAN Docker integration, after Phase 5A and the Phase 3/4 sessions)
+# StockSteps — session handoff (2026-10-09, end of session: Phase 5C mobile end-to-end testing, after Phases 5A/5B and the Phase 3/4 sessions)
 
-Read order for a new session: `CLAUDE.md` → **§00 below** → `docs/FINANCIAL_API_PHASE5B_LOCAL_IMPLEMENTATION.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md` → §0 → `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md` → `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md`
-→ the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → the root `PROJECT_HANDOFF.md` → the code.
+Read order for a new session: `CLAUDE.md` → **§000 below** → `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md`
+→ §00 (Phase 5B Local) → §0 (Phase 5A) → the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## 000. Phase 5C — where the latest session stopped (read first)
+
+### Repository state (verified at handoff)
+- Branch `main`, in sync with `origin/main`. HEAD `1c1b073` "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and
+  reliability checks" (pushed). Earlier this session and pushed: `d138b19` (Phase 5A Cloud Run preparation), `4586889` (Phase 4).
+- **Phase 5C is committed** as "Fix Phase 5C mobile integration bugs and add end-to-end verification report" (on top of HEAD "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"): 23 modified + 4 new files (listed below; docs included). Push only when the user asks.
+
+### Current objective
+Prove the Android and iOS apps work end to end against the LAN MOCK backend (Phase 5C), fix confirmed integration bugs, document results. The
+broader program: financial API cost/safety (Phases 1–4 done) → deployment preparation (5A done) → local Docker backend (5B Local done) → mobile E2E
+(5C, this session) → Cloud Run staging (deferred, only on explicit request).
+
+### Exact task at the end of the session
+Phase 5C testing and fixes are finished and documented; the session ended with the user asking for this handoff. No code was being edited.
+
+### Work completed in Phase 5C (details: `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md`)
+Bugs found, root-caused and fixed (all verified):
+1. **MOCK Guided Research sync always failed** → `server/.../learning/LearningService.kt`: the "progress in the future" check used the MOCK market clock
+   (pinned to the Oct 7 fixture capture); new `wallClock` parameter (real time) used only for that check. Test `LearningRoutesTest.futureCheckUsesRealTimeNotThePinnedMarketClock`.
+   Redeployed to the LAN host (LAN `PUT /api/v1/me/learning` with "now": 400 → 200).
+2. **Every iOS search failed** ("Could not load stocks") → `app/shared/src/iosMain/.../IosStockStepsClient.kt`: `scope.async { searchStocks(query) }`
+   resolved to the member function (infinite self-cancelling recursion), same for `getCompanyNews`. Properties renamed `searchStocksUseCase`,
+   `companyNewsUseCase`; internal test constructor. Test `app/shared/src/iosTest/.../IosStockStepsClientTest.kt` (2, MockEngine).
+3. **iOS MOCK banner covered tab bar titles** → `app/iosApp/iosApp/ContentView.swift`: banner stacked under the app (VStack) instead of `.safeAreaInset`;
+   background `ignoresSafeArea(.container, edges: .bottom)`.
+4. **"1 shares"** (both platforms) → `PracticeFormat.shareCount` (core) used by `PracticeOrderScreen.kt`, `PracticeScreens.kt`, `PracticeScenes.swift`,
+   `PracticeEngine` sell-limit message; `IosPracticeClient.shareCount`.
+5. **Holding a11y "Apple Inc.."; iOS dropped the stale-price note** → shared `PracticeFormat.holdingDescription` (both platforms). Test `PracticeFormatTest` (3).
+6. **Research step a11y "?. Not started"** → `ResearchStep.accessibilityLabel` in `core/.../learning/GuidedResearch.kt`, used by
+   `GuidedResearchScreens.kt` and `GuidedResearchScenes.swift` (via `IosLearningClient.stepAccessibilityLabel`). Test `ResearchStepLabelTest` (2).
+7. **iOS Settings (guest) "Sign in to sync" did nothing** → `AppScene.swift` closes the Settings sheet before presenting sign-in.
+8. **iOS duplicate launch requests** (screener 6 per launch) → models built in `AppScene.init` take `start: false` and are activated once in
+   `.task` (`ScreenerScenes.swift`, `EarningsScenes.swift`, `EarningsReminderViews.swift`, `GuidedResearchScenes.swift`, `DailyBriefScenes.swift`);
+   other call sites keep the default `start: true`. Measured screener 6 → 2 per launch.
+
+UI verification performed (approved by the user): Android `emulator-5554` (Android 17) — Home, Markets, Details (+P/E sheet, rotation), Search,
+Screener, Comparison, Portfolio (account + opening position), Practice buy/sell, Watchlist + alert, Learn/Research, Brief (+ Plus AI), Earnings,
+Settings, light/1.3× font. iOS spare iPhone 16 Simulator (iOS 18.3) — signed-out/guest, sign-up mode, sign-in (Firebase Auth emulator), sign-out,
+account isolation A↔B, Learn sync, Watchlist, Search, Settings sign-in. Zero StockSteps crashes; LAN `upstream` provider counter stayed 0.
+
+### Files created or modified (in commit "Fix Phase 5C mobile integration bugs and add end-to-end verification report")
+- Server: `server/src/main/kotlin/org/example/stocksteps/learning/LearningService.kt`; test `server/src/test/.../learning/LearningRoutesTest.kt`.
+- Core: `core/src/commonMain/.../practice/{PracticePresentation,PracticeEngine}.kt`, `core/src/commonMain/.../learning/GuidedResearch.kt`;
+  new tests `core/src/commonTest/.../practice/PracticeFormatTest.kt`, `core/src/commonTest/.../learning/ResearchStepLabelTest.kt`.
+- Shared app: `app/shared/src/commonMain/.../presentation/practice/{PracticeOrderScreen,PracticeScreens}.kt`,
+  `.../presentation/research/GuidedResearchScreens.kt`; `app/shared/src/iosMain/.../{IosStockStepsClient,IosPracticeClient,IosLearningClient}.kt`;
+  new test `app/shared/src/iosTest/.../IosStockStepsClientTest.kt`.
+- iOS: `app/iosApp/iosApp/{ContentView,AppScene,PracticeScenes,GuidedResearchScenes,ScreenerScenes,EarningsScenes,EarningsReminderViews,DailyBriefScenes}.swift`.
+- Docs: new `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md`; updated `docs/PROJECT_HANDOFF.md`, `docs/project-status.md`, root `PROJECT_HANDOFF.md`, `CLAUDE.md`.
+
+### Build and test results
+Verified (final code, 2026-10-09):
+- `./gradlew :server:test :core:jvmTest :core:iosSimulatorArm64Test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue`
+  → BUILD SUCCESSFUL in 9m 19s: server 482 passed / 0 failed / 3 skipped (Firestore emulator); core JVM 421/0; core iOS 421/0; shared Android host 55/0;
+  shared iOS 51/0; `assembleDebug` OK.
+- `xcodebuild -project app/iosApp/iosApp.xcodeproj -scheme app.iosApp -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES build` → BUILD SUCCEEDED.
+- LAN smoke suite last run 23/23 in Phase 5B (not re-run after the 5C redeploy; health/meta and the learning PUT were checked).
+Unverified / not run: iOS walkthroughs of Screener, Comparison, Portfolio, Practice, Earnings, Brief detail, Company Details; physical devices; real
+Firebase/Google sign-in; push; VoiceOver/TalkBack sessions; Dynamic Type; process-death restoration; Firestore-emulator tests (3 skipped).
+
+### Important decisions and reasons
+- Fix accessibility/copy strings in **shared core helpers** (`PracticeFormat`, `ResearchStep`) so Android and iOS read identical sentences.
+- iOS model side effects deferred with `start: false` + `.task { activate() }` instead of restructuring `AppScene` (smallest change; SwiftUI keeps only the
+  first `@State` value but re-runs `init`).
+- Banner placement via VStack (UIKit tab bar ignores SwiftUI `safeAreaInset`).
+- Auth testing only with the **Firebase Auth emulator** (`127.0.0.1:9099`, `firebase/node_modules/.bin/firebase emulators:start --only auth --project stocksteps --config ../firebase.json`);
+  throwaway `@example.test` accounts; credentials never committed. Android: `-PfirebaseEmulators=true` + `adb reverse tcp:9099 tcp:9099`; iOS: launch
+  argument `--firebase-emulators` and an **ad-hoc signed** simulator build (unsigned builds fail Firebase Auth with keychain error 17995).
+- The LAN address stays out of the public repo (`deploy/local/server.env`, `app/iosApp/Configuration/Local.xcconfig` are git-ignored).
+
+### Known bugs, blockers and risks
+- Minor, open: three identical "Yahoo" source-link labels on Details; Brief card meta cramped at 1.3× font (Android); Portfolio totals "CAD 2145.53"
+  without grouping; iOS auth error stays visible after editing the password; keychain errors map to the generic sign-in message; iOS search field
+  needs a second tap to focus after the sheet opens; "1 of the 1 companies … have" grammar in Brief Plus insights; MOCK fixtures: implausible filler
+  market cap, latest-quarter growth equal to annual growth.
+- Earnings requests per iOS launch 5–7 — audit which endpoints.
+- **User environment side effects**: the Android emulator has the LAN/auth-emulator debug build installed and the user's real-account session there
+  was signed out (reinstall the normal debug build and sign in). The Mac's own MOCK server (pid started by the user) was left running on :8081.
+- **LAN host**: running image `stocksteps-local:1c1b0731adb0-dirty-f8eecdbc` — verified in Phase 5C.1: its content hash over `core/` + `server/` equals the
+  uncommitted 5C tree, so it already ran the tested code; a redeploy after the commit only changes the image tag to the clean commit. Still there from Phase 5A: `/tmp/stocksteps-phase5a-verify.*`, image
+  `stocksteps-phase5a-verify:local`, build cache; SSH user in the `docker` group (owner decisions pending).
+- Phase 4/5A conditions unchanged: Cloud Run staging deferred; owner inputs (`docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1), image vulnerability scan,
+  scheduler OIDC verification, `TRUSTED_PROXY_HOPS` verification.
+
+### Exact next steps
+1. `git status` / `git diff --stat` — confirm the Phase 5C file list above; run the matrix only if code changed since.
+2. When the user asks: commit Phase 5C (suggested title "Fix Phase 5C mobile integration bugs found against the LAN MOCK backend and add end-to-end
+   test report"), updating the root `PROJECT_HANDOFF.md` to "committed" in the same commit; push only if asked.
+3. Redeploy the LAN backend from the committed tree: `deploy/local/deploy.sh deploy`, then `deploy/local/deploy.sh smoke` (expect 23/23).
+4. Finish the iOS walkthroughs marked NOT RUN (report §2/§7) on a spare simulator with ad-hoc signed builds; then physical-device checks.
+5. Optional small fixes from the minor list; audit iOS launch earnings requests.
+6. Cloud Run staging (Phase 5B proper) only on explicit request, after the Phase 5A owner inputs.
+
+### Requirements discussed but not implemented
+- Physical Android/iPhone end-to-end, real Firebase/Google sign-in, push delivery, VoiceOver/TalkBack and Dynamic Type sessions, process-death tests.
+- Live fault injection (timeouts/429/500) on devices — covered only by existing MockEngine tests.
+- Cloud Run staging deployment, App Check SDKs in the apps, image vulnerability scanning.
 
 ## 00. Phase 5B Local — where the latest session stopped
 

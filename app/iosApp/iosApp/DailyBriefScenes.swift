@@ -22,8 +22,13 @@ final class BriefModel {
     @ObservationIgnored let client: IosBriefClient
     @ObservationIgnored private var subscription: (any AccountSubscription)?
 
-    init(account: IosAccountClient) {
+    /// `start: false` defers observing to `activate()` (see ScreenerModel).
+    init(account: IosAccountClient, start: Bool = true) {
         client = IosBriefClient(account: account)
+        if start { activate() }
+    }
+    func activate() {
+        guard subscription == nil else { return }
         subscription = client.observe { [weak self] in self?.state = $0 }
     }
     deinit {

@@ -270,8 +270,7 @@ private fun LockedPreview(text: String, onClick: () -> Unit) {
 private fun HoldingRow(h: PracticeHoldingView, base: String, onClick: () -> Unit) {
     val typography = StockStepsTheme.typography
     StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-        contentDescription = "${h.instrument.symbol}, ${h.instrument.name ?: ""}. ${PracticeFormat.shares(h.quantity)} shares. Value ${PracticeFormat.money(h.marketValue, base)}. " +
-            "${PracticeFormat.direction(h.unrealizedGain)} ${PracticeFormat.signedMoney(h.unrealizedGain, base)}." + if (h.stale) " Price from an earlier session." else ""
+        contentDescription = PracticeFormat.holdingDescription(h, base)
     }, onClick = onClick, onClickLabel = "Open ${h.instrument.symbol}") {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
             StockTickerAvatar(h.instrument.symbol, logoUrl = h.instrument.logoUrl, size = StockStepsTheme.dimensions.logoCompact)
@@ -391,8 +390,8 @@ private fun TransactionRow(t: PracticeTransaction, base: String) {
     val label = PracticeFormat.type(t.type)
     val detail = when (t.type) {
         PracticeTransactionType.SPLIT_ADJUSTMENT -> "${t.quantity}-for-1 split"
-        PracticeTransactionType.DIVIDEND -> "${PracticeFormat.shares(t.quantity)} shares × ${PracticeFormat.price(t.price, t.priceCurrency)}"
-        else -> "${PracticeFormat.shares(t.quantity)} shares at ${PracticeFormat.price(t.price, t.priceCurrency)}"
+        PracticeTransactionType.DIVIDEND -> "${PracticeFormat.shareCount(t.quantity)} × ${PracticeFormat.price(t.price, t.priceCurrency)}"
+        else -> "${PracticeFormat.shareCount(t.quantity)} at ${PracticeFormat.price(t.price, t.priceCurrency)}"
     }
     StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = "$label, ${t.instrument.symbol}, $detail, total ${PracticeFormat.money(t.amount, base)}, ${PracticeFormat.dateTime(t.executedAt)}. Simulated." }) {
         Row {

@@ -450,8 +450,20 @@ object PracticeFormat {
     fun price(value: String?, currency: String): String = value?.let { v -> runCatching { PracticeEngine.symbol(currency) + Decimal.parse(v).display(2) }.getOrNull() } ?: "—"
     fun percent(value: String?): String = value?.let { v -> runCatching { Decimal.parse(v) }.getOrNull()?.let { (if (it > Decimal.ZERO) "+" else if (it < Decimal.ZERO) "−" else "") + (if (it < Decimal.ZERO) -it else it).display(2) + "%" } } ?: "—"
     fun shares(value: String): String = runCatching { Decimal.parse(value).toString() }.getOrDefault(value)
+    /** "1 share", "2 shares", "0.5 shares": the quantity with its noun, for every Practice label on both platforms. */
+    fun shareCount(value: String): String =
+        shares(value) + if (runCatching { Decimal.parse(value).compareTo(Decimal.parse("1")) == 0 }.getOrDefault(false)) " share" else " shares"
     /** Gain/loss in words, so it never relies on colour alone. */
     fun direction(value: String?): String = value?.let { runCatching { Decimal.parse(it) }.getOrNull() }?.let { if (it > Decimal.ZERO) "Gain" else if (it < Decimal.ZERO) "Loss" else "No change" } ?: "Unavailable"
+    /**
+     * The screen-reader sentence for a holding row, shared by Android and iOS so both read the same facts (including the stale-price note).
+     * Names that already end with a period ("Apple Inc.") don't get a second one; a missing name is left out instead of reading ", .".
+     */
+    fun holdingDescription(h: PracticeHoldingView, currency: String): String {
+        val name = h.instrument.name?.trim()?.trimEnd('.')?.takeIf { it.isNotEmpty() }
+        return listOfNotNull(h.instrument.symbol, name).joinToString(", ") + ". ${shareCount(h.quantity)}. Value ${money(h.marketValue, currency)}. " +
+            "${direction(h.unrealizedGain)} ${signedMoney(h.unrealizedGain, currency)}." + if (h.stale) " Price from an earlier session." else ""
+    }
     fun positive(value: String?): Boolean? = value?.let { runCatching { Decimal.parse(it) }.getOrNull() }?.let { if (it == Decimal.ZERO) null else it > Decimal.ZERO }
     @OptIn(ExperimentalTime::class)
     fun date(millis: Long): String {

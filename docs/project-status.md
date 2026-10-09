@@ -1,6 +1,6 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (Phase 5B Local session; HEAD "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks", pushed) against the repository (`main`, HEAD **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** on top of `4586889` "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring", both pushed to `origin/main`). Verify with
+Last reviewed: 2026-10-09 (Phase 5C.1 session) against the repository (`main`; Phase 5C committed as "Fix Phase 5C mobile integration bugs and add end-to-end verification report" on top of "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks", which is pushed). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
@@ -20,6 +20,12 @@ Phase 4 code: server 473/0 (3 skipped), core JVM 416/0, core iOS 416/0, shared A
 report `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`. Server tests 481/0 (3 skipped). Image built for `linux/amd64` and container-verified on the owner's Ubuntu server
 (report §6a: non-root, no secrets, fail-fast config, JSON logs, probes, SIGTERM, `--network none`; 203 MB compressed). Verdict: READY WITH CONDITIONS for Phase 5B (staging deploy). Next: image vulnerability scan;
 owner inputs in `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1; then Phase 5B only on explicit request.
+
+**Phase 5C (committed: "Fix Phase 5C mobile integration bugs and add end-to-end verification report") — current state**: Android & iOS end-to-end tests against the LAN MOCK backend; report
+`docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md`, verdict PASS WITH CONDITIONS. 8 bugs fixed (MOCK learning sync, iOS search recursion, iOS banner over
+tab titles, "1 shares", holding and research-step a11y labels, iOS Settings sign-in, iOS duplicate launch requests). Matrix: server 482/0 (3 skipped),
+core JVM 421/0, core iOS 421/0, shared Android host 55/0, shared iOS 51/0, `assembleDebug` OK, iOS `xcodebuild` OK. **Next**: Phase 5C.1 (verification closure) →
+redeploy LAN backend → finish iOS walkthroughs marked NOT RUN → physical devices. Full handoff: `docs/PROJECT_HANDOFF.md` §000.
 
 **Phase 5B Local (committed: "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks")**: LAN Docker MOCK backend + mobile integration — `deploy/local/` (Compose, scripts), iOS `Local.xcconfig`
 override, docs `docs/LOCAL_DEVELOPMENT_SERVER.md` and `docs/FINANCIAL_API_PHASE5B_LOCAL_IMPLEMENTATION.md`. Smoke 23/23, zero provider calls,

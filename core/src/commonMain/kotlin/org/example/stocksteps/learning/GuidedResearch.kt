@@ -14,6 +14,11 @@ enum class ResearchStep(val number: Int, val key: String) {
     BUSINESS(1, "business"), GROWTH(2, "growth"), PROFIT(3, "profit"), DEBT(4, "debt"), VALUATION(5, "valuation");
     companion object {
         const val COUNT = 5
+        /** The screen-reader label of a step row on both platforms: questions keep their "?" without an extra period. */
+        fun accessibilityLabel(number: Int, question: String, status: String): String {
+            val sentence = question.trim().let { if (it.endsWith("?") || it.endsWith(".") || it.endsWith("!")) it else "$it." }
+            return "Step $number of $COUNT: $sentence $status"
+        }
         fun of(number: Int) = entries.firstOrNull { it.number == number }
     }
 }

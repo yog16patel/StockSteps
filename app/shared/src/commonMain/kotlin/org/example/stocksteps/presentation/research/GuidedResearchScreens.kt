@@ -102,7 +102,7 @@ private fun Overview(state: GuidedResearchState, snapshot: ResearchSnapshot, onA
             val done = state.completed(step.step.number)
             val current = !done && state.progress?.currentStep == step.step.number
             StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-                contentDescription = "Step ${step.step.number} of ${ResearchStep.COUNT}: ${step.question}. ${if (done) "Completed" else if (current) "In progress" else "Not started"}"
+                contentDescription = ResearchStep.accessibilityLabel(step.step.number, step.question, if (done) "Completed" else if (current) "In progress" else "Not started")
             }, onClick = { onAction(GuidedResearchAction.Open(step.step.number)) }, onClickLabel = "Open step ${step.step.number}", verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     StepNumber(step.step.number, done)

@@ -57,10 +57,12 @@ struct AppScene: View {
         _homeModel = State(initialValue: HomeViewModel())
         _marketsModel = State(initialValue: MarketsModel(baseURL: baseURL))
         _watchlistsModel = State(initialValue: WatchlistsModel(client: accounts.client))
-        _screenerModel = State(initialValue: ScreenerModel(accounts: accounts, baseURL: baseURL))
-        _earningsModel = State(initialValue: EarningsModel(accounts: accounts, baseURL: baseURL))
-        _learningModel = State(initialValue: LearningModel(accounts: accounts, baseURL: baseURL))
-        _briefModel = State(initialValue: accounts.client.map { BriefModel(account: $0) })
+        // SwiftUI runs this init on every parent update but keeps only the first @State values, so these models must not observe or load
+        // here; the kept instances are activated once in `.task` (Phase 5C: discarded copies used to repeat screener/earnings/brief requests).
+        _screenerModel = State(initialValue: ScreenerModel(accounts: accounts, baseURL: baseURL, start: false))
+        _earningsModel = State(initialValue: EarningsModel(accounts: accounts, baseURL: baseURL, start: false))
+        _learningModel = State(initialValue: LearningModel(accounts: accounts, baseURL: baseURL, start: false))
+        _briefModel = State(initialValue: accounts.client.map { BriefModel(account: $0, start: false) })
     }
 
     var body: some View {
@@ -121,6 +123,9 @@ struct AppScene: View {
 
             }
             .tint(StockStepsTheme.color(ThemeColors.shared.light.primary))
+            .task {
+                screenerModel.activate(); earningsModel.activate(); learningModel.activate(); briefModel?.activate()
+            }
             // Home and Settings show their own compact headers instead of a navigation title.
             .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .markets && selectedTab != .watchlist && selectedTab != .portfolio))
             // Every client reads the URL per request; reload Home so its data matches the new backend.
@@ -241,7 +246,9 @@ struct AppScene: View {
         }
         .sheet(isPresented: $showingSettings, onDismiss: { NotificationCenter.default.post(name: .stockStepsPlanMayHaveChanged, object: nil) }) {
             NavigationStack {
-                SettingsScene(model: accounts, onSignIn: { showingAuth = true }, appLock: appLock, onEarningsReminders: { showingReminderSettings = true },
+                SettingsScene(model: accounts,
+                              // Settings is itself a sheet: close it first, or SwiftUI silently drops the second presentation (Phase 5C).
+                              onSignIn: { showingSettings = false; showingAuth = true }, appLock: appLock, onEarningsReminders: { showingReminderSettings = true },
                               onEarningsDigest: accounts.client == nil ? nil : { showingSettingsDigest = true })
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingSettings = false } } }
                     .navigationDestination(isPresented: $showingReminderSettings) {

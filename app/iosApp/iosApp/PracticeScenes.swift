@@ -358,7 +358,7 @@ struct PracticeScreen: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(h.instrument.symbol), \(h.instrument.name ?? ""). \(client.shares(value: h.quantity)) shares. Value \(client.money(value: h.marketValue, currency: base)). \(client.direction(value: h.unrealizedGain)) \(client.signedMoney(value: h.unrealizedGain, currency: base)).")
+        .accessibilityLabel(client.holdingDescription(holding: h, currency: base))
         .accessibilityHint("Opens holding details")
     }
 
@@ -447,7 +447,7 @@ struct PracticeScreen: View {
         if let items = state.transactions {
             if items.isEmpty { Text("No simulated transactions here yet.").foregroundStyle(colors.textSecondary) }
             ForEach(items, id: \.id) { t in
-                let detail = t.type.name == "SPLIT_ADJUSTMENT" ? "\(t.quantity)-for-1 split" : "\(client.shares(value: t.quantity)) shares at \(client.price(value: t.price, currency: t.priceCurrency))"
+                let detail = t.type.name == "SPLIT_ADJUSTMENT" ? "\(t.quantity)-for-1 split" : "\(client.shareCount(value: t.quantity)) at \(client.price(value: t.price, currency: t.priceCurrency))"
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(client.type(t: t)) · \(t.instrument.symbol)").font(StockStepsTheme.font(type.bodySemiBold))
@@ -687,7 +687,7 @@ struct PracticeOrderScreen: View {
                 if p.priceCurrency != p.baseCurrency && p.fxRate != "0" {
                     Text("1 \(p.priceCurrency) = \(p.fxRate) \(p.baseCurrency)" + (p.fxAsOf.map { " (Bank of Canada, \($0))" } ?? "")).font(.caption).foregroundStyle(colors.textSecondary)
                 }
-                if state.side.name == "SELL" { DetailRow(label: "You own", value: "\(client.shares(value: p.ownedQuantity)) shares") }
+                if state.side.name == "SELL" { DetailRow(label: "You own", value: client.shareCount(value: p.ownedQuantity)) }
             } else if let error = state.error {
                 Text(error)
             } else {
@@ -709,7 +709,7 @@ struct PracticeOrderScreen: View {
         }
         if let p = state.preview, p.quantity != "0" {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                DetailRow(label: "Quantity", value: "\(client.shares(value: p.quantity)) shares")
+                DetailRow(label: "Quantity", value: client.shareCount(value: p.quantity))
                 DetailRow(label: state.side.name == "BUY" ? "Estimated cost" : "Estimated proceeds", value: client.money(value: p.estimatedTotal, currency: p.baseCurrency))
                 DetailRow(label: "Available virtual cash", value: client.money(value: p.cashAvailable, currency: p.baseCurrency))
                 DetailRow(label: "Cash after this trade", value: client.money(value: p.cashAfter, currency: p.baseCurrency))
@@ -738,7 +738,7 @@ struct PracticeOrderScreen: View {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 DetailRow(label: "Instrument", value: "\(p.instrument.name ?? state.symbol) (\(state.symbol))")
                 DetailRow(label: "Action", value: verb(state))
-                DetailRow(label: "Quantity", value: "\(client.shares(value: p.quantity)) shares")
+                DetailRow(label: "Quantity", value: client.shareCount(value: p.quantity))
                 DetailRow(label: "Indicative price", value: client.price(value: p.price, currency: p.priceCurrency))
                 DetailRow(label: "Estimated total", value: client.money(value: p.estimatedTotal, currency: p.baseCurrency))
                 DetailRow(label: "Cash remaining", value: client.money(value: p.cashAfter, currency: p.baseCurrency))
@@ -760,7 +760,7 @@ struct PracticeOrderScreen: View {
             Text("\(verb(state)) complete").font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title2)).foregroundStyle(colors.positiveText).accessibilityAddTraits(.isHeader)
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 DetailRow(label: "Instrument", value: "\(t.instrument.name ?? t.instrument.symbol) (\(t.instrument.symbol))")
-                DetailRow(label: "Quantity", value: "\(client.shares(value: t.quantity)) shares")
+                DetailRow(label: "Quantity", value: client.shareCount(value: t.quantity))
                 DetailRow(label: "Simulated price", value: client.price(value: t.price, currency: t.priceCurrency))
                 DetailRow(label: "Total", value: client.money(value: t.amount, currency: r.baseCurrency))
                 DetailRow(label: "Virtual cash now", value: client.money(value: r.cashAfter, currency: r.baseCurrency))

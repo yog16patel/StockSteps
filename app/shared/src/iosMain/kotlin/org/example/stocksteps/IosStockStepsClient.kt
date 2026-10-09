@@ -6,13 +6,15 @@ import org.example.stocksteps.model.StockSearchResult
 
 // SwiftUI owns this client. Provider credentials never cross into the app.
 /** `baseUrl` is read per request, so a backend switch applies to the next call. */
-class IosStockStepsClient(baseUrl: () -> String) {
-    private val dependencies = org.example.stocksteps.di.StockStepsDependencies(baseUrl)
-    private val searchStocks = dependencies.searchStocks()
+class IosStockStepsClient internal constructor(private val dependencies: org.example.stocksteps.di.StockStepsDependencies) {
+    constructor(baseUrl: () -> String) : this(org.example.stocksteps.di.StockStepsDependencies(baseUrl))
+    // Use-case properties must not share a name with the suspend functions below: inside `scope.async { searchStocks(query) }` Kotlin
+    // resolves the call to the member function, not the property's invoke, which recursed forever and failed every iOS search (Phase 5C).
+    private val searchStocksUseCase = dependencies.searchStocks()
     private val getCompanyProfile = dependencies.getCompanyProfile()
     private val getCompanyFundamentals = dependencies.getCompanyFundamentals()
     private var fundamentalsJob: Deferred<org.example.stocksteps.model.CompanyFundamentals>? = null
-    private val getCompanyNews = dependencies.companyNews()
+    private val companyNewsUseCase = dependencies.companyNews()
     private var newsJob: Deferred<List<org.example.stocksteps.model.NewsArticle>>? = null
     private val getStockQuote = dependencies.getStockQuote()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -23,7 +25,7 @@ class IosStockStepsClient(baseUrl: () -> String) {
     @Throws(Exception::class)
     suspend fun searchStocks(query: String): List<StockSearchResult> {
         searchJob?.cancel()
-        val job = scope.async { searchStocks(query) }
+        val job = scope.async { searchStocksUseCase(query) }
         searchJob = job
         return job.await()
     }
@@ -47,7 +49,7 @@ class IosStockStepsClient(baseUrl: () -> String) {
     @Throws(Exception::class)
     suspend fun getCompanyNews(symbol: String): List<org.example.stocksteps.model.NewsArticle> {
         newsJob?.cancel()
-        val job = scope.async { getCompanyNews(symbol) }
+        val job = scope.async { companyNewsUseCase(symbol) }
         newsJob = job
         return job.await()
     }

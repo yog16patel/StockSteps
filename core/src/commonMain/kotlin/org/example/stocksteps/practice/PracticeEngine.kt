@@ -156,7 +156,7 @@ object PracticeEngine {
             }
             OrderSide.SELL -> when {
                 held == null -> PracticeBlocker("NO_HOLDING", "You don't hold this investment in your Practice Portfolio.")
-                quantity > held.quantity -> PracticeBlocker("INSUFFICIENT_SHARES", "You can sell up to ${held.quantity} shares.")
+                quantity > held.quantity -> PracticeBlocker("INSUFFICIENT_SHARES", "You can sell up to ${PracticeFormat.shareCount(held.quantity.toString())}.")
                 else -> null
             }
         }

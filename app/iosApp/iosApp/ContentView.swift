@@ -12,28 +12,30 @@ struct ContentView: View {
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
     init(baseURL: @escaping () -> String = { BackendSettings.currentURL }) { self.baseURL = baseURL }
     var body: some View {
-        Group {
-            if accounts.state.initializing {
-                ProgressView("Restoring account…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if hasEnteredApp || accounts.state.user != nil {
-                AppScene(baseURL: baseURL, accounts: accounts, appLock: appLock)
-                    // While locked, the app stays underneath but is hidden from VoiceOver.
-                    .accessibilityHidden(appLock.locked)
-            } else {
-                AuthScene(model: accounts, onDone: { hasEnteredApp = true })
+        // The banner is stacked below the app instead of `.safeAreaInset`: the UIKit tab bar lays out its labels with UIKit's safe area and
+        // ignored the SwiftUI inset, so the banner covered the tab titles. Stacked, the app (tab bar included) ends above the banner.
+        VStack(spacing: 0) {
+            Group {
+                if accounts.state.initializing {
+                    ProgressView("Restoring account…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if hasEnteredApp || accounts.state.user != nil {
+                    AppScene(baseURL: baseURL, accounts: accounts, appLock: appLock)
+                        // While locked, the app stays underneath but is hidden from VoiceOver.
+                        .accessibilityHidden(appLock.locked)
+                } else {
+                    AuthScene(model: accounts, onDone: { hasEnteredApp = true })
+                }
             }
-        }
-        // Opaque unlock surface; the app-switcher snapshot is covered whenever the app can be locked.
-        .overlay {
-            if appLock.locked {
-                AppUnlockView(lock: appLock, onUseAccountLogin: { Task { await accounts.signOut() } })
-            } else if appLock.protects && scenePhase != .active {
-                PrivacyCover()
+            // Opaque unlock surface; the app-switcher snapshot is covered whenever the app can be locked.
+            .overlay {
+                if appLock.locked {
+                    AppUnlockView(lock: appLock, onUseAccountLogin: { Task { await accounts.signOut() } })
+                } else if appLock.protects && scenePhase != .active {
+                    PrivacyCover()
+                }
             }
-        }
-        // Shown whenever the backend reports mock data, so samples are never mistaken for prices.
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // Shown whenever the backend reports mock data, so samples are never mistaken for prices.
             if sampleData { SampleDataBanner() }
         }
         .task(id: backendEnvironment) { sampleData = await BackendInfoService(baseURL: baseURL).isMock() }
@@ -79,6 +81,7 @@ struct SampleDataBanner: View {
             .foregroundStyle(colors.textBody)
             .frame(maxWidth: .infinity)
             .padding(.vertical, CGFloat(StockStepsTheme.spacing.xxs))
-            .background(colors.warningContainer)
+            // Fills the home-indicator strip below the text (container safe area only, so it never paints behind the keyboard).
+            .background(colors.warningContainer.ignoresSafeArea(.container, edges: .bottom))
     }
 }

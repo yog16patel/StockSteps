@@ -12,8 +12,12 @@ final class EarningsRemindersModel {
     @ObservationIgnored let client: IosEarningsClient
     @ObservationIgnored private var subscription: (any AccountSubscription)?
 
-    init(client: IosEarningsClient) {
+    init(client: IosEarningsClient, start: Bool = true) {
         self.client = client
+        if start { activate() }
+    }
+    func activate() {
+        guard subscription == nil else { return }
         subscription = client.observeReminders { [weak self] in self?.state = $0 }
     }
     deinit { subscription?.cancel() }

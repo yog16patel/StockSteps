@@ -45,7 +45,9 @@ class IosPracticeClient(account: IosAccountClient) {
     fun price(value: String?, currency: String) = PracticeFormat.price(value, currency)
     fun percent(value: String?) = PracticeFormat.percent(value)
     fun shares(value: String) = PracticeFormat.shares(value)
+    fun shareCount(value: String) = PracticeFormat.shareCount(value)
     fun direction(value: String?) = PracticeFormat.direction(value)
+    fun holdingDescription(holding: PracticeHoldingView, currency: String) = PracticeFormat.holdingDescription(holding, currency)
     /** 1 gain, -1 loss, 0 none/unavailable. */
     fun sign(value: String?): Int = when (PracticeFormat.positive(value)) { true -> 1; false -> -1; null -> 0 }
     fun date(millis: Long) = PracticeFormat.date(millis)

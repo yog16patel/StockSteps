@@ -14,10 +14,12 @@ final class EarningsModel {
 
     @ObservationIgnored let reminders: EarningsRemindersModel
 
-    init(accounts: AccountViewModel, baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
+    /// `start: false` defers the reminders subscription to `activate()` (see ScreenerModel).
+    init(accounts: AccountViewModel, baseURL: @escaping () -> String = { BackendSettings.currentURL }, start: Bool = true) {
         client = IosEarningsClient(baseUrl: baseURL, account: accounts.client)
-        reminders = EarningsRemindersModel(client: client)
+        reminders = EarningsRemindersModel(client: client, start: start)
     }
+    func activate() { reminders.activate() }
     /// Starts the Markets "Earnings Center" counts on first use.
     func startSummary() {
         guard subscription == nil else { return }

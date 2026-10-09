@@ -16,8 +16,13 @@ final class ScreenerModel {
     @ObservationIgnored let client: IosScreenerClient
     @ObservationIgnored private var subscriptions: [any AccountSubscription] = []
 
-    init(accounts: AccountViewModel, baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
+    /// `start: false` defers observing and loading to `activate()` (AppScene: SwiftUI re-runs its init and keeps only the first model).
+    init(accounts: AccountViewModel, baseURL: @escaping () -> String = { BackendSettings.currentURL }, start: Bool = true) {
         client = IosScreenerClient(baseUrl: baseURL, account: accounts.client)
+        if start { activate() }
+    }
+    func activate() {
+        guard subscriptions.isEmpty else { return }
         subscriptions = [
             client.observeScreener { [weak self] in self?.screener = $0 },
             client.observeComparison { [weak self] in self?.comparison = $0 },

@@ -48,7 +48,12 @@ class LearningService(
     private val details: suspend (String) -> CompanyDetails,
     private val research: ResearchAiProvider?,
     private val aiDailyLimit: Int,
-    private val clock: Clock
+    private val clock: Clock,
+    /**
+     * Real time for rejecting progress timestamped in the future. Devices stamp visits with their own clock, so this must not be the MOCK
+     * market clock (pinned to the fixture capture), which made every fresh visit look "future" and failed all MOCK progress syncs.
+     */
+    private val wallClock: Clock = Clock.systemUTC()
 ) {
     private val aiUsage = ConcurrentHashMap<String, Int>()
     private val symbolPattern = Regex("[A-Z0-9][A-Z0-9.-]{0,19}")
@@ -62,7 +67,7 @@ class LearningService(
 
     private fun validate(document: LearningProgressDocument): LearningProgressDocument {
         if (document.journeys.size > LearningProgressDocument.MAX_JOURNEYS) invalid("Too many companies.")
-        val limit = clock.millis() + 86_400_000
+        val limit = wallClock.millis() + 86_400_000
         return document.copy(journeys = document.journeys.map { j ->
             val symbol = j.symbol.uppercase()
             if (!symbolPattern.matches(symbol)) invalid("Invalid symbol.")

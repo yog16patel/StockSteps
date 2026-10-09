@@ -29,13 +29,14 @@ class LearningRoutesTest {
     private val fixtures = FixtureMarketDataSource()
     private val details = CompanyDetailsService(StockService(fixtures, fixtures), CompanyFinancialService(fixtures), fixtures)
 
-    private fun ApplicationTestBuilder.install(store: UserDataStore = InMemoryUserDataStore(), research: ResearchAiProvider? = TemplateResearchAi, limit: Int = 20, calls: AtomicInteger = AtomicInteger()) {
+    private fun ApplicationTestBuilder.install(store: UserDataStore = InMemoryUserDataStore(), research: ResearchAiProvider? = TemplateResearchAi, limit: Int = 20, calls: AtomicInteger = AtomicInteger(),
+                                               wallClock: Clock = clock) {
         val entitlements = EntitlementService(store, clock::millis, debugAllowed = true)
         val provider = research?.let { inner -> ResearchAiProvider { q, s, snap -> calls.incrementAndGet(); inner.answer(q, s, snap) } }
         application {
             configureApiErrors()
             install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
-            routing { learningRoutes(MockUserAuthenticator(), LearningService(store, entitlements, details::getDetails, provider, limit, clock)) }
+            routing { learningRoutes(MockUserAuthenticator(), LearningService(store, entitlements, details::getDetails, provider, limit, clock, wallClock)) }
         }
     }
 
@@ -47,6 +48,16 @@ class LearningRoutesTest {
     }
     private suspend fun ApplicationTestBuilder.ask(uid: String, question: String = "What does this mean?", symbol: String = "AAPL", step: Int? = 3) =
         client.post("/api/v1/me/research/$symbol/ask") { user(uid); contentType(ContentType.Application.Json); setBody(json.encodeToString(ResearchQuestion.serializer(), ResearchQuestion(question, step))) }
+
+    /** Phase 5C regression: MOCK's market clock is pinned to the fixture capture; devices stamp visits with real time. */
+    @Test fun futureCheckUsesRealTimeNotThePinnedMarketClock() = testApplication {
+        val now = Instant.parse("2026-10-11T12:00:00Z")   // three days after the pinned market clock
+        install(wallClock = Clock.fixed(now, ZoneOffset.UTC))
+        assertEquals(HttpStatusCode.OK, put("dev", doc(journey("AAPL", listOf(1), now.toEpochMilli()))).status)
+        val tooFar = put("dev", doc(journey("KO", listOf(1), now.toEpochMilli() + 2 * 86_400_000L)))
+        assertEquals(HttpStatusCode.BadRequest, tooFar.status)
+        assertTrue(tooFar.bodyAsText().contains("INVALID_PROGRESS"))
+    }
 
     @Test fun progressRequiresSignIn() = testApplication {
         install()

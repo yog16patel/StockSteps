@@ -47,6 +47,17 @@ item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
 
+## Phase 5C — Android & iOS end-to-end integration (2026-10-09) — commit "Fix Phase 5C mobile integration bugs and add end-to-end verification report"
+
+Phase 5C (committed as "Fix Phase 5C mobile integration bugs and add end-to-end verification report", not pushed at commit time): Android & iOS end-to-end tests against the LAN MOCK backend — report `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md`, verdict PASS WITH CONDITIONS; 8 bugs fixed (MOCK learning sync rejected, iOS search recursion, iOS banner over tab titles, "1 shares", holding/step a11y labels, iOS Settings sign-in, iOS duplicate launch requests).
+- Changed: `server/.../learning/LearningService.kt` (+wall-clock future check; the LAN host image built from this tree is content-identical — same `core`/`server` hash), `core/.../practice/{PracticePresentation,PracticeEngine}.kt`
+  (`shareCount`, `holdingDescription`), `core/.../learning/GuidedResearch.kt` (`ResearchStep.accessibilityLabel`), `app/shared` Practice/Research screens and
+  `iosMain` clients (`IosStockStepsClient` rename + test constructor, `IosPracticeClient`, `IosLearningClient`), iOS `ContentView`, `AppScene`,
+  `PracticeScenes`, `GuidedResearchScenes`, `ScreenerScenes`, `EarningsScenes`, `EarningsReminderViews`, `DailyBriefScenes`.
+- New tests: `PracticeFormatTest`, `ResearchStepLabelTest`, `IosStockStepsClientTest`, `LearningRoutesTest` +1. Matrix results: report §6/§8.
+- Environment notes: Firebase Auth emulator accounts only; iOS simulator builds must be ad-hoc signed for Firebase Auth (keychain); the user's Android
+  emulator now has the LAN/auth-emulator debug build installed and its real-account session was signed out — reinstall the normal debug build.
+
 ## Phase 5B Local — LAN Docker deployment and integration (2026-10-09) — commit "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"
 
 Phase 5B Local = local integration milestone. Cloud Run staging deployment remains deferred and unverified. Report: `docs/FINANCIAL_API_PHASE5B_LOCAL_IMPLEMENTATION.md`; operator guide: `docs/LOCAL_DEVELOPMENT_SERVER.md`.
