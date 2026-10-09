@@ -306,6 +306,39 @@
     "sourceUpdatedAt": "2026-10-07T21:15:00Z"
   },
   {
+    "id": "SSHX:2024-Q4",
+    "symbol": "SSHX",
+    "name": "StockSteps Demo History Co.",
+    "exchange": "NYSE",
+    "country": "US",
+    "fiscalYear": 2024,
+    "fiscalQuarter": 4,
+    "periodEnd": "2024-12-31",
+    "date": "2025-02-04",
+    "session": "AFTER_CLOSE",
+    "dateStatus": "CONFIRMED",
+    "source": "StockSteps sample fixture",
+    "updatedAt": "2026-10-07T21:15:00Z",
+    "estimate": {
+      "eps": 0.48,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 395000000.0,
+      "currency": "CAD",
+      "analysts": 6,
+      "source": "StockSteps sample fixture",
+      "asOf": "2026-10-07T21:15:00Z"
+    },
+    "actual": {
+      "eps": 0.5,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 400000000.0,
+      "currency": "CAD",
+      "source": "StockSteps sample fixture",
+      "reportedAt": "2025-02-04T21:00:00Z"
+    },
+    "sourceUpdatedAt": "2026-10-07T21:15:00Z"
+  },
+  {
     "id": "NVDA:2025-Q4",
     "symbol": "NVDA",
     "name": "NVIDIA Corporation",
@@ -540,6 +573,39 @@
       "currency": "USD",
       "source": "StockSteps sample fixture",
       "reportedAt": "2025-04-28T21:00:00Z"
+    },
+    "sourceUpdatedAt": "2026-10-07T21:15:00Z"
+  },
+  {
+    "id": "SSHX:2025-Q1",
+    "symbol": "SSHX",
+    "name": "StockSteps Demo History Co.",
+    "exchange": "NYSE",
+    "country": "US",
+    "fiscalYear": 2025,
+    "fiscalQuarter": 1,
+    "periodEnd": "2025-03-31",
+    "date": "2025-04-29",
+    "session": "AFTER_CLOSE",
+    "dateStatus": "CONFIRMED",
+    "source": "StockSteps sample fixture",
+    "updatedAt": "2026-10-07T21:15:00Z",
+    "estimate": {
+      "eps": 0.5,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 405000000.0,
+      "currency": "USD",
+      "analysts": 6,
+      "source": "StockSteps sample fixture",
+      "asOf": "2026-10-07T21:15:00Z"
+    },
+    "actual": {
+      "eps": 0.52,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 410000000.0,
+      "currency": "USD",
+      "source": "StockSteps sample fixture",
+      "reportedAt": "2025-04-29T21:00:00Z"
     },
     "sourceUpdatedAt": "2026-10-07T21:15:00Z"
   },
@@ -1731,6 +1797,39 @@
     "sourceUpdatedAt": "2026-10-07T21:15:00Z"
   },
   {
+    "id": "SSHX:2025-Q3",
+    "symbol": "SSHX",
+    "name": "StockSteps Demo History Co.",
+    "exchange": "NYSE",
+    "country": "US",
+    "fiscalYear": 2025,
+    "fiscalQuarter": 3,
+    "periodEnd": "2025-09-30",
+    "date": "2025-10-28",
+    "session": "AFTER_CLOSE",
+    "dateStatus": "CONFIRMED",
+    "source": "StockSteps sample fixture",
+    "updatedAt": "2026-10-07T21:15:00Z",
+    "estimate": {
+      "eps": 0.55,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 425000000.0,
+      "currency": "USD",
+      "analysts": 6,
+      "source": "StockSteps sample fixture",
+      "asOf": "2026-10-07T21:15:00Z"
+    },
+    "actual": {
+      "eps": 0.58,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 430000000.0,
+      "currency": "USD",
+      "source": "StockSteps sample fixture",
+      "reportedAt": "2025-10-28T21:00:00Z"
+    },
+    "sourceUpdatedAt": "2026-10-07T21:15:00Z"
+  },
+  {
     "id": "SSLL:2025-Q3",
     "symbol": "SSLL",
     "name": "StockSteps Demo Losses Corp.",
@@ -2535,6 +2634,39 @@
     "sourceUpdatedAt": "2026-10-07T21:15:00Z"
   },
   {
+    "id": "SSHX:2025-Q4",
+    "symbol": "SSHX",
+    "name": "StockSteps Demo History Co.",
+    "exchange": "NYSE",
+    "country": "US",
+    "fiscalYear": 2025,
+    "fiscalQuarter": 4,
+    "periodEnd": "2025-12-31",
+    "date": "2026-02-03",
+    "session": "AFTER_CLOSE",
+    "dateStatus": "CONFIRMED",
+    "source": "StockSteps sample fixture",
+    "updatedAt": "2026-10-07T21:15:00Z",
+    "estimate": {
+      "eps": 0.6,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 440000000.0,
+      "currency": "USD",
+      "analysts": 6,
+      "source": "StockSteps sample fixture",
+      "asOf": "2026-10-07T21:15:00Z"
+    },
+    "actual": {
+      "eps": 0.61,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 445000000.0,
+      "currency": "USD",
+      "source": "StockSteps sample fixture",
+      "reportedAt": "2026-02-03T21:00:00Z"
+    },
+    "sourceUpdatedAt": "2026-10-07T21:15:00Z"
+  },
+  {
     "id": "BCE.TO:2025-Q4",
     "symbol": "BCE.TO",
     "name": "BCE Inc",
@@ -3041,6 +3173,39 @@
       "currency": "USD",
       "source": "StockSteps sample fixture",
       "reportedAt": "2026-04-27T21:00:00Z"
+    },
+    "sourceUpdatedAt": "2026-10-07T21:15:00Z"
+  },
+  {
+    "id": "SSHX:2026-Q1",
+    "symbol": "SSHX",
+    "name": "StockSteps Demo History Co.",
+    "exchange": "NYSE",
+    "country": "US",
+    "fiscalYear": 2026,
+    "fiscalQuarter": 1,
+    "periodEnd": "2026-03-31",
+    "date": "2026-04-28",
+    "session": "AFTER_CLOSE",
+    "dateStatus": "CONFIRMED",
+    "source": "StockSteps sample fixture",
+    "updatedAt": "2026-10-07T21:15:00Z",
+    "estimate": {
+      "eps": 0.57,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 410000000.0,
+      "currency": "USD",
+      "analysts": 6,
+      "source": "StockSteps sample fixture",
+      "asOf": "2026-10-07T21:15:00Z"
+    },
+    "actual": {
+      "eps": 0.55,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 405000000.0,
+      "currency": "USD",
+      "source": "StockSteps sample fixture",
+      "reportedAt": "2026-04-28T21:00:00Z"
     },
     "sourceUpdatedAt": "2026-10-07T21:15:00Z"
   },
@@ -3821,6 +3986,39 @@
     "sourceUpdatedAt": "2026-10-07T21:15:00Z"
   },
   {
+    "id": "SSHX:2026-Q2",
+    "symbol": "SSHX",
+    "name": "StockSteps Demo History Co.",
+    "exchange": "NYSE",
+    "country": "US",
+    "fiscalYear": 2026,
+    "fiscalQuarter": 2,
+    "periodEnd": "2026-06-30",
+    "date": "2026-07-28",
+    "session": "AFTER_CLOSE",
+    "dateStatus": "CONFIRMED",
+    "source": "StockSteps sample fixture",
+    "updatedAt": "2026-10-07T21:15:00Z",
+    "estimate": {
+      "eps": 0.56,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 420000000.0,
+      "currency": "USD",
+      "analysts": 6,
+      "source": "StockSteps sample fixture",
+      "asOf": "2026-10-07T21:15:00Z"
+    },
+    "actual": {
+      "eps": 0.54,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 415000000.0,
+      "currency": "USD",
+      "source": "StockSteps sample fixture",
+      "reportedAt": "2026-07-28T21:00:00Z"
+    },
+    "sourceUpdatedAt": "2026-10-07T21:15:00Z"
+  },
+  {
     "id": "SSLL:2026-Q2",
     "symbol": "SSLL",
     "name": "StockSteps Demo Losses Corp.",
@@ -4475,6 +4673,39 @@
     },
     "source": "StockSteps sample fixture",
     "updatedAt": "2026-10-07T21:15:00Z",
+    "sourceUpdatedAt": "2026-10-07T21:15:00Z"
+  },
+  {
+    "id": "SSHX:2026-Q3",
+    "symbol": "SSHX",
+    "name": "StockSteps Demo History Co.",
+    "exchange": "NYSE",
+    "country": "US",
+    "fiscalYear": 2026,
+    "fiscalQuarter": 3,
+    "periodEnd": "2026-09-30",
+    "date": "2026-10-06",
+    "session": "AFTER_CLOSE",
+    "dateStatus": "CONFIRMED",
+    "source": "StockSteps sample fixture",
+    "updatedAt": "2026-10-07T21:15:00Z",
+    "estimate": {
+      "eps": 0.5,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 430000000.0,
+      "currency": "USD",
+      "analysts": 6,
+      "source": "StockSteps sample fixture",
+      "asOf": "2026-10-07T21:15:00Z"
+    },
+    "actual": {
+      "eps": 0.53,
+      "epsBasis": "GAAP_DILUTED",
+      "revenue": 425000000.0,
+      "currency": "USD",
+      "source": "StockSteps sample fixture",
+      "reportedAt": "2026-10-06T21:00:00Z"
+    },
     "sourceUpdatedAt": "2026-10-07T21:15:00Z"
   },
   {

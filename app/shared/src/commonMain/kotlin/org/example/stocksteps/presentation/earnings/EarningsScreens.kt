@@ -49,6 +49,9 @@ internal sealed interface CalendarAction {
     data object Retry : CalendarAction
     data object SignIn : CalendarAction
     data class Scenario(val name: String?) : CalendarAction
+    /** Phase 5: "Your Earnings Digest" (StockSteps+) and the free watchlist shortcut. */
+    data object Digest : CalendarAction
+    data object RecentWatchlist : CalendarAction
 }
 
 /** MOCK-only demo scenarios; the server ignores them in REAL. */
@@ -64,7 +67,7 @@ private fun dateOf(millis: Long): String = org.example.stocksteps.portfolio.anal
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun EarningsCalendarScreen(state: EarningsCalendarState, modifier: Modifier, reminder: (String) -> ReminderControl? = { null }, onAction: (CalendarAction) -> Unit) {
+internal fun EarningsCalendarScreen(state: EarningsCalendarState, modifier: Modifier, reminder: (String) -> ReminderControl? = { null }, showDigest: Boolean = false, onAction: (CalendarAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -86,6 +89,16 @@ internal fun EarningsCalendarScreen(state: EarningsCalendarState, modifier: Modi
                         SAMPLE_SCENARIOS.forEach { (name, label) -> StockChip(label, state.scenario == name, onClick = { onAction(CalendarAction.Scenario(name)) }) }
                     }
                 }
+            }
+        }
+        if (showDigest) item(key = "digest") {
+            StockCard(Modifier.fillMaxWidth(), onClick = { onAction(CalendarAction.Digest) }, onClickLabel = "Open your earnings digest", verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Your Earnings Digest", Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+                    PlusBadge()
+                }
+                Text("What happened this week with the companies on your watchlists.", style = typography.small, color = colors.textSecondary)
+                StockButton("Recent Earnings From Your Watchlist", onClick = { onAction(CalendarAction.RecentWatchlist) }, variant = StockButtonVariant.TEXT)
             }
         }
         item(key = "week") { WeekStrip(state, onAction) { picking = true } }
@@ -505,7 +518,8 @@ internal sealed interface ResultsAction {
  * Every number and sentence comes from the server's calculations via the presenter; this only renders.
  */
 @Composable
-internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifier, reaction: EarningsPriceReactionState? = null, onAction: (ResultsAction) -> Unit) {
+internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifier, reaction: EarningsPriceReactionState? = null,
+                                   premium: EarningsPremiumState? = null, onPremium: (PremiumAction) -> Unit = {}, onAction: (ResultsAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -523,6 +537,8 @@ internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifi
             state.quarterOverQuarter?.let { item(key = "qoq") { RevenueGrowthCard(it) } }
             state.takeaway?.let { takeaway -> item(key = "takeaway") { EarningsTakeawayCard(takeaway, state.warnings) } }
             reaction?.let { r -> item(key = "reaction") { PriceReactionSection(r, onAction) { lesson = it } } }
+            // Phase 5 (StockSteps+): after every free section, so nothing free is pushed down or hidden.
+            if (premium != null && !state.offline) premiumEarningsItems(premium, onPremium)
             item(key = "learn") {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                     Text("Learn More", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)

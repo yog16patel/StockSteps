@@ -615,6 +615,13 @@ private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarnin
                     state.latestSummary?.let { Text(it, style = typography.bodySemiBold, color = colors.textPrimary) }
                 }
                 StockButton("View Results", onClick = { onAction(CompanyDetailsAction.LatestResults) }, variant = StockButtonVariant.OUTLINED)
+                // Phase 5 preview: the AI explanation lives on Earnings Results (StockSteps+, checked by the server there).
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+                    Text("AI Earnings Insight: a plain-English explanation of these results, built only from verified figures.", Modifier.weight(1f),
+                        style = typography.caption, color = colors.textSecondary)
+                    org.example.stocksteps.presentation.earnings.PlusBadge()
+                }
+                StockButton("Explain With AI", onClick = { onAction(CompanyDetailsAction.LatestResults) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb)
             }
             if (state.sampleData) Text("Sample earnings data.", style = typography.caption, color = colors.cautionText)
             Row(horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {

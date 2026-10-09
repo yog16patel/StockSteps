@@ -73,6 +73,8 @@ internal fun SettingsScreen(state: SettingsUiState, hinge: WindowHinge?, showHea
                         LinkRow(SettingsLink.MARKET_NEWS, Res.string.settings_market_news, StockIcons.News, state, onAction, Res.string.settings_market_news_subtitle)
                         RowDivider()
                         LinkRow(SettingsLink.EARNINGS_REMINDERS, Res.string.settings_earnings_reminders, StockIcons.Bell, state, onAction, Res.string.settings_earnings_reminders_subtitle)
+                        RowDivider()
+                        LinkRow(SettingsLink.EARNINGS_DIGEST, Res.string.settings_earnings_digest, StockIcons.Lightbulb, state, onAction, Res.string.settings_earnings_digest_subtitle)
                     }
                 }
                 state.backendEnvironment?.let { environment ->

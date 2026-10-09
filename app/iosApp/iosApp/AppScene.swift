@@ -32,6 +32,10 @@ struct AppScene: View {
     /// Earnings Reminders settings (from Settings or the Watchlist shortcut).
     @State private var showingReminderSettings = false
     @State private var showingEarningsReminders = false
+    /// Phase 5: StockSteps+ earnings digest and its settings.
+    @State private var showingEarningsDigest = false
+    @State private var showingDigestSettings = false
+    @State private var showingSettingsDigest = false
     @State private var learningModel: LearningModel
     @State private var researchTarget: ResearchTarget?
     @State private var practiceModel: PracticeModel?
@@ -131,7 +135,8 @@ struct AppScene: View {
                     DailyBriefScene(target: target, model: briefModel, onOpenStock: explore, onHistory: { showingBriefHistory = true },
                                     onWatchlist: { briefTarget = nil; selectedTab = .watchlist }, onLearn: { briefTarget = nil; selectedTab = .learn },
                                     onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true },
-                                    onOpenEarnings: { earningsEventId = $0 }, onOpenResults: { earningsResultsId = $0 })
+                                    onOpenEarnings: { earningsEventId = $0 }, onOpenResults: { earningsResultsId = $0 },
+                                    onOpenDigest: { showingEarningsDigest = true })
                 }
             }
             .navigationDestination(isPresented: $showingBriefHistory) {
@@ -167,7 +172,8 @@ struct AppScene: View {
             }
             .navigationDestination(item: $earningsCalendar) { target in
                 EarningsCalendarScene(target: target, client: earningsModel.client, onOpen: { earningsEventId = $0 }, onSignIn: { showingAuth = true },
-                                      onOpenResults: { earningsResultsId = $0 }, reminders: earningsModel.reminders)
+                                      onOpenResults: { earningsResultsId = $0 }, reminders: earningsModel.reminders,
+                                      onDigest: accounts.client == nil ? nil : { showingEarningsDigest = true })
                     .id(target.id)
             }
             .navigationDestination(item: $earningsEventId) { id in
@@ -185,9 +191,21 @@ struct AppScene: View {
             }
             .navigationDestination(item: $earningsResultsId) { id in
                 EarningsResultsScene(reportId: id, client: earningsModel.client, onCompany: explore,
-                                     onLearn: { earningsResultsId = nil; selectedTab = .learn })
+                                     onLearn: { earningsResultsId = nil; selectedTab = .learn },
+                                     // No purchase flow exists yet: Settings shows the plan (and, in MOCK, the simulated plan switch).
+                                     onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true })
                     .id(id)
             }
+            .navigationDestination(isPresented: $showingEarningsDigest) {
+                EarningsDigestScene(client: earningsModel.client, onOpenResults: { earningsResultsId = $0 }, onOpenEvent: { earningsEventId = $0 },
+                                    onSettings: { showingDigestSettings = true }, onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true },
+                                    onRecentWatchlist: { earningsCalendar = EarningsCalendarTarget(filter: "WATCHLIST") })
+            }
+            .navigationDestination(isPresented: $showingDigestSettings) {
+                EarningsDigestSettingsScene(client: earningsModel.client, permissionDenied: earningsModel.reminders.state?.permissionGranted?.boolValue == false,
+                                            onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true }, onReminders: { showingEarningsReminders = true })
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsDigest)) { _ in showingEarningsDigest = true }
             .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsResults)) { note in
                 if let id = note.object as? String, !id.isEmpty { earningsResultsId = id }
             }
@@ -219,12 +237,19 @@ struct AppScene: View {
                 accounts.client?.setEnvironment(environment: BackendSettings.environment)
             }
         }
-        .sheet(isPresented: $showingSettings) {
+        .sheet(isPresented: $showingSettings, onDismiss: { NotificationCenter.default.post(name: .stockStepsPlanMayHaveChanged, object: nil) }) {
             NavigationStack {
-                SettingsScene(model: accounts, onSignIn: { showingAuth = true }, appLock: appLock, onEarningsReminders: { showingReminderSettings = true })
+                SettingsScene(model: accounts, onSignIn: { showingAuth = true }, appLock: appLock, onEarningsReminders: { showingReminderSettings = true },
+                              onEarningsDigest: accounts.client == nil ? nil : { showingSettingsDigest = true })
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingSettings = false } } }
                     .navigationDestination(isPresented: $showingReminderSettings) {
                         EarningsRemindersSettingsScene(model: earningsModel.reminders, onSignIn: { showingSettings = false; showingAuth = true })
+                    }
+                    .navigationDestination(isPresented: $showingSettingsDigest) {
+                        // Already inside Settings: the plan section is one step back.
+                        EarningsDigestSettingsScene(client: earningsModel.client, permissionDenied: earningsModel.reminders.state?.permissionGranted?.boolValue == false,
+                                                    onUpgrade: { showingSettingsDigest = false }, onSignIn: { showingSettings = false; showingAuth = true },
+                                                    onReminders: { showingReminderSettings = true })
                     }
             }
         }

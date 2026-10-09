@@ -31,6 +31,8 @@ internal sealed interface BriefAction {
     data class OpenEarnings(val eventId: String) : BriefAction
     /** Opens Earnings Results for a reported highlight. */
     data class OpenResults(val reportId: String) : BriefAction
+    /** Opens the StockSteps+ personalized earnings digest (Phase 5). */
+    data object EarningsDigest : BriefAction
     data class Explain(val storyId: String) : BriefAction
     data class Ask(val question: String) : BriefAction
     data object History : BriefAction
@@ -297,6 +299,10 @@ private fun WatchlistSection(state: DailyBriefUiState, onAction: (BriefAction) -
             }
         }
         personal?.notes?.firstOrNull { it.startsWith("Watching") }?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+        if (state.signedIn && (personal?.watchlistCount ?: 0) > 0) Row(verticalAlignment = Alignment.CenterVertically) {
+            StockButton("Your Earnings Digest", onClick = { onAction(BriefAction.EarningsDigest) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb, modifier = Modifier.weight(1f, fill = false))
+            org.example.stocksteps.presentation.earnings.PlusBadge()
+        }
     }
 }
 

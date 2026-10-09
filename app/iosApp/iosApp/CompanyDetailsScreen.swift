@@ -69,7 +69,17 @@ struct CompanyDetailsScreen: View {
                         if let summary = e.latestSummary { Text(summary).font(.headline).foregroundStyle(colors.textPrimary) }
                     }
                     .accessibilityElement(children: .combine)
-                    if let onLatestResults { Button("View Results", action: onLatestResults).buttonStyle(.bordered).frame(minHeight: 48) }
+                    if let onLatestResults {
+                        Button("View Results", action: onLatestResults).buttonStyle(.bordered).frame(minHeight: 48)
+                        // Phase 5 preview: the AI explanation lives on Earnings Results (StockSteps+, checked by the server there).
+                        HStack(alignment: .top) {
+                            Text("AI Earnings Insight: a plain-English explanation of these results, built only from verified figures.")
+                                .font(.caption).foregroundStyle(colors.textSecondary)
+                            Spacer(minLength: 4)
+                            PlusBadge()
+                        }
+                        Button("Explain With AI", systemImage: "lightbulb", action: onLatestResults).frame(minHeight: 48)
+                    }
                 }
                 if let earningsReminder, e.eventId != nil { ReminderControlButton(control: earningsReminder, compact: true, action: onRemindEarnings) }
                 if e.sampleData { Text("Sample earnings data.").font(.caption).foregroundStyle(colors.cautionText) }

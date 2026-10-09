@@ -1,34 +1,19 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-08 against the repository (`main`, latest commit **"Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"**, pushed). Verify with
+Last reviewed: 2026-10-08 (end-of-session handoff) against the repository (`main`, latest commit **`87acb1d` "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"**, pushed). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-The **Daily Market Brief** is committed and pushed as **c92ec89 "Add Daily Market Brief on Android and iOS"** (the commit after `a4a4aeb`);
-this file and `CLAUDE.md` were added in the same commit. No application code is uncommitted; the only
-working-tree changes are documentation (`CLAUDE.md`, this file, `PROJECT_HANDOFF.md` session handoff,
-2026-10-08) plus the new `docs/PROJECT_HANDOFF.md` (full end-of-session handoff: objective, decisions,
-verified vs unverified results, next steps). See also the "Session handoff" section at the top of the root
-`PROJECT_HANDOFF.md`, which is the canonical milestone log.
+HEAD is **"Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS"** (on top of `87acb1d`, Phase 4). Earnings Intelligence Lite Phases 1–5 are done; see
+`docs/EARNINGS.md` (newest phase first). **No feature is in progress.**
 
-Verification of `c92ec89` (test-result XML re-checked 2026-10-08): core JVM 299, server 247, core iOS 298,
-shared Android host 55, shared iOS 49 — 0 failures. Android assembleDebug/installDebug and iOS xcodebuild
-BUILD SUCCEEDED and live MOCK checks passed before the commit (not re-run since). MOCK server on :8081
-was running the committed code at session end.
+Verification after Phase 5: core JVM 341, core iOS 341, server 316, shared Android host 55, shared iOS 49 — 0 failures; `:app:androidApp:assembleDebug` succeeded; iOS `xcodebuild` (default DerivedData) BUILD SUCCEEDED; live MOCK curl checks passed. Real billing, push delivery, Cloud Scheduler, Firestore indexes, REAL Gemini output
+and the REAL deployment are **unverified**.
 
-Next steps:
-0. Earnings Reminders (Phase 4) is committed and pushed ("Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"); real push delivery still unverified.
-   Price Reaction (Phase 3) is committed and pushed ("Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS").
-   Earnings Results (Phase 2) is committed and pushed ("Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS").
-   Earnings Calendar (Phase 1) is committed and pushed ("Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"); Phase 2
-   (EPS/revenue vs estimates on the event screen) is the next earnings phase.
-1. Ask the user for the next feature request or which §4 item to take.
-2. Device walkthrough of Home card → brief reader → Scenarios menu → notification preferences
-   (small screens, large text) — only when the user asks to drive the UI.
-3. Production dependencies (§4): deploy the backend, Cloud Scheduler for `/internal/daily-brief/dispatch`,
-   `GEMINI_API_KEY` for REAL brief AI.
+Next steps (ask the user): device walkthrough of Phases 1–5; StockSteps+ billing; shared quota/cache storage for
+multi-instance; production push/scheduler (§4). Build iOS without `-derivedDataPath`.
 
 ## 1. Feature status
 
@@ -36,6 +21,7 @@ Next steps:
 
 | Feature | Commit (title) | Doc | Notes |
 |---|---|---|---|
+| StockSteps+ Premium Earnings Intelligence — Earnings Intelligence Lite Phase 5 (AI explanations, report-scoped questions, 8-quarter history, personalized weekly digest, fair-use quotas) | "Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS" | `docs/EARNINGS.md` (Phase 5) | StockSteps+; MOCK plans only (no billing); in-memory quotas/caches. |
 | Earnings reminders & smart notifications — Earnings Intelligence Lite Phase 4 (backend scheduling, opt-in watchlist reminders, results/date-change notices, deep links) | "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS" | `docs/EARNINGS.md` (Phase 4) | Free; earnings alerts migrated; real FCM/APNs delivery and Cloud Scheduler not verified. |
 | Post-earnings price reaction — Earnings Intelligence Lite Phase 3 (calendar-aware First/3/5-session windows, chart, explanations) | "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS" | `docs/EARNINGS.md` (Phase 3) | Free; regular-session closes only; no corporate-action feed in REAL. |
 | Earnings Results & beginner explanations — Earnings Intelligence Lite Phase 2 (exact EPS/revenue comparisons, YoY/QoQ, takeaways) | "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS" | `docs/EARNINGS.md` (Phase 2) | Free; classification now exact (MET only when equal); REAL lacks publication/revision metadata. |
@@ -82,8 +68,19 @@ None.
 - **AI**: Gemini JSON client (`news/GeminiInsights.kt` `GeminiJsonCall`) with validators
   (`InsightValidator`, `BriefAiValidator`); templates in MOCK.
 - **Push**: devices stored via `DeviceRegistrar`; server `PushSender` (FCM in REAL, `SimulatedPushSender`
-  in MOCK). Deep links: Android `notificationLinks` channel (`"brief:<id>"` or alert symbol); iOS
-  `NotificationCenter` names `.stockStepsOpenAlerts`, `.stockStepsOpenBrief`.
+  in MOCK; `MockScenarioPushSender` for earnings reminders). `PushMessage.channel` selects the Android
+  channel (`stock_alerts`, `earnings_reminders`). Deep links: Android `notificationLinks` channel
+  (`"brief:<id>"`, `"earnings:<eventId>"`, `"earnings-results:<reportId>"`, `"earnings-calendar"`, or an
+  alert symbol); iOS `NotificationCenter` names `.stockStepsOpenAlerts`, `.stockStepsOpenBrief`,
+  `.stockStepsOpenEarningsEvent`, `.stockStepsOpenEarningsResults`.
+- **Earnings Intelligence Lite** (server-authoritative; apps only format):
+  - identity `SYMBOL:YYYY-Qn` (fiscal period, exchange-qualified symbol);
+  - calendar status only from source data;
+  - exact decimal maths (`EarningsMath`, MET only when equal);
+  - one price-reaction engine on exchange calendars (`PriceReactionEngine`, also used by Earnings Details);
+  - one earnings notification system (`EarningsReminderService`; legacy EARNINGS alert rules are migrated
+    and no longer evaluated by `AlertEvaluator`);
+  - reminder deliveries deduplicated by a unique key with an atomic claim and lease.
 
 ## 3. Business rules and requirements
 
@@ -103,6 +100,14 @@ None.
   Day, last 3 briefs; Plus = full personal overlay, more stories, AI, full history, personalized
   notifications. Never "today" for an old brief. Notifications opt-in, once per brief, market days only.
 
+- **Earnings Intelligence Lite (free)**:
+  - calendar, event details, results, price reaction and reminders are free for everyone;
+  - StockSteps+ keeps the older Earnings Details full history, advanced insights and AI;
+  - reminders: 1/3/7 calendar days before, the user's delivery time and IANA zone, opt-in automatic
+    watchlist reminders (off by default), results notifications only after verified publication,
+    optional date-change notices, cancellation notices only from an explicit source flag;
+  - nothing is a trading signal.
+
 ## 4. Pending tasks
 
 1. **Deploy the backend** (Cloud Run) with Practice, Learning and Brief routes; Practice/Learning/Brief
@@ -115,6 +120,18 @@ None.
 5. Device/simulator walkthroughs and UI-automation tests (none exist; presenters are unit-tested).
 6. REAL AI provider for earnings and learning explanations (currently 503).
 7. Optional: system Back inside Guided Research steps; retry queue for brief pushes; TSX early closes.
+8. **Earnings Intelligence Lite Phase 5** production gaps: store billing/receipt verification, shared (multi-instance) quota and AI caches,
+   REAL Gemini output review, a secondary results provider, filing/press-release links, split data for EPS history.
+9. **Verify earnings push end to end**:
+   - Firebase project (`FIREBASE_PROJECT_ID`, ADC with the FCM Admin role);
+   - APNs key in Firebase; iOS Push Notifications and Background Modes capabilities;
+   - Firestore indexes `earningsDeliveries` (status, dueAt) and (status, leaseUntil);
+   - one Android and one iOS device.
+10. A REAL **corporate-action source** for price reactions (and Practice); intraday/extended-hours data if a plan supports it.
+11. UI automation and accessibility checks for the earnings screens.
+12. Cleanup: the unused `EarningsDetailsState.reminder`/`reminderBusy` and the alerts collection in `EarningsDetailsPresenter`.
+13. Phase 5 follow-ups: Settings plan simulator segments for grace/canceled/payment-failed (debug API only today); persist
+    conversations/explanations in Firestore; a real paywall/checkout once billing exists.
 
 ## 5. Known limitations / bugs to watch
 
@@ -129,6 +146,18 @@ None.
 - Firestore Practice document is per user, bounded (5,000 transactions/generation, 5 archives).
 - Brief history persistence relies on briefs being requested (no scheduled generation yet).
 - Android emulator needs `adb reverse tcp:8081 tcp:8081` again after restarts.
+- REAL earnings data gaps:
+  - Finnhub: no publication time, revision flag, estimate period, exact announcement time, or
+    postponed/canceled flags;
+  - FMP daily closes only (no OHLC, intraday or extended hours);
+  - no corporate-action feed;
+  - rule-based calendars (no TSX early closes);
+  - TSX coverage unverified.
+- Earnings reminder and delivery state is in-memory in MOCK (cleared on restart). The MOCK server's Gradle
+  daemon can die during other Gradle runs, so restart `runMock` if `/health` fails.
+- Disk space on the dev machine is tight. The previous session's scratch iOS derived data is broken; use
+  the default DerivedData.
+- Phase 1–4 screens have no device walkthrough or accessibility audit yet; there are no UI automation tests.
 
 ## 6. Where things are
 
@@ -137,7 +166,8 @@ None.
 | Daily Brief | `brief/DailyBriefModels.kt`, `DailyBriefPresentation.kt` | `brief/BriefSessions.kt`, `DailyBriefService.kt`, `BriefAi.kt`, `DailyBriefRoutes.kt` | `presentation/brief/*`, Home/Markets cards | `DailyBriefScenes.swift`, `IosBriefClient.kt` |
 | Practice | `practice/PracticeModels.kt`, `PracticeEngine.kt`, `PracticeContent.kt`, `PracticePresentation.kt` | `practice/PracticeService.kt`, `PracticeRoutes.kt` | `presentation/practice/*` | `PracticeScenes.swift`, `IosPracticeClient.kt` |
 | Guided Research | `learning/*` | `learning/LearningService.kt` | `presentation/research/*`, `presentation/learn/*` | `GuidedResearchScenes.swift`, `IosLearningClient.kt` |
-| Earnings | `earnings/*` | `earnings/*` | `presentation/earnings/*` | `EarningsScenes.swift` |
+| Earnings (Phases 1–4) | `earnings/EarningsCalendar.kt`, `EarningsResults.kt`, `EarningsPriceReaction.kt`, `EarningsReminders.kt`, plus `EarningsModels/Calculations/Presentation.kt` | `earnings/EarningsService.kt`, `EarningsSources.kt`, `PriceReactionEngine.kt`, `EarningsReminderService.kt`, `EarningsReaction.kt` | `presentation/earnings/*` (`EarningsRoute`, `EarningsScenes`, `EarningsScreens`, `EarningsReminderUi`, `DeviceZone`) | `EarningsScenes.swift`, `EarningsReminderViews.swift`, `IosEarningsClient.kt` |
+| Earnings fixtures | — | `scripts/generate_earnings_fixtures.py` → `fixtures/earnings/events.json`, `price-scenarios.json` | — | — |
 | Screener/Compare | `screener/*` | `screener/*` | `presentation/screener/*` | `ScreenerScenes.swift` |
 | Portfolio (+Insights) | `portfolio/*`, `portfolio/analytics/*` | `userdata/Portfolio*.kt` | `presentation/portfolio/*` | `Portfolio*.swift` |
 | Entitlements | `portfolio/analytics/EntitlementsRepository.kt` | `userdata/PortfolioAnalyticsService.kt` (`EntitlementService`) | Settings simulated plan | `SettingsScreen.swift` |

@@ -19,7 +19,9 @@ import kotlinx.serialization.Serializable
 }
 
 @Serializable enum class EarningsNotificationType(val label: String) {
-    PRE_EARNINGS("Upcoming earnings"), RESULTS_AVAILABLE("Results available"), DATE_CHANGED("Date updated"), EVENT_CANCELED("Report canceled")
+    PRE_EARNINGS("Upcoming earnings"), RESULTS_AVAILABLE("Results available"), DATE_CHANGED("Date updated"), EVENT_CANCELED("Report canceled"),
+    /** Phase 5, StockSteps+: the opt-in weekly digest (counts only; the app fetches the digest). */
+    WEEKLY_DIGEST("Weekly earnings digest")
 }
 
 /** Gateway submission status. SUBMITTED means the push service accepted it, not that a device showed it. */

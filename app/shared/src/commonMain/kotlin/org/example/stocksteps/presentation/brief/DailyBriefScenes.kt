@@ -30,7 +30,8 @@ internal fun DailyBriefScene(
     onSignIn: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenEarnings: (String) -> Unit = {},
-    onOpenResults: (String) -> Unit = {}
+    onOpenResults: (String) -> Unit = {},
+    onOpenDigest: () -> Unit = {}
 ) {
     val state by presenter.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
@@ -38,7 +39,7 @@ internal fun DailyBriefScene(
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             DailyBriefScreen(state, briefNow(), Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize()) { action ->
-                handle(action, presenter, { runCatching { uriHandler.openUri(it) } }, onOpenStock, onHistory, onOpenBrief, onWatchlist, onLearn, onSignIn, onUpgrade, onOpenEarnings, onOpenResults)
+                handle(action, presenter, { runCatching { uriHandler.openUri(it) } }, onOpenStock, onHistory, onOpenBrief, onWatchlist, onLearn, onSignIn, onUpgrade, onOpenEarnings, onOpenResults, onOpenDigest)
             }
         }
     }
@@ -65,9 +66,10 @@ internal fun DailyBriefHistoryScene(presenter: DailyBriefPresenter, hinge: Windo
 private fun handle(
     action: BriefAction, presenter: DailyBriefPresenter, openUrl: (String) -> Unit, onOpenStock: (String) -> Unit, onHistory: () -> Unit,
     onOpenBrief: (String) -> Unit, onWatchlist: () -> Unit, onLearn: () -> Unit, onSignIn: () -> Unit, onUpgrade: () -> Unit, onOpenEarnings: (String) -> Unit,
-    onOpenResults: (String) -> Unit
+    onOpenResults: (String) -> Unit, onOpenDigest: () -> Unit
 ) {
     when (action) {
+        BriefAction.EarningsDigest -> onOpenDigest()
         BriefAction.Retry -> presenter.loadLatest()
         is BriefAction.OpenUrl -> openUrl(action.url)
         is BriefAction.OpenStock -> onOpenStock(action.symbol)

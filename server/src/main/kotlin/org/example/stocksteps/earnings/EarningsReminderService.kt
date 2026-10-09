@@ -181,7 +181,9 @@ class EarningsReminderService(
     private val clock: Clock,
     private val sampleData: Boolean,
     private val maxUsers: Int = 2_000,
-    private val batch: Int = 500
+    private val batch: Int = 500,
+    /** Phase 5: the StockSteps+ weekly digest uses this same pipeline (null disables it). */
+    private val digests: EarningsDigestService? = null
 ) {
     private val log = LoggerFactory.getLogger("StockSteps.EarningsReminders")
     private val running = Mutex()
@@ -253,7 +255,23 @@ class EarningsReminderService(
                 autoDates = c.autoDates + plan.autoDates) to Unit
         }
         var created = 0; var rescheduled = 0; var canceled = 0; var late = 0
-        val desired = plan.notifications.associateBy { it.key }
+        val desired = plan.notifications.associateBy { it.key }.mapValues { Unit }.toMutableMap()
+        // Weekly digest: one delivery per ISO week; content and plan are re-verified at send time.
+        digests?.plannedDelivery(doc, now)?.let { (week, at) ->
+            val key = ReminderPlanner.key(uid, EarningsNotificationType.WEEKLY_DIGEST, "digest:$week")
+            desired[key] = Unit
+            store.updateEarningsDelivery(key) { existing ->
+                when {
+                    existing == null -> { created++; EarningsNotificationDelivery(key, uid, null, "digest:$week", null, "", EarningsNotificationType.WEEKLY_DIGEST, at.toEpochMilli(),
+                        EarningsDigestService.TITLE, "Your weekly earnings digest is ready.", mapOf("type" to "earnings-digest", "digestWeek" to week, "notificationId" to hash(key),
+                            "payloadVersion" to ReminderPolicy.PAYLOAD_VERSION), createdAt = now.toEpochMilli()) }
+                    existing.status == NotificationDeliveryStatus.PENDING && existing.scheduledFor != at.toEpochMilli() -> { rescheduled++; existing.copy(scheduledFor = at.toEpochMilli()) }
+                    existing.status == NotificationDeliveryStatus.CANCELED && existing.failureReason == RECONCILED && at.plus(ReminderPlanner.LATE_GRACE) > now -> { created++
+                        existing.copy(status = NotificationDeliveryStatus.PENDING, scheduledFor = at.toEpochMilli(), failureReason = null) }
+                    else -> null
+                }
+            }
+        }
         for (n in plan.notifications) {
             store.updateEarningsDelivery(n.key) { existing ->
                 when {
@@ -269,7 +287,7 @@ class EarningsReminderService(
         }
         // Pending notifications the schedule no longer wants (removed reminder, moved date, turned off).
         for (d in store.earningsDeliveries(uid, 500).filter { it.status == NotificationDeliveryStatus.PENDING && it.key !in desired }) {
-            val oneOff = d.type != EarningsNotificationType.PRE_EARNINGS && doc.preferences.enabled
+            val oneOff = d.type != EarningsNotificationType.PRE_EARNINGS && d.type != EarningsNotificationType.WEEKLY_DIGEST && doc.preferences.enabled
             if (oneOff) continue
             // A reminder whose time has passed is skipped (late policy), not "no longer requested".
             val missed = d.type == EarningsNotificationType.PRE_EARNINGS && now.toEpochMilli() > d.scheduledFor + ReminderPlanner.LATE_GRACE.toMillis()
@@ -289,6 +307,7 @@ class EarningsReminderService(
         val type = when (n.type) {
             EarningsNotificationType.PRE_EARNINGS -> "earnings-reminder"; EarningsNotificationType.RESULTS_AVAILABLE -> "earnings-results"
             EarningsNotificationType.DATE_CHANGED -> "earnings-date-changed"; EarningsNotificationType.EVENT_CANCELED -> "earnings-canceled"
+            EarningsNotificationType.WEEKLY_DIGEST -> "earnings-digest"
         }
         val reportId = n.event.id.takeIf { n.type == EarningsNotificationType.RESULTS_AVAILABLE }
         // Versioned, identifiers only: no account data; the app re-fetches everything it shows.
@@ -417,6 +436,21 @@ class EarningsReminderService(
             if (claimed.type == EarningsNotificationType.PRE_EARNINGS && now > claimed.scheduledFor + ReminderPlanner.LATE_GRACE.toMillis()) {
                 finish(NotificationDeliveryStatus.CANCELED, "Delivery window passed"); r = r.copy(late = r.late + 1); continue
             }
+            // Weekly digest: StockSteps+ and the opt-in are re-checked now, and an empty week sends nothing.
+            var body = claimed.body
+            var data = claimed.data
+            if (claimed.type == EarningsNotificationType.WEEKLY_DIGEST) {
+                val ready = try { digests?.notification(claimed.uid, java.time.Instant.ofEpochMilli(claimed.scheduledFor)) } catch (cause: Exception) {
+                    if (cause is CancellationException) throw cause
+                    if (claimed.attempts < MAX_ATTEMPTS) { finish(NotificationDeliveryStatus.PENDING, "Digest couldn't be prepared") { it.copy(nextAttemptAt = now + backoff(claimed.attempts)) }; r = r.copy(retried = r.retried + 1) }
+                    else { finish(NotificationDeliveryStatus.FAILED, "Digest couldn't be prepared"); r = r.copy(failed = r.failed + 1) }
+                    continue
+                }
+                if (ready == null) { finish(NotificationDeliveryStatus.CANCELED, "Nothing to send (digest off, StockSteps+ ended, or nothing to report)"); continue }
+                body = ready.first
+                data = data + ("digestId" to ready.second.digestId)
+                store.updateEarningsDelivery(claimed.idempotencyKey) { d -> d?.copy(body = body, data = data) }
+            }
             val devices = store.devices(claimed.uid).filter { it.deviceId !in claimed.acceptedDevices }
             if (devices.isEmpty() && claimed.acceptedDevices.isEmpty()) { finish(NotificationDeliveryStatus.FAILED, "No registered device"); r = r.copy(failed = r.failed + 1); continue }
             val accepted = claimed.acceptedDevices.toMutableList()
@@ -424,7 +458,7 @@ class EarningsReminderService(
             var retry: String? = null
             var permanent: String? = null
             for (device in devices) {
-                when (val result = sender.send(PushMessage(device.token, claimed.title, claimed.body, claimed.data, channel = "earnings_reminders"))) {
+                when (val result = sender.send(PushMessage(device.token, claimed.title, body, data, channel = "earnings_reminders"))) {
                     is PushResult.Accepted -> { accepted += device.deviceId; messageId = messageId ?: result.messageId }
                     PushResult.Simulated -> { accepted += device.deviceId; messageId = messageId ?: "simulated" }
                     PushResult.InvalidToken -> { store.removeToken(device.token); r = r.copy(invalidTokens = r.invalidTokens + 1) }

@@ -76,6 +76,7 @@ final class PushCoordinator: NSObject, UNUserNotificationCenterDelegate {
             let event = info["eventId"] as? String
             await MainActor.run {
                 if kind == "earnings-results", let report { NotificationCenter.default.post(name: .stockStepsOpenEarningsResults, object: report) }
+                else if kind == "earnings-digest" { NotificationCenter.default.post(name: .stockStepsOpenEarningsDigest, object: nil) }
                 else { NotificationCenter.default.post(name: .stockStepsOpenEarningsEvent, object: event ?? "") }
             }
             return

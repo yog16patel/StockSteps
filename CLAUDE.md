@@ -13,7 +13,9 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-08)
 
-Latest commit: "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS" (pushed), after `dc9843d` (Price Reaction, Phase 3). No feature in progress; nothing uncommitted (see the top of `PROJECT_HANDOFF.md`). Next steps and
+Latest commit: "Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS", after `87acb1d` (Phase 4).
+Earnings Intelligence Lite Phases 1–5 are committed (spec: `docs/EARNINGS.md`, Phase 5 = StockSteps+ premium earnings
+intelligence). No feature in progress. Read `docs/PROJECT_HANDOFF.md` (end-of-session handoff) first; next steps and
 production dependencies are in `docs/project-status.md` §0 and §4. A local MOCK server may still be
 running on :8081 (restart after server changes; stop with `./gradlew :server:stopMock`).
 
@@ -56,6 +58,16 @@ Core feature packages: `brief` (Daily Market Brief), `practice` (Practice Portfo
   `PROJECT_HANDOFF.md` in the same commit (completed work, validation, limits, next items), identify the
   current commit by title, and never describe committed work as uncommitted. Commit trailer:
   `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- **Earnings** (permanent since Phases 1–4):
+  - event/report identity is `SYMBOL:YYYY-Qn` (fiscal period, exchange-qualified symbol);
+  - status comes from source data, never from the date passing;
+  - EPS/revenue classification is exact decimal (MET only when equal, no tolerance) via `EarningsMath`;
+  - results, insights, price reactions and reminder schedules are calculated on the server only;
+  - price reactions use `PriceReactionEngine` (exchange calendars) for every screen;
+  - earnings notifications go only through `EarningsReminderService`, never `AlertType.EARNINGS` alerts (the Phase 5 weekly
+    digest is a `WEEKLY_DIGEST` delivery in the same pipeline);
+  - Phase 5 AI: StockSteps+ verified server-side (fail closed), one `EarningsAiQuotaLedger` for every earnings AI feature,
+    context only from `EarningsGrounding`, every output through `EarningsAiValidator`; history via `HistoricalEarningsEngine`.
 - Match existing code style (dense Kotlin, KDoc on intent, theme tokens: `StockStepsTheme.spacing/
   colors/typography/dimensions/shapes`, `StockCard`, `StockButton`, 48dp touch targets, gain/loss in
   words not colour alone). Don't add a sixth bottom tab (Home | Markets | Portfolio | Watchlist | Learn).
@@ -70,7 +82,7 @@ adb reverse tcp:8081 tcp:8081                 # Android emulator → local mock
 ./gradlew :app:androidApp:assembleDebug       # or installDebug
 ./gradlew :app:shared:compileAndroidMain      # fast Android compile check
 xcodebuild -project app/iosApp/iosApp.xcodeproj -scheme app.iosApp -sdk iphonesimulator \
-  -destination 'generic/platform=iOS Simulator' -derivedDataPath <scratch>/dd CODE_SIGNING_ALLOWED=NO build
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build   # default DerivedData; disk space is tight
 ```
 
 Restart the mock server after changing server code or fixtures. Test results: `*/build/test-results/`.

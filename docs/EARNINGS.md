@@ -2,9 +2,159 @@
 
 > **Earnings Intelligence Lite — Phase 1 (Earnings Calendar)** was added on top of the earlier
 > Earnings Center (2026-10-08, commit "Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS").
-> **Phase 4 (Earnings Reminders & Smart Notifications)** is directly below (2026-10-08, commit "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"), then **Phase 3** (commit "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"), then **Phase 2** (commit "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"). See the Phase 1 section right
+> **Phase 5 (StockSteps+ Premium Earnings Intelligence)** is directly below (2026-10-08, commit "Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS"),
+> then **Phase 4 (Earnings Reminders & Smart Notifications)** (2026-10-08, commit "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"), then **Phase 3** (commit "Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"), then **Phase 2** (commit "Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"). See the Phase 1 section right
 > below; the rest of this document describes the earlier Earnings Details/results work, which is
 > unchanged.
+
+## Phase 5: StockSteps+ Premium Earnings Intelligence
+
+AI explanations, report-scoped questions, expanded history and a personalized weekly digest, all on the
+existing unified **StockSteps+** entitlement (no separate earnings plan). Everything from Phases 1–4
+stays free: calendar, events, results (EPS/revenue vs estimates, classifications, YoY/QoQ), the Phase 2
+history context, price reaction, deterministic explanations, reminders, Learn lessons.
+
+### Placement (no new tab)
+- **Earnings Results**, after every free section: "Understand These Earnings" (preview → "Explain With
+  AI", Key Takeaways, "Show full explanation"), "Ask About These Results" (deterministic chips, text
+  field, conversation), "Historical Earnings" (Revenue/EPS chart, observations, quarter rows). Free users
+  see short descriptions; a tap opens the contextual "Understand Earnings With StockSteps+" prompt, which
+  leads to the existing upgrade path (Settings → plan; no checkout exists yet). No automatic paywall.
+- **Earnings Center** (calendar): "Your Earnings Digest" card + "Recent Earnings From Your Watchlist"
+  (free: My Watchlist + Reported).
+- **Company Details → Earnings**: "AI Earnings Insight" preview + "Explain With AI" (opens Results) next
+  to "View Results".
+- **Daily Market Brief**: "Your Earnings Digest" link in From Your Watchlist (the brief's existing
+  result highlights already link to Earnings Results).
+- **Settings → Notifications → Earnings Digest & AI**: weekly digest (No digest | Weekly), day, include
+  upcoming, learning interests, AI usage meters. Delivery time/quiet hours/zone reuse Earnings Reminders.
+- **Notifications**: "Your weekly earnings digest is ready" → digest screen (authenticated fetch).
+
+### Server pipeline (`earnings/EarningsAi.kt`, `EarningsPremiumService.kt`, `EarningsDigest.kt`)
+Every premium request: verified token → **StockSteps+ verified on the server, fail closed** (an
+unreadable entitlement → 503 `ENTITLEMENT_UNAVAILABLE`, never access) → validation → quota reservation →
+bounded verified context → provider (timeout, one retry for transient errors only, ≤ 4 concurrent) →
+**validation** → structured response → usage recorded. Failed, timed-out or rejected calls release the
+reservation (never charged); cache hits and coalesced requests use no quota.
+
+- **Grounding** (`EarningsGrounding.build`): facts from the Phase 2 report/insights, the Phase 3
+  first-session reaction and the Phase 5 history, each with a source id (`S1-results`,
+  `S2-estimates`, `S3-prices`, `S4-history`, `S5-alternate`, `L-*` lessons). Missing values are listed
+  as unavailable, never zero; incomparable measures keep the Phase 2 reasons; "guidance and analyst
+  commentary aren't in the verified data" is always stated. Conflicting sources withhold that field and
+  describe the discrepancy (REAL has no secondary results provider yet; MOCK `conflicting-sources`).
+  `sourceDataVersion` = hash of the facts, gaps, warnings and revision state.
+- **Prompt-injection defence**: only structured data is sent (no retrieved free text today); the user's
+  question is a separate untrusted field (≤ 300 chars); injection attempts and advice/prediction
+  requests are declined **before** any provider call (`EarningsQuestionScreen`, scope `UNSUPPORTED`, no
+  quota); outputs are checked for leakage.
+- **Validator** (`EarningsAiValidator`): schema/required fields, lengths (≤ 450 words), every factual
+  claim cites ≥ 1 known source id (a price claim must cite `S3-prices`), every number must equal a
+  verified number (or its 0–2 place rounding), no links/HTML, no advice/price targets/predictions, no
+  causal claims about price moves, no guidance/commentary except to say it's unavailable, no leakage.
+  Rejected output → 502 `AI_INVALID_OUTPUT` (nothing shown).
+- **Providers**: MOCK `TemplateEarningsAi` (deterministic, labelled "Sample", scenario hooks); REAL
+  `GeminiEarningsAi` on the existing `GeminiJsonCall` (`earnings-ai-v1`, JSON schema, temperature 0.1)
+  only when `GEMINI_API_KEY` is set (`GEMINI_EARNINGS_MODEL` optional); otherwise AI is reported
+  unavailable (503) and nothing is fabricated.
+- **Caching/cost**: one explanation per report + sourceDataVersion + prompt version + model, shared by
+  all StockSteps+ users (public report data only); identical concurrent requests share one call; a
+  changed version marks the old one **STALE** (never served as current) and regenerates on request.
+- **Access to previous explanations**: follows the current plan — when StockSteps+ ends the server stops
+  returning them (overview shows NONE); free results are unaffected.
+- **Conversations**: private to the user, one report and one source version; another user's id, another
+  report or revised data starts a fresh conversation (`contextReset`, note). Last 3 exchanges are sent;
+  6 kept; 24 h TTL; in memory.
+
+### Quotas (`EarningsAiQuotaLedger`, UTC days, configurable)
+| Category | Env | Default |
+|---|---|---|
+| AI earnings explanations | `EARNINGS_AI_EXPLANATIONS_PER_DAY` | 10 |
+| AI follow-up questions (also Earnings Details "Ask") | `EARNINGS_AI_QUESTIONS_PER_DAY` (fallback `EARNINGS_AI_DAILY_LIMIT`) | 20 |
+| AI digest summaries | `EARNINGS_AI_DIGESTS_PER_DAY` | 3 |
+| Global daily budget (all users) | `EARNINGS_AI_GLOBAL_DAILY_BUDGET` | 5000 → 503 `AI_BUDGET` |
+Per-user request rate: `EARNINGS_PREMIUM_REQUESTS_PER_MINUTE` (30). Quota errors show the real reset
+instant (next 00:00 UTC). Counters are in process memory (one instance; see gaps).
+
+### Expanded history (`HistoricalEarningsEngine`, core, shared)
+Up to 8 reported fiscal quarters ending at the viewed report, oldest → newest; never padded. Interior
+gaps become explicit "missing" rows (null in series, chart gap). Phase 2 rules per quarter (exact
+classifications, YoY comparability). Series checks: other currency or EPS measure → not plotted/compared;
+fiscal-calendar change (period spacing outside 80–100 days) → chart break; revisions noted; a standing
+split note (no corporate-action data). Observations only with ≥ 3 comparable points ("Revenue increased
+year over year in 3 of the last 4 comparable quarters", two consecutive YoY declines, "EPS exceeded
+comparable consensus estimates in 3 of the last 4 quarters"), otherwise "insufficient to establish a
+trend"; never a reason to buy. Cursor pagination (`nextCursor` = oldest report id of the page).
+
+### Personalized digest (StockSteps+)
+Built on the server from the user's **own** watchlists (all lists, deduplicated by canonical symbol),
+preferred markets (Daily Brief `markets`) and learning interests: recently reported (last 7 days,
+user-local) with deterministic headline ("EPS beat, revenue miss") and first-session reaction; coming up
+(next 7 days, confirmed/estimated only); up to 3 lessons; data notes. Optional AI summary on request
+(digest quota, validated, cached per digest version). Cached 15 min per user + period + watchlist +
+preferences (never shared across accounts). Watching ≠ owning. History of the last 12 digests.
+
+### Weekly digest notification (Phase 4 pipeline)
+Opt-in (`DigestCadence.NONE` by default), stored in `EarningsReminderDocument.digest` (preserved when the
+plan lapses). One `WEEKLY_DIGEST` delivery per ISO week (key `uid|WEEKLY_DIGEST|digest:YYYY-Www`) at the
+chosen day + Earnings Reminders delivery time/zone/quiet hours; a passed time moves to next week (never
+late or twice). At send time the server re-checks StockSteps+, the opt-in and content: plan ended, digest
+off or an empty week → canceled, nothing sent. Payload: `type=earnings-digest`, week, digestId,
+notificationId, payloadVersion — **no company names**; the body has verified counts only ("Two companies
+on your watchlist reported earnings this week."). Basic reminders are unaffected by the plan.
+
+### Entitlement states (`EntitlementService`)
+`ACTIVE`, `CANCELED` (renewal off, paid until expiry: still StockSteps+), `GRACE_PERIOD` (billing retry:
+still StockSteps+), `BILLING_ISSUE` (payment failed: free), `EXPIRED`, `NONE`; `restored` purchases are
+`ACTIVE`. MOCK simulation: `PUT /api/v1/me/entitlements/debug {"tier":"PLUS","state":"grace|canceled|payment-failed|restored|unavailable"}`
+(Settings segments: Free / Plus / Expired). Debug records are ignored outside MOCK. **No production
+billing or store verification exists in the repo**; MOCK entitlements are not verified billing.
+
+### API (signed in, `/api/v1/me/earnings`)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/reports/{reportId}/premium` | plan, preview, chips, usage, explanation CURRENT/STALE/NONE (any signed-in user; no AI call) |
+| GET | `/reports/{reportId}/premium/history?limit=1..8&cursor=` | StockSteps+ |
+| POST | `/reports/{reportId}/ai/explain` | StockSteps+; cached/coalesced |
+| POST | `/reports/{reportId}/ai/ask` | `{question, conversationId?, previousContextId?}` |
+| GET | `/ai/usage` | per-category used/remaining/resetAt |
+| GET | `/digest/latest`, POST `/digest/latest/ai`, GET `/digest/history` | StockSteps+ |
+| GET/PUT | `/digest/preferences` | GET any user; PUT WEEKLY needs StockSteps+ (NONE never does) |
+Errors: 401 `SIGN_IN_REQUIRED`, 403 `PLUS_REQUIRED`, 429 `AI_QUOTA_EXCEEDED` / `AI_RATE_LIMITED` /
+`RATE_LIMITED`, 404 `NOT_FOUND`/`NOT_REPORTED`, 400 `INVALID_*`/`DIGEST_EMPTY`, 502 `AI_INVALID_OUTPUT`,
+503 `AI_UNAVAILABLE`/`AI_BUDGET`/`ENTITLEMENT_UNAVAILABLE`/`EARNINGS_UNAVAILABLE`, 504 `AI_TIMEOUT`,
+413 `TOO_LARGE`. MOCK only: `?scenario=` (ignored in REAL).
+
+### MOCK scenarios
+Plans: Plus, Free, Expired (Settings) + grace / canceled / payment-failed / restored / unavailable (debug
+API). AI (`scenario=` on premium routes, chips on the Results card in MOCK): `ai-failure`, `ai-timeout`,
+`ai-rate-limit`, `ai-malformed`, `ai-quota`, `ai-missing-citation`, `ai-injection`,
+`ai-unsupported-cause`, `conflicting-sources`, `revised-source` (stale), `entitlement-unavailable`.
+Digest: `no-events`, `empty-watchlist`. Data (fixtures): beat/beat SSRV, MSFT; beat/miss SSHX, AAPL,
+RY.TO; miss/beat TD; miss/miss KO, SSLL; negative growth SSLL; missing estimates SSNE; negative EPS
+SSLL/RIVN/BB.TO; revised SSRV; 8 quarters AAPL/MSFT/NVDA/KO/JPM; 2 quarters SSAN; missing quarters SSHX
+(new) and SSNE; currency change SSHX (new) and CSU.TO estimate; fiscal change SSFC; cached/stale
+explanation (repeat / `revised-source`); prompt injection (question or `ai-injection`); cross-account
+isolation (tests). Fixtures: `scripts/generate_earnings_fixtures.py` adds **SSHX** only (7 events).
+
+### Tests
+core `EarningsPremiumTest.kt` (engine ordering/gaps/negative EPS/currency/basis/fiscal break/
+observations/pagination, chips, digest rules, presenters incl. account switch); server
+`EarningsPremiumTest.kt` (entitlement states, free/expired gating, grounding, citations, numbers,
+causality, injection, malformed/missing citation, timeout/retry, cache/coalescing, quotas/reset/global
+budget, failed-call accounting, conversation scope/isolation/revision, history pagination, digest
+isolation/preferences/downgrade, weekly push once/empty/expired, routes/auth/errors/rate limit/size, REAL
+ignores scenarios). No UI-automation framework exists, so Compose/SwiftUI rendering, dark/light, large
+text and screen readers were not tested automatically.
+
+### Production gaps (Phase 5)
+- No store billing/receipt verification, purchase, restore or paywall checkout (MOCK plans only).
+- Quotas, explanation cache, conversations and digest AI cache are in process memory: a multi-instance
+  deployment needs Firestore/Redis-backed counters and caches.
+- REAL AI = Gemini only if `GEMINI_API_KEY` is configured; output quality unverified (no paid calls).
+- No secondary results provider (source conflicts only simulated); no filings/press-release URLs, so
+  citations carry no links; no guidance data; no split/corporate-action data for EPS history.
+- Weekly digest push not verified on devices (same FCM/APNs/Cloud Scheduler gaps as Phase 4).
 
 ## Phase 4: Earnings Reminders & Smart Notifications
 

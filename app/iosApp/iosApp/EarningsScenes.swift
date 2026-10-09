@@ -135,18 +135,21 @@ struct EarningsCalendarScene: View {
     var onSignIn: () -> Void = {}
     var onOpenResults: (String) -> Void = { _ in }
     var reminders: EarningsRemindersModel? = nil
+    var onDigest: (() -> Void)? = nil
 
     init(target: EarningsCalendarTarget, client: IosEarningsClient, onOpen: @escaping (String) -> Void, onSignIn: @escaping () -> Void = {},
-         onOpenResults: @escaping (String) -> Void = { _ in }, reminders: EarningsRemindersModel? = nil) {
+         onOpenResults: @escaping (String) -> Void = { _ in }, reminders: EarningsRemindersModel? = nil, onDigest: (() -> Void)? = nil) {
         _model = State(initialValue: EarningsCalendarModel(target: target, client: client))
         self.onOpen = onOpen
         self.onSignIn = onSignIn
         self.onOpenResults = onOpenResults
         self.reminders = reminders
+        self.onDigest = onDigest
     }
 
     var body: some View {
-        EarningsCalendarScreen(state: model.state, presenter: model.presenter, client: model.client, onOpen: onOpen, onSignIn: onSignIn, onOpenResults: onOpenResults, reminders: reminders)
+        EarningsCalendarScreen(state: model.state, presenter: model.presenter, client: model.client, onOpen: onOpen, onSignIn: onSignIn, onOpenResults: onOpenResults, reminders: reminders,
+                               onDigest: onDigest)
             .navigationTitle("Earnings")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { model.presenter.refresh() }
@@ -163,6 +166,7 @@ struct EarningsCalendarScreen: View {
     let onSignIn: () -> Void
     var onOpenResults: (String) -> Void = { _ in }
     var reminders: EarningsRemindersModel? = nil
+    var onDigest: (() -> Void)? = nil
     @Environment(\.colorScheme) private var scheme
     @State private var showHelp = false
     @State private var reminderTarget: ReminderTargetInfo?
@@ -176,6 +180,28 @@ struct EarningsCalendarScreen: View {
                 Text("Earnings Calendar").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
                 Text("See when companies are expected to report earnings.").font(.subheadline).foregroundStyle(colors.textSecondary)
                 Button("What are earnings?", systemImage: "questionmark.circle") { showHelp = true }.font(.subheadline)
+                // Phase 5: the StockSteps+ digest, plus the free watchlist shortcut (existing filter and Reported tab).
+                if let onDigest {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Button(action: onDigest) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Your Earnings Digest").font(.headline).foregroundStyle(colors.textPrimary)
+                                    Text("What happened this week with the companies on your watchlists.").font(.subheadline).foregroundStyle(colors.textSecondary)
+                                }
+                                Spacer()
+                                PlusBadge()
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens your earnings digest")
+                        Button("Recent Earnings From Your Watchlist") {
+                            client.selectFilter(presenter: presenter, name: "WATCHLIST"); client.selectTab(presenter: presenter, name: "REPORTED")
+                        }
+                        .frame(minHeight: 48)
+                    }
+                    .stockCard()
+                }
                 if let state {
                     if state.sampleData {
                         Text("Sample earnings data for development, not real announcements.").font(.caption).foregroundStyle(colors.cautionText)
@@ -689,25 +715,42 @@ final class EarningsResultsModel {
 
 struct EarningsResultsScene: View {
     @State private var model: EarningsResultsModel
+    /// Phase 5: StockSteps+ sections (plan and quotas from the server).
+    @State private var premium: EarningsPremiumModel
     let reportId: String
     let onCompany: (String) -> Void
     let onLearn: () -> Void
+    let onUpgrade: () -> Void
+    let onSignIn: () -> Void
 
-    init(reportId: String, client: IosEarningsClient, onCompany: @escaping (String) -> Void, onLearn: @escaping () -> Void) {
+    init(reportId: String, client: IosEarningsClient, onCompany: @escaping (String) -> Void, onLearn: @escaping () -> Void,
+         onUpgrade: @escaping () -> Void = {}, onSignIn: @escaping () -> Void = {}) {
         _model = State(initialValue: EarningsResultsModel(reportId: reportId, client: client))
+        _premium = State(initialValue: EarningsPremiumModel(reportId: reportId, client: client))
         self.reportId = reportId
         self.onCompany = onCompany
         self.onLearn = onLearn
+        self.onUpgrade = onUpgrade
+        self.onSignIn = onSignIn
     }
 
     var body: some View {
         EarningsResultsScreen(state: model.state, onRetry: { model.presenter.refresh() }, onToggle: { model.presenter.toggle(key: $0) },
                               onCompany: { onCompany(model.client.symbolOf(reportId: reportId)) }, onLearn: onLearn,
                               reaction: model.reaction, onWindow: { model.client.selectWindow(presenter: model.reactionPresenter, name: $0) },
-                              onRetryReaction: { model.reactionPresenter.refresh() }, onToggleChart: { model.reactionPresenter.toggleChart() })
+                              onRetryReaction: { model.reactionPresenter.refresh() }, onToggleChart: { model.reactionPresenter.toggleChart() },
+                              premium: premium.state, client: model.client,
+                              onPremium: { premium.handle($0, onUpgrade: onUpgrade, onSignIn: onSignIn) })
             .navigationTitle("Earnings results")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { model.presenter.refresh() }
+            .onReceive(NotificationCenter.default.publisher(for: .stockStepsPlanMayHaveChanged)) { _ in premium.presenter.refresh() }
+            .premiumUpgradeAlert(premium.state?.upgrade, benefits: model.client.premiumBenefits, fairUse: model.client.fairUse, onUpgrade: onUpgrade,
+                                 onDismiss: { premium.presenter.dismissUpgrade() })
+            .alert("Sign in to continue", isPresented: Binding(get: { premium.state?.signInRequired == true }, set: { if !$0 { premium.presenter.dismissSignIn() } })) {
+                Button("Sign In") { premium.presenter.dismissSignIn(); onSignIn() }
+                Button("Not now", role: .cancel) { premium.presenter.dismissSignIn() }
+            } message: { Text("Sign in to use StockSteps+ earnings features. Basic earnings results don't need an account.") }
     }
 }
 
@@ -722,6 +765,9 @@ struct EarningsResultsScreen: View {
     var onWindow: (String) -> Void = { _ in }
     var onRetryReaction: () -> Void = {}
     var onToggleChart: () -> Void = {}
+    var premium: EarningsPremiumState? = nil
+    var client: IosEarningsClient? = nil
+    var onPremium: (PremiumAction) -> Void = { _ in }
     @Environment(\.colorScheme) private var scheme
     @State private var lesson: LearnLink?
 
@@ -779,6 +825,8 @@ struct EarningsResultsScreen: View {
             .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
         }
         if let reaction { PriceReactionSection(state: reaction, onWindow: onWindow, onRetry: onRetryReaction, onToggleChart: onToggleChart, onLesson: { lesson = $0 }) }
+        // Phase 5 (StockSteps+): after every free section, so nothing free is pushed down or hidden.
+        if let premium, let client, !state.offline { PremiumEarningsSections(state: premium, client: client, onAction: onPremium) }
         VStack(alignment: .leading, spacing: 2) {
             Text("Learn More").font(.headline).accessibilityAddTraits(.isHeader)
             ForEach(state.learn, id: \.title) { link in

@@ -62,26 +62,45 @@ class MockBenchmarkHistory(private val indices: IndexDataSource) : BenchmarkHist
  * gated. Debug overrides exist only when [debugAllowed] (MOCK), and are labelled "debug".
  */
 class EntitlementService(private val store: UserDataStore, private val now: () -> Long, val debugAllowed: Boolean) {
+    /**
+     * Paid (or canceled but not yet over) and billing grace periods are StockSteps+; a lapsed plan, a
+     * failed payment without grace, or no record is free. A record that can't be read fails closed:
+     * callers get 503 ENTITLEMENT_UNAVAILABLE, never premium access.
+     */
     suspend fun get(uid: String): Entitlements {
         val stored = store.entitlement(uid)
-        val active = stored?.plan == SubscriptionTier.PLUS && (stored.expiresAt == null || stored.expiresAt > now())
+        if (stored?.source == "debug" && !debugAllowed) return free(EntitlementStatus.NONE) // never honour a debug record outside MOCK
+        if (stored?.state == "unavailable") throw UserDataException(503, "ENTITLEMENT_UNAVAILABLE", "Your StockSteps+ status can't be checked right now. Try again shortly.")
+        if (stored?.plan != SubscriptionTier.PLUS) return free(EntitlementStatus.NONE)
+        val time = now()
+        val paid = stored.expiresAt == null || stored.expiresAt > time
         return when {
-            stored?.source == "debug" && !debugAllowed -> free(EntitlementStatus.NONE) // never honour a debug record outside MOCK
-            active -> Entitlements(SubscriptionTier.PLUS, EntitlementStatus.ACTIVE, stored!!.expiresAt, stored.source, EntitlementFeatures.PLUS)
-            stored?.plan == SubscriptionTier.PLUS -> free(EntitlementStatus.EXPIRED, stored.expiresAt, stored.source)
-            else -> free(EntitlementStatus.NONE)
+            stored.state == "payment-failed" -> free(EntitlementStatus.BILLING_ISSUE, stored.expiresAt, stored.source)
+            paid && stored.state == "canceled" -> plus(EntitlementStatus.CANCELED, stored)
+            paid -> plus(EntitlementStatus.ACTIVE, stored)
+            stored.state == "grace" && (stored.graceUntil ?: 0) > time -> plus(EntitlementStatus.GRACE_PERIOD, stored)
+            else -> free(EntitlementStatus.EXPIRED, stored.expiresAt, stored.source)
         }
     }
 
     suspend fun simulate(uid: String, request: DebugEntitlementRequest): Entitlements {
         if (!debugAllowed) throw UserDataException(404, "NOT_FOUND", "Not found.")
+        val t = now()
         store.setEntitlement(uid, when {
-            request.tier == SubscriptionTier.PLUS && request.expired -> StoredEntitlement(SubscriptionTier.PLUS, now() - 1, "debug")
+            request.state == "unavailable" -> StoredEntitlement(SubscriptionTier.PLUS, null, "debug", state = "unavailable")
+            request.tier == SubscriptionTier.PLUS && request.state == "canceled" -> StoredEntitlement(SubscriptionTier.PLUS, t + 7 * 86_400_000L, "debug", state = "canceled")
+            request.tier == SubscriptionTier.PLUS && request.state == "grace" -> StoredEntitlement(SubscriptionTier.PLUS, t - 1, "debug", state = "grace", graceUntil = t + 3 * 86_400_000L)
+            request.tier == SubscriptionTier.PLUS && request.state == "payment-failed" -> StoredEntitlement(SubscriptionTier.PLUS, t - 1, "debug", state = "payment-failed")
+            request.tier == SubscriptionTier.PLUS && request.state == "restored" -> StoredEntitlement(SubscriptionTier.PLUS, null, "debug", state = "restored")
+            request.tier == SubscriptionTier.PLUS && request.expired -> StoredEntitlement(SubscriptionTier.PLUS, t - 1, "debug")
             request.tier == SubscriptionTier.PLUS -> StoredEntitlement(SubscriptionTier.PLUS, null, "debug")
             else -> null
         })
         return get(uid)
     }
+
+    private fun plus(status: EntitlementStatus, stored: StoredEntitlement) =
+        Entitlements(SubscriptionTier.PLUS, status, stored.expiresAt, stored.source, EntitlementFeatures.PLUS)
 
     private fun free(status: EntitlementStatus, expiresAt: Long? = null, source: String = "none") =
         Entitlements(SubscriptionTier.FREE, status, expiresAt, source, EntitlementFeatures.FREE)

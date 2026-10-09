@@ -43,10 +43,15 @@ data class EarningsReminderDocument(
     val autoDates: Map<String, String> = emptyMap(),
     /** Per-company earnings alerts from before Phase 4 have been converted to reminders. */
     val migratedLegacy: Boolean = false,
-    val updatedAt: Long = 0
+    val updatedAt: Long = 0,
+    /** Phase 5: the StockSteps+ weekly digest (opt-in; kept when the plan lapses, delivery pauses). */
+    val digest: org.example.stocksteps.earnings.EarningsDigestPreferences = org.example.stocksteps.earnings.EarningsDigestPreferences(),
+    /** Recent digests (summaries only, newest first), so the user can see what was sent. */
+    val digestHistory: List<org.example.stocksteps.earnings.DigestHistoryEntry> = emptyList()
 ) {
     /** Included in scheduler passes only when something can be scheduled. */
-    val active: Boolean get() = preferences.enabled && (reminders.any { it.enabled } || preferences.watchlistAuto)
+    val active: Boolean get() = preferences.enabled && (reminders.any { it.enabled } || preferences.watchlistAuto ||
+        digest.cadence == org.example.stocksteps.earnings.DigestCadence.WEEKLY)
 }
 
 /**
@@ -157,7 +162,14 @@ data class StoredEntitlement(
     val plan: org.example.stocksteps.portfolio.analytics.SubscriptionTier,
     val expiresAt: Long? = null,
     /** "subscription" (billing) or "debug" (MOCK simulation only). */
-    val source: String
+    val source: String,
+    /**
+     * Billing state from store verification: null/"active", "canceled" (renewal off, paid until
+     * [expiresAt]), "grace" (billing retry until [graceUntil], access kept), "payment-failed",
+     * "restored", or (MOCK only) "unavailable".
+     */
+    val state: String? = null,
+    val graceUntil: Long? = null
 )
 
 /** MOCK and tests: process memory, one lock (fine for a local server). */

@@ -1,7 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-08 (America/Toronto). Current commit: **"Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"** on `main` (pushed).
-Includes Earnings Intelligence Lite Phase 4 — Earnings Reminders (next section, `docs/EARNINGS.md` "Phase 4").
+Last updated: 2026-10-08 (America/Toronto). Current commit: **"Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS"** on `main`.
+Includes Earnings Intelligence Lite Phase 5 — StockSteps+ Premium Earnings Intelligence (next section, `docs/EARNINGS.md` "Phase 5").
+Previous commit: **"Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"** (`87acb1d`), Earnings Reminders (Phase 4).
 Previous commit: **"Add post-earnings price reaction (Earnings Intelligence Lite Phase 3) on Android and iOS"** (`dc9843d`), Price Reaction (Phase 3).
 Earlier commit: **"Add Earnings Results and beginner explanations (Earnings Intelligence Lite Phase 2) on Android and iOS"** (`5219e13`), Earnings Results (Phase 2).
 Earlier commit: **"Add Earnings Calendar (Earnings Intelligence Lite Phase 1) on Android and iOS"** (`b5e2b9e`), Earnings Calendar (Phase 1).
@@ -22,6 +23,28 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Earnings Intelligence Lite Phase 5: StockSteps+ Premium Earnings Intelligence (2026-10-08) — commit "Add StockSteps+ premium earnings intelligence (Earnings Intelligence Lite Phase 5) on Android and iOS"
+
+On top of `87acb1d` (Phase 4). Full spec: `docs/EARNINGS.md` → "Phase 5".
+- **Completed**: server `earnings/EarningsAi.kt` (quota ledger, grounding, MOCK template + Gemini providers, validator,
+  question screen), `EarningsPremiumService.kt` (overview, history, explain, ask, usage, routes under `/api/v1/me/earnings`),
+  `EarningsDigest.kt` (digest, preferences, history, weekly delivery); `EntitlementService` states (canceled, grace,
+  billing issue, restored, unavailable → fail closed); weekly digest as a `WEEKLY_DIGEST` delivery in the Phase 4 pipeline;
+  Earnings Details "Ask" now uses the shared question quota. Core `earnings/EarningsPremium.kt` (models,
+  `HistoricalEarningsEngine`, `EarningsQuestionChips`, `EarningsDigestRules`) and `EarningsPremiumPresentation.kt`
+  (presenters, `RemoteEarningsPremium`, `UserApi` calls). Android `presentation/earnings/EarningsPremiumUi.kt` +
+  `EarningsPremiumScenes.kt` (Results premium sections, digest, digest settings), entry points in Earnings Center, Company
+  Details, Daily Brief, Settings, deep link `earnings-digest`. iOS `EarningsPremiumViews.swift`, `IosEarningsClient` bridge,
+  wiring in AppScene/EarningsScenes/Settings/CompanyDetails/DailyBrief/PushNotifications. Fixture: fictional `SSHX` (7 events).
+- **Validation**: core JVM 341, core iOS 341, server 316, shared Android host 55, shared iOS 49 — 0 failures; `:app:androidApp:assembleDebug` succeeded; iOS `xcodebuild` (default DerivedData) BUILD SUCCEEDED; live MOCK curl checks passed (401/403 gates, cache/STALE, all AI failure scenarios, conflicts, ask scope/decline, history gaps/currency,
+  digest, weekly delivery planned, entitlement states, downgrade keeps free results and digest setting).
+- **Limits**: no store billing/receipt verification or checkout (MOCK plans only; upgrade opens Settings); quotas, explanation
+  cache and conversations in process memory; REAL AI only with `GEMINI_API_KEY` (unverified, no paid calls); no secondary
+  results source, filing links, guidance or split data; no UI automation (rendering, dark/light, large text, screen readers
+  not tested on devices); weekly push not verified on devices.
+- **Next**: device walkthrough of Phases 1–5; billing (Play Billing/StoreKit + server verification); shared quota/cache store;
+  production push/scheduler setup (see `docs/project-status.md` §4).
 
 ## Earnings Intelligence Lite Phase 4: Earnings Reminders (2026-10-08) — commit "Add earnings reminders and smart notifications (Earnings Intelligence Lite Phase 4) on Android and iOS"
 
@@ -94,6 +117,8 @@ Committed and pushed on top of `c92ec89` (this commit also includes the session-
   session's derived data in `/private/tmp/claude-501/.../d9b12d26-.../scratchpad/dd`.
 
 ## Session handoff — 2026-10-08 (end of session, after `c92ec89`)
+
+> Superseded: the latest end-of-session handoff (after `87acb1d`, Earnings Intelligence Lite Phases 1–4) is in `docs/PROJECT_HANDOFF.md`.
 
 Read this section first in a new session, then `CLAUDE.md` and `docs/project-status.md`.
 

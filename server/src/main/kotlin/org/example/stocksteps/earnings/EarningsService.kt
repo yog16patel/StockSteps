@@ -70,7 +70,9 @@ class EarningsService(
     private val sampleData: Boolean,
     private val research: EarningsResearchProvider?,
     private val aiDailyLimit: Int = 20,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 512)
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 512),
+    /** Phase 5: the shared earnings AI quota (questions here and on Earnings Results count together). */
+    var aiQuota: EarningsAiQuotaLedger? = null
 ) {
     private val log = LoggerFactory.getLogger("StockSteps.Earnings")
     private val permits = Semaphore(4)
@@ -516,6 +518,13 @@ class EarningsService(
         val trimmed = question.trim()
         if (trimmed.length !in 3..500) throw EarningsRequestException(400, "INVALID_QUESTION", "Ask a question of 3–500 characters.")
         val provider = research ?: throw EarningsRequestException(503, "AI_UNAVAILABLE", "AI earnings research isn't available yet.")
+        aiQuota?.let { quota ->
+            val reservation = quota.reserve(uid, EarningsAiCategory.QUESTION)
+            try {
+                val answer = provider.answer(trimmed, details(symbol, uid))
+                return answer.copy(remainingToday = quota.usage(uid, true, entitlements.get(uid).status).quota(EarningsAiCategory.QUESTION)?.remaining)
+            } catch (cause: Throwable) { quota.release(reservation); throw cause }
+        }
         val key = "$uid:${today()}"
         val used = aiUsage.merge(key, 1, Int::plus)!!
         if (used > aiDailyLimit) { aiUsage.merge(key, -1, Int::plus); throw EarningsRequestException(429, "AI_LIMIT", "You've reached today's limit of $aiDailyLimit questions.") }

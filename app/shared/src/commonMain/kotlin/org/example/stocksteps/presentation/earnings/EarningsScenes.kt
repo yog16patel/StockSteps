@@ -39,10 +39,13 @@ internal class EarningsDetailsViewModel(symbol: String, remote: EarningsRemote, 
     override fun onCleared() = close()
 }
 
-internal class EarningsResultsViewModel(reportId: String, remote: EarningsRemote, cache: EarningsResultsCache?, window: ReactionWindow, private val close: () -> Unit) : ViewModel() {
+internal class EarningsResultsViewModel(reportId: String, remote: EarningsRemote, cache: EarningsResultsCache?, window: ReactionWindow, accounts: AccountDependencies?, private val close: () -> Unit) : ViewModel() {
     val presenter = EarningsResultsPresenter(reportId, remote, viewModelScope, cache)
     /** Phase 3: the price reaction section (server-calculated; the window is restored after process death). */
     val reaction = EarningsPriceReactionPresenter(reportId, remote, viewModelScope, cache, window)
+    /** Phase 5: StockSteps+ sections (plan and quotas from the server; reset on account changes). */
+    val premium = EarningsPremiumPresenter(reportId, accounts?.let { RemoteEarningsPremium(it.userApi) }, viewModelScope,
+        accounts?.watchlists?.earningsSession() ?: flowOf(null)).also { it.start() }
     override fun onCleared() = close()
 }
 
@@ -55,19 +58,41 @@ internal fun EarningsResultsScene(
     accounts: AccountDependencies?,
     hinge: WindowHinge?,
     onOpenCompany: (String) -> Unit,
-    onLearn: () -> Unit
+    onLearn: () -> Unit,
+    onUpgrade: () -> Unit = {},
+    onSignIn: () -> Unit = {}
 ) {
     var savedWindow by rememberSaveable { mutableStateOf(ReactionWindow.FIRST_SESSION.name) }
     val model = viewModel(key = "earnings-results:${route.reportId}:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
-        EarningsResultsViewModel(route.reportId, data.earningsRemote(accounts), accounts?.earningsResultsCache, ReactionWindow.valueOf(savedWindow), data::close)
+        EarningsResultsViewModel(route.reportId, data.earningsRemote(accounts), accounts?.earningsResultsCache, ReactionWindow.valueOf(savedWindow), accounts, data::close)
     }
     val state by model.presenter.state.collectAsStateWithLifecycle()
     val reaction by model.reaction.state.collectAsStateWithLifecycle()
+    val premium by model.premium.state.collectAsStateWithLifecycle()
     LaunchedEffect(reaction.window) { savedWindow = reaction.window.name }
+    RefreshOnPlanChange(accounts) { model.premium.refresh() }
+    premium.upgrade?.let { PremiumUpgradeDialog(it, onUpgrade = { model.premium.dismissUpgrade(); onUpgrade() }, onDismiss = model.premium::dismissUpgrade) }
+    if (premium.signInRequired) PremiumSignInDialog(onSignIn, model.premium::dismissSignIn)
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            EarningsResultsScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize(), reaction) { action ->
+            EarningsResultsScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize(), reaction, premium, onPremium = { action ->
+                val p = model.premium
+                when (action) {
+                    PremiumAction.Explain -> p.explain()
+                    PremiumAction.ToggleExplanation -> p.toggleExpanded()
+                    is PremiumAction.Ask -> p.ask(action.question)
+                    PremiumAction.ResetConversation -> p.resetConversation()
+                    PremiumAction.LoadHistory -> p.loadHistory(premium.history?.nextCursor)
+                    is PremiumAction.Metric -> p.selectMetric(action.metric)
+                    PremiumAction.Upgrade -> onUpgrade()
+                    PremiumAction.DismissUpgrade -> p.dismissUpgrade()
+                    PremiumAction.SignIn -> onSignIn()
+                    PremiumAction.DismissSignIn -> p.dismissSignIn()
+                    PremiumAction.Retry -> p.refresh()
+                    is PremiumAction.Scenario -> p.setScenario(action.id)
+                }
+            }) { action ->
                 when (action) {
                     ResultsAction.Retry -> model.presenter.refresh()
                     is ResultsAction.Window -> model.reaction.selectWindow(action.window)
@@ -110,12 +135,13 @@ internal fun EarningsCalendarScene(
     hinge: WindowHinge?,
     onOpenEvent: (String) -> Unit,
     onSignIn: () -> Unit,
-    onOpenResults: (String) -> Unit = {}
+    onOpenResults: (String) -> Unit = {},
+    onDigest: (() -> Unit)? = null
 ) {
     var saved by rememberSaveable { mutableStateOf<String?>(null) }
     val model = viewModel(key = "earnings-calendar:$route:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
-        val initial = CalendarSelection.decode(saved) ?: CalendarSelection(route.selectedDate.orEmpty(), filter = filterOf(route.filter))
+        val initial = CalendarSelection.decode(saved) ?: CalendarSelection(route.selectedDate.orEmpty(), tab = CalendarTab.entries.firstOrNull { it.name == route.tab } ?: CalendarTab.UPCOMING, filter = filterOf(route.filter))
         EarningsCalendarViewModel(data.earningsRemote(accounts), accounts, initial, data::close)
     }
     val state by model.presenter.state.collectAsStateWithLifecycle()
@@ -126,7 +152,7 @@ internal fun EarningsCalendarScene(
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             EarningsCalendarScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize(),
-                reminder = { id -> if (reminders.signedIn) reminders.control(id) else ReminderControl.OFF }) { action ->
+                reminder = { id -> if (reminders.signedIn) reminders.control(id) else ReminderControl.OFF }, showDigest = onDigest != null && accounts != null) { action ->
                 val p = model.presenter
                 when (action) {
                     CalendarAction.PreviousWeek -> p.previousWeek()
@@ -145,6 +171,9 @@ internal fun EarningsCalendarScene(
                     CalendarAction.Retry -> p.refresh()
                     CalendarAction.SignIn -> onSignIn()
                     is CalendarAction.Scenario -> p.setScenario(action.name)
+                    CalendarAction.Digest -> onDigest?.invoke()
+                    // Recent earnings from the user's watchlists (free): the existing filter and Reported tab.
+                    CalendarAction.RecentWatchlist -> { p.selectFilter(CalendarFilter.WATCHLIST); p.selectTab(CalendarTab.REPORTED) }
                 }
             }
         }

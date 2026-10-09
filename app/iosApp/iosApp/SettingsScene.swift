@@ -8,6 +8,7 @@ struct SettingsScene: View {
     let onSignIn: () -> Void
     var appLock: AppLockModel?
     var onEarningsReminders: (() -> Void)? = nil
+    var onEarningsDigest: (() -> Void)? = nil
     @AppStorage(AppTheme.storageKey) private var themeMode = AppTheme.system
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
     @State private var plan = SimulatedPlanModel()
@@ -23,7 +24,8 @@ struct SettingsScene: View {
             onSignIn: onSignIn,
             onSignOut: { Task { await model.signOut() } },
             appLock: appLock,
-            onEarningsReminders: onEarningsReminders
+            onEarningsReminders: onEarningsReminders,
+            onEarningsDigest: onEarningsDigest
         )
         .onAppear { plan.connect(model) }
     }

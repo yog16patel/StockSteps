@@ -97,6 +97,27 @@ class UserApi(
     /** MOCK backend only. */
     suspend fun practiceScenario(name: String, expectedOwner: String? = null): org.example.stocksteps.practice.PracticeOverview =
         send(HttpMethod.Put, "practice/debug/scenario", org.example.stocksteps.practice.PracticeScenarioRequest(name), expectedOwner)
+    // Premium earnings (Phase 5): the server verifies StockSteps+ and quotas on every call; `scenario` is honoured only by the MOCK backend.
+    private fun report(reportId: String): String {
+        require(org.example.stocksteps.earnings.EarningsReportMapper.parse(reportId) != null) { "Invalid report id" }
+        return "earnings/reports/${reportId.encodeURLPathPart()}"
+    }
+    private fun scenarioQuery(scenario: String?, first: Boolean = true) = scenario?.takeIf { Regex("[a-z0-9-]{1,40}").matches(it) }?.let { (if (first) "?" else "&") + "scenario=$it" } ?: ""
+    suspend fun premiumEarnings(reportId: String, scenario: String? = null): org.example.stocksteps.earnings.PremiumEarningsOverview =
+        send(HttpMethod.Get, "${report(reportId)}/premium${scenarioQuery(scenario)}")
+    suspend fun earningsHistory(reportId: String, limit: Int, cursor: String?, scenario: String? = null): org.example.stocksteps.earnings.HistoricalEarningsInsight =
+        send(HttpMethod.Get, "${report(reportId)}/premium/history?limit=$limit" + (cursor?.let { "&cursor=${it.encodeURLParameter()}" } ?: "") + scenarioQuery(scenario, first = false))
+    suspend fun explainEarnings(reportId: String, refresh: Boolean, scenario: String? = null): org.example.stocksteps.earnings.EarningsAiExplanation =
+        send(HttpMethod.Post, "${report(reportId)}/ai/explain${scenarioQuery(scenario)}", org.example.stocksteps.earnings.EarningsAiExplainRequest(refresh))
+    suspend fun askEarningsReport(reportId: String, question: org.example.stocksteps.earnings.EarningsAiQuestion, scenario: String? = null): org.example.stocksteps.earnings.EarningsAiAnswer =
+        send(HttpMethod.Post, "${report(reportId)}/ai/ask${scenarioQuery(scenario)}", question)
+    suspend fun earningsAiUsage(): org.example.stocksteps.earnings.EarningsAiUsage = send(HttpMethod.Get, "earnings/ai/usage")
+    suspend fun earningsDigest(scenario: String? = null): org.example.stocksteps.earnings.PersonalizedEarningsDigest = send(HttpMethod.Get, "earnings/digest/latest${scenarioQuery(scenario)}")
+    suspend fun explainEarningsDigest(scenario: String? = null): org.example.stocksteps.earnings.PersonalizedEarningsDigest = send(HttpMethod.Post, "earnings/digest/latest/ai${scenarioQuery(scenario)}")
+    suspend fun earningsDigestHistory(): org.example.stocksteps.earnings.EarningsDigestHistory = send(HttpMethod.Get, "earnings/digest/history")
+    suspend fun earningsDigestSettings(): org.example.stocksteps.earnings.EarningsDigestSettings = send(HttpMethod.Get, "earnings/digest/preferences")
+    suspend fun saveEarningsDigestPreferences(preferences: org.example.stocksteps.earnings.EarningsDigestPreferences): org.example.stocksteps.earnings.EarningsDigestSettings =
+        send(HttpMethod.Put, "earnings/digest/preferences", preferences)
     suspend fun learning(expectedOwner: String? = null): org.example.stocksteps.learning.LearningProgressDocument = send(HttpMethod.Get, "learning", expectedOwner = expectedOwner)
     /** The server merges per company (most recent visit wins) and returns the merged document. */
     suspend fun saveLearning(document: org.example.stocksteps.learning.LearningProgressDocument, expectedOwner: String? = null): org.example.stocksteps.learning.LearningProgressDocument =

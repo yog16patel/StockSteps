@@ -183,5 +183,6 @@ object AnalyticsFixtureCatalog {
 /** Feature ids granted by each tier, shared by server enforcement and client display. */
 object EntitlementFeatures {
     val FREE = listOf("valuation", "holdings", "transactions", "allocation-basic", "largest-holding", "gains-basic", "dividends-basic", "education")
-    val PLUS = FREE + listOf("performance", "twr-xirr", "benchmark", "allocation-detail", "concentration-detail", "contributors", "dividends-detail", "currency-impact", "insights-advanced", "ai-explanations")
+    val PLUS = FREE + listOf("performance", "twr-xirr", "benchmark", "allocation-detail", "concentration-detail", "contributors", "dividends-detail", "currency-impact", "insights-advanced", "ai-explanations",
+        "earnings-ai", "earnings-history", "earnings-digest")
 }

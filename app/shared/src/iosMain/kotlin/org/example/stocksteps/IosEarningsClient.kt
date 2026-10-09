@@ -89,6 +89,39 @@ class IosEarningsClient(baseUrl: () -> String, account: IosAccountClient?) {
             quietStart = if (quietHours) "22:00" else null, quietEnd = if (quietHours) "07:00" else null) }
     }
 
+    // Phase 5 (StockSteps+): premium Earnings Results sections and the personalized digest. The server
+    // decides plan and quotas; these presenters reset on every account change.
+    private val premiumRemote: EarningsPremiumRemote? = accounts?.let { RemoteEarningsPremium(it.userApi) }
+    fun premium(reportId: String): EarningsPremiumPresenter = owned { s -> EarningsPremiumPresenter(reportId, premiumRemote, s, session).also { it.start() } }
+    fun observePremium(presenter: EarningsPremiumPresenter, onChange: (EarningsPremiumState) -> Unit) = observe(presenter.state, onChange)
+    fun selectMetric(presenter: EarningsPremiumPresenter, name: String) = HistoryMetric.entries.firstOrNull { it.name == name }?.let(presenter::selectMetric)
+    fun loadHistory(presenter: EarningsPremiumPresenter) = presenter.loadHistory(presenter.state.value.history?.nextCursor)
+    val historyMetrics: List<HistoryMetric> get() = HistoryMetric.entries
+    /** MOCK-only AI scenarios: (id or "" for normal, label). */
+    val premiumScenarios: List<List<String>> get() = PremiumCopy.SCENARIOS.map { listOf(it.first.orEmpty(), it.second) }
+    fun setPremiumScenario(presenter: EarningsPremiumPresenter, id: String) = presenter.setScenario(id.ifEmpty { null })
+    val premiumTitle: String get() = PremiumCopy.TITLE
+    val premiumSubtitle: String get() = PremiumCopy.SUBTITLE
+    val premiumBenefits: List<String> get() = PremiumCopy.BENEFITS
+    val fairUse: String get() = PremiumCopy.FAIR_USE
+    fun quotaText(quota: EarningsAiQuota?): String? = PremiumCopy.quotaText(quota)
+    fun digestQuota(digest: PersonalizedEarningsDigest): String? = PremiumCopy.quotaText(digest.usage?.quota(EarningsAiCategory.DIGEST))
+    fun planStatus(status: org.example.stocksteps.portfolio.analytics.EntitlementStatus): String? = PremiumCopy.status(status)
+
+    fun digest(loadDigest: Boolean): EarningsDigestPresenter = owned { s -> EarningsDigestPresenter(premiumRemote, s, session, loadDigest).also { it.start() } }
+    fun observeDigest(presenter: EarningsDigestPresenter, onChange: (EarningsDigestState) -> Unit) = observe(presenter.state, onChange)
+    fun setDigestWeekly(presenter: EarningsDigestPresenter, weekly: Boolean) = presenter.updatePreferences { it.copy(cadence = if (weekly) DigestCadence.WEEKLY else DigestCadence.NONE) }
+    fun setDigestDay(presenter: EarningsDigestPresenter, day: String) = presenter.updatePreferences { it.copy(dayOfWeek = day) }
+    fun setDigestUpcoming(presenter: EarningsDigestPresenter, include: Boolean) = presenter.updatePreferences { it.copy(includeUpcoming = include) }
+    fun toggleDigestInterest(presenter: EarningsDigestPresenter, key: String) =
+        presenter.updatePreferences { it.copy(interests = if (key in it.interests) it.interests - key else it.interests + key) }
+    val digestDays: List<String> get() = DigestPolicy.DAYS
+    fun dayLabel(day: String): String = DigestPolicy.dayLabel(day)
+    /** (key, label) pairs. */
+    val digestInterests: List<List<String>> get() = DigestPolicy.INTERESTS.map { listOf(it.first, it.second) }
+    val digestScenarios: List<List<String>> get() = listOf(listOf("", "Normal"), listOf("no-events", "No digest events"), listOf("empty-watchlist", "Empty watchlist"), listOf("ai-failure", "AI failure"))
+    fun setDigestScenario(presenter: EarningsDigestPresenter, id: String) = presenter.setScenario(id.ifEmpty { null })
+
     val topics: List<EarningsEducation.Topic> get() = EarningsEducation.topics
     fun topic(key: String): EarningsEducation.Topic? = EarningsEducation.topic(key)
     fun date(date: String) = EarningsFormatter.date(date)

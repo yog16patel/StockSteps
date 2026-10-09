@@ -129,6 +129,17 @@ DEMO_RESULTS = [
     dict(symbol="SSHD", name="StockSteps Demo Half Day Inc.", exchange="NASDAQ", quarters=[
         (2026, 1, "2025-11-30", "2025-12-24", 0.88, 0.85, 95e6, 94e6, dict(session="BEFORE_OPEN")),
     ]),
+    # Premium history (Phase 5): seven reported quarters with one missing (Q2 FY2025, never filled in) and the
+    # oldest reported in CAD (a currency change, so it isn't plotted or compared with the USD quarters).
+    dict(symbol="SSHX", name="StockSteps Demo History Co.", exchange="NYSE", quarters=[
+        (2024, 4, "2024-12-31", "2025-02-04", 0.50, 0.48, 400e6, 395e6, dict(currency="CAD")),
+        (2025, 1, "2025-03-31", "2025-04-29", 0.52, 0.50, 410e6, 405e6, {}),
+        (2025, 3, "2025-09-30", "2025-10-28", 0.58, 0.55, 430e6, 425e6, {}),
+        (2025, 4, "2025-12-31", "2026-02-03", 0.61, 0.60, 445e6, 440e6, {}),
+        (2026, 1, "2026-03-31", "2026-04-28", 0.55, 0.57, 405e6, 410e6, {}),
+        (2026, 2, "2026-06-30", "2026-07-28", 0.54, 0.56, 415e6, 420e6, {}),
+        (2026, 3, "2026-09-30", "2026-10-06", 0.53, 0.50, 425e6, 430e6, {}),
+    ]),
 ]
 
 # Phase 3 price scenarios (MOCK only): regular-session closes around demo announcements. Sessions are
@@ -381,7 +392,7 @@ def main():
             if x.get("time"):
                 event["eventTime"] = x["time"]
                 event["timeZone"] = "America/Toronto" if d["exchange"] == "TSX" else "America/New_York"
-            cur = d.get("currency", "USD")
+            cur = x.get("currency", d.get("currency", "USD"))
             if eps_est is not None or rev_est is not None:
                 event["estimate"] = {k: v for k, v in {"eps": eps_est, "epsBasis": "GAAP_DILUTED", "revenue": rev_est, "currency": cur, "analysts": 6,
                                      "source": SOURCE, "asOf": UPDATED, "periodType": "ANNUAL" if x.get("annual_estimate") else None}.items() if v is not None}

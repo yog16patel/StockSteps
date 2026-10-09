@@ -92,10 +92,11 @@ struct DailyBriefScene: View {
     var onUpgrade: () -> Void = {}
     var onOpenEarnings: (String) -> Void = { _ in }
     var onOpenResults: (String) -> Void = { _ in }
+    var onOpenDigest: (() -> Void)? = nil
 
     var body: some View {
         DailyBriefScreen(state: model.state, client: model.client, onOpenStock: onOpenStock, onOpenEarnings: onOpenEarnings, onOpenResults: onOpenResults, onHistory: onHistory, onWatchlist: onWatchlist,
-                         onLearn: onLearn, onSignIn: onSignIn, onUpgrade: { model.presenter.dismissUpgrade(); onUpgrade() })
+                         onLearn: onLearn, onSignIn: onSignIn, onUpgrade: { model.presenter.dismissUpgrade(); onUpgrade() }, onOpenDigest: onOpenDigest)
             .navigationTitle("Daily Brief")
             .navigationBarTitleDisplayMode(.inline)
             .task(id: target.id) { model.presenter.open(id: target.briefId) }
@@ -114,6 +115,8 @@ struct DailyBriefScreen: View {
     let onLearn: () -> Void
     let onSignIn: () -> Void
     let onUpgrade: () -> Void
+    /// Phase 5: the StockSteps+ personalized earnings digest.
+    var onOpenDigest: (() -> Void)? = nil
     @Environment(\.colorScheme) private var scheme
     @Environment(\.openURL) private var openURL
     @State private var showPreferences = false
@@ -305,6 +308,9 @@ struct DailyBriefScreen: View {
                     if p.moreHighlights > 0 { Button("\(p.moreHighlights) more updates are included with StockSteps+.") { onUpgrade() } }
                 }
                 if let note = p.notes.first(where: { $0.hasPrefix("Watching") }) { Text(note).font(.caption).foregroundStyle(colors.textSecondary) }
+                if let onOpenDigest, p.watchlistCount > 0 {
+                    HStack { Button("Your Earnings Digest", systemImage: "lightbulb", action: onOpenDigest).frame(minHeight: 48); PlusBadge() }
+                }
             } else if state?.personalLoading == true {
                 ProgressView()
             } else {

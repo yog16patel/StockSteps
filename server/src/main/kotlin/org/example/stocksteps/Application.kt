@@ -17,6 +17,7 @@ import org.example.stocksteps.screener.savedScreenRoutes
 import org.example.stocksteps.screener.screenerRoutes
 import org.example.stocksteps.earnings.earningsRoutes
 import org.example.stocksteps.earnings.earningsReminderRoutes
+import org.example.stocksteps.earnings.earningsPremiumRoutes
 import org.example.stocksteps.learning.learningRoutes
 import org.example.stocksteps.practice.practiceRoutes
 import org.example.stocksteps.brief.dailyBriefRoutes
@@ -123,13 +124,27 @@ fun Application.module() {
             override suspend fun recentResult(symbol: String) = earnings.recentResult(symbol)
         }
         earningsRoutes(earnings, sources.userAuth, RequestRateLimiter(System.getenv("EARNINGS_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 120))
+        // Phase 5: StockSteps+ premium earnings. One fair-use quota for every earnings AI feature; MOCK never calls an AI service.
+        val earningsAiQuota = org.example.stocksteps.earnings.EarningsAiQuotaLedger(mapOf(
+            org.example.stocksteps.earnings.EarningsAiCategory.EXPLANATION to (System.getenv("EARNINGS_AI_EXPLANATIONS_PER_DAY")?.toIntOrNull() ?: 10),
+            org.example.stocksteps.earnings.EarningsAiCategory.QUESTION to (System.getenv("EARNINGS_AI_QUESTIONS_PER_DAY")?.toIntOrNull() ?: System.getenv("EARNINGS_AI_DAILY_LIMIT")?.toIntOrNull() ?: 20),
+            org.example.stocksteps.earnings.EarningsAiCategory.DIGEST to (System.getenv("EARNINGS_AI_DIGESTS_PER_DAY")?.toIntOrNull() ?: 3)),
+            globalDailyBudget = System.getenv("EARNINGS_AI_GLOBAL_DAILY_BUDGET")?.toIntOrNull() ?: 5_000, clock = java.time.Clock.systemUTC())
+        earnings.aiQuota = earningsAiQuota
+        val earningsPremium = org.example.stocksteps.earnings.EarningsPremiumService(earnings, entitlements,
+            provider = if (dataMode == DataMode.MOCK) org.example.stocksteps.earnings.TemplateEarningsAi()
+                else AppConfig.geminiApiKey?.let { org.example.stocksteps.earnings.GeminiEarningsAi(HttpClientProvider.client, it, System.getenv("GEMINI_EARNINGS_MODEL") ?: AppConfig.geminiNewsModel) },
+            quota = earningsAiQuota, clock = sources.marketClock, sampleData = dataMode == DataMode.MOCK,
+            timeoutMillis = if (dataMode == DataMode.MOCK) 3_000 else 15_000)
+        val earningsDigests = org.example.stocksteps.earnings.EarningsDigestService(userData, earnings, earningsPremium, sources.marketClock, sampleData = dataMode == DataMode.MOCK)
+        earningsPremiumRoutes(earningsPremium, earningsDigests, sources.userAuth, RequestRateLimiter(System.getenv("EARNINGS_PREMIUM_REQUESTS_PER_MINUTE")?.toIntOrNull() ?: 30))
         val watchMarket = org.example.stocksteps.userdata.WatchMarketData(stockService, earningsCalendar, sources.news)
         val alertRules = org.example.stocksteps.userdata.AlertRules()
         val evaluator = org.example.stocksteps.userdata.AlertEvaluator(userData, watchMarket, sources.pushSender(), alertRules, sources.marketClock)
         // Earnings reminders (Phase 4): backend-scheduled; MOCK uses the simulated sender with debug token scenarios.
         val earningsReminders = org.example.stocksteps.earnings.EarningsReminderService(userData, earnings,
             if (dataMode == DataMode.MOCK) org.example.stocksteps.earnings.MockScenarioPushSender(sources.pushSender()) else sources.pushSender(),
-            sources.marketClock, sampleData = dataMode == DataMode.MOCK)
+            sources.marketClock, sampleData = dataMode == DataMode.MOCK, digests = earningsDigests)
         run {
             watchDataRoutes(WatchDataService(watchMarket, alertRules, org.example.stocksteps.service.UsMarketCalendar(), sources.marketClock,
                 if (dataMode == DataMode.MOCK) "Sample data, not live prices." else "Quotes may be delayed. Times show when each price was last updated."))

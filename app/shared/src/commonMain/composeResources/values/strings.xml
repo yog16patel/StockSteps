@@ -76,6 +76,8 @@
     <string name="settings_price_alerts_subtitle">Watchlist price updates</string>
     <string name="settings_earnings_reminders">Earnings Reminders</string>
     <string name="settings_earnings_reminders_subtitle">Before reports, and when results are out</string>
+    <string name="settings_earnings_digest">Earnings Digest &amp; AI</string>
+    <string name="settings_earnings_digest_subtitle">StockSteps+ weekly digest and AI usage</string>
     <string name="settings_market_news">Market News</string>
     <string name="settings_market_news_subtitle">Important market updates</string>
     <string name="settings_about_app">About StockSteps</string>

@@ -125,6 +125,8 @@ internal fun AppNavigation(
                 link.startsWith("earnings-results:") -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(link.removePrefix("earnings-results:"))?.let { navController.navigate(it) }
                 link.startsWith("earnings:") -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(link.removePrefix("earnings:")))
                 link == "earnings-calendar" -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute())
+                // Weekly digest (StockSteps+): the app fetches the digest with the signed-in token.
+                link == "earnings-digest" -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDigestRoute)
                 else -> navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(link))
             }
         }
@@ -139,6 +141,7 @@ internal fun AppNavigation(
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCalendarRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsResultsRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute>() == true ||
+        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeOrderRoute>() == true
@@ -169,6 +172,8 @@ internal fun AppNavigation(
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true -> "Earnings event"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsResultsRoute>() == true -> "Earnings results"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute>() == true -> "Earnings reminders"
+                        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestRoute>() == true -> "Earnings digest"
+                        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute>() == true -> "Earnings digest & AI"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true -> "Earnings details"
                         destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true -> "Research"
                         destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true -> "Practice"
@@ -350,7 +355,8 @@ internal fun AppNavigation(
                     onSignIn = { navController.navigate(AuthRoute()) },
                     onUpgrade = { navController.navigate(SettingsRoute) },
                     onOpenEarnings = { id -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(id)) },
-                    onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } })
+                    onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } },
+                    onOpenDigest = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDigestRoute) })
             }
             composable<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute> {
                 if (accounts != null) org.example.stocksteps.presentation.brief.DailyBriefHistoryScene(accounts.dailyBrief, hinge,
@@ -361,6 +367,7 @@ internal fun AppNavigation(
                 org.example.stocksteps.presentation.earnings.EarningsCalendarScene(entry.toRoute(), backend, environment, accounts, hinge,
                     onOpenEvent = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(it)) },
                     onSignIn = { navController.navigate(AuthRoute()) },
+                    onDigest = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDigestRoute) },
                     onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } })
             }
             composable<org.example.stocksteps.presentation.earnings.EarningsEventRoute> { entry ->
@@ -372,7 +379,9 @@ internal fun AppNavigation(
             }
             composable<org.example.stocksteps.presentation.earnings.EarningsResultsRoute> { entry ->
                 org.example.stocksteps.presentation.earnings.EarningsResultsScene(entry.toRoute(), backend, environment, accounts, hinge,
-                    onOpenCompany = openStock, onLearn = { openTab(MainDestination.LEARN) })
+                    onOpenCompany = openStock, onLearn = { openTab(MainDestination.LEARN) },
+                    // No purchase flow exists yet: Settings shows the plan (and, in MOCK, the simulated plan switch).
+                    onUpgrade = { navController.navigate(SettingsRoute) }, onSignIn = { navController.navigate(AuthRoute()) })
             }
             composable<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute> { entry ->
                 org.example.stocksteps.presentation.earnings.EarningsDetailsScene(entry.toRoute(), backend, environment, accounts, hinge,
@@ -442,9 +451,25 @@ internal fun AppNavigation(
                     appVersion = appVersion,
                     hinge = hinge,
                     onSignIn = { navController.navigate(AuthRoute()) },
-                    links = mapOf(SettingsLink.EARNINGS_REMINDERS to { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsRemindersRoute) }),
+                    links = mapOf(SettingsLink.EARNINGS_REMINDERS to { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsRemindersRoute) },
+                        SettingsLink.EARNINGS_DIGEST to { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute) }),
                     appLock = appLock
                 )
+            }
+            composable<org.example.stocksteps.presentation.earnings.EarningsDigestRoute> {
+                org.example.stocksteps.presentation.earnings.EarningsDigestScene(accounts, environment, hinge,
+                    onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } },
+                    onOpenEvent = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(it)) },
+                    onSettings = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute) },
+                    onUpgrade = { navController.navigate(SettingsRoute) },
+                    onSignIn = { navController.navigate(AuthRoute()) },
+                    onRecentWatchlist = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(filter = "WATCHLIST", tab = "REPORTED")) })
+            }
+            composable<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute> {
+                org.example.stocksteps.presentation.earnings.EarningsDigestSettingsScene(accounts, environment, hinge,
+                    onUpgrade = { navController.navigate(SettingsRoute) },
+                    onSignIn = { navController.navigate(AuthRoute()) },
+                    onReminders = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsRemindersRoute) })
             }
             composable<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute> {
                 org.example.stocksteps.presentation.earnings.EarningsRemindersScene(accounts, onSignIn = { navController.navigate(AuthRoute()) },

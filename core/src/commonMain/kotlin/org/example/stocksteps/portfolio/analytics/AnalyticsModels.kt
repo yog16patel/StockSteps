@@ -199,7 +199,11 @@ data class PortfolioInsight(
 )
 
 @Serializable enum class SubscriptionTier { FREE, PLUS }
-@Serializable enum class EntitlementStatus { NONE, ACTIVE, EXPIRED }
+/**
+ * NONE/EXPIRED/BILLING_ISSUE are free; ACTIVE, CANCELED (renewal off, paid period not over) and
+ * GRACE_PERIOD (store billing retry with access kept) are StockSteps+.
+ */
+@Serializable enum class EntitlementStatus { NONE, ACTIVE, EXPIRED, CANCELED, GRACE_PERIOD, BILLING_ISSUE }
 
 /** Server-authoritative StockSteps+ state. Clients only display it; the backend enforces it. */
 @OptIn(ExperimentalSerializationApi::class)
@@ -215,7 +219,12 @@ data class Entitlements(
     val plus: Boolean get() = tier == SubscriptionTier.PLUS
 }
 
-@Serializable data class DebugEntitlementRequest(val tier: SubscriptionTier, val expired: Boolean = false)
+/**
+ * MOCK plan simulation. [state] (optional) simulates a billing state: "canceled" (active until expiry),
+ * "grace" (billing retry, access kept), "payment-failed" (no access), "restored" (purchase restored)
+ * or "unavailable" (the entitlement record can't be read; premium requests fail closed).
+ */
+@Serializable data class DebugEntitlementRequest(val tier: SubscriptionTier, val expired: Boolean = false, val state: String? = null)
 
 /** The Insights dashboard for one account. Sections the tier doesn't include are LOCKED (no data sent). */
 @OptIn(ExperimentalSerializationApi::class)

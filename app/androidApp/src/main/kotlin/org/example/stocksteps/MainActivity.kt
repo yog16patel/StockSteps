@@ -83,6 +83,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             val event = intent.getStringExtra(org.example.stocksteps.account.AlertNotifications.EXTRA_EVENT)
             when {
                 type == "earnings-results" && report != null -> notificationLinks.trySend("earnings-results:$report")
+                type == "earnings-digest" -> notificationLinks.trySend("earnings-digest")
                 event != null -> notificationLinks.trySend("earnings:$event")
                 else -> notificationLinks.trySend("earnings-calendar")
             }

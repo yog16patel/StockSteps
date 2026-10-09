@@ -17,6 +17,8 @@ struct SettingsScreen: View {
     var appLock: AppLockModel?
     /// Opens Earnings Reminders settings.
     var onEarningsReminders: (() -> Void)? = nil
+    /// Opens Earnings Digest & AI settings (Phase 5).
+    var onEarningsDigest: (() -> Void)? = nil
     @State private var confirmSignOut = false
     @State private var securityMessage: String?
     @State private var securityBusy = false
@@ -53,6 +55,9 @@ struct SettingsScreen: View {
                     divider
                     StockSettingsRow(title: "Earnings Reminders", subtitle: "Before reports, and when results are out", systemImage: "calendar.badge.clock",
                                      comingSoon: onEarningsReminders == nil, action: onEarningsReminders)
+                    divider
+                    StockSettingsRow(title: "Earnings Digest & AI", subtitle: "StockSteps+ weekly digest and AI usage", systemImage: "lightbulb.fill",
+                                     comingSoon: onEarningsDigest == nil, action: onEarningsDigest)
                 }
                 if let backendEnvironment {
                     section("Development") {
