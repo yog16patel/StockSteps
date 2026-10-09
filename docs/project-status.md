@@ -1,6 +1,6 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (Phase 5A session) against the repository (`main`, HEAD **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** on top of `4586889` "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring", both pushed to `origin/main`). Verify with
+Last reviewed: 2026-10-09 (Phase 5B Local session; HEAD "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks", pushed) against the repository (`main`, HEAD **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** on top of `4586889` "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring", both pushed to `origin/main`). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
@@ -20,6 +20,11 @@ Phase 4 code: server 473/0 (3 skipped), core JVM 416/0, core iOS 416/0, shared A
 report `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`. Server tests 481/0 (3 skipped). Image built for `linux/amd64` and container-verified on the owner's Ubuntu server
 (report §6a: non-root, no secrets, fail-fast config, JSON logs, probes, SIGTERM, `--network none`; 203 MB compressed). Verdict: READY WITH CONDITIONS for Phase 5B (staging deploy). Next: image vulnerability scan;
 owner inputs in `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1; then Phase 5B only on explicit request.
+
+**Phase 5B Local (committed: "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks")**: LAN Docker MOCK backend + mobile integration — `deploy/local/` (Compose, scripts), iOS `Local.xcconfig`
+override, docs `docs/LOCAL_DEVELOPMENT_SERVER.md` and `docs/FINANCIAL_API_PHASE5B_LOCAL_IMPLEMENTATION.md`. Smoke 23/23, zero provider calls,
+iOS Simulator verified against the LAN server, Android emulator network-verified. Verdict **PASS WITH CONDITIONS** (Android app and physical
+devices not run). **Phase 5B Local = local integration milestone. Cloud Run staging deployment remains deferred and unverified.**
 
 **Earlier next task (still open)**: push when asked; then the deployment-side conditions in `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` §8/§9d — verify
 ingress and set `TRUSTED_PROXY_HOPS` (D1), set provider plan limits and `CLOUD_RUN_MAX_INSTANCES` (D4/D5), reconfigure Cloud Scheduler with OIDC or

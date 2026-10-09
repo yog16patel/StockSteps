@@ -1,7 +1,9 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** on `main` (pushed).
-Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (next section; `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
+Last updated: 2026-10-09 (America/Toronto). Current commit: **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
+Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
+Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
+**Current commit includes Phase 5B Local — LAN Docker MOCK backend and mobile integration** (next section; `docs/FINANCIAL_API_PHASE5B_LOCAL_IMPLEMENTATION.md`). Phase 5B Local = local integration milestone. Cloud Run staging deployment remains deferred and unverified.
 Previous commit: **"Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** (pushed with this one).
 Includes the Financial API Phase 4 audit and implementation (next section; `docs/FINANCIAL_API_PHASE4_*.md`).
 Previous commit: **"Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage"**.
@@ -44,6 +46,26 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Phase 5B Local — LAN Docker deployment and integration (2026-10-09) — commit "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"
+
+Phase 5B Local = local integration milestone. Cloud Run staging deployment remains deferred and unverified. Report: `docs/FINANCIAL_API_PHASE5B_LOCAL_IMPLEMENTATION.md`; operator guide: `docs/LOCAL_DEVELOPMENT_SERVER.md`.
+Verdict: **PASS WITH CONDITIONS** (Android app and physical-device end-to-end not run).
+
+- `deploy/local/`: `docker-compose.yml` (project `stocksteps-local`, MOCK, LAN-IP-only publish on 8081, non-root, read-only rootfs + tmpfs,
+  `cap_drop: ALL`, `no-new-privileges`, 1 CPU / 1 GiB, `unless-stopped`, curl health check on `/health/ready`, json-file 10 MB × 3, own bridge
+  network, no volumes), `deploy.sh` (deploy/start/stop/restart/status/logs/health/releases/rollback/smoke/reliability over SSH),
+  `smoke-test.sh` (23 checks), `reliability-check.sh`, `server.env.example` (real `server.env` git-ignored — the host address stays out of the
+  public repo). iOS: `Config.xcconfig` `#include? "Local.xcconfig"` + `Local.xcconfig.example` (git-ignored override). Android: no change
+  (existing debug-only `stockstepsMockBackendUrl`). `.gitignore` +2 lines.
+- Running on the LAN host: `~/stocksteps-local/`, container `stocksteps-local-api-1`, image `stocksteps-local:d138b193ad44`, healthy.
+  Existing Immich/Nextcloud services unaffected; no firewall/router changes.
+- Verified: Mac → health/meta 200 (`mock`); smoke **23/23** incl. zero upstream provider requests; 320-request load all 200, memory peak 134 MiB of
+  1 GiB; crash → automatic restart; health check flags an unresponsive backend; MOCK state resets on restart; Android emulator reaches the
+  server (HTTP 200 from the emulator shell) and `assembleDebug` carries the LAN mock URL in debug only; iOS Debug build + Simulator (iOS 18.3)
+  shows "Sample data · mock backend" from the LAN server — ATS allows the raw LAN IP with the existing `NSAllowsLocalNetworking` (avahi not
+  needed). `:server:test` 481/0 (3 skipped), `:core:jvmTest` 416/0, `xcodebuild` BUILD SUCCEEDED.
+- Not run: Android app end-to-end, physical phones, daemon/host restart, Firestore/push flows (MOCK).
 
 ## Phase 5A — Google Cloud Run deployment preparation (2026-10-09) — commit "Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"
 

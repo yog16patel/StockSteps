@@ -53,3 +53,7 @@ ui-debug.log
 
 # Backend generated AI summary storage
 /server/data/
+
+# Local development server connection (Phase 5B Local) and iOS local overrides: per developer, never committed.
+deploy/local/server.env
+app/iosApp/Configuration/Local.xcconfig

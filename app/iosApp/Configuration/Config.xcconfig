@@ -15,3 +15,8 @@ STOCKSTEPS_MOCK_BACKEND_URL = http:/$()/localhost:8081
 // Kotlin's Xcode build phase generates the framework for this SDK/configuration.
 FRAMEWORK_SEARCH_PATHS = $(inherited) "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
 OTHER_LDFLAGS = $(inherited) -framework Shared -lsqlite3
+
+// Per-developer overrides (git-ignored), e.g. the LAN mock backend from docs/LOCAL_DEVELOPMENT_SERVER.md:
+//   STOCKSTEPS_MOCK_BACKEND_URL = http:/$()/<host>.local:8081
+// The mock URL is only honoured by DEBUG builds; copy Local.xcconfig.example to Local.xcconfig. Optional: builds work without it.
+#include? "Local.xcconfig"

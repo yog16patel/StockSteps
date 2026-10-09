@@ -13,12 +13,12 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-09, end of session)
 
-HEAD: "Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs" (pushed, on top of Phase 4 `4586889`). Phase 5A is done: Dockerfile, `.dockerignore`,
-`deploy/cloud-run-staging.yaml`, `/health/live` + `/health/ready`, startup configuration validation, JSON logging (`LOG_FORMAT`),
-`-Pstocksteps.serverOnly=true`, docs `docs/CLOUD_RUN_*.md` and `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md` (verdict READY WITH CONDITIONS; image
-built for `linux/amd64` and container-verified on the owner's LAN Ubuntu server — no Docker on the Mac). Next: image vulnerability scan; owner
-inputs in `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1; Phase 5B (staging deploy) only on explicit request. Read `docs/PROJECT_HANDOFF.md` §0 and the
-root `PROJECT_HANDOFF.md` first. No local MOCK server is running.
+HEAD: "Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks" (pushed). Phase 5B Local is done: a LAN Docker MOCK backend (`deploy/local/`: Compose project
+`stocksteps-local`, `deploy.sh`, smoke and reliability scripts; connection in git-ignored `deploy/local/server.env`), iOS optional
+`Local.xcconfig` override, docs `docs/LOCAL_DEVELOPMENT_SERVER.md` + `docs/FINANCIAL_API_PHASE5B_LOCAL_IMPLEMENTATION.md`. Verdict PASS WITH
+CONDITIONS (Android app/physical devices not run). Phase 5B Local = local integration milestone. Cloud Run staging deployment remains deferred and unverified. Next: manual device checks; Cloud Run staging only
+on explicit request. Read `docs/PROJECT_HANDOFF.md` §00 and the root `PROJECT_HANDOFF.md` first. The LAN MOCK server is running; no local MOCK
+server on the Mac.
 
 ## Repository layout
 

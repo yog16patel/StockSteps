@@ -1,8 +1,18 @@
-# StockSteps — session handoff (2026-10-09: Phase 5A Cloud Run deployment preparation, on top of the Phase 3/4 sessions)
+# StockSteps — session handoff (2026-10-09: Phase 5B Local LAN Docker integration, after Phase 5A and the Phase 3/4 sessions)
 
-Read order for a new session: `CLAUDE.md` → **§0 below** → `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md` → `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md`
+Read order for a new session: `CLAUDE.md` → **§00 below** → `docs/FINANCIAL_API_PHASE5B_LOCAL_IMPLEMENTATION.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md` → §0 → `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md` → `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md`
 → the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → the root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## 00. Phase 5B Local — where the latest session stopped
+
+- Phase 5B Local = local integration milestone. Cloud Run staging deployment remains deferred and unverified.
+- HEAD: **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** (pushed), on top of `d138b19` "Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs". Phase 5B Local contents: `deploy/local/` (Compose, deploy/smoke/reliability scripts,
+  `server.env.example`), iOS `Config.xcconfig` optional include + `Local.xcconfig.example`, `.gitignore`, two new docs, handoff/status updates.
+  Git-ignored local files: `deploy/local/server.env` (LAN host), `app/iosApp/Configuration/Local.xcconfig` (LAN mock URL).
+- Running: MOCK backend `stocksteps-local:d138b193ad44` on the LAN Ubuntu host (`~/stocksteps-local`, port 8081 on the LAN IP), healthy.
+- Verdict **PASS WITH CONDITIONS**: remaining manual checks = Android app end-to-end (emulator/phone) and a physical iPhone
+  (`LOCAL_DEVELOPMENT_SERVER.md` §5–§6). Next: the manual device checks; Cloud Run staging only on explicit request.
 
 ## 0. Phase 5A — where the latest session stopped
 

@@ -1,0 +1,58 @@
+# StockSteps — local development backend (Phase 5B Local). MOCK data only.
+#
+# Runs the Phase 5A image (repository Dockerfile) on a LAN Docker host so the Android/iOS debug builds can use a stable mock backend.
+# Not a Cloud Run configuration: no K_SERVICE marker, no provider keys, no Firebase/Google credentials, no persistent volumes.
+# MOCK state (watchlists, practice ledger, alerts…) lives in process memory and is reset by every container restart.
+#
+# Normally driven by deploy/local/deploy.sh (docs/LOCAL_DEVELOPMENT_SERVER.md). Variables:
+#   STOCKSTEPS_IMAGE_TAG   image tag to build/run (deploy.sh uses the git SHA)          — required
+#   STOCKSTEPS_BIND_ADDR   host address to publish on (the server's LAN IP, never 0.0.0.0) — required
+#   STOCKSTEPS_HOST_PORT   host port (default 8081, the apps' mock-backend port)
+name: stocksteps-local
+
+services:
+  api:
+    image: stocksteps-local:${STOCKSTEPS_IMAGE_TAG:?set STOCKSTEPS_IMAGE_TAG}
+    build:
+      # The release directory deploy.sh uploads: the repository's Docker build context (allow-listed by .dockerignore).
+      context: ${STOCKSTEPS_CONTEXT:-./src}
+      dockerfile: Dockerfile
+      platforms: ["linux/amd64"]
+    platform: linux/amd64
+    environment:
+      STOCKSTEPS_DATA_MODE: mock
+      LOG_FORMAT: text
+      # MOCK evaluates sample alerts and reminders in-process every 60 s (no push is sent; deliveries are simulated).
+      STOCKSTEPS_MOCK_ALERT_SECONDS: "60"
+    ports:
+      # LAN only. Docker refuses to start if the address isn't assigned to the host.
+      - "${STOCKSTEPS_BIND_ADDR:?set STOCKSTEPS_BIND_ADDR to the host LAN IP}:${STOCKSTEPS_HOST_PORT:-8081}:8080"
+    networks: [stocksteps]
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 256
+    cpus: 1.0
+    mem_limit: 1g
+    restart: unless-stopped
+    stop_grace_period: 10s
+    healthcheck:
+      # curl ships with the runtime base image (verified in Phase 5A); probes never call providers.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "--max-time", "3", "http://127.0.0.1:8080/health/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  stocksteps:
+    name: stocksteps-local
+    driver: bridge
