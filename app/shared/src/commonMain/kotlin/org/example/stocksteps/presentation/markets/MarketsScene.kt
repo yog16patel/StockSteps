@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -24,7 +22,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.example.stocksteps.WindowHinge
@@ -107,8 +104,9 @@ internal fun MarketsScene(
 }
 
 /**
- * Markets dashboard: header and session, index cards, top movers (gainers / losers / most active),
- * sector performance (ETF proxies), market news and a daily lesson. Sections fail independently.
+ * Markets dashboard (Global UI Refinement Phase 4B, data first): title → market status → major indices (grouped rows) → Daily Market
+ * Brief entry → top movers → sector performance → research tools → market news → daily lesson. Sections fail independently; the brief
+ * and research tools stay available when the market overview itself fails.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,7 +123,7 @@ internal fun MarketsScreen(
     val listState = rememberLazyListState()
     var lesson by remember { mutableStateOf<MarketLesson?>(null) }
     val content = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxWidth()
-    val section = content.padding(top = spacing.xl)
+    val section = content.padding(top = spacing.sectionGap)
     Box(Modifier.fillMaxSize().background(colors.appBackground)) {
         AdaptiveSinglePane(hinge) { region ->
             PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = { onAction(MarketsAction.Refresh) }, modifier = region) {
@@ -135,45 +133,46 @@ internal fun MarketsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    item(key = "title") { Title(content.padding(top = spacing.lg), onSearch = { onAction(MarketsAction.Search) }) }
-                    if (brief != null) item(key = "daily-brief") {
-                        org.example.stocksteps.presentation.brief.DailyBriefPreviewCard(brief, org.example.stocksteps.presentation.brief.briefNow(),
-                            { onAction(MarketsAction.DailyBrief) }, content.padding(top = spacing.xl), onHistory = { onAction(MarketsAction.BriefHistory) })
-                    }
-                    item(key = "tools") { ResearchTools(content.padding(top = spacing.xl), earnings, onAction) }
+                    item(key = "title") { Title(content.padding(top = spacing.md), onSearch = { onAction(MarketsAction.Search) }) }
                     if (model == null) {
                         item(key = "state") {
-                            if (state.loading) LoadingSkeleton(content.padding(top = spacing.lg))
-                            else StockCard(content.padding(top = spacing.lg), bordered = false) {
+                            if (state.loading) LoadingSkeleton(content.padding(top = spacing.md))
+                            else StockCard(content.padding(top = spacing.md)) {
                                 StockErrorState(state.error ?: stringResource(Res.string.markets_unavailable), { onAction(MarketsAction.Retry) })
                             }
                         }
-                        return@LazyColumn
+                    } else {
+                        item(key = "header") { SessionHeader(model.header, state.overview?.session?.market, content.padding(top = spacing.md)) }
+                        item(key = "indices") {
+                            Indices(model, onOpen = { id -> lesson = MarketEducation.index(id) }, onRetry = { onAction(MarketsAction.Retry) }, modifier = section)
+                        }
                     }
-                    item(key = "header") { SessionHeader(model.header, content.padding(top = spacing.xl)) }
-                    item(key = "indices") {
-                        Indices(model, onOpen = { id -> lesson = MarketEducation.index(id) }, onRetry = { onAction(MarketsAction.Retry) }, modifier = content.padding(top = spacing.lg))
+                    if (brief != null) item(key = "daily-brief") { BriefEntry(brief, onAction, section) }
+                    if (model != null) {
+                        item(key = "movers") { Movers(model.movers, onAction, section) }
+                        item(key = "sectors") {
+                            Sectors(model.sectors, onOpen = { row -> lesson = MarketEducation.sector(row.sector, row.symbol, model.sectors.methodology) },
+                                onRetry = { onAction(MarketsAction.Retry) }, modifier = section)
+                        }
                     }
-                    item(key = "movers") { Movers(model.movers, onAction, section) }
-                    item(key = "sectors") {
-                        Sectors(model.sectors, onOpen = { row -> lesson = MarketEducation.sector(row.sector, row.symbol, model.sectors.methodology) },
-                            onRetry = { onAction(MarketsAction.Retry) }, modifier = section)
-                    }
-                    item(key = "news") { News(model, onAction, section) }
-                    item(key = "lesson") {
-                        StockInsightCard(
-                            title = model.lesson.title,
-                            body = model.lesson.body,
-                            eyebrow = stringResource(Res.string.markets_lesson_eyebrow),
-                            tone = InsightTone.EDUCATION,
-                            actionText = stringResource(Res.string.details_learn_more),
-                            onClick = { lesson = model.lesson },
-                            modifier = section
-                        )
-                    }
-                    item(key = "disclaimer") {
-                        Text(stringResource(Res.string.details_disclaimer), content.padding(top = spacing.lg),
-                            style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+                    item(key = "tools") { ResearchTools(section, earnings, onAction) }
+                    if (model != null) {
+                        item(key = "news") { News(model, onAction, section) }
+                        item(key = "lesson") {
+                            StockInsightCard(
+                                title = model.lesson.title,
+                                body = model.lesson.body,
+                                eyebrow = stringResource(Res.string.markets_lesson_eyebrow),
+                                tone = InsightTone.EDUCATION,
+                                actionText = stringResource(Res.string.details_learn_more),
+                                onClick = { lesson = model.lesson },
+                                modifier = section
+                            )
+                        }
+                        item(key = "disclaimer") {
+                            Text(stringResource(Res.string.details_disclaimer), content.padding(top = spacing.lg),
+                                style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+                        }
                     }
                 }
             }
@@ -186,101 +185,147 @@ internal fun MarketsScreen(
 private fun Title(modifier: Modifier, onSearch: () -> Unit) {
     val colors = StockStepsTheme.colors
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-            Text(stringResource(Res.string.markets_title), Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
-            Text(stringResource(Res.string.markets_subtitle), style = StockStepsTheme.typography.small, color = colors.textSecondary)
-        }
+        Text(stringResource(Res.string.markets_title), Modifier.weight(1f).semantics { heading() }, style = StockStepsTheme.typography.screenTitle,
+            color = colors.textTitle)
         IconButton(onClick = onSearch) {
             Icon(StockIcons.Search, contentDescription = stringResource(Res.string.markets_search), tint = colors.iconPrimary)
         }
     }
 }
 
-/** Market Overview (this screen) plus entry points to Discover Stocks and Compare Stocks. */
+/** Market status card: session dot + label in words (closed is neutral, not red), next open/close, market and source update time, sample notice. */
 @Composable
-private fun ResearchTools(modifier: Modifier, earnings: org.example.stocksteps.earnings.EarningsSummaryState?, onAction: (MarketsAction) -> Unit) {
+private fun SessionHeader(header: MarketHeaderModel, market: String?, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
-        listOf(
-            Triple("Discover Stocks", "Find companies by growth, dividends, strength or valuation", MarketsAction.Discover),
-            Triple("Compare Companies", "See two or three companies side by side", MarketsAction.Compare)
-        ).forEach { (title, subtitle, action) ->
-            StockCard(Modifier.weight(1f).fillMaxHeight(), onClick = { onAction(action) }, onClickLabel = "Open $title") {
-                Icon(if (action == MarketsAction.Discover) StockIcons.Search else StockIcons.PieChart, contentDescription = null, tint = colors.primary)
-                Text(title, Modifier.padding(top = spacing.sm), style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
-                Text(subtitle, Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.caption, color = colors.textSecondary)
-            }
-        }
-    }
-    // Earnings Center: counts only from the calendar (never estimated); a plain fallback otherwise.
-    StockCard(Modifier.fillMaxWidth(), onClick = { onAction(MarketsAction.Earnings) }, onClickLabel = "View Earnings Calendar") {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
-            Icon(StockIcons.TrendingUp, contentDescription = null, tint = colors.primary)
-            Column(Modifier.weight(1f)) {
-                Text("Earnings Center", Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
-                Text("See when companies are reporting results.", Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.caption, color = colors.textSecondary)
-                (earnings?.headline ?: if (earnings?.loading == false) "Open the calendar to browse upcoming and reported earnings." else null)?.let {
-                    Text(it, Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.small, color = colors.textPrimary)
+    val typography = StockStepsTheme.typography
+    StockCard(modifier, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        StockSectionHeader("Market status", trailing = if (header.sampleData) {
+            { StockStatusBadge("Sample", org.example.stocksteps.theme.StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT) }
+        } else null)
+        Row(Modifier.semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Box(Modifier.padding(top = spacing.xs + spacing.xxs).size(spacing.sm).clip(androidx.compose.foundation.shape.CircleShape).background(
+                when (MarketsScreenPresentation.statusDot(header.tone)) {
+                    MarketsScreenPresentation.StatusDot.OPEN -> colors.positive
+                    MarketsScreenPresentation.StatusDot.EXTENDED -> colors.caution
+                    MarketsScreenPresentation.StatusDot.NEUTRAL -> colors.textDisabled
                 }
-                earnings?.watchlistText?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.primaryText) }
-                Text("View Earnings Calendar", Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.label, color = colors.primaryText)
+            ))
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text(header.statusLabel, style = typography.bodySemiBold, color = colors.textTitle)
+                header.detail?.let { Text(it, style = typography.small, color = colors.textSupporting) }
             }
         }
-    }
-    }
-}
-
-@Composable
-private fun SessionHeader(header: MarketHeaderModel, modifier: Modifier) {
-    val spacing = StockStepsTheme.spacing
-    val colors = StockStepsTheme.colors
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Box(Modifier.size(StockStepsTheme.spacing.sm).clip(androidx.compose.foundation.shape.CircleShape).background(
-                when (header.tone) { SessionTone.OPEN -> colors.positive; SessionTone.EXTENDED -> colors.caution; SessionTone.CLOSED -> colors.negative; SessionTone.UNKNOWN -> colors.textDisabled }
-            ))
-            Text(header.statusLabel, style = StockStepsTheme.typography.bodySemiBold, color = colors.textPrimary)
-            header.detail?.let { Text("· $it", style = StockStepsTheme.typography.small, color = colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-        }
-        Text(listOfNotNull(header.updated, header.notice).joinToString(" · "),
-            style = StockStepsTheme.typography.caption, color = if (header.sampleData) colors.cautionText else colors.textSecondary)
+        MarketsScreenPresentation.statusMeta(header, market)?.let { Text(it, style = typography.caption, color = colors.textMeta) }
+        if (header.notice.isNotBlank()) Text(header.notice, style = typography.caption, color = if (header.sampleData) colors.cautionText else colors.textMeta)
     }
 }
 
+/** Major indices as one grouped card of rows: name and source quote time left, value and signed change right; stacked at large text. */
 @Composable
 private fun Indices(model: MarketsUiModel, onOpen: (String) -> Unit, onRetry: () -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
-    if (model.indicesFailed || model.indices.isEmpty()) {
-        StockCard(modifier, bordered = false) { StockErrorState(stringResource(Res.string.markets_indices_failed), onRetry) }
-        return
-    }
-    LazyRow(modifier, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        items(model.indices, key = { it.id }) { card -> IndexCard(card, onClick = { onOpen(card.id) }) }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        StockSectionHeader("Major indices")
+        if (model.indicesFailed || model.indices.isEmpty()) {
+            StockCard { StockErrorState(stringResource(Res.string.markets_indices_failed), onRetry) }
+            return@Column
+        }
+        BoxWithConstraints {
+            val width = maxWidth.value
+            StockCard(contentPadding = PaddingValues(vertical = spacing.xxs)) {
+                model.indices.forEachIndexed { n, card ->
+                    if (n > 0) StockDivider(startIndent = spacing.cardPadding)
+                    IndexRow(card, showTrend = MarketsScreenPresentation.showTrend(width, card), onClick = { onOpen(card.id) })
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun IndexCard(card: IndexCardModel, onClick: () -> Unit) {
+private fun IndexRow(card: IndexCardModel, showTrend: Boolean, onClick: () -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
-    StockCard(
-        modifier = Modifier.width(StockStepsTheme.dimensions.indexCardWidth).clearAndSetSemantics { contentDescription = card.accessibilityLabel },
-        onClick = onClick,
-        bordered = false,
-        contentPadding = PaddingValues(spacing.md)
-    ) {
-        Text(card.name, style = StockStepsTheme.typography.label, color = colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(card.value, Modifier.padding(top = spacing.xxs), style = StockStepsTheme.typography.numberEmphasis, color = colors.textPrimary, maxLines = 1)
-        if (card.available) {
-            StockPriceChange(card.percent, card.direction, amount = card.change)
-            if (card.trend.size >= 2) StockSparkline(card.trend, card.direction, Modifier.padding(top = spacing.xs).fillMaxWidth().height(StockStepsTheme.dimensions.sparklineHeight))
-        } else {
-            Text(stringResource(Res.string.markets_index_unavailable), style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+    val typography = StockStepsTheme.typography
+    val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
+    val name: @Composable (Modifier) -> Unit = { m ->
+        Column(m, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Text(card.name, style = typography.bodySemiBold, color = colors.textTitle)
+            MarketsScreenPresentation.indexMeta(card)?.let {
+                Text(it, style = typography.caption, color = if (card.proxyLabel != null) colors.cautionText else colors.textMeta)
+            }
         }
-        card.proxyLabel?.let { Text(it, Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.tiny, color = colors.cautionText, maxLines = 1) }
-        card.updated?.let { Text(it, Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.tiny, color = colors.textTertiary, maxLines = 1) }
+    }
+    val values: @Composable (Alignment.Horizontal) -> Unit = { alignment ->
+        Column(horizontalAlignment = alignment, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Text(card.value, style = typography.numberLabelStrong, color = colors.textValue)
+            if (card.available) StockPriceChange(MarketsScreenPresentation.indexChange(card), card.direction, maxLines = 2)
+            else Text(MarketsScreenPresentation.INDEX_UNAVAILABLE, style = typography.caption, color = colors.textMeta)
+        }
+    }
+    val trend: @Composable () -> Unit = {
+        if (showTrend) {
+            StockSparkline(card.trend, card.direction, Modifier.size(StockStepsTheme.dimensions.sparklineWidth, StockStepsTheme.dimensions.sparklineHeight))
+        }
+    }
+    val rowModifier = Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.rowCompactMinHeight)
+        .clickable(onClickLabel = MarketsScreenPresentation.INDEX_HINT, role = Role.Button, onClick = onClick)
+        .semantics(mergeDescendants = true) { contentDescription = card.accessibilityLabel }
+        .padding(horizontal = spacing.cardPadding, vertical = spacing.sm)
+    if (largeText) {
+        Column(rowModifier, verticalArrangement = Arrangement.spacedBy(spacing.xs)) { name(Modifier); values(Alignment.Start); trend() }
+    } else Row(rowModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+        name(Modifier.weight(1f)); trend(); values(Alignment.End)
+    }
+}
+
+/** The Daily Market Brief as one entry row (no summary sentence: the index rows above already show those moves) + Previous briefs. */
+@Composable
+private fun BriefEntry(brief: org.example.stocksteps.brief.DailyBriefUiState, onAction: (MarketsAction) -> Unit, modifier: Modifier) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val latest = brief.latest
+    StockCard(modifier, contentPadding = PaddingValues(horizontal = spacing.cardPadding, vertical = spacing.xxs)) {
+        when {
+            latest != null -> {
+                val now = org.example.stocksteps.presentation.brief.briefNow()
+                val caution = org.example.stocksteps.brief.BriefFormat.isStale(latest, now) || brief.offline
+                StockNavigationRow("Your Daily Market Brief", { onAction(MarketsAction.DailyBrief) },
+                    detail = org.example.stocksteps.presentation.home.HomeDashboardPresentation.briefMeta(latest, now, brief.offline) +
+                        if (latest.sampleData) " · Sample data" else "",
+                    icon = StockIcons.News, detailColor = if (caution) colors.cautionText else colors.textMeta,
+                    actionLabel = org.example.stocksteps.presentation.home.HomeDashboardPresentation.briefAction(latest, now))
+                StockDivider()
+                Text("Previous briefs", Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).wrapContentHeight()
+                    .clickable(role = Role.Button) { onAction(MarketsAction.BriefHistory) },
+                    style = StockStepsTheme.typography.label, color = colors.primaryText)
+            }
+            brief.loading -> androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = spacing.md)
+                .semantics { contentDescription = "Loading the Daily Market Brief" })
+            else -> Text(brief.error ?: "The brief isn't available right now.", Modifier.padding(vertical = spacing.md),
+                style = StockStepsTheme.typography.small, color = colors.textSupporting)
+        }
+    }
+}
+
+/** Research tools as one grouped card of navigation rows; the calendar row shows real counts only. */
+@Composable
+private fun ResearchTools(modifier: Modifier, earnings: org.example.stocksteps.earnings.EarningsSummaryState?, onAction: (MarketsAction) -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val present = MarketsScreenPresentation
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        StockSectionHeader("Research tools")
+        StockCard(contentPadding = PaddingValues(horizontal = spacing.cardPadding, vertical = spacing.xxs)) {
+            StockNavigationRow(present.DISCOVER.title, { onAction(MarketsAction.Discover) }, detail = present.DISCOVER.detail,
+                icon = StockIcons.Search, actionLabel = "Open ${present.DISCOVER.title}")
+            StockDivider()
+            StockNavigationRow(present.COMPARE.title, { onAction(MarketsAction.Compare) }, detail = present.COMPARE.detail,
+                icon = StockIcons.PieChart, actionLabel = "Open ${present.COMPARE.title}")
+            StockDivider()
+            StockNavigationRow(present.EARNINGS_TITLE, { onAction(MarketsAction.Earnings) }, detail = present.earningsDetail(earnings),
+                secondaryDetail = present.earningsSecondary(earnings), icon = StockIcons.TrendingUp, actionLabel = "View Earnings Calendar")
+        }
     }
 }
 
@@ -291,7 +336,7 @@ private fun Movers(movers: MoversModel, onAction: (MarketsAction) -> Unit, modif
     Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         StockSectionHeader(stringResource(Res.string.markets_movers_title))
         StockPillSelector(MoversTab.entries, movers.tab, label = { it.label }, onSelect = { onAction(MarketsAction.SelectTab(it)) })
-        StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xxs)) {
+        StockCard(contentPadding = PaddingValues(vertical = spacing.xxs)) {
             when {
                 movers.failed -> StockErrorState(stringResource(Res.string.markets_section_failed), { onAction(MarketsAction.Retry) }, Modifier.padding(spacing.md))
                 movers.emptyMessage != null -> StockEmptyState(movers.emptyMessage!!, Modifier.padding(spacing.md))
@@ -301,7 +346,7 @@ private fun Movers(movers: MoversModel, onAction: (MarketsAction) -> Unit, modif
                 }
             }
         }
-        Text("${movers.rankedBy}. ${movers.universe}.", style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+        Text("${movers.rankedBy}. ${movers.universe}.", style = StockStepsTheme.typography.caption, color = colors.textMeta)
         if (!movers.failed && movers.total > MarketsPresenter.PREVIEW_ROWS) {
             Text(
                 if (movers.expanded) stringResource(Res.string.markets_show_fewer) else stringResource(Res.string.markets_show_all, movers.total),
@@ -322,11 +367,13 @@ private fun MoverRow(mover: MoverRowModel, tab: MoversTab, onAction: (MarketsAct
             name = row.name,
             modifier = Modifier.weight(1f).semantics(mergeDescendants = true) { contentDescription = mover.accessibilityLabel },
             logoUrl = row.logoUrl,
+            contentPadding = PaddingValues(start = StockStepsTheme.spacing.cardPadding, end = StockStepsTheme.spacing.xs,
+                top = StockStepsTheme.spacing.sm, bottom = StockStepsTheme.spacing.sm),
             onClick = { onAction(MarketsAction.OpenStock(row.symbol)) },
             trailing = {
-                row.price?.let { Text(it, style = StockStepsTheme.typography.numberLabelStrong, color = StockStepsTheme.colors.textPrimary, maxLines = 1) }
+                row.price?.let { Text(it, style = StockStepsTheme.typography.numberLabelStrong, color = StockStepsTheme.colors.textValue, maxLines = 1) }
                 StockPriceChange(row.change, row.direction)
-                if (tab == MoversTab.MOST_ACTIVE) mover.volume?.let { Text(it, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary) }
+                if (tab == MoversTab.MOST_ACTIVE) mover.volume?.let { Text(it, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSupporting) }
             }
         )
         if (tab != MoversTab.MOST_ACTIVE && row.direction != PriceDirection.UNAVAILABLE) {
@@ -344,7 +391,7 @@ private fun Sectors(sectors: SectorsModel, onOpen: (SectorRowModel) -> Unit, onR
     val colors = StockStepsTheme.colors
     Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         StockSectionHeader(stringResource(Res.string.markets_sectors_title))
-        StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
+        StockCard(contentPadding = PaddingValues(horizontal = spacing.cardPadding, vertical = spacing.xs)) {
             when {
                 sectors.failed -> StockErrorState(stringResource(Res.string.markets_section_failed), onRetry, Modifier.padding(vertical = spacing.sm))
                 sectors.rows.isEmpty() -> StockEmptyState(stringResource(Res.string.markets_sectors_empty), Modifier.padding(vertical = spacing.sm))
@@ -353,28 +400,37 @@ private fun Sectors(sectors: SectorsModel, onOpen: (SectorRowModel) -> Unit, onR
                 }
             }
         }
-        Text("${sectors.period}. ${sectors.methodology}", style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+        Text("${sectors.period}. ${sectors.methodology}", style = StockStepsTheme.typography.caption, color = colors.textMeta)
     }
 }
 
+/** Sector name (wraps) — bar — signed change. At large text the bar and change move under the name so neither is squeezed. */
 @Composable
 private fun SectorRow(row: SectorRowModel, onClick: () -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
-    val positive = row.direction == PriceDirection.UP
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
-            .clickable(role = Role.Button, onClick = onClick)
-            .clearAndSetSemantics { contentDescription = row.accessibilityLabel },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-    ) {
-        Text(row.sector, Modifier.weight(0.42f), style = StockStepsTheme.typography.small, color = colors.textBody, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Box(Modifier.weight(0.38f).height(spacing.sm).clip(StockStepsTheme.shapes.pill).background(colors.surfaceSecondary)) {
+    val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
+    val bar: @Composable (Modifier) -> Unit = { m ->
+        Box(m.height(spacing.sm).clip(StockStepsTheme.shapes.pill).background(colors.surfaceSecondary)) {
             Box(Modifier.fillMaxWidth(row.fraction).fillMaxHeight().clip(StockStepsTheme.shapes.pill)
-                .background(if (positive) colors.positive else if (row.direction == PriceDirection.DOWN) colors.negative else colors.textDisabled))
+                .background(if (row.direction == PriceDirection.UP) colors.positive else if (row.direction == PriceDirection.DOWN) colors.negative else colors.textDisabled))
         }
-        StockPriceChange(row.change, row.direction, Modifier.weight(0.2f))
+    }
+    val rowModifier = Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
+        .clickable(role = Role.Button, onClick = onClick)
+        .clearAndSetSemantics { contentDescription = row.accessibilityLabel }
+        .padding(vertical = spacing.xs)
+    if (largeText) {
+        Column(rowModifier, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            Text(row.sector, style = StockStepsTheme.typography.small, color = colors.textBody)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                bar(Modifier.weight(1f)); StockPriceChange(row.change, row.direction)
+            }
+        }
+    } else Row(rowModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        Text(row.sector, Modifier.weight(0.45f), style = StockStepsTheme.typography.small, color = colors.textBody)
+        bar(Modifier.weight(0.35f))
+        StockPriceChange(row.change, row.direction, Modifier.weight(0.2f).wrapContentWidth(Alignment.End))
     }
 }
 
@@ -383,7 +439,7 @@ private fun News(model: MarketsUiModel, onAction: (MarketsAction) -> Unit, modif
     val spacing = StockStepsTheme.spacing
     Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         StockSectionHeader(stringResource(Res.string.markets_news_title))
-        StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
+        StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
             when {
                 model.newsFailed -> StockErrorState(stringResource(Res.string.home_news_unavailable), { onAction(MarketsAction.Retry) }, Modifier.padding(vertical = spacing.sm))
                 model.news.isEmpty() -> StockEmptyState(stringResource(Res.string.markets_news_empty), Modifier.padding(vertical = spacing.sm))

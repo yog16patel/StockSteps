@@ -143,37 +143,15 @@ private struct HomeIndexRow: View {
     }
 }
 
-/// A full-width tappable row inside a Home card: title, muted detail and a chevron (Upcoming & alerts, brief entry).
+/// A full-width tappable row inside a Home card (Upcoming & alerts, brief entry); the shared `StockNavigationRow` without an icon.
 struct HomeLinkRow: View {
     let title: String
     let detail: String?
     var detailColor: Color? = nil
     var hint: String? = nil
     let action: () -> Void
-    @Environment(\.colorScheme) private var scheme
     var body: some View {
-        let colors = StockStepsTheme.colors(scheme)
-        Button(action: action) {
-            HStack(spacing: CGFloat(space.sm)) {
-                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                    Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
-                        .multilineTextAlignment(.leading)
-                    if let detail {
-                        Text(detail).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
-                            .foregroundStyle(detailColor ?? colors.textSupporting).multilineTextAlignment(.leading)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Image(systemName: "chevron.right").font(StockStepsTheme.font(type.caption, relativeTo: .caption1).weight(.semibold))
-                    .foregroundStyle(colors.textTertiary).accessibilityHidden(true)
-            }
-            .padding(.vertical, CGFloat(space.sm))
-            .frame(minHeight: CGFloat(dims.rowCompactMinHeight))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityHint(hint ?? "")
+        StockNavigationRow(title: title, detail: detail, detailColor: detailColor, hint: hint, action: action)
     }
 }
 

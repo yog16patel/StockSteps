@@ -44,46 +44,6 @@ struct BriefTarget: Hashable, Identifiable {
     var id: String { briefId ?? "latest" }
 }
 
-// MARK: - Compact preview (Home, Markets)
-
-struct DailyBriefPreviewCard: View {
-    let model: BriefModel
-    let onOpen: () -> Void
-    var onHistory: (() -> Void)? = nil
-    @Environment(\.colorScheme) private var scheme
-
-    var body: some View {
-        let colors = StockStepsTheme.colors(scheme)
-        let state = model.state
-        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            HStack(spacing: CGFloat(space.sm)) {
-                Image(systemName: "newspaper").foregroundStyle(colors.primary).accessibilityHidden(true)
-                Text("Your Daily Market Brief").font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).accessibilityAddTraits(.isHeader)
-            }
-            if let brief = state?.latest {
-                let stale = model.client.isStale(brief: brief)
-                Text(model.client.freshness(brief: brief) + (state?.offline == true ? " · Offline copy" : ""))
-                    .font(.caption).foregroundStyle(stale || state?.offline == true ? colors.cautionText : colors.textSecondary)
-                Text(brief.summaryLine).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody).lineLimit(3)
-                HStack {
-                    Text("\(brief.readingMinutes) min read" + (brief.sampleData ? " · Sample data" : "")).font(.caption).foregroundStyle(colors.textSecondary)
-                    Spacer()
-                    if let onHistory { Button("Previous briefs", action: onHistory).font(.subheadline) }
-                    Button(stale ? "Read Latest Brief" : "Read Today's Brief", action: onOpen).font(.subheadline.weight(.semibold)).frame(minHeight: CGFloat(dims.touchTarget))
-                }
-            } else if state?.loading != false {
-                ProgressView().accessibilityLabel("Loading the Daily Market Brief")
-            } else {
-                Text(state?.error ?? "The brief isn't available right now.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
-            }
-        }
-        .stockCard()
-        .contentShape(Rectangle())
-        .onTapGesture { if state?.latest != nil { onOpen() } }
-        .accessibilityElement(children: .contain)
-    }
-}
-
 // MARK: - Reader
 
 struct DailyBriefScene: View {

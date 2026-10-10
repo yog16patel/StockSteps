@@ -456,3 +456,49 @@ struct MarketStatusIndicator: View {
         }
     }
 }
+
+/// Full-width navigation row inside a card (Phase 4B, generalised from Home's link row): optional icon, title, muted detail lines and a
+/// chevron. One tap target of at least `rowCompactMinHeight`; title and detail wrap instead of truncating.
+struct StockNavigationRow: View {
+    @Environment(\.colorScheme) private var scheme
+    let title: String
+    var detail: String? = nil
+    /// SF Symbol name.
+    var icon: String? = nil
+    var detailColor: Color? = nil
+    /// A second muted line (e.g. watchlist counts) under `detail`.
+    var secondaryDetail: String? = nil
+    var hint: String? = nil
+    let action: () -> Void
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        Button(action: action) {
+            HStack(spacing: CGFloat(space.md)) {
+                if let icon {
+                    Image(systemName: icon).font(StockStepsTheme.font(type.body, relativeTo: .body)).foregroundStyle(colors.primaryText)
+                        .frame(width: CGFloat(dims.icon)).accessibilityHidden(true)
+                }
+                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                    Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+                    if let detail {
+                        Text(detail).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
+                            .foregroundStyle(detailColor ?? colors.textSupporting).multilineTextAlignment(.leading)
+                    }
+                    if let secondaryDetail {
+                        Text(secondaryDetail).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
+                            .foregroundStyle(colors.textSupporting).multilineTextAlignment(.leading)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right").font(StockStepsTheme.font(type.caption, relativeTo: .caption1).weight(.semibold))
+                    .foregroundStyle(colors.textTertiary).accessibilityHidden(true)
+            }
+            .padding(.vertical, CGFloat(space.sm))
+            .frame(minHeight: CGFloat(dims.rowCompactMinHeight))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(hint ?? "")
+    }
+}

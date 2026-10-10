@@ -1,9 +1,24 @@
 # StockSteps — session handoff (2026-10-10, end of session: Global UI Refinement Phases 1, 1A, 2, 3 and 3.1 committed and pushed)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE4A below** → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE4B below** → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PHASE4B. Global UI Refinement Phase 4B — Markets (committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS" (pushed), on top of Phase 4A
+  ("Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"). Commit/push only when the user asks; every commit updates the root `PROJECT_HANDOFF.md`.
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE4.md` §Phase 4B, screenshots `docs/design/phase4b/`, reference
+  `docs/design/phase4b/stocksteps-markets-ui-reference.png`): Markets reordered data first (status → indices → brief entry → movers →
+  sectors → research tools → news → lesson); Market status card (closed = neutral dot, US session only — user decision); indices as one
+  grouped card of rows (sparkline only when the card is ≥ 380 dp/pt); brief as one entry row + Previous briefs (summary sentence dropped);
+  research tools as grouped `StockNavigationRow`s (new design-system component; Home's `HomeLinkRow` delegates); sector names wrap;
+  unused `DailyBriefPreviewCard` removed on both platforms; title "Markets".
+- Results: core JVM/iOS 429/0, shared Android 92/0, shared iOS 88/0, `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED. Device pass
+  (approved): light/dark, iOS XXXL, Android 1.3× at 360 dp, temporary iPhone SE 375 pt (deleted afterwards), Android error state; settings
+  restored, MOCK server stopped. NOT RUN: VoiceOver/TalkBack, iOS error state.
+- Next: user review of the 4B screenshots → **Phase 4C (Company Details) only after approval**.
 
 ## PHASE4A. Global UI Refinement Phase 4A — Home (committed and pushed) — read first
 

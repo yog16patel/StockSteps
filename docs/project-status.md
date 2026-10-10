@@ -6,6 +6,12 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**Global UI Refinement Phase 4B (Markets) — committed and pushed as "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS" (2026-10-10)**: data-first Markets (status card with a
+neutral closed state, grouped index rows, brief entry row, grouped research-tool rows via the new `StockNavigationRow`, wrapping sector
+names), unused `DailyBriefPreviewCard` removed. Core 429/0 (JVM, iOS), shared Android 92/0, shared iOS 88/0, `assembleDebug` and iOS
+`xcodebuild` OK; device pass incl. iPhone SE and Android 360 dp. Details `docs/GLOBAL_UI_REFINEMENT_PHASE4.md`. **Next**: review → Phase 4C
+(Company Details) on approval.
+
 **Global UI Refinement Phase 4A (Home) — committed and pushed as "Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS" (2026-10-10)**: "Markets today" card from the Daily Brief
 already on Home (no new requests), compact portfolio summary in the Phase 3 language, fact rows with chevrons, readable UTC dates via core
 `ReadableDates`, `StockRow` names wrap at large text. Core 429/0 (JVM, iOS), shared Android 87/0, shared iOS 83/0, server 482/0 (3 skipped),

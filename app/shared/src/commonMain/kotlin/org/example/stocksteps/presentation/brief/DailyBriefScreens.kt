@@ -13,7 +13,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextOverflow
 import org.example.stocksteps.brief.*
@@ -47,47 +46,6 @@ internal sealed interface BriefAction {
     data class SavePreferences(val value: BriefPreferences) : BriefAction
     data object LoadPreferences : BriefAction
     data class Scenario(val name: String?) : BriefAction
-}
-
-// ---------- Compact preview (Home, Markets) ----------
-
-/** Compact card: title, freshness (never "today" for an older brief), one line, reading time, action. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun DailyBriefPreviewCard(state: DailyBriefUiState?, nowMillis: Long, onOpen: () -> Unit, modifier: Modifier = Modifier, onHistory: (() -> Unit)? = null) {
-    val colors = StockStepsTheme.colors
-    val typography = StockStepsTheme.typography
-    val brief = state?.latest
-    StockCard(modifier.fillMaxWidth(), onClick = if (brief != null) onOpen else null, onClickLabel = "Read the Daily Market Brief",
-        verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
-            Icon(StockIcons.News, contentDescription = null, tint = colors.primary, modifier = Modifier.size(StockStepsTheme.dimensions.icon))
-            Text("Your Daily Market Brief", Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
-        }
-        when {
-            brief != null -> {
-                val stale = BriefFormat.isStale(brief, nowMillis)
-                Text(BriefFormat.freshness(brief, nowMillis) + if (state.offline) " · Offline copy" else "", style = typography.caption,
-                    color = if (stale || state.offline) colors.cautionText else colors.textSecondary)
-                Text(brief.summaryLine, style = typography.body, color = colors.textBody, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                val meta = "${brief.readingMinutes} min read" + if (brief.sampleData) " · Sample data" else ""
-                // At large font sizes one row squeezed the meta text into a narrow, many-line column (Phase 5C.1): stack it above the actions.
-                if (LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale) {
-                    Text(meta, style = typography.caption, color = colors.textSecondary)
-                    FlowRow(verticalArrangement = Arrangement.Center) {
-                        onHistory?.let { TextButton(onClick = it) { Text("Previous briefs") } }
-                        TextButton(onClick = onOpen) { Text(if (stale) "Read Latest Brief" else "Read Today's Brief") }
-                    }
-                } else Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(meta, Modifier.weight(1f), style = typography.caption, color = colors.textSecondary)
-                    onHistory?.let { TextButton(onClick = it) { Text("Previous briefs") } }
-                    TextButton(onClick = onOpen) { Text(if (stale) "Read Latest Brief" else "Read Today's Brief") }
-                }
-            }
-            state?.loading != false -> LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading the Daily Market Brief" })
-            else -> Text(state.error ?: "The brief isn't available right now.", style = typography.small, color = colors.textSecondary)
-        }
-    }
 }
 
 // ---------- Reader ----------

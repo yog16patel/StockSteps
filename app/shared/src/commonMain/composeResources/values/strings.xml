@@ -239,7 +239,7 @@
     <string name="movement_limits">Limitations</string>
     <string name="movement_labels">What the labels mean</string>
     <string name="nav_markets">Markets</string>
-    <string name="markets_title">Explore Markets</string>
+    <string name="markets_title">Markets</string>
     <string name="markets_subtitle">Discover what's happening in the market.</string>
     <string name="markets_search">Search stocks</string>
     <string name="markets_unavailable">Market data isn't available right now.</string>

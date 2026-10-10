@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS** on `main` (pushed).
-Previous commit: **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS** on `main` (pushed).
+Previous commit: **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
@@ -48,6 +48,16 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Global UI Refinement Phase 4B — Markets (2026-10-10) — commit "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"
+
+On top of "Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS". Markets reordered data first (Market status card with a neutral closed state, US session only; Major indices as one
+grouped card of rows, sparkline only when the card is ≥ 380 dp/pt; Daily Market Brief entry row + Previous briefs; Top Movers; Sector
+Performance with wrapping names; Research tools as grouped rows), new design-system `StockNavigationRow` (Home's `HomeLinkRow` delegates),
+unused `DailyBriefPreviewCard` removed on both platforms, title "Markets". Tests: core JVM/iOS 429/0, shared Android 92/0, shared iOS 88/0,
+`assembleDebug`, iOS `xcodebuild`. Device pass: light/dark, iOS XXXL, Android 1.3× at 360 dp, temporary iPhone SE 375 pt, Android error
+state. Not run: screen readers, iOS error state. Details: `docs/GLOBAL_UI_REFINEMENT_PHASE4.md` §Phase 4B. Next: Phase 4C (Company Details)
+after review.
 
 ## Global UI Refinement Phase 4A — Home (2026-10-10) — commit "Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"
 

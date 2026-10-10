@@ -92,38 +92,47 @@ struct MarketsScene: View {
     var onDailyBrief: () -> Void = {}
     var onBriefHistory: () -> Void = {}
     @State private var lesson: MarketLesson?
+    /// Width of the indices card; the trend sparkline needs `TREND_MIN_ROW_WIDTH` so names keep their room.
+    @State private var indexCardWidth: CGFloat = 0
     @State private var movementSymbol: String?
 
+    private let present = MarketsScreenPresentation.shared
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Data first (Phase 4B): title → market status → major indices → brief entry → movers → sectors → research tools → news → lesson.
+    /// The brief and research tools stay available when the market overview itself fails.
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                title(colors).padding(.top, CGFloat(space.lg))
-                if let brief { DailyBriefPreviewCard(model: brief, onOpen: onDailyBrief, onHistory: onBriefHistory).padding(.top, CGFloat(space.xl)) }
-                researchTools(colors).padding(.top, CGFloat(space.xl))
+                title(colors).padding(.top, CGFloat(space.md))
                 if let content = model.model {
-                    header(content.header, colors).padding(.top, CGFloat(space.xl))
-                    indices(content, colors).padding(.top, CGFloat(space.lg))
-                    movers(content.movers, colors).padding(.top, CGFloat(space.xl))
-                    sectors(content.sectors, colors).padding(.top, CGFloat(space.xl))
-                    news(content, colors).padding(.top, CGFloat(space.xl))
+                    header(content.header, market: model.overview?.session.market, colors).padding(.top, CGFloat(space.md))
+                    indices(content, colors).padding(.top, CGFloat(space.sectionGap))
+                } else if model.loading {
+                    VStack(spacing: CGFloat(space.sm)) {
+                        StockSkeleton(width: 1, height: CGFloat(dims.touchTarget) * 2).frame(maxWidth: .infinity)
+                        ForEach(0..<5, id: \.self) { _ in StockRowSkeleton() }
+                    }
+                    .padding(.top, CGFloat(space.md)).accessibilityLabel("Loading")
+                } else {
+                    StockSectionMessage(message: model.error ?? "Market data isn't available right now.", actionTitle: "Try again", action: model.load)
+                        .stockCard().padding(.top, CGFloat(space.md))
+                }
+                if let brief { briefEntry(brief, colors).padding(.top, CGFloat(space.sectionGap)) }
+                if let content = model.model {
+                    movers(content.movers, colors).padding(.top, CGFloat(space.sectionGap))
+                    sectors(content.sectors, colors).padding(.top, CGFloat(space.sectionGap))
+                }
+                researchTools(colors).padding(.top, CGFloat(space.sectionGap))
+                if let content = model.model {
+                    news(content, colors).padding(.top, CGFloat(space.sectionGap))
                     StockInsightCard(title: content.lesson.title, message: content.lesson.body, tone: .education, actionTitle: "Learn more") {
                         lesson = content.lesson
                     }
-                    .padding(.top, CGFloat(space.xl))
+                    .padding(.top, CGFloat(space.sectionGap))
                     Text("Educational information, not a recommendation to buy or sell.")
                         .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary).padding(.top, CGFloat(space.lg))
-                } else if model.loading {
-                    VStack(spacing: CGFloat(space.sm)) {
-                        HStack(spacing: CGFloat(space.sm)) {
-                            ForEach(0..<2, id: \.self) { _ in StockSkeleton(width: 1, height: CGFloat(dims.touchTarget) * 2).frame(maxWidth: .infinity) }
-                        }
-                        ForEach(0..<5, id: \.self) { _ in StockRowSkeleton() }
-                    }
-                    .padding(.top, CGFloat(space.lg)).accessibilityLabel("Loading")
-                } else {
-                    StockSectionMessage(message: model.error ?? "Market data isn't available right now.", actionTitle: "Try again", action: model.load)
-                        .stockCard(padding: CGFloat(space.md), bordered: false).padding(.top, CGFloat(space.lg))
                 }
             }
             .frame(maxWidth: CGFloat(dims.contentMaxWidth), alignment: .leading)
@@ -140,60 +149,10 @@ struct MarketsScene: View {
         .task { model.start() }
     }
 
-    /// Market Overview (this screen) plus entry points to Discover Stocks and Compare Stocks.
-    private func researchTools(_ colors: StockColors) -> some View {
-        VStack(spacing: CGFloat(space.md)) {
-            HStack(spacing: CGFloat(space.md)) {
-                tool("Discover Stocks", "Find companies by growth, dividends, strength or valuation", "magnifyingglass", colors, onDiscover)
-                tool("Compare Companies", "See two or three companies side by side", "square.split.2x1", colors, onCompare)
-            }
-            earningsCenter(colors)
-        }
-    }
-
-    /// Earnings Center: counts only from the calendar (never estimated); a plain fallback otherwise.
-    private func earningsCenter(_ colors: StockColors) -> some View {
-        let summary = earnings?.summary
-        return Button(action: onEarnings) {
-            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                Image(systemName: "calendar").foregroundStyle(colors.primary)
-                Text("Earnings Center").font(.headline).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
-                Text("See when companies are reporting results.").font(.caption).foregroundStyle(colors.textSecondary)
-                if let line = summary?.headline ?? (summary?.loading == false ? "Open the calendar to browse upcoming and reported earnings." : nil) {
-                    Text(line).font(.subheadline).foregroundStyle(colors.textPrimary).multilineTextAlignment(.leading)
-                }
-                if let watch = summary?.watchlistText { Text(watch).font(.caption).foregroundStyle(colors.primaryText) }
-                Text("View Earnings Calendar").font(.subheadline.weight(.semibold)).foregroundStyle(colors.primaryText)
-            }
-            .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
-            .stockCard()
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Opens the Earnings Calendar")
-        .task { earnings?.startSummary() }
-    }
-
-    private func tool(_ title: String, _ subtitle: String, _ icon: String, _ colors: StockColors, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                Image(systemName: icon).foregroundStyle(colors.primary)
-                Text(title).font(.headline).foregroundStyle(colors.textPrimary)
-                Text(subtitle).font(.caption).foregroundStyle(colors.textSecondary).multilineTextAlignment(.leading)
-            }
-            .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
-            .stockCard()
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Opens \(title)")
-    }
-
     private func title(_ colors: StockColors) -> some View {
         HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                Text("Explore Markets").font(StockStepsTheme.font(type.screenTitle, relativeTo: .title2)).foregroundStyle(colors.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
-                Text("Discover what's happening in the market.").font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSecondary)
-            }
+            Text(present.TITLE).font(StockStepsTheme.font(type.screenTitle, relativeTo: .title2)).foregroundStyle(colors.textTitle)
+                .accessibilityAddTraits(.isHeader)
             Spacer(minLength: CGFloat(space.sm))
             Button(action: onSearch) {
                 Image(systemName: "magnifyingglass").font(.title3).foregroundStyle(colors.textPrimary)
@@ -203,70 +162,150 @@ struct MarketsScene: View {
         }
     }
 
-    private func header(_ header: MarketHeaderModel, _ colors: StockColors) -> some View {
-        let dot: Color = switch header.tone {
+    /// Market status card: session dot + label in words (closed is neutral, not red), next open/close, market and source update time, sample notice.
+    private func header(_ header: MarketHeaderModel, market: String?, _ colors: StockColors) -> some View {
+        let dot: Color = switch present.statusDot(tone: header.tone) {
         case .open: colors.positive
         case .extended: colors.warning
-        case .closed: colors.negative
         default: colors.textDisabled
         }
-        return VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-            HStack(spacing: CGFloat(space.sm)) {
-                Circle().fill(dot).frame(width: CGFloat(space.sm), height: CGFloat(space.sm)).accessibilityHidden(true)
-                Text(header.statusLabel).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
-                if let detail = header.detail {
-                    Text("· \(detail)").font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSecondary).lineLimit(1)
-                }
+        return VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            StockSectionHeader(title: "Market status") {
+                if header.sampleData { StockStatusBadge(text: "Sample", kind: .sample, size: .compact) }
             }
-            .accessibilityElement(children: .combine)
-            Text([header.updated, header.notice].compactMap { $0 }.joined(separator: " · "))
-                .font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
-                .foregroundStyle(header.sampleData ? colors.cautionText : colors.textSecondary)
-        }
-    }
-
-    @ViewBuilder
-    private func indices(_ content: MarketsUiModel, _ colors: StockColors) -> some View {
-        if content.indicesFailed || content.indices.isEmpty {
-            StockSectionMessage(message: "Market indices aren't available right now.", actionTitle: "Try again", action: model.load)
-                .stockCard(padding: CGFloat(space.md), bordered: false)
-        } else {
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: CGFloat(space.sm)) {
-                    ForEach(content.indices, id: \.id) { card in
-                        Button { lesson = model.client.indexLesson(id: card.id) } label: { indexCard(card, colors) }
-                            .buttonStyle(.plain)
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(card.accessibilityLabel)
-                            .accessibilityHint("Explains this index")
+            HStack(alignment: .firstTextBaseline, spacing: CGFloat(space.sm)) {
+                Circle().fill(dot).frame(width: CGFloat(space.sm), height: CGFloat(space.sm)).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                    Text(header.statusLabel).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+                    if let detail = header.detail {
+                        Text(detail).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSupporting)
                     }
                 }
             }
+            .accessibilityElement(children: .combine)
+            if let meta = present.statusMeta(header: header, market: market) {
+                Text(meta).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+            }
+            if !header.notice.isEmpty {
+                Text(header.notice).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
+                    .foregroundStyle(header.sampleData ? colors.cautionText : colors.textMeta)
+            }
+        }
+        .stockCard()
+    }
+
+    /// Major indices as one grouped card of rows: name and source quote time left, value and signed change right; stacked at large text.
+    @ViewBuilder
+    private func indices(_ content: MarketsUiModel, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            StockSectionHeader(title: "Major indices")
+            if content.indicesFailed || content.indices.isEmpty {
+                StockSectionMessage(message: "Market indices aren't available right now.", actionTitle: "Try again", action: model.load).stockCard()
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(content.indices.enumerated()), id: \.element.id) { n, card in
+                        if n > 0 { StockDivider().padding(.leading, CGFloat(space.cardPadding)) }
+                        Button { lesson = model.client.indexLesson(id: card.id) } label: { indexRow(card, colors) }
+                            .buttonStyle(.plain)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(card.accessibilityLabel)
+                            .accessibilityHint(present.INDEX_HINT)
+                    }
+                }
+                .padding(.vertical, CGFloat(space.xxs))
+                .stockCard(padding: 0)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { indexCardWidth = $0 }
+            }
         }
     }
 
-    private func indexCard(_ card: IndexCardModel, _ colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-            Text(card.name).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary).lineLimit(1)
-            Text(card.value).font(StockStepsTheme.font(type.numberEmphasis, relativeTo: .headline)).foregroundStyle(colors.textPrimary).lineLimit(1)
-            if card.available {
-                StockPriceChange(percentage: [card.change, card.percent].compactMap { $0 }.joined(separator: " "), direction: card.direction)
-                if card.trend.count >= 2 {
-                    StockSparkline(closes: card.trend.map { $0.doubleValue }, direction: card.direction)
-                        .frame(height: CGFloat(dims.sparklineHeight)).padding(.top, CGFloat(space.xs))
-                }
-            } else {
-                Text("Not available right now").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
-            }
-            if let proxy = card.proxyLabel {
-                Text(proxy).font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.cautionText).lineLimit(1)
-            }
-            if let updated = card.updated {
-                Text(updated).font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary).lineLimit(1)
+    private func indexRow(_ card: IndexCardModel, _ colors: StockColors) -> some View {
+        let stacked = typeSize >= .xxxLarge
+        let name = VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            Text(card.name).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+            if let meta = present.indexMeta(card: card) {
+                Text(meta).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
+                    .foregroundStyle(card.proxyLabel != nil ? colors.cautionText : colors.textMeta)
             }
         }
-        .frame(width: CGFloat(dims.indexCardWidth), alignment: .leading)
-        .stockCard(padding: CGFloat(space.md), bordered: false)
+        let values = VStack(alignment: stacked ? .leading : .trailing, spacing: CGFloat(space.xxs)) {
+            Text(card.value).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .subheadline)).foregroundStyle(colors.textValue).monospacedDigit()
+            if card.available {
+                StockPriceChange(percentage: present.indexChange(card: card), direction: card.direction, lineLimit: nil)
+            } else {
+                Text(present.INDEX_UNAVAILABLE).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+            }
+        }
+        let trend = Group {
+            if present.showTrend(cardWidth: Float(indexCardWidth), card: card) {
+                StockSparkline(closes: card.trend.map { $0.doubleValue }, direction: card.direction)
+                    .frame(width: CGFloat(dims.sparklineWidth), height: CGFloat(dims.sparklineHeight))
+            }
+        }
+        return Group {
+            if stacked {
+                VStack(alignment: .leading, spacing: CGFloat(space.xs)) { name; values; trend }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack(spacing: CGFloat(space.md)) {
+                    name.frame(maxWidth: .infinity, alignment: .leading)
+                    trend
+                    values.fixedSize(horizontal: true, vertical: false)
+                }
+            }
+        }
+        .padding(.horizontal, CGFloat(space.cardPadding))
+        .padding(.vertical, CGFloat(space.sm))
+        .frame(minHeight: CGFloat(dims.rowCompactMinHeight))
+        .contentShape(Rectangle())
+    }
+
+    /// The Daily Market Brief as one entry row (no summary sentence: the index rows already show those moves) + Previous briefs.
+    private func briefEntry(_ brief: BriefModel, _ colors: StockColors) -> some View {
+        let state = brief.state
+        let home = HomeDashboardPresentation.shared
+        return VStack(alignment: .leading, spacing: 0) {
+            if let latest = state?.latest {
+                let now = brief.client.now()
+                let caution = brief.client.isStale(brief: latest) || state?.offline == true
+                StockNavigationRow(title: "Your Daily Market Brief",
+                                   detail: home.briefMeta(brief: latest, nowMillis: now, offline: state?.offline == true) + (latest.sampleData ? " · Sample data" : ""),
+                                   icon: "newspaper", detailColor: caution ? colors.cautionText : colors.textMeta,
+                                   hint: home.briefAction(brief: latest, nowMillis: now), action: onDailyBrief)
+                StockDivider()
+                Button("Previous briefs", action: onBriefHistory)
+                    .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
+                    .frame(maxWidth: .infinity, minHeight: CGFloat(dims.touchTarget), alignment: .leading)
+            } else if state?.loading != false {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, CGFloat(space.md)).accessibilityLabel("Loading the Daily Market Brief")
+            } else {
+                Text(state?.error ?? "The brief isn't available right now.").font(StockStepsTheme.font(type.small))
+                    .foregroundStyle(colors.textSupporting).padding(.vertical, CGFloat(space.md))
+            }
+        }
+        .padding(.horizontal, CGFloat(space.cardPadding)).padding(.vertical, CGFloat(space.xxs))
+        .stockCard(padding: 0)
+    }
+
+    /// Research tools as one grouped card of navigation rows; the calendar row shows real counts only.
+    private func researchTools(_ colors: StockColors) -> some View {
+        let summary = earnings?.summary
+        return VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            StockSectionHeader(title: "Research tools")
+            VStack(spacing: 0) {
+                StockNavigationRow(title: present.DISCOVER.title, detail: present.DISCOVER.detail, icon: "magnifyingglass",
+                                   hint: "Opens \(present.DISCOVER.title)", action: onDiscover)
+                StockDivider()
+                StockNavigationRow(title: present.COMPARE.title, detail: present.COMPARE.detail, icon: "square.split.2x1",
+                                   hint: "Opens \(present.COMPARE.title)", action: onCompare)
+                StockDivider()
+                StockNavigationRow(title: present.EARNINGS_TITLE, detail: present.earningsDetail(summary: summary), icon: "calendar",
+                                   secondaryDetail: present.earningsSecondary(summary: summary), hint: "Opens the Earnings Calendar", action: onEarnings)
+            }
+            .padding(.horizontal, CGFloat(space.cardPadding)).padding(.vertical, CGFloat(space.xxs))
+            .stockCard(padding: 0)
+        }
+        .task { earnings?.startSummary() }
     }
 
     private func movers(_ movers: MoversModel, _ colors: StockColors) -> some View {
@@ -280,13 +319,14 @@ struct MarketsScene: View {
                     StockSectionMessage(message: empty).padding(CGFloat(space.md))
                 } else {
                     ForEach(Array(movers.rows.enumerated()), id: \.element.row.symbol) { index, mover in
-                        if index > 0 { StockDivider() }
+                        if index > 0 { StockDivider().padding(.leading, CGFloat(space.cardPadding)) }
                         moverRow(mover, tab: movers.tab, colors)
                     }
                 }
             }
-            .stockCard(padding: 0, bordered: false)
-            Text("\(movers.rankedBy). \(movers.universe).").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
+            .padding(.vertical, CGFloat(space.xxs))
+            .stockCard(padding: 0)
+            Text("\(movers.rankedBy). \(movers.universe).").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
             if !movers.failed && movers.total > MarketsPresenter.shared.PREVIEW_ROWS {
                 Button(movers.expanded ? "Show fewer" : "Show all \(movers.total)", action: model.toggleExpanded)
                     .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
@@ -300,11 +340,11 @@ struct MarketsScene: View {
         return HStack(spacing: 0) {
             StockRow(symbol: row.symbol, name: row.name, logoUrl: row.logoUrl, action: { onOpenStock(row.symbol) }) {
                 if let price = row.price {
-                    Text(price).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .subheadline)).foregroundStyle(colors.textPrimary).lineLimit(1)
+                    Text(price).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .subheadline)).foregroundStyle(colors.textValue).lineLimit(1)
                 }
                 StockPriceChange(percentage: row.change, direction: row.direction)
                 if tab == .mostActive, let volume = mover.volume {
-                    Text(volume).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
+                    Text(volume).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
                 }
             }
             .accessibilityElement(children: .combine)
@@ -339,26 +379,38 @@ struct MarketsScene: View {
                     }
                 }
             }
-            .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.xs))
-            .stockCard(padding: 0, bordered: false)
-            Text("\(sectors.period). \(sectors.methodology)").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
+            .padding(.horizontal, CGFloat(space.cardPadding)).padding(.vertical, CGFloat(space.xs))
+            .stockCard(padding: 0)
+            Text("\(sectors.period). \(sectors.methodology)").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
         }
     }
 
+    /// Sector name (wraps) — bar — signed change. At large text the bar and change move under the name so neither is squeezed.
     private func sectorRow(_ row: SectorRowModel, _ colors: StockColors) -> some View {
         let fill: Color = row.direction == .up ? colors.positive : row.direction == .down ? colors.negative : colors.textDisabled
-        return HStack(spacing: CGFloat(space.sm)) {
-            Text(row.sector).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody).lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(colors.surfaceSecondary)
-                    Capsule().fill(fill).frame(width: proxy.size.width * CGFloat(row.fraction))
+        let bar = GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule().fill(colors.surfaceSecondary)
+                Capsule().fill(fill).frame(width: proxy.size.width * CGFloat(row.fraction))
+            }
+        }
+        .frame(height: CGFloat(space.sm))
+        let name = Text(row.sector).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
+        return Group {
+            if typeSize >= .xxxLarge {
+                VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                    name
+                    HStack(spacing: CGFloat(space.sm)) { bar; StockPriceChange(percentage: row.change, direction: row.direction).fixedSize() }
+                }
+            } else {
+                HStack(spacing: CGFloat(space.sm)) {
+                    name.frame(maxWidth: .infinity, alignment: .leading)
+                    bar.frame(maxWidth: .infinity)
+                    StockPriceChange(percentage: row.change, direction: row.direction).fixedSize()
                 }
             }
-            .frame(width: 96, height: CGFloat(space.sm))
-            StockPriceChange(percentage: row.change, direction: row.direction).frame(width: 72, alignment: .trailing)
         }
+        .padding(.vertical, CGFloat(space.xs))
         .frame(minHeight: CGFloat(dims.touchTarget))
         .contentShape(Rectangle())
     }
@@ -379,7 +431,7 @@ struct MarketsScene: View {
                 }
             }
             .padding(.horizontal, CGFloat(space.md))
-            .stockCard(padding: 0, bordered: false)
+            .stockCard(padding: 0)
         }
     }
 }

@@ -1,7 +1,8 @@
 # Global UI Refinement Phase 4 — Home, Markets, Company Details
 
-Status: **Phase 4A (Home) implemented, verified, committed and pushed** as "Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS" (2026-10-10). Phase 4B (Markets) and 4C (Company Details) have not
-started; each waits for the user's review of the previous stage. Reference: the Phase 3.1 Portfolio screen
+Status: **Phase 4A (Home) committed and pushed** as "Redesign Home with a market overview and portfolio summary (Global UI Refinement
+Phase 4A) on Android and iOS". **Phase 4B (Markets) implemented, verified, committed and pushed** as "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS" (2026-10-10). Phase 4C (Company Details) has
+not started and waits for review of 4B. Reference: the Phase 3.1 Portfolio screen
 (`docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md`, `docs/design/phase3_1/`). UI-only: no formulas, API contracts, endpoints, entitlements,
 navigation destinations, Firebase or MOCK fixtures changed.
 
@@ -104,3 +105,103 @@ Before: `before-ios-light(-2).jpg`, `before-android-light(-3).jpg`. After: `afte
 Phase 4A is ready for review. **Phase 4B (Markets) starts only after approval.** Carry-overs for 4B: decide the Markets brief preview
 (Home no longer uses `DailyBriefPreviewCard`), reuse `HomeLinkRow`-style rows for research tools, check `StockRow` two-line names visually,
 and run the iOS narrow-width (iPhone SE) and screen-reader checks that were not run here.
+
+---
+
+## Phase 4B — Markets
+
+Visual reference: `docs/design/phase4b/stocksteps-markets-ui-reference.png` (layout guidance only — none of its prices, times, open states,
+stock lists, "View all" links or "Market insights" tool were copied). Decisions approved by the user: device pass allowed; Market status
+shows the **US session only** (the Markets data has no Canadian session; Canada stays in the Daily Brief and on Home).
+
+### 1. Before/after issue inventory
+
+| # | Before (both platforms unless noted) | After |
+|---|---|---|
+| M1 | Market data started as the 4th block: title → brief preview → three large tool cards → session line → indices | Data first: title → Market status → Major indices → brief entry → Top Movers → Sector Performance → Research tools → Market News → lesson → disclaimer |
+| M2 | Indices in a horizontal carousel of fixed-width cards: names cut to one line, the 3rd/4th index hidden off-screen (Dow), values not comparable | "Major indices": one grouped card of rows — name + source quote time ("As of 4:00 PM ET · Oct 7", proxy note in caution colour) left, value + signed change "↓ -18.59 (-0.24%)" right, inset dividers; names wrap; stacked at large text; tap still opens the index lesson |
+| M3 | Session status a loose line; **closed shown with a red dot** (reads as a loss); sample notice glued onto "Updated …" | "Market status" card: dot (green open / amber pre-market & after-hours / **neutral grey** closed & unknown) + status in words, next open/close, muted "US stocks (NYSE, Nasdaq) · Updated …", sample notice in caution colour, SAMPLE badge |
+| M4 | Research tools: two half-width promotional cards + a 5-line Earnings Center card | "Research tools": one grouped card of `StockNavigationRow`s (icon, title, one-line detail, chevron): Discover Stocks, Compare Companies, Earnings Calendar (calendar counts only; plain description while loading/unknown; watchlist count as a second line) |
+| M5 | Brief preview repeated the index moves in a summary sentence next to the indices; actions wrapped to 2–4 lines at large text | Brief entry row ("Your Daily Market Brief", freshness · read time · Sample data, caution colour when stale/offline) + "Previous briefs" link; no summary sentence. The now-unused `DailyBriefPreviewCard` was removed on both platforms |
+| M6 | Mover prices in `textPrimary`; captions in `textTertiary` | Prices `textValue`, volume `textSupporting`, methodology captions `textMeta`; company names wrap to two lines at large text (Phase 4A `StockRow` rule) |
+| M7 | Sector names cut to one line ("Communication Servi…"); iOS fixed 96 pt bars / 72 pt percent column | Names wrap; flexible bar width; percent sized to content; at large text the bar and change move under the name |
+| M8 | Unbordered cards; title "Explore Markets" + subtitle | Bordered `StockCard`s like Portfolio/Home; plain "Markets" heading + search |
+| M9 | Index sparklines squeezed names on phones once rows replaced the carousel (found during this phase) | Trend sparkline shown only when the indices card is ≥ 380 dp/pt wide (`MarketsScreenPresentation.TREND_MIN_ROW_WIDTH`): shown on the 427 dp emulator and tablets, left out on 360–393 pt phones |
+
+### 2. Design decisions
+- **Data first, tools later**: the screen answers "what is the market doing?" before offering tools. The brief entry sits right after the
+  indices because it explains them; tools follow the data sections.
+- **Closed is neutral**: a red dot implied a loss. Green only while the regular session is open; amber for extended hours (the same tones as
+  `SessionTone`); the status is always written out.
+- **No computed freshness**: index rows show the presenter's source quote time; the status card shows the presenter's "Updated …" time and
+  the backend's data notice. Sample data keeps the caution-coloured "Not live prices" notice and a SAMPLE badge.
+- **Brief entry without its summary**: the summary sentence restated the index moves shown just above (the reference's description line
+  "Key market moves, top stories…" is not data the app has, so it was not invented).
+- **`StockNavigationRow`** (new design-system component, both platforms) generalises Home's link row; `HomeLinkRow` now delegates to it
+  (same look; the title–chevron gap is `md` instead of `sm`).
+- Movers tabs keep their existing labels (Gainers / Losers / Most Active) and the "Why did it move?" button; "Show all" unchanged.
+- Kept, not added: no "View all" on indices (no destination), no "Market insights" tool (no feature), no empty-state illustration.
+
+### 3. Components and screens modified
+- New: `designsystem/components/StockNavigationRow.kt`; iOS `StockNavigationRow` in `DesignSystem/StockComponents.swift`;
+  `presentation/markets/MarketsScreenPresentation.kt` (status dot family, status meta line, index change/meta text, trend width rule, research
+  tool wording, earnings detail) + test `MarketsScreenPresentationTest` (5).
+- Android: `presentation/markets/MarketsScene.kt` (screen order, status card, index rows, brief entry, research tools, movers/sectors/news
+  styling); `composeResources/values/strings.xml` (`markets_title` → "Markets"); `presentation/home/HomeComponents.kt` (`HomeLinkRow`
+  delegates); `presentation/brief/DailyBriefScreens.kt` (unused `DailyBriefPreviewCard` removed).
+- iOS: `MarketsScene.swift` (same), `HomeComponents.swift` (`HomeLinkRow` delegates), `DailyBriefScenes.swift` (unused preview removed).
+- Unchanged: `MarketsPresenter`/core, `MarketsViewModel`/`MarketsModel`, requests and refresh behaviour, navigation destinations, fixtures.
+
+### 4. Android/iOS consistency
+Same section order, titles, wording (from `MarketsScreenPresentation`), badges, dot colours and states. Native differences kept: Android
+pull-to-refresh box vs iOS `.refreshable`; Android stacks at font scale ≥ 1.3, iOS at Dynamic Type ≥ xxxLarge; tool icons are Material
+(search, pie chart, trending-up) vs SF Symbols (magnifyingglass, square.split.2x1, calendar). The emulator and simulator showed different
+MOCK clock times ("Updated 5:30 PM ET · Oct 7" vs "7:46 PM ET · Oct 8") because the MOCK market clock advances — data, not UI.
+
+### 5. Responsive and accessibility results (actually performed)
+Device pass approved by the user: local MOCK server (stopped afterwards), iPhone 16 Simulator (iOS 18.3), a **temporary iPhone SE (3rd gen,
+iOS 18.3) simulator** created for the narrow check and deleted afterwards (guest mode; backend preference set to MOCK before first launch),
+emulator-5554 (signed-in account only viewed).
+
+| Check | iOS | Android |
+|---|---|---|
+| Light, default text | ✅ iPhone 16 | ✅ |
+| Dark | ✅ | ✅ (in-app theme Dark, restored to Light) |
+| Large text | ✅ XXXL — indices, sectors stack; mover names on two lines; nothing clipped | ✅ 1.3× at 360 dp — same |
+| Narrow width | ✅ iPhone SE 375 pt | ✅ 360 dp |
+| Two-line `StockRow` names (4A carry-over) | ✅ XXXL movers | ✅ 1.3× movers |
+| Error state (MOCK server stopped) | NOT RUN | ✅ market-data error card with Try again; brief "Offline copy"; research tools still usable; earnings row falls back to its plain description |
+| Navigation spot checks | — | ✅ Compare Companies and Previous briefs open; Back returns |
+| VoiceOver / TalkBack | NOT RUN. Code review: one spoken label per index row (`IndexCardModel.accessibilityLabel` + "Explains this index"), per mover row, per sector row; status dot hidden, status read in words; headings marked; chevrons/icons hidden; click labels on tool rows | NOT RUN (same) |
+
+Observation: changing Dynamic Type while the app is open left already-rendered iOS lazy rows at the old size until relaunch (SwiftUI
+behaviour, not specific to this screen); after relaunch every header and row scaled consistently.
+
+### 6. Tests and builds (2026-10-10)
+- `./gradlew :core:jvmTest :core:iosSimulatorArm64Test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue`
+  → core JVM **429/0**, core iOS **429/0**, shared Android **92/0** (was 87), shared iOS **88/0** (was 83), `assembleDebug` OK.
+- After removing `DailyBriefPreviewCard`: shared Android 92/0, shared iOS 88/0 and `assembleDebug` re-run OK; iOS `xcodebuild … build`
+  **BUILD SUCCEEDED** (final run). Core and server code were not changed in 4B (server tests not re-run).
+
+### 7. Screenshot evidence (`docs/design/phase4b/`)
+`before-android-light.jpg`, `before-ios-light.jpg` (full scroll); `after-top-ios-light-ios-dark-android-light.jpg`;
+`after-android-light-full.jpg`; `after-ios-light-lower-sections.jpg`; `after-android-dark.jpg`; `after-android-dark-1.3x-360dp.jpg`;
+`after-ios-dark-xxxl.jpg`; `after-ios-se-375pt-light.jpg`; `after-android-dark-error-state.jpg`; reference `stocksteps-markets-ui-reference.png`.
+
+### 8. Known limitations
+- Market status covers the US session only (the only session in the Markets data); Canadian status is on Home and in the brief.
+- Index trend sparklines are hidden on phones narrower than 380 dp/pt (data unchanged; shown on wider screens).
+- No VoiceOver/TalkBack walkthrough; iOS error state not captured; movers "Losers"/"Most Active" tabs and "Show all" not re-tapped on device
+  (unchanged code paths).
+- Movers' company names still truncate after two lines at large text (prices never truncate).
+
+### 9. Regression risks
+- `HomeLinkRow` now renders through `StockNavigationRow` (Home facts and brief row): slightly wider gap before the chevron.
+- Removal of `DailyBriefPreviewCard` (no remaining callers on either platform; the brief reader and history are untouched).
+- iOS `onGeometryChange` on the indices card (same pattern as Portfolio rows).
+- "Markets" string change affects only the Markets title (`markets_title` has no other users; the tab label is separate).
+
+### 10. Readiness for Phase 4C
+Phase 4B is ready for review. **Phase 4C (Company Details) starts only after approval.** Carry-overs: Company Details still uses the
+read-only `MarketStatusIndicator` (red track when closed) — align it with the neutral closed tone; reuse `StockNavigationRow` for its
+research entries and `MarketsScreenPresentation`-style source-time lines; fix "At a Glance" truncation (`+14.9 % (Y…`).

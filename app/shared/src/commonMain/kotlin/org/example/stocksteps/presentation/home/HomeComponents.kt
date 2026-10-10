@@ -165,25 +165,11 @@ private fun HomeIndexRow(index: BriefIndex) {
     }
 }
 
-/** A full-width tappable row inside a Home card: title, muted detail and a chevron (Upcoming & alerts, brief entry). */
+/** A full-width tappable row inside a Home card (Upcoming & alerts, brief entry); the shared [StockNavigationRow] without an icon. */
 @Composable
 internal fun HomeLinkRow(title: String, detail: String?, onClick: () -> Unit, modifier: Modifier = Modifier,
-                         detailColor: Color = StockStepsTheme.colors.textSupporting, actionLabel: String? = null) {
-    val spacing = StockStepsTheme.spacing
-    Row(
-        modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.rowCompactMinHeight)
-            .clickable(onClickLabel = actionLabel, role = Role.Button, onClick = onClick).padding(vertical = spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm)
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Text(title, style = StockStepsTheme.typography.bodySemiBold, color = StockStepsTheme.colors.textTitle)
-            if (detail != null) Text(detail, style = StockStepsTheme.typography.caption, color = detailColor)
-        }
-        Icon(StockIcons.ChevronRight, contentDescription = null, tint = StockStepsTheme.colors.textTertiary,
-            modifier = Modifier.size(StockStepsTheme.dimensions.icon))
-    }
-}
+                         detailColor: Color = StockStepsTheme.colors.textSupporting, actionLabel: String? = null) =
+    StockNavigationRow(title, onClick, modifier, detail = detail, detailColor = detailColor, actionLabel = actionLabel)
 
 /**
  * Compact portfolio summary in the Portfolio (Phase 3) language: total value dominant, today's change (or that it is unavailable), one

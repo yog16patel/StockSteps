@@ -13,10 +13,10 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-10, end of session)
 
-HEAD: "Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS" (pushed), on top of Phase 3.1 `6ec2267`. **Global UI Refinement
-Phases 1, 1A, 2, 3 (Portfolio) and 3.1 are committed**; no work in progress. **Phase 4A (Home) is committed and pushed** ("Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS") (`docs/GLOBAL_UI_REFINEMENT_PHASE4.md`). Next: **Phase 4B (Markets), then
-4C (Company Details), each only after the user approves** — plan, decisions and first steps in `docs/PROJECT_HANDOFF.md` §SESSION; phase docs `docs/GLOBAL_UI_REFINEMENT_*.md`;
-visual direction `docs/design/stocksteps-ui-reference.png` (+ `stocksteps-portfolio-reference.png`). Still open: approved LAN backend redeploy
+HEAD: "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS" (pushed), on top of Phase 4A (Home). **Global UI Refinement Phases 1, 1A, 2, 3, 3.1, 4A (Home) and
+4B (Markets) are committed and pushed**; no work in progress (`docs/GLOBAL_UI_REFINEMENT_PHASE4.md`). Next: **Phase 4C (Company Details)
+only after the user approves** — read `docs/PROJECT_HANDOFF.md` §PHASE4B first; phase docs `docs/GLOBAL_UI_REFINEMENT_*.md`; Markets reference
+`docs/design/phase4b/stocksteps-markets-ui-reference.png`; visual direction `docs/design/stocksteps-ui-reference.png` (+ `stocksteps-portfolio-reference.png`). Still open: approved LAN backend redeploy
 (5C.1 brief wording; `deploy/local/deploy.sh deploy`), screen readers and physical devices. Cloud Run staging remains deferred. The local MOCK
 server is stopped; the LAN MOCK backend runs on the Ubuntu host (address in git-ignored `deploy/local/server.env`).
 
