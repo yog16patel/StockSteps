@@ -198,7 +198,7 @@ struct GuidedResearchScreen: View {
             .accessibilityLabel(client.stepAccessibilityLabel(number: Int32(number), question: step.question, status: done ? "Completed" : current ? "In progress" : "Not started"))
             .accessibilityAddTraits(.isButton)
         }
-        Button(state.primaryLabel) { presenter.startOrContinue() }.buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)
+        Button(state.primaryLabel) { presenter.startOrContinue() }.buttonStyle(.stockPrimary).controlSize(.large).frame(maxWidth: .infinity)
         if state.started { Button("Start over") { presenter.restart() }.frame(maxWidth: .infinity, minHeight: CGFloat(dims.touchTarget)) }
         if let last = snapshot.notes.last { Text(last).font(.caption).foregroundStyle(colors.textSecondary) }
     }
@@ -305,7 +305,7 @@ struct GuidedResearchScreen: View {
         AskResearchCard(state: state, presenter: presenter)
         HStack(spacing: CGFloat(space.sm)) {
             Button(number == 1 ? "Overview" : "Back") { presenter.back() }.buttonStyle(.bordered).controlSize(.large).frame(maxWidth: .infinity)
-            Button(number == Int(client.stepCount) ? "Finish" : "Continue") { presenter.next() }.buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)
+            Button(number == Int(client.stepCount) ? "Finish" : "Continue") { presenter.next() }.buttonStyle(.stockPrimary).controlSize(.large).frame(maxWidth: .infinity)
         }
     }
 
@@ -397,7 +397,7 @@ struct GuidedResearchScreen: View {
             if watchlistEnabled { Button(watched ? "Saved to watchlist" : "Add to Watchlist", action: onToggleWatchlist).buttonStyle(.bordered) }
             Button("Company details", action: onCompany).buttonStyle(.bordered)
             Button("Research another company", action: onResearchAnother).buttonStyle(.bordered)
-            Button("Continue learning", action: onContinueLearning).buttonStyle(.borderedProminent)
+            Button("Continue learning", action: onContinueLearning).buttonStyle(.stockPrimary)
         }
         .controlSize(.large)
         .frame(maxWidth: .infinity)
@@ -424,7 +424,7 @@ private struct AskResearchCard: View {
                 TextField("e.g. What does this mean for a beginner?", text: $question, axis: .vertical).textFieldStyle(.roundedBorder)
                     .onChange(of: question) { _, value in if value.count > 300 { question = String(value.prefix(300)) } }
                 HStack {
-                    Button("Ask") { presenter.ask(question: question) }.buttonStyle(.borderedProminent)
+                    Button("Ask") { presenter.ask(question: question) }.buttonStyle(.stockPrimary)
                         .disabled(question.trimmingCharacters(in: .whitespaces).count < 3 || state.asking)
                     Button("Close") { open = false }
                 }
@@ -490,7 +490,7 @@ struct UnderstandStockCard: View {
             Text("Learn how to research this company in five simple steps.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
             if let completed { Text("\(completed) of 5 steps completed").font(.caption).foregroundStyle(colors.primaryText) }
             Button(completed == nil ? "Start learning" : completed! >= 5 ? "Review research" : "Continue learning", action: action)
-                .buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)
+                .buttonStyle(.stockPrimary).controlSize(.large).frame(maxWidth: .infinity)
         }
         .padding(CGFloat(space.cardPadding))
         .frame(maxWidth: .infinity, alignment: .leading)

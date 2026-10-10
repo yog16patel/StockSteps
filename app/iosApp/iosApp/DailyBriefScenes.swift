@@ -382,7 +382,7 @@ struct DailyBriefScreen: View {
                     }
                     TextField("Ask about this brief", text: $question, axis: .vertical).textFieldStyle(.roundedBorder)
                         .onChange(of: question) { _, v in if v.count > 300 { question = String(v.prefix(300)) } }
-                    Button("Ask") { presenter.ask(question: question) }.buttonStyle(.borderedProminent)
+                    Button("Ask") { presenter.ask(question: question) }.buttonStyle(.stockPrimary)
                         .disabled(question.trimmingCharacters(in: .whitespaces).count < 3 || state.flatMap { client.ai(state: $0, key: "ask") }?.loading == true)
                     if let ai = state.flatMap({ client.ai(state: $0, key: "ask") }) { aiAnswer(ai, colors) }
                     Text("Answers use only this brief's sources. No predictions or buy/sell advice.").font(.caption).foregroundStyle(colors.textSecondary)

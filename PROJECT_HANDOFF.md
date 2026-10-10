@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS** on `main` (pushed).
-Previous commit: **"Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan"** (doc-only, pushed); before it **"Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs"** (pushed) and **"Fix Phase 5C mobile integration bugs and add end-to-end verification report"** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls** on `main` (pushed).
+Previous commit: **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed); before it **"Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan"** (doc-only, pushed) and **"Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
@@ -48,6 +48,16 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Global UI Refinement Phase 1A — intermediate component foundation (2026-10-10) — commit "Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"
+
+Intermediate step between plan step 1 (tokens) and step 2 (reusable components); Phase 2 is still to come.
+
+Reference image `docs/design/stocksteps-ui-reference.png` compared with the Phase 1 tokens (differences kept where the reference fails AA).
+New `primaryAction` (`0F6FDB`, 4.86:1 with white) for primary buttons on both platforms (iOS `.stockPrimary`/`.stockSecondary` replace all 30
+`.borderedProminent`); card padding 16; wrapping `StockMetric` and `StockMetricGrid` (shared `StockLayout.metricColumns`); full empty/error
+states; `StockSelectField` (both), iOS `StockTextField` with keyboard Done; `StockLabels.humanize`. Shared Android 69/0, shared iOS 65/0,
+`assembleDebug` OK, iOS `xcodebuild` OK. Details: `docs/GLOBAL_UI_REFINEMENT_PHASE1A.md`; handoff `docs/PROJECT_HANDOFF.md` §000000.
 
 ## Global UI Refinement Phase 1 — design-system foundation (2026-10-10) — commit "Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"
 

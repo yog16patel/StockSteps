@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,7 +31,8 @@ internal fun StockTag(text: String, modifier: Modifier = Modifier) {
             .padding(horizontal = StockStepsTheme.spacing.sm, vertical = StockStepsTheme.spacing.xxs),
         style = StockStepsTheme.typography.caption,
         color = colors.textSecondary,
-        maxLines = 1
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
     )
 }
 
@@ -46,7 +48,8 @@ internal fun StockBadge(text: String, tone: FactTone, modifier: Modifier = Modif
             .padding(horizontal = StockStepsTheme.spacing.sm, vertical = StockStepsTheme.spacing.xxs),
         style = StockStepsTheme.typography.label,
         color = content,
-        maxLines = 1
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
     )
 }
 

@@ -1,10 +1,29 @@
-# StockSteps — session handoff (2026-10-10: Global UI Refinement Phase 1 committed and pushed; Phase 5C.1 closed — PASS WITH CONDITIONS)
+# StockSteps — session handoff (2026-10-10: Global UI Refinement Phase 1A and Phase 1 committed and pushed)
 
 Read order for a new session: `CLAUDE.md` → **§0000 below** → §000 → `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md`
 → §00 (Phase 5B Local) → §0 (Phase 5A) → the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## 00000. Global UI Refinement Phase 1 — design-system foundation (read first)
+## 000000. Global UI Refinement Phase 1A — intermediate component foundation (read first)
+
+- Repository: `main`. Current commit: "Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls" (pushed), on top of "Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS" (pushed). Commit/push only when asked; every commit
+  updates the root `PROJECT_HANDOFF.md`. Reference image (committed): `docs/design/stocksteps-ui-reference.png` (moved from
+  `docs/StockSteps Financial UI Design System.png`).
+- Phase 1A is an intermediate step between plan step 1 (tokens) and step 2 (reusable components), not Phase 2.
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE1A.md`): reference-vs-token comparison (most differences kept for AA reasons); new
+  `primaryAction` `0F6FDB` for primary buttons (Compose `StockButton`; iOS `.stockPrimary`/`.stockSecondary` replacing all 30
+  `.borderedProminent`); `cardPadding` 12 → 16; wrapping `StockMetric` + `StockMetricGrid` on both platforms with shared
+  `StockLayout.metricColumns`; full empty/error states (Compose `title`/`icon` params, iOS `StockStateMessage`); form controls
+  (Compose `StockSelectField`; iOS `StockTextField` with keyboard Done, `StockSelectField`); `StockLabels.humanize`.
+- Files: theme `Colors.kt`, `Spacing.kt`; Compose `designsystem/theme/StockStepsTheme.kt`, components `StockButton`, `StockCard`, `StockMetric`,
+  `StockPriceChange`, `StockStates`, `StockTag`, `StockTextField`, new `StockSelectField`, `icons/StockIcons` (ChevronDown), new
+  `designsystem/StockLabels.kt`; iOS `Theme.swift`, `DesignSystem/StockComponents.swift`, new `DesignSystem/StockControls.swift`, and the
+  `.stockPrimary` swap in 10 screen files; tests `DesignTokensTest` (+2), new `StockLabelsTest`; docs.
+- Results: shared Android 69/0, shared iOS 65/0, `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED. Screens not visually reviewed.
+- Next: Phase 2 (remaining reusable components), starting with the screenshot baseline (approval
+  needed); then Phase 3 Portfolio reference screen.
+
+## 00000. Global UI Refinement Phase 1 — design-system foundation
 
 ### Repository state
 - Branch `main`. Current commit: "Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS" (pushed), on top of "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan" (pushed).
@@ -30,7 +49,7 @@ not visually reviewed (no simulator/emulator use without approval).
 
 ### Risks / next
 - Inherited changes: larger text everywhere → more truncation where screens force one line (Screener, Markets, At a Glance, Earnings);
-  rounder cards; lighter dark cards, brighter metadata. White on `primary` is 3.67:1 (primary button label) — brand decision for Phase 2.
+  rounder cards; lighter dark cards, brighter metadata. White on `primary` is 3.67:1 (primary button label) — resolved in Phase 1A (`primaryAction`).
 - Next: Phase 2 reusable components, starting with a light/dark × default/largest-text screenshot
   baseline (needs approval for simulator/emulator use). LAN redeploy (5C.1 brief wording) still awaiting approval.
 

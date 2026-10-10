@@ -282,7 +282,7 @@ struct PracticeScreen: View {
         }
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: CGFloat(space.sm)) {
-                Button("Buy Stock") { if state.atFreeLimit { presenter.showHoldingLimit() } else { onBuy() } }.buttonStyle(.borderedProminent).disabled(!state.canTrade)
+                Button("Buy Stock") { if state.atFreeLimit { presenter.showHoldingLimit() } else { onBuy() } }.buttonStyle(.stockPrimary).disabled(!state.canTrade)
                 Button("Explore Stocks", action: onExplore).buttonStyle(.bordered)
                 Button("Learn", action: onLearn).buttonStyle(.bordered)
             }
@@ -443,7 +443,7 @@ struct PracticeScreen: View {
                     if h.instrument.currency != base { DetailRow(label: "Exchange rate", value: h.fxRate.map { "1 \(h.instrument.currency) = \($0) \(base)" } ?? "Unavailable") }
                     if h.stale { Text("This price is from an earlier trading session.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.cautionText) }
                     HStack {
-                        Button("Buy more") { holding = nil; onTrade(PracticeOrderTarget(symbol: h.instrument.id, sell: false)) }.buttonStyle(.borderedProminent).disabled(!canTrade)
+                        Button("Buy more") { holding = nil; onTrade(PracticeOrderTarget(symbol: h.instrument.id, sell: false)) }.buttonStyle(.stockPrimary).disabled(!canTrade)
                         Button("Sell") { holding = nil; onTrade(PracticeOrderTarget(symbol: h.instrument.id, sell: true)) }.buttonStyle(.bordered).disabled(!canTrade)
                     }
                     .controlSize(.large)
@@ -563,13 +563,13 @@ struct PracticeScreen: View {
                         Text("When it ends you keep every holding and transaction. You can keep selling or adding to them; opening new ones follows the free three-holding limit.")
                             .font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
                         Text("The trial is available once per account.").font(.caption).foregroundStyle(colors.textSecondary)
-                        Button(busy ? "Starting…" : "Start Free Trial") { presenter.startTrial() }.buttonStyle(.borderedProminent).controlSize(.large)
+                        Button(busy ? "Starting…" : "Start Free Trial") { presenter.startTrial() }.buttonStyle(.stockPrimary).controlSize(.large)
                             .frame(maxWidth: .infinity).disabled(busy || state?.canTrade != true)
                         Button("Not now") { presenter.dismissSheet() }.frame(maxWidth: .infinity, minHeight: CGFloat(dims.touchTarget))
                     case "expired":
                         title("Your Practice trial has ended")
                         Text("Your virtual investments are still here. You can continue tracking and selling holdings. Upgrade to StockSteps+ to unlock unlimited new holdings and premium learning tools.")
-                        Button("Explore StockSteps+") { presenter.showPlus() }.buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)
+                        Button("Explore StockSteps+") { presenter.showPlus() }.buttonStyle(.stockPrimary).controlSize(.large).frame(maxWidth: .infinity)
                         Button("Continue Free") { presenter.dismissSheet() }.frame(maxWidth: .infinity, minHeight: CGFloat(dims.touchTarget))
                     case "plus":
                         title("StockSteps+")
@@ -583,7 +583,7 @@ struct PracticeScreen: View {
                         title("Reset your Practice Portfolio?")
                         Text("This archives your simulated holdings and transactions and starts again with \(client.money(value: state?.overview?.startingCash, currency: state?.overview?.baseCurrency ?? "CAD")) of virtual cash.")
                         Text("It doesn't change your plan, trial, account, Learn progress or completed challenges. No real money is involved.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
-                        Button(busy ? "Resetting…" : "Reset practice portfolio", role: .destructive) { presenter.reset() }.buttonStyle(.borderedProminent).controlSize(.large)
+                        Button(busy ? "Resetting…" : "Reset practice portfolio", role: .destructive) { presenter.reset() }.buttonStyle(.stockPrimary).controlSize(.large)
                             .frame(maxWidth: .infinity).disabled(busy || state?.canTrade != true)
                         Button("Cancel") { presenter.dismissSheet() }.frame(maxWidth: .infinity, minHeight: CGFloat(dims.touchTarget))
                     default:
@@ -605,7 +605,7 @@ struct PracticeScreen: View {
     private func paywall(_ heading: String, _ body: String, trial: Bool) -> some View {
         title(heading)
         Text(body)
-        if trial { Button("Start 14-Day Free Trial") { presenter.showTrialConfirm() }.buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity) }
+        if trial { Button("Start 14-Day Free Trial") { presenter.showTrialConfirm() }.buttonStyle(.stockPrimary).controlSize(.large).frame(maxWidth: .infinity) }
         Button("Explore StockSteps+") { presenter.showPlus() }.buttonStyle(.bordered).controlSize(.large).frame(maxWidth: .infinity)
         Button(trial ? "Maybe Later" : "Continue with Free") { presenter.dismissSheet() }.frame(maxWidth: .infinity, minHeight: CGFloat(dims.touchTarget))
     }
@@ -746,7 +746,7 @@ struct PracticeOrderScreen: View {
         if let notice = state.notice { Text(notice).foregroundStyle(colors.cautionText) }
         if state.preview != nil, let error = state.error { Text(error).foregroundStyle(colors.negativeText) }
         Text(client.disclosure).font(.caption).foregroundStyle(colors.textSecondary)
-        Button("Review order") { order.review() }.buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)
+        Button("Review order") { order.review() }.buttonStyle(.stockPrimary).controlSize(.large).frame(maxWidth: .infinity)
             .disabled(!(state.canReview || state.blocker?.code == "HOLDING_LIMIT"))
     }
 
@@ -766,7 +766,7 @@ struct PracticeOrderScreen: View {
             Text(client.disclosure).font(StockStepsTheme.font(type.small))
             Text("The final simulated price is set when you confirm. If it has moved by more than 1%, you'll be asked to review again.").font(.caption).foregroundStyle(colors.textSecondary)
             if let error = state.error { Text(error).foregroundStyle(colors.negativeText) }
-            Button(state.executing ? "Confirming…" : "Confirm \(verb(state))") { order.confirm() }.buttonStyle(.borderedProminent).controlSize(.large)
+            Button(state.executing ? "Confirming…" : "Confirm \(verb(state))") { order.confirm() }.buttonStyle(.stockPrimary).controlSize(.large)
                 .frame(maxWidth: .infinity).disabled(state.executing)
             Button("Back") { order.back() }.frame(maxWidth: .infinity, minHeight: CGFloat(dims.touchTarget)).disabled(state.executing)
         }
@@ -787,7 +787,7 @@ struct PracticeOrderScreen: View {
             }
             .stockCard()
             Text("Simulated with virtual money. No real order was placed.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
-            Button("View Holdings", action: onViewHoldings).buttonStyle(.borderedProminent).controlSize(.large).frame(maxWidth: .infinity)
+            Button("View Holdings", action: onViewHoldings).buttonStyle(.stockPrimary).controlSize(.large).frame(maxWidth: .infinity)
             Button("Explore Stocks", action: onExplore).buttonStyle(.bordered).controlSize(.large).frame(maxWidth: .infinity)
             Button("Continue Learning", action: onLearn).frame(maxWidth: .infinity, minHeight: CGFloat(dims.touchTarget))
         }

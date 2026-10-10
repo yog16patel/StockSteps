@@ -70,6 +70,8 @@ struct StockColors {
     let textPrimary, textBody, textSecondary, textTertiary, textDisabled: Color
     let iconSecondary: Color
     let primaryBright, brandGlow, primaryGradientEnd: Color
+    /// Primary button fill behind `onPrimary` text (AA); brand `primary` stays for accents.
+    let primaryAction: Color
 
     // Text roles mapped onto the ramp (see ThemePalette): titles/values, supporting copy, metadata.
     var textTitle: Color { textPrimary }
@@ -92,5 +94,6 @@ struct StockColors {
         textPrimary = c(p.textPrimary); textBody = c(p.textBody); textSecondary = c(p.textSecondary); textTertiary = c(p.textTertiary); textDisabled = c(p.textDisabled)
         iconSecondary = c(p.iconSecondary)
         primaryBright = c(p.primaryBright); brandGlow = c(p.brandGlow); primaryGradientEnd = c(p.primaryGradientEnd)
+        primaryAction = c(p.primaryAction)
     }
 }

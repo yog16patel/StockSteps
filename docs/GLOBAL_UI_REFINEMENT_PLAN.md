@@ -1,6 +1,8 @@
 # Global UI Refinement — plan (read-only; no UI implemented yet)
 
-Status: **approved** (2026-10-10). Step 1 (global design tokens) implemented — see `docs/GLOBAL_UI_REFINEMENT_PHASE1.md`; steps 2–7 not started.
+Status: **approved** (2026-10-10). Step 1 (tokens) committed — `docs/GLOBAL_UI_REFINEMENT_PHASE1.md`; intermediate Phase 1A (accessible
+buttons, wrapping metrics, card padding, empty/error states, form controls) committed — `docs/GLOBAL_UI_REFINEMENT_PHASE1A.md`;
+step 2 (remaining reusable components) and steps 3–7 not started. Visual direction: `docs/design/stocksteps-ui-reference.png`.
 Original proposal (2026-10-09, after Phase 5C.1) below. Evidence comes from the
 Phase 5C/5C.1 walkthroughs (`docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §3, §14) and a static scan of the code at `fc3961e`.
 

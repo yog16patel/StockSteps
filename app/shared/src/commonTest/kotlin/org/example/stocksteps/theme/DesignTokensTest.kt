@@ -79,6 +79,29 @@ class DesignTokensTest {
     }
 
     @Test
+    fun primaryButtonFillMeetsAaWithWhiteTextAndStaysVisible() {
+        palettes.forEach { (name, p) ->
+            assertTrue(contrast(p.onPrimary, p.primaryAction) >= 4.5, "$name onPrimary on primaryAction: ${contrast(p.onPrimary, p.primaryAction)}")
+            // Button shape stays distinguishable from the surfaces it sits on (non-text contrast ≥ 3:1).
+            listOf(p.appBackground, p.surface).forEach { assertTrue(contrast(p.primaryAction, it) >= 3.0, "$name primaryAction edge") }
+            // Brand primary is unchanged and still used for accents.
+            assertEquals(0x1683FF, p.primary)
+        }
+    }
+
+    @Test
+    fun metricGridDropsColumnsInsteadOfTruncating() {
+        assertEquals(3, StockLayout.metricColumns(count = 3, availableWidth = 343f, fontScale = 1f))
+        assertEquals(1, StockLayout.metricColumns(count = 1, availableWidth = 343f, fontScale = 1f))
+        assertEquals(2, StockLayout.metricColumns(count = 2, availableWidth = 343f, fontScale = 1f))
+        assertEquals(2, StockLayout.metricColumns(count = 3, availableWidth = 250f, fontScale = 1f))
+        assertEquals(2, StockLayout.metricColumns(count = 3, availableWidth = 300f, fontScale = 1.15f))
+        assertEquals(1, StockLayout.metricColumns(count = 3, availableWidth = 343f, fontScale = 1.5f))
+        assertEquals(1, StockLayout.metricColumns(count = 4, availableWidth = 60f, fontScale = 1f))
+        assertEquals(4, StockLayout.metricColumns(count = 6, availableWidth = 600f, fontScale = 1f, maxColumns = 4))
+    }
+
+    @Test
     fun typographyIsAStrictHierarchy() {
         val t = ThemeTypography
         val sizes = listOf(t.display, t.largeNumber, t.screenTitle, t.sectionTitle, t.cardTitle, t.body, t.small, t.label, t.caption, t.tiny)
@@ -120,8 +143,9 @@ class DesignTokensTest {
         assertEquals(20, s.cardPaddingSpacious)
         assertEquals(4, s.labelValueGap)
         assertTrue(s.contentGap in 12..16 && s.formFieldGap in 12..16)
-        // Phase 1 keeps the values existing screens inherit; see docs/GLOBAL_UI_REFINEMENT_PHASE1.md for the migration path.
-        assertEquals(12, s.cardPadding)
+        // Phase 1A moved card padding to the standard 16; sectionGap keeps the card-gap value until Phase 3 (PHASE1/PHASE1A docs).
+        assertEquals(16, s.cardPadding)
+        assertEquals(12, s.cardPaddingCompact)
         assertEquals(s.contentGap, s.sectionGap)
     }
 

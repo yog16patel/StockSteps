@@ -214,7 +214,7 @@ private struct UnderstandSection: View {
             Button { onAction(.explain) } label: {
                 Label(state.plus ? "Explain With AI" : "Explain With AI · StockSteps+", systemImage: "lightbulb").frame(maxWidth: .infinity, minHeight: 48)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.stockPrimary)
             .disabled(state.explaining || !overview.aiAvailable)
             if state.explaining {
                 HStack { ProgressView(); Caption(text: "Building an explanation from the verified figures…") }.accessibilityElement(children: .combine)
@@ -276,7 +276,7 @@ private struct AskSection: View {
                 Caption(text: "\(text.count)/300 · Educational answers only, never advice.")
                 HStack {
                     Button(state.plus || !state.signedIn ? "Ask" : "Ask · StockSteps+") { onAction(.ask(text)); if state.plus { text = "" } }
-                        .buttonStyle(.borderedProminent).frame(minHeight: 48)
+                        .buttonStyle(.stockPrimary).frame(minHeight: 48)
                         .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty || state.asking)
                     if !state.conversation.isEmpty { Button("Start Over") { onAction(.resetConversation) }.frame(minHeight: 48) }
                 }
@@ -497,7 +497,7 @@ struct EarningsDigestScreen: View {
                 VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                     Text("A weekly summary of your watchlist's earnings: what was reported, what's coming up and what to learn from it.").foregroundStyle(colors.textBody)
                     if let note = client.planStatus(status: settings.entitlementStatus) { Caption(text: note, caution: true) }
-                    Button { onUpgrade() } label: { Text("See StockSteps+").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.borderedProminent)
+                    Button { onUpgrade() } label: { Text("See StockSteps+").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.stockPrimary)
                     Button("Recent Earnings From Your Watchlist", action: onRecentWatchlist).frame(minHeight: 48)
                     Caption(text: "Recent results and the Earnings Calendar stay free.")
                 }

@@ -75,7 +75,9 @@ internal data class StockStepsColors(
     val onLearnAccent: Color,
     val primaryBright: Color,
     val brandGlow: Color,
-    val primaryGradientEnd: Color
+    val primaryGradientEnd: Color,
+    /** Primary button fill behind `onPrimary` text (AA); brand `primary` stays for accents. */
+    val primaryAction: Color
 ) {
     // Text roles mapped onto the ramp (see ThemePalette): titles/values, supporting copy, metadata.
     val textTitle: Color get() = textPrimary
@@ -120,6 +122,7 @@ internal data class StockStepsSpacing(
     val educationalCardPadding: Dp = ThemeSpacing.educationalCardPadding.dp,
     val sectionGap: Dp = ThemeSpacing.sectionGap.dp,
     val cardPaddingStandard: Dp = ThemeSpacing.cardPaddingStandard.dp,
+    val cardPaddingCompact: Dp = ThemeSpacing.cardPaddingCompact.dp,
     val cardPaddingSpacious: Dp = ThemeSpacing.cardPaddingSpacious.dp,
     val contentGap: Dp = ThemeSpacing.contentGap.dp,
     val itemGap: Dp = ThemeSpacing.itemGap.dp,
@@ -168,7 +171,8 @@ internal data class StockStepsDimensions(
     val changeColumn: Dp = ThemeDimensions.changeColumn.dp,
     val indexCardWidth: Dp = ThemeDimensions.indexCardWidth.dp,
     val multiColumnMinWidth: Dp = ThemeDimensions.multiColumnMinWidth.dp,
-    val largeFontScale: Float = ThemeDimensions.largeFontScale
+    val largeFontScale: Float = ThemeDimensions.largeFontScale,
+    val stateIcon: Dp = ThemeDimensions.stateIcon.dp
 )
 
 @Immutable
@@ -254,7 +258,8 @@ private fun ThemePalette.toComposeColors(isDark: Boolean) = StockStepsColors(
     cautionText = cautionText.color(),
     learnContainerStart = learnContainerStart.color(), learnContainerEnd = learnContainerEnd.color(),
     learnAccent = learnAccent.color(), onLearnAccent = onLearnAccent.color(),
-    primaryBright = primaryBright.color(), brandGlow = brandGlow.color(), primaryGradientEnd = primaryGradientEnd.color()
+    primaryBright = primaryBright.color(), brandGlow = brandGlow.color(), primaryGradientEnd = primaryGradientEnd.color(),
+    primaryAction = primaryAction.color()
 )
 
 private fun StockStepsColors.toMaterialScheme() = (if (isDark) darkColorScheme() else lightColorScheme()).copy(

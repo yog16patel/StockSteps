@@ -1,29 +1,32 @@
 package org.example.stocksteps.designsystem.components
 
-import androidx.compose.foundation.layout.widthIn
-
-import androidx.compose.foundation.layout.Box
-
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import org.example.stocksteps.companydetail.PriceDirection
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
+import org.example.stocksteps.theme.StockLayout
 
 /**
- * One metric: label, value, short context. Direction (if any) adds an arrow and semantic color;
- * metrics without direction stay neutral. Tappable metrics open an explanation.
+ * One metric: muted label, prominent value, short context. Direction (if any) adds an arrow and semantic color;
+ * metrics without direction stay neutral. Tappable metrics open an explanation. The value wraps (never truncates),
+ * so long values like "+14.9 % (YoY)" stay readable at large font sizes.
  */
 @Composable
 internal fun StockMetric(
@@ -41,15 +44,47 @@ internal fun StockMetric(
             .heightIn(min = StockStepsTheme.dimensions.touchTarget)
             .then(if (onClick != null) Modifier.clickable(onClickLabel = onClickLabel, role = Role.Button, onClick = onClick) else Modifier.semantics(mergeDescendants = true) {})
             .padding(vertical = StockStepsTheme.spacing.xs),
-        verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)
+        verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.labelValueGap)
     ) {
         Text(label, style = StockStepsTheme.typography.label, color = colors.textSecondary)
         if (direction != null && direction != PriceDirection.UNAVAILABLE) {
-            StockPriceChange(value, direction, style = StockStepsTheme.typography.numberEmphasis)
+            StockPriceChange(value, direction, style = StockStepsTheme.typography.numberEmphasis, maxLines = Int.MAX_VALUE)
         } else {
             Text(value, style = StockStepsTheme.typography.numberEmphasis, color = colors.textPrimary)
         }
         if (helper != null) Text(helper, style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+    }
+}
+
+/** One cell of a [StockMetricGrid]. */
+internal data class StockMetricItem(
+    val label: String,
+    val value: String,
+    val helper: String? = null,
+    val direction: PriceDirection? = null,
+    val onClick: (() -> Unit)? = null,
+    val onClickLabel: String? = null
+)
+
+/**
+ * Metric row/grid (At a Glance, valuation, index summaries): up to [maxColumns] equal columns that drop to fewer columns
+ * — one at large font scale — instead of truncating values ([StockLayout.metricColumns], shared with SwiftUI).
+ */
+@Composable
+internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = Modifier, maxColumns: Int = 3) {
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val columns = StockLayout.metricColumns(items.size, maxWidth.value, fontScale, maxColumns)
+        Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.itemGap)) {
+            items.chunked(columns).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {
+                    row.forEach { item ->
+                        StockMetric(item.label, item.value, Modifier.weight(1f), item.helper, item.direction, item.onClick, item.onClickLabel)
+                    }
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
     }
 }
 

@@ -58,7 +58,12 @@ data class ThemePalette(
     val logoContainer: Int,
     // StockSteps-owned brand gradient stops (sign-in hero, logo tile, primary call to action). Not Google's colours.
     val brandGlow: Int,
-    val primaryGradientEnd: Int
+    val primaryGradientEnd: Int,
+    /**
+     * Fill behind white (`onPrimary`) text on primary buttons (Phase 1A). Brand `primary` 0x1683FF is 3.67:1 with white — below WCAG AA
+     * for button labels; this is the closest compliant blue (4.86:1). Brand `primary` stays for accents, links, charts and selection.
+     */
+    val primaryAction: Int
 ) {
     // Text roles (Global UI Refinement Phase 1): names for intent, mapped onto the existing ramp — not a second palette.
     /** Page titles and major financial values. */
@@ -95,7 +100,7 @@ object ThemeColors {
         educationContainer = 0xFFF4E6, educationAccent = 0xE07B1F, logoContainer = 0xFFFFFF,
         cautionText = 0xB45309,
         learnContainerStart = 0xF1ECFF, learnContainerEnd = 0xE6F0FF, learnAccent = 0x3A3FB8, onLearnAccent = 0xFFFFFF,
-        brandGlow = 0x6CB8FF, primaryGradientEnd = 0x2F8FFF
+        brandGlow = 0x6CB8FF, primaryGradientEnd = 0x2F8FFF, primaryAction = 0x0F6FDB
     )
 
     // Dark is not an inverted light theme: navy grounds, lighter surfaces, subtle borders.
@@ -119,6 +124,6 @@ object ThemeColors {
         educationContainer = 0x2A2116, educationAccent = 0xF5B942, logoContainer = 0xE8EEF4,
         cautionText = 0xF5B942,
         learnContainerStart = 0x221D45, learnContainerEnd = 0x132A4A, learnAccent = 0xB4B8FF, onLearnAccent = 0x0D1B2A,
-        brandGlow = 0x6CB8FF, primaryGradientEnd = 0x2F8FFF
+        brandGlow = 0x6CB8FF, primaryGradientEnd = 0x2F8FFF, primaryAction = 0x0F6FDB
     )
 }

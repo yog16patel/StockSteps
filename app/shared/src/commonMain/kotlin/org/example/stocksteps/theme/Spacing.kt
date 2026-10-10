@@ -15,13 +15,15 @@ object ThemeSpacing {
     // Semantic roles. Prefer these in new code; they are the only spacing names refined components should use.
     /** Horizontal screen padding. */
     val screen = lg
-    /**
-     * Default card padding (`StockCard`, `.stockCard`, `StockRow` horizontal inset). Kept at the compact 12 in Phase 1 because
-     * changing it narrows every card and row before Phase 2 makes their content wrap; Phase 2 moves it to [cardPaddingStandard].
-     */
-    val cardPadding = md
-    /** Target standard card padding for refined components (Phase 2). */
+    /** Standard card padding for refined components. */
     val cardPaddingStandard = lg
+    /**
+     * Default card padding (`StockCard`, `.stockCard`, `StockRow` horizontal inset). Phase 1 kept the compact 12; Phase 1A moved it to
+     * [cardPaddingStandard] (16) together with wrapping metric values.
+     */
+    val cardPadding = cardPaddingStandard
+    /** The pre-Phase 1A compact card padding, for dense containers that must keep it. */
+    val cardPaddingCompact = md
     /** Spacious cards: hero summaries, promotional and educational containers. */
     val cardPaddingSpacious = xl
     val educationalCardPadding = lg
@@ -119,4 +121,22 @@ object ThemeDimensions {
     // Below this width, or above this font scale, side-by-side values stack.
     val multiColumnMinWidth = 300
     val largeFontScale = 1.3f
+    /** Narrowest column a metric (label over value) may get before a metric grid drops a column. */
+    val metricMinColumnWidth = 96
+    /** Icon tile on full empty/error states. */
+    val stateIcon = 48
+}
+
+/** Layout decisions shared by Compose and SwiftUI so both platforms reflow the same way. */
+object StockLayout {
+    /**
+     * Columns for a metric grid of [count] items in [availableWidth] dp/pt: as many as fit at [ThemeDimensions.metricMinColumnWidth]
+     * (scaled by [fontScale]), at most [maxColumns]; one column above [ThemeDimensions.largeFontScale].
+     */
+    fun metricColumns(count: Int, availableWidth: Float, fontScale: Float, maxColumns: Int = 3): Int {
+        if (count <= 1) return 1
+        if (fontScale > ThemeDimensions.largeFontScale) return 1
+        val fit = (availableWidth / (ThemeDimensions.metricMinColumnWidth * fontScale.coerceAtLeast(1f))).toInt()
+        return fit.coerceIn(1, minOf(count, maxColumns))
+    }
 }

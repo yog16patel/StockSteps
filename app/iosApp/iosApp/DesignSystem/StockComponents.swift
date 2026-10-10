@@ -8,7 +8,8 @@ private let space = StockStepsTheme.spacing
 private let type = StockStepsTheme.typography
 private let dims = StockStepsTheme.dimensions
 
-/// Groups related information: semantic surface, 12pt radius, 1pt border, no heavy shadow.
+/// Groups related information: semantic surface, `corners.card` (16pt) radius, 1pt border, `cardPadding` (16pt), no heavy shadow.
+/// Never nest a card inside a card.
 /// `bordered: false` keeps the plain surface without the outline (Home sections).
 struct StockCardModifier: ViewModifier {
     @Environment(\.colorScheme) private var scheme
@@ -69,6 +70,8 @@ struct StockPriceChange: View {
     let percentage: String
     let direction: PriceDirection
     var style: ThemeTextStyle = StockStepsTheme.typography.numberLabel
+    /// 1 in rows; metric layouts pass nil so a long value wraps instead of being cut.
+    var lineLimit: Int? = 1
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         let (arrow, color, spoken): (String, Color, String) = switch direction {
@@ -80,7 +83,7 @@ struct StockPriceChange: View {
         Text(arrow + percentage)
             .font(StockStepsTheme.font(style, relativeTo: .footnote))
             .foregroundStyle(color)
-            .lineLimit(1)
+            .lineLimit(lineLimit)
             .accessibilityLabel(spoken)
     }
 }

@@ -38,7 +38,7 @@ internal fun StockTextField(
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     val shape = StockStepsTheme.shapes.chip
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.labelValueGap)) {
         Text(label, style = StockStepsTheme.typography.label, color = colors.textSecondary)
         Row(
             Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clip(shape)

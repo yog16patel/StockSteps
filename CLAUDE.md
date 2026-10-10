@@ -82,6 +82,9 @@ Core feature packages: `brief` (Daily Market Brief), `practice` (Practice Portfo
   upstream call path must acquire a `ProviderGuard` permit and `complete` it (as `apiCall` does); new signed-in AI features use `DurableAiQuota`
   (reserve before the provider call; release only failures that produced nothing); per-symbol bundles go behind `SymbolExistence`; logs never contain
   provider URLs, keys or tokens (`io.ktor` stays at WARN).
+- **Buttons**: primary fills use `primaryAction` (AA with white), never brand `primary`; on iOS use `.buttonStyle(.stockPrimary)` /
+  `.stockSecondary`, not `.borderedProminent` (it fills with the brand-blue tint). Metric values wrap (`StockMetric`/`StockMetricGrid`);
+  show readable labels for enums (`StockLabels.humanize` fallback). Visual direction: `docs/design/stocksteps-ui-reference.png`.
 - **Sign-in/create-account screens use `StockStepsTheme`** (colours/typography); `theme/AuthTokens.kt` holds sizes only — never a
   separate hard-coded palette (it hides the screens from theme changes and dark mode).
 - Match existing code style (dense Kotlin, KDoc on intent, theme tokens: `StockStepsTheme.spacing/

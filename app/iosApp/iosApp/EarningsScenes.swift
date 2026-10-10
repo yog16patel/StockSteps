@@ -515,7 +515,7 @@ struct EarningsEventScreen: View {
                 ReminderControlButton(control: reminderControl, action: onRemind)
                 if let reminderNote { Text(reminderNote).font(.caption).foregroundStyle(colors.textSecondary) }
             }
-            Button { onCompany(state.symbol) } label: { Text("View Company Details").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.borderedProminent)
+            Button { onCompany(state.symbol) } label: { Text("View Company Details").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.stockPrimary)
             // The same watchlist as Company Details and the Watchlist tab.
             if !accounts.state.initializing {
                 let saved = accounts.state.items.contains { $0.symbol == state.symbol }
@@ -702,7 +702,7 @@ struct EarningsDetailsScreen: View {
             Text("Answers use only the verified figures above and say when the data can't explain a cause.").font(.caption).foregroundStyle(colors.textSecondary)
             TextField("e.g. Explain this earnings report", text: $question).textFieldStyle(.roundedBorder)
             Button(state.plus ? "Ask" : "Ask with StockSteps+") { presenter.ask(question: question) }
-                .buttonStyle(.borderedProminent).disabled(question.trimmingCharacters(in: .whitespaces).isEmpty || state.asking)
+                .buttonStyle(.stockPrimary).disabled(question.trimmingCharacters(in: .whitespaces).isEmpty || state.asking)
             if state.asking { ProgressView() }
             if let answer = state.answer {
                 Text(answer.answer).font(.subheadline)

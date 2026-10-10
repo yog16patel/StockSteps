@@ -137,7 +137,7 @@ struct DiscoverStocksScreen: View {
                     Text(state.selected.map(\.symbol).joined(separator: ", ")).font(.subheadline).lineLimit(1)
                     Spacer()
                     Button(state.canCompare ? "Compare (\(state.selected.count))" : "Select 2 to compare", action: onCompare)
-                        .buttonStyle(.borderedProminent).disabled(!state.canCompare)
+                        .buttonStyle(.stockPrimary).disabled(!state.canCompare)
                 }
                 .padding(.horizontal, CGFloat(space.screen)).padding(.vertical, CGFloat(space.sm))
                 .background(.bar)

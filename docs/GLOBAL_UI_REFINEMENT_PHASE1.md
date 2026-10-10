@@ -69,7 +69,7 @@ Scale unchanged: `xxs 2 · xs 4 · sm 8 · md 12 · lg 16 · xl 20 · xxl 24 · 
 | Semantic token | Value | Status |
 |---|---:|---|
 | `screen` | 16 | unchanged |
-| `cardPadding` | 12 | **unchanged** (default of `StockCard`, `.stockCard`, `StockRow` inset; 30 uses). Raising it to 16 narrows every card/row before Phase 2 makes their content wrap → Phase 2 switches it to `cardPaddingStandard` |
+| `cardPadding` | 12 | **unchanged** (default of `StockCard`, `.stockCard`, `StockRow` inset; 30 uses). Raising it to 16 narrows every card/row before their content wraps → **moved to 16 in Phase 1A** |
 | `cardPaddingStandard` | 16 | new (target standard card padding) |
 | `cardPaddingSpacious` | 20 | new |
 | `educationalCardPadding` | 16 | unchanged |
@@ -132,7 +132,7 @@ remain (Phase 7, with the auth screens).
 - Minimum token size 11; body line height 1.4×; no fixed heights; Android font scale and iOS Dynamic Type supported by the tokens.
 - Gain/loss words are untouched (components still pair colour with words/signs).
 - **Known issue, not changed (brand decision)**: white on `primary` `1683FF` is 3.67:1 — below AA for the 15-sp primary button label
-  (passes the 3:1 large/bold threshold only for ≥ 18.66 px bold). Options for Phase 2: fill primary buttons with `primaryDark` `0866C6`
+  (passes the 3:1 large/bold threshold only for ≥ 18.66 px bold). **Resolved in Phase 1A** with a new `primaryAction` `0F6FDB` (4.86:1); options considered: fill primary buttons with `primaryDark` `0866C6`
   (5.64:1) or use a bolder/larger label.
 - Token tests are **not** an accessibility pass: TalkBack/VoiceOver, largest text sizes, high-contrast and small/large devices remain manual
   checks.
@@ -149,6 +149,8 @@ remain (Phase 7, with the auth screens).
   app. (The Phase 5C.1 core iOS re-run is closed: 429/0, recorded in the 5C report §15.)
 
 ## 10. Phase 2 (reusable components) — recommendations
+
+(Items 2–4 partly and 5–6 were delivered early in the intermediate **Phase 1A** — `docs/GLOBAL_UI_REFINEMENT_PHASE1A.md`.)
 
 1. Screenshot baseline (light/dark × default/largest text, both platforms) of the reference screens; record regressions from §7.
 2. `StockMetric`/key–value row that wraps instead of truncating → then `numberEmphasis` 18 → 22.

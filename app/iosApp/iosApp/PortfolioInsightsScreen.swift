@@ -30,7 +30,7 @@ struct PortfolioInsightsScreen: View {
                     }
                     if !state.signedIn && state.scenario == nil {
                         Text("Sign in to see insights about your portfolio.")
-                        Button("Sign in", action: onSignIn).buttonStyle(.borderedProminent)
+                        Button("Sign in", action: onSignIn).buttonStyle(.stockPrimary)
                     } else if let view = state.view {
                         content(view, state, colors)
                     } else if !state.loading && state.error == nil {

@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import org.example.stocksteps.companydetail.PriceDirection
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.resources.Res
@@ -25,7 +26,9 @@ internal fun StockPriceChange(
     direction: PriceDirection,
     modifier: Modifier = Modifier,
     amount: String? = null,
-    style: TextStyle = StockStepsTheme.typography.numberLabel
+    style: TextStyle = StockStepsTheme.typography.numberLabel,
+    /** 1 in rows; metric layouts pass more so a long value wraps instead of being cut. */
+    maxLines: Int = 1
 ) {
     val colors = StockStepsTheme.colors
     val value = listOfNotNull(amount, percentage).joinToString(" ")
@@ -40,6 +43,7 @@ internal fun StockPriceChange(
         modifier = modifier.semantics { contentDescription = spoken },
         style = style,
         color = color,
-        maxLines = 1
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis
     )
 }

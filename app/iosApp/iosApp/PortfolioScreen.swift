@@ -59,7 +59,7 @@ struct PortfolioScreen: View {
                     if state.accounts.filter({ !$0.archived }).isEmpty {
                         Text("Start tracking what you own").font(.title2)
                         Text("Create an account, then add existing investments or record trades. Your watchlist stays separate.")
-                        Button("Create portfolio", action: onAddAccount).buttonStyle(.borderedProminent).disabled(!state.signedIn)
+                        Button("Create portfolio", action: onAddAccount).buttonStyle(.stockPrimary).disabled(!state.signedIn)
                     } else {
                         if holdingSymbol == nil {
                             Menu("\(state.accountName) · \(state.currency)") {
@@ -70,7 +70,7 @@ struct PortfolioScreen: View {
                             }
                             PortfolioSummaryCard(state: state)
                             Text(state.dailyNotice).font(.caption)
-                            Button("Add investment / transaction", action: onAdd).buttonStyle(.borderedProminent)
+                            Button("Add investment / transaction", action: onAdd).buttonStyle(.stockPrimary)
                             Button("Insights: performance, allocation and concentration", systemImage: "chart.line.uptrend.xyaxis", action: onInsights)
                                 .buttonStyle(.bordered).frame(minHeight: 44)
                             Text("Portfolio history").font(.headline)

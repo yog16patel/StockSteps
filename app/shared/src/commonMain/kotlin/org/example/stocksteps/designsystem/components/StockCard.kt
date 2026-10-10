@@ -17,7 +17,8 @@ import androidx.compose.ui.semantics.Role
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 
 /**
- * Groups related information: semantic surface, 12dp radius, 1dp border, no heavy shadow.
+ * Groups related information: semantic surface, `shapes.card` (16dp) radius, 1dp border, `cardPadding` (16dp), no heavy shadow.
+ * Nest content directly — never a card inside a card (use `surfaceSecondary` rows or dividers instead).
  * `bordered = false` keeps the plain surface without the outline (Home sections).
  */
 @Composable

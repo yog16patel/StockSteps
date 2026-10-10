@@ -29,7 +29,8 @@ object ThemeTypography {
 
     // Financial values: same scale family with tabular digits.
     // numberEmphasis 18 rather than the 22 target: it sits in single-line metric grids (At a Glance, Markets index cards,
-    // valuation) that already truncate long values; it moves to 22 with the wrapping metric component in Phase 2.
+    // valuation) that already truncate long values; the wrapping metric component exists since Phase 1A, and the value moves to 22
+    // when those screens adopt it.
     val numberEmphasis = ThemeTextStyle(18, 24, 600, tabular = true)
     val numberMedium = ThemeTextStyle(17, 22, 600, tabular = true)
     val numberLabel = ThemeTextStyle(13, 18, 400, tabular = true)

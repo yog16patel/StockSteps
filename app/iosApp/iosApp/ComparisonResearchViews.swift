@@ -86,7 +86,7 @@ struct ComparisonResearchView: View {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 Text("Sign in to save your research").font(.headline).accessibilityAddTraits(.isHeader)
                 Text("Research sessions, notes and progress are saved to your account so you can resume later. The checklist is free.").font(.subheadline)
-                Button("Sign In", action: onSignIn).buttonStyle(.borderedProminent).frame(minHeight: 48)
+                Button("Sign In", action: onSignIn).buttonStyle(.stockPrimary).frame(minHeight: 48)
             }
             .stockCard()
         } else {
@@ -156,7 +156,7 @@ struct ComparisonResearchView: View {
             }
             if selected.count >= 2 {
                 Button("Start research: \(selected.joined(separator: " vs "))") { client.createResearchForSelection() }
-                    .buttonStyle(.borderedProminent).frame(minHeight: 48).disabled(!sessions.canCreate)
+                    .buttonStyle(.stockPrimary).frame(minHeight: 48).disabled(!sessions.canCreate)
             } else {
                 Text("Choose at least two companies on Compare to start new research.").font(.caption).foregroundStyle(colors.textSecondary)
             }
@@ -213,7 +213,7 @@ struct ComparisonResearchView: View {
                 Text("\(q.remaining) characters left · private to your account").font(.caption2).foregroundStyle(colors.textTertiary)
                 if q.dirty {
                     HStack {
-                        Button(q.saving ? "Saving…" : "Save note") { _ = presenter?.saveNote(questionId: q.question.id) }.buttonStyle(.borderedProminent).disabled(q.saving)
+                        Button(q.saving ? "Saving…" : "Save note") { _ = presenter?.saveNote(questionId: q.question.id) }.buttonStyle(.stockPrimary).disabled(q.saving)
                         Button("Discard") { presenter?.discardNote(questionId: q.question.id) }
                     }
                     .frame(minHeight: 48)

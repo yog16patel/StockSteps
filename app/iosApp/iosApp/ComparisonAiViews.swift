@@ -118,7 +118,7 @@ struct ComparisonAiView: View {
                     Text("Start with an overview").font(.headline).accessibilityAddTraits(.isHeader)
                     Text("A short, beginner-friendly explanation of the biggest financial differences, with the data behind each point.").font(.subheadline)
                     Button("Explain the biggest differences") { _ = client.aiSummary(type: "OVERVIEW") }
-                        .buttonStyle(.borderedProminent).frame(maxWidth: .infinity, minHeight: 48).disabled(!state.canAsk)
+                        .buttonStyle(.stockPrimary).frame(maxWidth: .infinity, minHeight: 48).disabled(!state.canAsk)
                 }
                 .stockCard()
             }
@@ -137,7 +137,7 @@ struct ComparisonAiView: View {
             Text(upsell.body).font(.subheadline)
             ForEach(upsell.benefits, id: \.self) { Text("• \($0)").font(.subheadline) }
             Text(upsell.footnote).font(.caption).foregroundStyle(.secondary)
-            Button(signIn ? "Sign In" : "See StockSteps+", action: signIn ? onSignIn : onUpgrade).buttonStyle(.borderedProminent).frame(maxWidth: .infinity, minHeight: 48)
+            Button(signIn ? "Sign In" : "See StockSteps+", action: signIn ? onSignIn : onUpgrade).buttonStyle(.stockPrimary).frame(maxWidth: .infinity, minHeight: 48)
         }
         .stockCard()
     }
@@ -182,7 +182,7 @@ struct ComparisonAiView: View {
             Text("\(state.remaining) characters left · about these companies only").font(.caption2).foregroundStyle(colors.textTertiary)
             HStack {
                 Button(state.busy ? "Thinking…" : "Ask") { inputFocused = false; presenter?.ask(question: state.input) }
-                    .buttonStyle(.borderedProminent).disabled(!(state.canAsk && state.inputValid))
+                    .buttonStyle(.stockPrimary).disabled(!(state.canAsk && state.inputValid))
                 if !state.turns.isEmpty { Button("New conversation") { presenter?.startOver() }.disabled(state.busy) }
             }
             .frame(minHeight: 48)

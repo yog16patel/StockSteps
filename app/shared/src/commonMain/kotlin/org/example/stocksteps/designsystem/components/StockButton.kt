@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 
 internal enum class StockButtonVariant { PRIMARY, SECONDARY, OUTLINED, DESTRUCTIVE, TEXT }
@@ -35,7 +36,8 @@ internal fun StockButton(
     val colors = StockStepsTheme.colors
     val shape = StockStepsTheme.shapes.button
     val (container, content, border) = when (variant) {
-        StockButtonVariant.PRIMARY -> Triple(colors.primary, colors.onPrimary, null)
+        // primaryAction, not brand primary: white on 0x1683FF is 3.67:1 (below AA); primaryAction is 4.86:1.
+        StockButtonVariant.PRIMARY -> Triple(colors.primaryAction, colors.onPrimary, null)
         StockButtonVariant.SECONDARY -> Triple(colors.primaryContainer, colors.primaryText, null)
         StockButtonVariant.OUTLINED -> Triple(Color.Transparent, colors.primaryText, colors.border)
         // Subtle destructive: tinted container + border, never a solid bright-red slab.
@@ -58,7 +60,7 @@ internal fun StockButton(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
             icon?.let { Icon(it, contentDescription = null, tint = textColor, modifier = Modifier.size(StockStepsTheme.dimensions.icon)) }
-            Text(text = text, style = StockStepsTheme.typography.bodyMedium, color = textColor)
+            Text(text = text, style = StockStepsTheme.typography.bodySemiBold, color = textColor, textAlign = TextAlign.Center)
         }
     }
 }
