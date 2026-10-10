@@ -30,6 +30,8 @@ struct PortfolioScreen: View {
     @State private var deleteTransaction: PortfolioTransaction?
     @State private var showAbout = false
     @State private var allTransactions = false
+    @State private var showDailyReason = false
+    @State private var rowWidth: CGFloat = 0
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
     private let space = StockStepsTheme.spacing
@@ -139,6 +141,7 @@ struct PortfolioScreen: View {
                     holdingRow(row, colors: colors)
                 }
             }.stockCard(padding: 0)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rowWidth = $0 }
         }
         if holdingSymbol != nil, let row = rows.first {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
@@ -153,11 +156,14 @@ struct PortfolioScreen: View {
                 Button("Add to watchlist") { onWatchlist(row) }.frame(minHeight: 44)
             }.stockCard()
         }
-        sectionTitle("Cash", colors)
-        lines(state.cash, empty: "No cash recorded", colors: colors)
         if holdingSymbol == nil { allocation(state, colors: colors) }
-        sectionTitle("Dividends", colors)
-        lines(state.dividends, empty: "No dividends recorded", colors: colors)
+        // Cash and dividends share one card: each is a labelled line, so empty values cost one row, not a whole section.
+        sectionTitle("Cash and dividends", colors)
+        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            valueLines("Cash", state.cash, colors: colors)
+            StockDivider()
+            valueLines("Dividends received", state.dividends, colors: colors)
+        }.stockCard()
         let transactions = state.transactions.filter { holdingSymbol == nil || $0.instrument?.symbol == holdingSymbol }
         sectionTitle(transactions.isEmpty ? "Transactions" : "Transactions (\(transactions.count))", colors)
         VStack(alignment: .leading, spacing: 0) {
@@ -194,11 +200,15 @@ struct PortfolioScreen: View {
             .accessibilityAddTraits(.isHeader).padding(.top, CGFloat(space.md))
     }
 
-    private func lines(_ values: [String], empty: String, colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            if values.isEmpty { Text(empty).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting) }
-            ForEach(values, id: \.self) { Text($0).font(StockStepsTheme.font(type.numberLabelStrong)).foregroundStyle(colors.textValue) }
-        }.stockCard()
+    /// "Cash      CAD 1,200.00" — label left, one value per line right; "None recorded" when empty (never an invented 0.00).
+    private func valueLines(_ label: String, _ values: [String], colors: StockColors) -> some View {
+        HStack(alignment: .top, spacing: CGFloat(space.md)) {
+            Text(label).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting).frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .trailing, spacing: CGFloat(space.xxs)) {
+                if values.isEmpty { Text("None recorded").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textMeta) }
+                ForEach(values, id: \.self) { Text($0).font(StockStepsTheme.font(type.numberLabelStrong)).foregroundStyle(colors.textValue) }
+            }
+        }.accessibilityElement(children: .combine)
     }
 
     /// "Personal · CAD ▾" with a menu of accounts (name, type, currency) and "+ Add".
@@ -240,20 +250,28 @@ struct PortfolioScreen: View {
             if let today = present.todayChange(state: state) {
                 StockPriceChange(percentage: "\(today) today", direction: present.direction(amount: state.dailyGain), style: type.numberMedium, lineLimit: nil)
             } else {
-                Text(present.TODAY_UNAVAILABLE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
-                if !state.dailyNotice.isEmpty { Text(state.dailyNotice).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textMeta) }
+                // The reason stays one tap away instead of adding two lines to every view of the hero.
+                HStack(spacing: CGFloat(space.xs)) {
+                    Text(present.TODAY_UNAVAILABLE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                    if !state.dailyNotice.isEmpty {
+                        Button(showDailyReason ? "Hide" : "Why?") { showDailyReason.toggle() }
+                            .font(StockStepsTheme.font(type.label)).foregroundStyle(colors.primaryText).frame(minHeight: 44)
+                            .accessibilityLabel(showDailyReason ? "Hide reason" : "Why is today's change unavailable?")
+                    }
+                }
+                if showDailyReason { Text(state.dailyNotice).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textMeta) }
             }
             StockDivider().padding(.vertical, CGFloat(space.xs))
             StockMetricGrid(items: [
                 StockMetricItem(label: "Invested cost", value: PortfolioFormat.shared.amount(value: state.basis)),
                 StockMetricItem(label: "Unrealized P/L", value: present.signedAmount(amount: state.unrealized) ?? "—", direction: present.direction(amount: state.unrealized)),
                 StockMetricItem(label: "Realized P/L", value: present.signedAmount(amount: state.realized) ?? "—", direction: present.direction(amount: state.realized))
-            ])
+            ], rowsWhenNarrow: true)
             if accountCount > 1 {
                 Text("All accounts · \(state.currency) \(PortfolioFormat.shared.amount(value: state.combinedTotal))").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
             }
             if let notice = state.notice { Text(notice).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.cautionText) }
-            if let freshness = present.freshness(state: state) { Text(freshness).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textMeta) }
+            ForEach(present.freshnessLines(state: state), id: \.self) { Text($0).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textMeta) }
             if let sample = state.mockScenario { StockStatusBadge(text: "Sample · \(sample)", kind: .sample, size: .compact) }
         }.stockCard()
     }
@@ -261,7 +279,8 @@ struct PortfolioScreen: View {
     /// Compact holding row: logo · name / ticker · shares — value / unrealized change; one spoken description. At large Dynamic Type
     /// sizes the values move under the name so long company names never break mid-word.
     private func holdingRow(_ row: PortfolioHoldingRow, colors: StockColors) -> some View {
-        let stacked = typeSize >= .xxxLarge
+        // Narrow rows (small phones, split view) and large text put the values under the name, so neither is squeezed.
+        let stacked = typeSize >= .xxxLarge || (rowWidth > 0 && rowWidth < CGFloat(PortfolioLayout.shared.stackedRowWidth))
         return Button { onHolding(row.symbol) } label: {
             HStack(spacing: CGFloat(space.md)) {
                 StockTickerAvatar(symbol: row.symbol, logoUrl: row.logoUrl)
@@ -305,7 +324,7 @@ struct PortfolioScreen: View {
         return HStack(spacing: CGFloat(space.sm)) {
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                 Text(title).font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(colors.textTitle)
-                Text("\(transaction.tradeDate) · \(present.transactionAmount(transaction: transaction))").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                Text("\(present.dateLabel(date: transaction.tradeDate)) · \(present.transactionAmount(transaction: transaction))").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
@@ -327,7 +346,10 @@ struct PortfolioScreen: View {
                 Text("Allocation appears once you have holdings.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
             }
             if !state.allocations.isEmpty { Text("By holding").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSupporting) }
-            ForEach(state.allocations, id: \.symbol) { allocationBar("\($0.symbol) · \($0.currency.name)", percent: $0.percent, detail: nil, colors: colors) }
+            ForEach(state.allocations, id: \.symbol) { allocation in
+                allocationBar("\(allocation.symbol) · \(allocation.currency.name)", percent: allocation.percent,
+                              detail: allocation.reportingValue.map { "\(state.currency) \(PortfolioFormat.shared.amount(value: $0))" }, colors: colors)
+            }
             if !state.currencyAllocations.isEmpty {
                 Text("By currency").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSupporting).padding(.top, CGFloat(space.xs))
             }
@@ -338,13 +360,13 @@ struct PortfolioScreen: View {
     }
 
     private func allocationBar(_ label: String, percent: String?, detail: String?, colors: StockColors) -> some View {
-        let text = [percent.map { "\(PortfolioFormat.shared.amount(value: $0))%" } ?? "—", detail].compactMap { $0 }.joined(separator: " · ")
+        let text = percent.map { "\(PortfolioFormat.shared.amount(value: $0))%" } ?? "—"
         let fraction = CGFloat(present.allocationFraction(percent: percent))
         return VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-            HStack {
-                Text(label).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
-                Spacer(minLength: CGFloat(space.sm))
-                Text(text).font(StockStepsTheme.font(type.numberLabel)).foregroundStyle(colors.textValue)
+            HStack(spacing: CGFloat(space.sm)) {
+                Text(label).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).frame(maxWidth: .infinity, alignment: .leading)
+                Text(text).font(StockStepsTheme.font(type.numberLabelStrong)).foregroundStyle(colors.textValue)
+                if let detail { Text(detail).font(StockStepsTheme.font(type.numberLabel)).foregroundStyle(colors.textSupporting) }
             }
             Capsule().fill(colors.surfaceSecondary).frame(height: CGFloat(StockStepsTheme.dimensions.rangeBar))
                 .overlay(alignment: .leading) {

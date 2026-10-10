@@ -1,10 +1,26 @@
-# StockSteps — session handoff (2026-10-10: Global UI Refinement Phases 1, 1A, 2 and 3 (Portfolio) committed and pushed)
+# StockSteps — session handoff (2026-10-10: Global UI Refinement Phases 1, 1A, 2, 3 and 3.1 committed and pushed)
 
 Read order for a new session: `CLAUDE.md` → **§0000 below** → §000 → `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md`
 → §00 (Phase 5B Local) → §0 (Phase 5A) → the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## 00000000. Global UI Refinement Phase 3 — Portfolio reference screen (read first)
+## 000000000. Global UI Refinement Phase 3.1 — Portfolio polish (read first)
+
+- Repository: `main`. Current commit: "Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS" (pushed), on top of "Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS" (pushed).
+  Commit/push only when asked; every commit updates the root `PROJECT_HANDOFF.md`.
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md`): issue inventory; readable freshness dates (`PortfolioDates`, UTC labelled);
+  hero metric rows when three do not fit (`StockMetricGrid(rowsWhenNarrow)`); "Why?" toggle for the daily-change reason; "Cash and
+  dividends" card; consistent allocation rows; trade transactions show the price per share and readable dates; width-aware holding-row
+  stacking; chart short axis dates and iOS data-based y-domain.
+- Files: `presentation/portfolio/PortfolioPresentation.kt`, `PortfolioScreen.kt`, `PortfolioHistoryChart.kt`, `designsystem/components/StockMetric.kt`;
+  iOS `PortfolioScreen.swift`, `PortfolioHistoryChart.swift`, `DesignSystem/StockControls.swift`; test `PortfolioPresentationTest`; screenshots
+  `docs/design/phase3_1/`; docs.
+- Results: shared Android 81/0/0, shared iOS 77/0/0, `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED. Device pass (approved) on iOS and
+  Android; all settings restored, simulator shut down, MOCK server stopped.
+- Next: Phase 4 (Home, Markets, Company Details) only after the user approves it. Other open items: LAN backend redeploy for the
+  Phase 5C.1 brief wording (approval needed), Android visual checks of Phase 2 components, VoiceOver/TalkBack walkthroughs, physical devices.
+
+## 00000000. Global UI Refinement Phase 3 — Portfolio reference screen
 
 - Repository: `main`. Current commit: "Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS" (pushed), on top of "Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline" (pushed).
   Commit/push only when asked; every commit updates the root `PROJECT_HANDOFF.md`.

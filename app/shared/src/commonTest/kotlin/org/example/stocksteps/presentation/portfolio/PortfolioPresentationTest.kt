@@ -68,12 +68,17 @@ class PortfolioPresentationTest {
         val buy = PortfolioTransaction("t", "a", TransactionType.OPENING_POSITION, "2026-10-09", PortfolioCurrency.USD,
             InstrumentRef("MSFT", "Microsoft Corporation", "NASDAQ", "USD"), quantity = "3", netAmount = "12")
         assertEquals("MSFT · 3 shares", PortfolioPresentation.transactionDetail(buy))
+        assertEquals("USD 4.00 per share", PortfolioPresentation.transactionAmount(buy.copy(unitPrice = "4")))
         assertEquals("USD 12.00", PortfolioPresentation.transactionAmount(buy))
+        assertEquals("CAD 500.00", PortfolioPresentation.transactionAmount(buy.copy(type = TransactionType.CASH_DEPOSIT, currency = PortfolioCurrency.CAD,
+            instrument = null, unitPrice = "1", netAmount = "500")))
         assertNull(PortfolioPresentation.transactionDetail(buy.copy(instrument = null)))
         assertEquals("MSFT", PortfolioPresentation.transactionDetail(buy.copy(quantity = "0")))
         assertNull(PortfolioPresentation.freshness(PortfolioUiState()))
-        assertEquals("Prices as of 2026-10-07 · Exchange rate as of 2026-10-09",
+        assertEquals("Prices as of Oct 7, 2026 · Exchange rate as of Oct 9, 2026",
             PortfolioPresentation.freshness(PortfolioUiState(quoteAsOf = "2026-10-07", fxAsOf = "2026-10-09")))
+        assertEquals(listOf("Prices as of Oct 7, 2026, 8:00 PM UTC", "Exchange rate as of Oct 9, 2026"),
+            PortfolioPresentation.freshnessLines(PortfolioUiState(quoteAsOf = "2026-10-07T20:00:00Z", fxAsOf = "2026-10-09")))
         assertEquals(1f, PortfolioPresentation.allocationFraction("135.5"))
         assertEquals(0f, PortfolioPresentation.allocationFraction(null))
         assertEquals(0.25f, PortfolioPresentation.allocationFraction("25"))
@@ -84,5 +89,18 @@ class PortfolioPresentationTest {
         assertFalse(PortfolioChartRules.drawable(emptyList()))
         assertFalse(PortfolioChartRules.drawable(listOf(null, "1850", null)))
         assertTrue(PortfolioChartRules.drawable(listOf("1800", null, "1850")))
+    }
+
+    @Test
+    fun datesAreReadableAndNeverGuessed() {
+        assertEquals("Oct 9, 2026", PortfolioDates.date("2026-10-09"))
+        assertEquals("Sep 1", PortfolioDates.shortDate("2026-09-01"))
+        assertEquals("Oct 8, 2026, 3:00 PM UTC", PortfolioDates.dateTime("2026-10-08T15:00:00Z"))
+        assertEquals("Jan 1, 2026, 12:05 AM UTC", PortfolioDates.dateTime("2026-01-01T00:05Z"))
+        assertEquals("Dec 31, 2026, 12:00 PM UTC", PortfolioDates.dateTime("2026-12-31T12:00:00.123Z"))
+        // Offsets other than Z and unknown text are shown unchanged rather than converted by guesswork.
+        assertEquals("2026-10-08T11:00:00-04:00", PortfolioDates.dateTime("2026-10-08T11:00:00-04:00"))
+        assertEquals("yesterday", PortfolioDates.dateTime("yesterday"))
+        assertEquals("2026-13-01", PortfolioDates.date("2026-13-01"))
     }
 }

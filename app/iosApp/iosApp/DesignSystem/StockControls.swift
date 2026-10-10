@@ -110,6 +110,9 @@ struct StockMetricGrid: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let items: [StockMetricItem]
     var maxColumns = 3
+    /// When not every item fits on one line, show aligned label/value rows instead of an uneven grid (e.g. 2 + 1).
+    var rowsWhenNarrow = false
+    @Environment(\.colorScheme) private var scheme
     @State private var width: CGFloat = 0
     var body: some View {
         let scale = UIFontMetrics.default.scaledValue(for: 1, compatibleWith: UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize)))
@@ -123,6 +126,24 @@ struct StockMetricGrid: View {
             ? Int(StockLayout.shared.metricColumns(count: Int32(items.count), availableWidth: Float(width), fontScale: Float(scale), maxColumns: Int32(maxColumns),
                                                    widestContent: Float(widest), gap: Float(space.md)))
             : 1
+        Group {
+        if rowsWhenNarrow && width > 0 && columns < min(items.count, maxColumns) {
+            let colors = StockStepsTheme.colors(scheme)
+            VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+                ForEach(items) { item in
+                    HStack(spacing: CGFloat(space.md)) {
+                        Text(item.label).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if let direction = item.direction, direction != .unavailable {
+                            StockPriceChange(percentage: item.value, direction: direction, style: type.numberMedium, lineLimit: nil)
+                        } else {
+                            Text(item.value).font(StockStepsTheme.font(type.numberMedium)).foregroundStyle(colors.textPrimary).multilineTextAlignment(.trailing)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        } else {
         Grid(alignment: .topLeading, horizontalSpacing: CGFloat(space.md), verticalSpacing: CGFloat(space.itemGap)) {
             ForEach(Array(stride(from: 0, to: items.count, by: columns)), id: \.self) { start in
                 GridRow {
@@ -132,6 +153,8 @@ struct StockMetricGrid: View {
                     ForEach(0..<(columns - min(columns, items.count - start)), id: \.self) { _ in Color.clear.frame(height: 0) }
                 }
             }
+        }
+        }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }

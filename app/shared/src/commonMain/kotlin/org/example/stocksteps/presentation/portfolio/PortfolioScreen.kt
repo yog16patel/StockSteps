@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -161,19 +162,14 @@ internal fun PortfolioScreen(
                     StockButton("Add to watchlist", { onWatchlist(row.symbol) }, variant = StockButtonVariant.TEXT)
                 }
             } }
-            item {
-                PortfolioSectionTitle("Cash")
-                StockCard {
-                    if (state.cash.isEmpty()) Text("No cash recorded", style = typography.small, color = colors.textSupporting)
-                    else state.cash.forEach { Text(it, style = typography.numberLabelStrong, color = colors.textValue) }
-                }
-            }
             if (listMode) item { PortfolioAllocationCard(state) }
+            // Cash and dividends share one card: each is a labelled line, so empty values cost one row, not a whole section.
             item {
-                PortfolioSectionTitle("Dividends")
-                StockCard {
-                    if (state.dividends.isEmpty()) Text("No dividends recorded", style = typography.small, color = colors.textSupporting)
-                    else state.dividends.forEach { Text(it, style = typography.numberLabelStrong, color = colors.textValue) }
+                PortfolioSectionTitle("Cash and dividends")
+                StockCard(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    PortfolioValueLines("Cash", state.cash, "None recorded")
+                    StockDivider()
+                    PortfolioValueLines("Dividends received", state.dividends, "None recorded")
                 }
             }
             val transactions = state.transactions.filter { holdingSymbol == null || it.instrument?.symbol == holdingSymbol }
@@ -232,6 +228,20 @@ internal fun PortfolioScreen(
 
 private const val RECENT_TRANSACTIONS = 5
 private const val SAVED_ACCOUNTS = "My saved accounts"
+
+/** "Cash      CAD 1,200.00" — label left, one value per line right; [empty] when there is none (never an invented 0.00). */
+@Composable
+private fun PortfolioValueLines(label: String, values: List<String>, empty: String) {
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {
+        Text(label, Modifier.weight(1f), style = typography.small, color = colors.textSupporting)
+        Column(horizontalAlignment = Alignment.End) {
+            if (values.isEmpty()) Text(empty, style = typography.small, color = colors.textMeta)
+            values.forEach { Text(it, style = typography.numberLabelStrong, color = colors.textValue) }
+        }
+    }
+}
 
 @Composable
 private fun PortfolioSectionTitle(title: String) {
@@ -307,18 +317,26 @@ private fun PortfolioHero(state: PortfolioUiState, accountCount: Int) {
         if (today != null) {
             StockPriceChange("$today today", PortfolioPresentation.direction(state.dailyGain), style = typography.numberMedium, maxLines = 2)
         } else {
-            Text(PortfolioPresentation.TODAY_UNAVAILABLE, style = typography.small, color = colors.textSupporting)
-            if (state.dailyNotice.isNotBlank()) Text(state.dailyNotice, style = typography.caption, color = colors.textMeta)
+            // The reason stays one tap away instead of adding two lines to every view of the hero.
+            var why by remember { mutableStateOf(false) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text(PortfolioPresentation.TODAY_UNAVAILABLE, style = typography.small, color = colors.textSupporting)
+                if (state.dailyNotice.isNotBlank()) {
+                    Text(if (why) "Hide" else "Why?", Modifier.minimumInteractiveComponentSize().clickable(role = Role.Button) { why = !why },
+                        style = typography.label, color = colors.primaryText)
+                }
+            }
+            if (why) Text(state.dailyNotice, style = typography.caption, color = colors.textMeta)
         }
         StockDivider(Modifier.padding(vertical = spacing.xs))
         StockMetricGrid(listOf(
             StockMetricItem("Invested cost", PortfolioFormat.amount(state.basis)),
             StockMetricItem("Unrealized P/L", PortfolioPresentation.signedAmount(state.unrealized) ?: "—", direction = PortfolioPresentation.direction(state.unrealized)),
             StockMetricItem("Realized P/L", PortfolioPresentation.signedAmount(state.realized) ?: "—", direction = PortfolioPresentation.direction(state.realized))
-        ))
+        ), rowsWhenNarrow = true)
         if (accountCount > 1) Text("All accounts · ${state.currency} ${PortfolioFormat.amount(state.combinedTotal)}", style = typography.small, color = colors.textSupporting)
         state.notice?.let { Text(it, style = typography.caption, color = colors.cautionText) }
-        PortfolioPresentation.freshness(state)?.let { Text(it, style = typography.caption, color = colors.textMeta) }
+        PortfolioPresentation.freshnessLines(state).forEach { Text(it, style = typography.caption, color = colors.textMeta) }
         if (state.mockScenario != null) StockStatusBadge("Sample · ${state.mockScenario}", StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT)
     }
 }
@@ -333,7 +351,7 @@ private fun PortfolioHoldingRowView(row: PortfolioHoldingRow, onClick: (() -> Un
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
     val description = PortfolioPresentation.holdingDescription(row)
-    val stacked = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
+    val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
     val values: @Composable (Alignment.Horizontal) -> Unit = { alignment ->
         Column(Modifier.clearAndSetSemantics {}, horizontalAlignment = alignment, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
             Text(PortfolioPresentation.holdingValue(row), style = typography.numberLabelStrong, color = colors.textValue, maxLines = 1)
@@ -344,6 +362,9 @@ private fun PortfolioHoldingRowView(row: PortfolioHoldingRow, onClick: (() -> Un
             } ?: Text("Gain unavailable", style = typography.caption, color = colors.textMeta)
         }
     }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    // Narrow rows (small phones, split screen) and large text put the values under the name, so neither is squeezed.
+    val stacked = largeText || maxWidth < PortfolioLayout.stackedRowWidth.dp
     Row(
         Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.rowMinHeight)
             .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClickLabel = "Open holding", onClick = onClick) else Modifier)
@@ -362,6 +383,7 @@ private fun PortfolioHoldingRowView(row: PortfolioHoldingRow, onClick: (() -> Un
         }
         if (!stacked) values(Alignment.End)
     }
+    }
 }
 
 /** Human-readable transaction with Edit / Delete in a menu. */
@@ -375,7 +397,7 @@ private fun PortfolioTransactionRow(transaction: PortfolioTransaction, onEdit: (
     Row(Modifier.fillMaxWidth().padding(start = spacing.cardPadding, top = spacing.xs, bottom = spacing.xs), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
             Text(title, style = typography.bodyMedium, color = colors.textTitle)
-            Text("${transaction.tradeDate} · ${PortfolioPresentation.transactionAmount(transaction)}", style = typography.small, color = colors.textSupporting)
+            Text("${PortfolioPresentation.dateLabel(transaction.tradeDate)} · ${PortfolioPresentation.transactionAmount(transaction)}", style = typography.small, color = colors.textSupporting)
         }
         Box {
             IconButton(onClick = { open = true }) { Icon(StockIcons.More, contentDescription = "Actions for $title", tint = colors.iconSecondary) }
@@ -399,7 +421,7 @@ private fun PortfolioAllocationCard(state: PortfolioUiState) {
             Text("Allocation appears once you have holdings.", style = typography.small, color = colors.textSupporting)
         }
         if (state.allocations.isNotEmpty()) Text("By holding", style = typography.label, color = colors.textSupporting)
-        state.allocations.forEach { AllocationBar("${it.symbol} · ${it.currency.name}", it.percent, null) }
+        state.allocations.forEach { AllocationBar("${it.symbol} · ${it.currency.name}", it.percent, it.reportingValue?.let { v -> "${state.currency} ${PortfolioFormat.amount(v)}" }) }
         if (state.currencyAllocations.isNotEmpty()) Text("By currency", Modifier.padding(top = spacing.xs), style = typography.label, color = colors.textSupporting)
         state.currencyAllocations.forEach { AllocationBar(it.currency.name, it.percent, "${state.currency} ${PortfolioFormat.amount(it.reportingValue)}") }
     }
@@ -411,9 +433,10 @@ private fun AllocationBar(label: String, percent: String?, detail: String?) {
     val typography = StockStepsTheme.typography
     val text = percent?.let { "${PortfolioFormat.amount(it)}%" } ?: "—"
     Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-        Row {
+        Row(horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
             Text(label, Modifier.weight(1f), style = typography.small, color = colors.textBody)
-            Text(listOfNotNull(text, detail).joinToString(" · "), style = typography.numberLabel, color = colors.textValue)
+            Text(text, style = typography.numberLabelStrong, color = colors.textValue)
+            detail?.let { Text(it, style = typography.numberLabel, color = colors.textSupporting) }
         }
         Box(Modifier.fillMaxWidth().height(StockStepsTheme.dimensions.rangeBar).clip(StockStepsTheme.shapes.pill).background(colors.surfaceSecondary)) {
             Box(Modifier.fillMaxWidth(PortfolioPresentation.allocationFraction(percent)).fillMaxHeight().clip(StockStepsTheme.shapes.pill).background(colors.primary))

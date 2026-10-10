@@ -2,7 +2,7 @@
 
 Status: **approved** (2026-10-10). Step 1 (tokens) committed — `docs/GLOBAL_UI_REFINEMENT_PHASE1.md`; intermediate Phase 1A (accessible
 buttons, wrapping metrics, card padding, empty/error states, form controls) committed — `docs/GLOBAL_UI_REFINEMENT_PHASE1A.md`;
-step 2 (remaining reusable components) committed — `docs/GLOBAL_UI_REFINEMENT_PHASE2.md`; step 3 (Portfolio reference screen) committed — `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md`; steps 4–7 not started. Visual direction: `docs/design/stocksteps-ui-reference.png`.
+step 2 (remaining reusable components) committed — `docs/GLOBAL_UI_REFINEMENT_PHASE2.md`; step 3 (Portfolio reference screen) committed, Phase 3.1 polish committed (`docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md`) — `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md`; steps 4–7 not started. Visual direction: `docs/design/stocksteps-ui-reference.png`.
 Original proposal (2026-10-09, after Phase 5C.1) below. Evidence comes from the
 Phase 5C/5C.1 walkthroughs (`docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §3, §14) and a static scan of the code at `fc3961e`.
 

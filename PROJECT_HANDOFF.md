@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS** on `main` (pushed).
-Previous commit: **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed); before it **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** (pushed) and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS** on `main` (pushed).
+Previous commit: **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
@@ -48,6 +48,14 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Global UI Refinement Phase 3.1 — Portfolio polish (2026-10-10) — commit "Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"
+
+Issue inventory against the Phase 3 screenshots and final code; fixes: readable freshness dates (`PortfolioDates`, UTC labelled), hero metric
+rows when three do not fit (`StockMetricGrid(rowsWhenNarrow)`), "Why?" toggle for the daily-change reason, "Cash and dividends" card,
+consistent allocation rows (% + amount), trades show price per share and readable dates, width-aware holding-row stacking, short chart axis
+dates and iOS data-based y-domain. Shared Android 81/0, shared iOS 77/0, `assembleDebug` OK, iOS `xcodebuild` OK. Details:
+`docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md`; handoff `docs/PROJECT_HANDOFF.md` §000000000.
 
 ## Global UI Refinement Phase 3 — Portfolio reference screen (2026-10-10) — commit "Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"
 

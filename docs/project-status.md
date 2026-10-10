@@ -21,6 +21,11 @@ report `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`. Server tests 481/0 (3 ski
 (report §6a: non-root, no secrets, fail-fast config, JSON logs, probes, SIGTERM, `--network none`; 203 MB compressed). Verdict: READY WITH CONDITIONS for Phase 5B (staging deploy). Next: image vulnerability scan;
 owner inputs in `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1; then Phase 5B only on explicit request.
 
+**Global UI Refinement Phase 3.1 (Portfolio polish) — committed and pushed as "Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS" (2026-10-10)**: readable "as of" dates, hero metric rows,
+one-tap daily-change reason, combined cash and dividends, consistent allocation rows, per-share trade prices, width-aware holding rows,
+chart axis fixes. Shared Android 81/0, shared iOS 77/0, `assembleDebug` OK, iOS `xcodebuild` OK. Details
+`docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md`; screenshots `docs/design/phase3_1/`. **Next**: Phase 4 on approval.
+
 **Global UI Refinement Phase 3 (Portfolio reference screen) — committed and pushed as "Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS" (2026-10-10)**: Portfolio redesigned on Android and
 iOS from `docs/design/stocksteps-portfolio-reference.png` with real data only (mode/account selectors, hero, performance card, compact rows,
 allocation bars, overflow menu, one sync banner); shared `PortfolioPresentation`; content-aware metric grids. MSFT 13,144 % traced to a

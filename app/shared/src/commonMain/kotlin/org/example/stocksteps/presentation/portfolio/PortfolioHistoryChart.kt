@@ -53,13 +53,13 @@ internal fun PortfolioPerformanceCard(state: PortfolioUiState, onRange: (String)
             }
         } else if (PortfolioChartRules.drawable(state.history.map { it.totalValue })) {
             val values = state.history.map { it.totalValue?.toDoubleOrNull() }
-            val details = state.history.map { "${it.date} · ${it.currency.name} ${it.totalValue?.let(PortfolioFormat::amount) ?: "Unavailable"}" }
-            StockTrendChart(values, details, listOf(state.history.first().date, state.history.last().date), emptyList(),
+            val details = state.history.map { "${PortfolioDates.date(it.date)} · ${it.currency.name} ${it.totalValue?.let(PortfolioFormat::amount) ?: "Unavailable"}" }
+            StockTrendChart(values, details, listOf(PortfolioDates.shortDate(state.history.first().date), PortfolioDates.shortDate(state.history.last().date)), emptyList(),
                 description = "Portfolio value in ${state.currency}. ${details.first()}. ${details.last()}. Missing observations are gaps.")
         } else {
             // Fewer than two dated values: a line chart would be an almost empty box, so state the one value instead.
             val latest = state.history.lastOrNull { it.totalValue != null }
-            Text(latest?.let { "Only one dated value so far: ${it.date} · ${it.currency.name} ${PortfolioFormat.amount(it.totalValue)}" }
+            Text(latest?.let { "Only one dated value so far: ${PortfolioDates.date(it.date)} · ${it.currency.name} ${PortfolioFormat.amount(it.totalValue)}" }
                 ?: "No dated values in this period.", style = typography.small, color = colors.textSupporting)
         }
         Text(state.historyNotice, style = typography.caption, color = colors.textMeta)

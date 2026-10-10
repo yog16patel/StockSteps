@@ -72,7 +72,9 @@ internal data class StockMetricItem(
  * — one at large font scale — instead of truncating values ([StockLayout.metricColumns], shared with SwiftUI).
  */
 @Composable
-internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = Modifier, maxColumns: Int = 3) {
+internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = Modifier, maxColumns: Int = 3,
+                              /** When not every item fits on one line, show aligned label/value rows instead of an uneven grid (e.g. 2 + 1). */
+                              rowsWhenNarrow: Boolean = false) {
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val valueStyle = StockStepsTheme.typography.numberEmphasis
@@ -83,6 +85,22 @@ internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = 
             maxOf(measurer.measure(value, valueStyle).size.width, measurer.measure(item.label, labelStyle).size.width)
         }?.let { with(density) { it.toDp().value } } ?: 0f
         val columns = StockLayout.metricColumns(items.size, maxWidth.value, density.fontScale, maxColumns, widest, StockStepsTheme.spacing.md.value)
+        if (rowsWhenNarrow && columns < minOf(items.size, maxColumns)) {
+            Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+                items.forEach { item ->
+                    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {
+                        Text(item.label, Modifier.weight(1f), style = StockStepsTheme.typography.label, color = StockStepsTheme.colors.textSecondary)
+                        if (item.direction != null && item.direction != PriceDirection.UNAVAILABLE) {
+                            StockPriceChange(item.value, item.direction, style = StockStepsTheme.typography.numberMedium, maxLines = Int.MAX_VALUE)
+                        } else {
+                            Text(item.value, style = StockStepsTheme.typography.numberMedium, color = StockStepsTheme.colors.textPrimary, textAlign = TextAlign.End)
+                        }
+                    }
+                }
+            }
+            return@BoxWithConstraints
+        }
         Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.itemGap)) {
             items.chunked(columns).forEach { row ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {

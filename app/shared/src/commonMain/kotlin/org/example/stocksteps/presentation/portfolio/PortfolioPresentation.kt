@@ -114,16 +114,81 @@ object PortfolioPresentation {
         return listOfNotNull(symbol, quantity?.let { "$it ${if (it == "1") "share" else "shares"}" }).joinToString(" · ")
     }
 
-    /** "USD 12.00" — the transaction's own currency and net amount. */
-    fun transactionAmount(transaction: PortfolioTransaction): String = "${transaction.currency.name} ${PortfolioFormat.amount(transaction.netAmount)}"
+    /**
+     * Second line of a transaction: trades show the entered price per share ("USD 4.00 per share") — their net cash amount is often 0 for
+     * opening positions and read as "CAD 0.00"; cash movements show their net amount ("CAD 500.00"). Ledger fields only, nothing derived.
+     */
+    fun transactionAmount(transaction: PortfolioTransaction): String {
+        val price = transaction.unitPrice.takeIf { transaction.type in PRICED_TRADES && runCatching { Decimal.parse(it) != Decimal.parse("0") }.getOrDefault(false) }
+        return if (price != null) "${transaction.currency.name} ${PortfolioFormat.amount(price)} per share"
+        else "${transaction.currency.name} ${PortfolioFormat.amount(transaction.netAmount)}"
+    }
 
-    /** "Prices as of … · Exchange rate as of …"; null when neither is known. */
-    fun freshness(state: PortfolioUiState): String? =
-        listOfNotNull(state.quoteAsOf?.let { "Prices as of $it" }, state.fxAsOf?.let { "Exchange rate as of $it" }).joinToString(" · ").ifEmpty { null }
+    private val PRICED_TRADES = setOf(TransactionType.BUY, TransactionType.SELL, TransactionType.OPENING_POSITION,
+        TransactionType.DIVIDEND_REINVESTMENT, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT)
+
+    /** "Oct 9, 2026" for a trade date. */
+    fun dateLabel(date: String): String = PortfolioDates.date(date)
+
+    /** "Prices as of Oct 8, 2026, 3:00 PM UTC" and "Exchange rate as of Oct 8, 2026" as separate lines (market vs FX dates). */
+    fun freshnessLines(state: PortfolioUiState): List<String> = listOfNotNull(
+        state.quoteAsOf?.let { "Prices as of ${PortfolioDates.dateTime(it)}" },
+        state.fxAsOf?.let { "Exchange rate as of ${PortfolioDates.dateTime(it)}" }
+    )
+
+    /** The freshness lines joined with " · "; null when neither is known. */
+    fun freshness(state: PortfolioUiState): String? = freshnessLines(state).joinToString(" · ").ifEmpty { null }
 
     /** Bar length for an allocation percentage, clamped to 0…1 (borrowed cash can push a holding above 100 %; the label shows the real value). */
     fun allocationFraction(percent: String?): Float {
         val value = percent?.toDoubleOrNull() ?: return 0f
         return (value / 100.0).coerceIn(0.0, 1.0).toFloat()
     }
+}
+
+/**
+ * Readable dates for portfolio "as of" stamps (Phase 3.1), without a time-zone database: dates stay calendar dates and UTC instants are
+ * shown in UTC with the zone named ("Oct 8, 2026, 3:00 PM UTC") — exact rather than guessed local time. Anything else is shown unchanged.
+ */
+object PortfolioDates {
+    private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    private val DATE = Regex("""^(\d{4})-(\d{2})-(\d{2})$""")
+    private val UTC_INSTANT = Regex("""^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?Z$""")
+
+    /** "2026-10-09" → "Oct 9, 2026". */
+    fun date(value: String): String {
+        val m = DATE.matchEntire(value.trim()) ?: return value
+        return label(m.groupValues[1], m.groupValues[2], m.groupValues[3]) ?: value
+    }
+
+    /** "2026-09-01" → "Sep 1" — compact chart-axis label (the full date is in the selection line and the spoken description). */
+    fun shortDate(value: String): String {
+        val m = DATE.matchEntire(value.trim()) ?: return value
+        val month = m.groupValues[2].toInt(); val day = m.groupValues[3].toInt()
+        if (month !in 1..12 || day !in 1..31) return value
+        return "${MONTHS[month - 1]} $day"
+    }
+
+    /** "2026-10-07T20:00:00Z" → "Oct 7, 2026, 8:00 PM UTC"; a plain date → "Oct 9, 2026". */
+    fun dateTime(value: String): String {
+        val trimmed = value.trim()
+        DATE.matchEntire(trimmed)?.let { return date(trimmed) }
+        val m = UTC_INSTANT.matchEntire(trimmed) ?: return value
+        val day = label(m.groupValues[1], m.groupValues[2], m.groupValues[3]) ?: return value
+        val hour = m.groupValues[4].toInt(); val minute = m.groupValues[5]
+        if (hour > 23 || minute.toInt() > 59) return value
+        return "$day, ${if (hour % 12 == 0) 12 else hour % 12}:$minute ${if (hour < 12) "AM" else "PM"} UTC"
+    }
+
+    private fun label(year: String, month: String, day: String): String? {
+        val m = month.toInt(); val d = day.toInt()
+        if (m !in 1..12 || d !in 1..31) return null
+        return "${MONTHS[m - 1]} $d, $year"
+    }
+}
+
+/** Layout thresholds shared by the Compose and SwiftUI Portfolio screens. */
+object PortfolioLayout {
+    /** Holding rows narrower than this (dp/pt, row width incl. padding) put market value and change under the company name. */
+    const val stackedRowWidth = 320
 }
