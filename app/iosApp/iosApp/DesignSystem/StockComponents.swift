@@ -417,42 +417,28 @@ struct StockDivider: View {
     }
 }
 
-/// "● Market Open" style status from the backend flag. The dot carries the semantic color;
-/// the label always names the state. Unknown renders nothing (never guessed from the clock).
+/// US market status chip from the backend flag (Phase 4C, Phase 4B.1 semantics): a dot — green while open, amber for pre-market/after-hours,
+/// neutral when closed (closed is not a loss) — and the state in words. Read-only. Unknown renders nothing (never guessed from the clock).
 struct MarketStatusIndicator: View {
     @Environment(\.colorScheme) private var scheme
     let status: MarketStatus
+    private let present = CompanyDetailsPresentation.shared
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
-        let style: (String, String)? = switch status {
-        case .open: ("Open", "open")
-        case .closed: ("Closed", "closed")
-        case .preMarket: ("Pre-market", "Pre-market trading")
-        case .afterHours: ("After hours", "After-hours trading")
-        default: nil
-        }
-        if let (label, spoken) = style {
-            let on = status == .open
-            let track = switch status {
+        if let label = present.statusLabel(status: status) {
+            let dot: Color = switch present.statusDot(status: status) {
             case .open: colors.positive
-            case .closed: colors.negative
+            case .extended: colors.warning
             default: colors.textDisabled
             }
-            let inset = CGFloat(dims.statusSwitchHeight - dims.statusSwitchThumb) / 2
-            HStack(spacing: CGFloat(space.sm)) {
-                Text(label).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary).lineLimit(1)
-                // Read-only switch: shows the session state, never focusable or tappable.
-                Capsule()
-                    .fill(track)
-                    .frame(width: CGFloat(dims.statusSwitchWidth), height: CGFloat(dims.statusSwitchHeight))
-                    .overlay(alignment: on ? .trailing : .leading) {
-                        Circle().fill(colors.onPrimary)
-                            .frame(width: CGFloat(dims.statusSwitchThumb), height: CGFloat(dims.statusSwitchThumb))
-                            .padding(.horizontal, inset)
-                    }
+            HStack(spacing: CGFloat(space.xs)) {
+                Circle().fill(dot).frame(width: CGFloat(space.sm), height: CGFloat(space.sm))
+                Text(label).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSupporting).lineLimit(1)
             }
+            .padding(.horizontal, CGFloat(space.sm)).padding(.vertical, CGFloat(space.xxs))
+            .background(colors.surfaceSecondary, in: Capsule())
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(spoken)
+            .accessibilityLabel(present.statusDescription(status: status) ?? label)
         }
     }
 }

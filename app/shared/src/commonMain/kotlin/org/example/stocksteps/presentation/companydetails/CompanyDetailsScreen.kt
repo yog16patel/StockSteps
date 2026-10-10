@@ -3,27 +3,22 @@ package org.example.stocksteps.presentation.companydetails
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import org.example.stocksteps.WindowHinge
 import org.example.stocksteps.companydetail.*
 import org.example.stocksteps.designsystem.components.*
@@ -41,10 +36,10 @@ import org.example.stocksteps.resources.*
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Company Details: one vertical page ordered for beginners — identity, price, chart and quote
- * stats, why it moved, at a glance, how it looks, insight, about, financial highlights,
- * valuation, ranges, key ratios, sector, news. Each section loads and fails on its own; the
- * page never becomes a full-screen error because one part failed.
+ * Company Details (Global UI Refinement Phase 4C), one vertical page that answers a beginner's questions in order:
+ * what company is this (header) → what is the price doing (price, status, chart, why it moved) → what are the important numbers (At a Glance
+ * with ranges) → what do they mean (understand: assessment, insight, about, guided research) → valuation & financial health → earnings →
+ * news. Each section loads and fails on its own; a value appears once (chart stats and key ratios skip what At a Glance shows).
  */
 @Composable
 internal fun CompanyDetailsScreen(
@@ -67,7 +62,7 @@ internal fun CompanyDetailsScreen(
     var showEvidence by remember { mutableStateOf(false) }
     var showSources by remember { mutableStateOf(false) }
     val content = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxWidth()
-    val section = content.padding(top = spacing.xl)
+    val section = content.padding(top = spacing.sectionGap)
     Column(Modifier.fillMaxSize().background(StockStepsTheme.colors.appBackground)) {
         // Minimal bar: back and watchlist only; the company identity lives in the page header.
         StockStepsTopBar(
@@ -81,7 +76,7 @@ internal fun CompanyDetailsScreen(
                         Icon(
                             if (watched) StockIcons.Star else StockIcons.StarOutline,
                             contentDescription = null,
-                            tint = if (watched) StockStepsTheme.colors.positive else StockStepsTheme.colors.iconSecondary
+                            tint = if (watched) StockStepsTheme.colors.primaryText else StockStepsTheme.colors.iconSecondary
                         )
                     }
                 }
@@ -93,31 +88,22 @@ internal fun CompanyDetailsScreen(
                 contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, bottom = spacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                item(key = "portfolio") {
-                    Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                        TextButton(onClick = { onAction(CompanyDetailsAction.AddPortfolio) }) { Text("Add to portfolio") }
-                        TextButton(onClick = { onAction(CompanyDetailsAction.Compare) }) { Text("Compare") }
-                        TextButton(onClick = { onAction(CompanyDetailsAction.Earnings) }) { Text("Earnings") }
-                        TextButton(onClick = { onAction(CompanyDetailsAction.PracticeBuy) }) { Text("Practice Buy") }
-                    }
+                item(key = "header") {
+                    CompanyHeader(state.overview, showEarningsAction = earnings == null, onAction = onAction,
+                        onRetry = { onAction(CompanyDetailsAction.RetryCore) }, modifier = content)
                 }
-                item(key = "header") { CompanyHeader(state.overview, onRetry = { onAction(CompanyDetailsAction.RetryCore) }, modifier = content) }
                 item(key = "chart") {
                     ChartSection(
                         section = state.chart,
                         range = state.range,
                         dayDirection = overview?.direction,
-                        quickStats = overview?.quickStats,
+                        quickStats = overview?.let(CompanyDetailsPresentation::chartStats),
                         onSelect = { onAction(CompanyDetailsAction.SelectRange(it)) },
                         onRetry = { onAction(CompanyDetailsAction.RetryChart) },
-                        modifier = content.padding(top = spacing.lg)
+                        modifier = content.padding(top = spacing.md)
                     )
                 }
-                item(key = "research") {
-                    org.example.stocksteps.presentation.research.UnderstandStockCard(researchCompleted, { onAction(CompanyDetailsAction.Research) }, section)
-                }
-                earnings?.let { e -> item(key = "earnings") { EarningsSection(e, earningsReminder, onAction, section) } }
-                // Hidden while loading and when the backend has no source-backed explanation.
+                // Why it moved explains the price, so it follows the chart. Hidden while loading and when no source-backed explanation exists.
                 when (val why = state.whyMoving) {
                     is Section.Content -> why.value?.let { value ->
                         item(key = "why") { WhyMovingSection(value, onSources = { showSources = true }, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) },
@@ -125,50 +111,26 @@ internal fun CompanyDetailsScreen(
                     }
                     Section.Unavailable -> item(key = "why") {
                         SectionTitled(stringResource(Res.string.details_why_title), section) {
-                            StockCard(bordered = false) { StockErrorState(stringResource(Res.string.details_why_unavailable), { onAction(CompanyDetailsAction.RetryWhyMoving) }) }
+                            StockCard { StockErrorState(stringResource(Res.string.details_why_unavailable), { onAction(CompanyDetailsAction.RetryWhyMoving) }) }
                         }
                     }
                     Section.Loading -> Unit
                 }
                 overview?.let { data ->
-                    item(key = "glance") { GlanceSection(data.glance, onExplain = { education = it }, modifier = section) }
-                    if (data.assessment.isNotEmpty()) {
-                        item(key = "look") { AssessmentSection(data, onExplain = { education = it }, modifier = section) }
+                    item(key = "glance") { GlanceSection(data, onExplain = { education = it }, modifier = section) }
+                    item(key = "understand") {
+                        UnderstandSection(data, researchCompleted, onExplain = { education = it }, onEvidence = { showEvidence = true },
+                            onResearch = { onAction(CompanyDetailsAction.Research) }, modifier = section)
                     }
-                    data.insight?.let { insight ->
-                        item(key = "insight") {
-                            StockInsightCard(
-                                title = stringResource(Res.string.details_insight_title),
-                                body = insight,
-                                actionText = stringResource(Res.string.details_insight_why),
-                                onClick = { showEvidence = true },
-                                modifier = section
-                            )
-                        }
-                    }
-                    if (data.about != null || data.country != null) {
-                        item(key = "about") { AboutSection(data, modifier = section) }
-                    }
-                    item(key = "highlights") { HighlightsSection(data, onSeeAll = { onAction(CompanyDetailsAction.OpenFinancials) }, modifier = section) }
                     item(key = "valuation") {
-                        ValuationSection(data, onUnderstand = { education = "pe" }, onSee = { onAction(CompanyDetailsAction.OpenValuation) }, modifier = section)
-                    }
-                    if (data.dayRange != null || data.yearRange != null) {
-                        item(key = "ranges") { RangesSection(data, modifier = section) }
-                    }
-                    if (data.keyRatios.isNotEmpty()) {
-                        item(key = "ratios") {
-                            SectionTitled(stringResource(Res.string.details_key_ratios), section) {
-                                StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
-                                    data.keyRatios.forEach { StockInfoRow(it.label, it.value, compact = true) }
-                                }
-                            }
-                        }
-                    }
-                    if (data.sector != null && data.industry != null) {
-                        item(key = "sector") { SectorSection(data, modifier = section) }
+                        ValuationHealthSection(data, onUnderstand = { education = "pe" }, onValuation = { onAction(CompanyDetailsAction.OpenValuation) },
+                            onFinancials = { onAction(CompanyDetailsAction.OpenFinancials) }, modifier = section)
                     }
                 }
+                if (overview == null) {
+                    item(key = "research") { org.example.stocksteps.presentation.research.UnderstandStockCard(researchCompleted, { onAction(CompanyDetailsAction.Research) }, section) }
+                }
+                earnings?.let { e -> item(key = "earnings") { EarningsSection(e, earningsReminder, onAction, section) } }
                 item(key = "news") {
                     NewsSection(state.news, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) }, onRetry = { onAction(CompanyDetailsAction.RetryNews) },
                         onViewAll = { onAction(CompanyDetailsAction.OpenNews) }, modifier = section)
@@ -190,11 +152,17 @@ internal fun CompanyDetailsScreen(
     }
 }
 
+/**
+ * Compact identity (logo, name that wraps, ticker · exchange, tags) and the price as the focal point: price, signed change "Today",
+ * the US market status chip and the quote time; then the secondary actions, wrapping instead of scrolling sideways.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CompanyHeader(section: Section<CompanyOverview>, onRetry: () -> Unit, modifier: Modifier) {
+private fun CompanyHeader(section: Section<CompanyOverview>, showEarningsAction: Boolean, onAction: (CompanyDetailsAction) -> Unit,
+                          onRetry: () -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
     when (section) {
         Section.Loading -> StockLoadingState(modifier.padding(top = spacing.sm)) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
@@ -203,41 +171,71 @@ private fun CompanyHeader(section: Section<CompanyOverview>, onRetry: () -> Unit
                 StockSkeleton(Modifier.fillMaxWidth(0.3f).height(StockStepsTheme.dimensions.touchTarget / 2))
             }
         }
-        Section.Unavailable -> StockCard(modifier.padding(top = spacing.sm), bordered = false) { StockErrorState(stringResource(Res.string.details_unavailable), onRetry) }
+        Section.Unavailable -> StockCard(modifier.padding(top = spacing.sm)) { StockErrorState(stringResource(Res.string.details_unavailable), onRetry) }
         is Section.Content -> {
             val overview = section.value
             Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.md), verticalAlignment = Alignment.CenterVertically) {
                     StockTickerAvatar(overview.symbol, logoUrl = overview.logoUrl, size = StockStepsTheme.dimensions.avatar)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                        Text(overview.name, modifier = Modifier.semantics { heading() }, style = StockStepsTheme.typography.sectionTitle.copy(fontWeight = FontWeight.Bold), color = colors.textPrimary)
-                        Text(overview.listing, style = StockStepsTheme.typography.small, color = colors.textSecondary)
-                        if (overview.tags.isNotEmpty()) {
-                            FlowRow(Modifier.padding(top = spacing.xxs), horizontalArrangement = Arrangement.spacedBy(spacing.xs), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                                overview.tags.forEach { StockTag(it) }
-                            }
-                        }
+                        Text(overview.name, modifier = Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textTitle)
+                        Text(overview.listing, style = typography.small, color = colors.textSupporting)
                     }
                 }
-                overview.price?.let { Text(it, modifier = Modifier.padding(top = spacing.sm), style = StockStepsTheme.typography.largeNumber, color = colors.textPrimary) }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    StockPriceChange(
-                        percentage = if (overview.changeAmount != null) "(${overview.changePercent})" else overview.changePercent,
-                        direction = overview.direction,
-                        amount = overview.changeAmount,
-                        style = StockStepsTheme.typography.numberMedium
-                    )
-                    Text(stringResource(Res.string.details_today), style = StockStepsTheme.typography.small, color = colors.textSecondary)
-                }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.Center) {
-                    MarketStatusIndicator(overview.marketStatus)
-                    overview.updatedAt?.let(::formatQuoteTime)?.let { time ->
-                        Text(stringResource(Res.string.details_updated, time), modifier = Modifier.align(Alignment.CenterVertically),
-                            style = StockStepsTheme.typography.label, color = colors.textTertiary)
+                if (overview.tags.isNotEmpty()) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        overview.tags.forEach { StockTag(it) }
                     }
                 }
+                // Price block: the price is the focal point; the session chip sits beside it (never inside the green/red change line);
+                // one spoken sentence for price, change and quote time.
+                val updated = overview.updatedAt?.let(::formatQuoteTime)
+                Column(Modifier.padding(top = spacing.sm).clearAndSetSemantics {
+                    contentDescription = listOfNotNull(CompanyDetailsPresentation.priceDescription(overview, updated),
+                        CompanyDetailsPresentation.statusDescription(overview.marketStatus)?.let { "$it." }).joinToString(" ")
+                },
+                    verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                        itemVerticalAlignment = Alignment.CenterVertically) {
+                        Text(overview.price ?: "—", Modifier.padding(end = spacing.sm), style = typography.largeNumber, color = colors.textValue)
+                        MarketStatusIndicator(overview.marketStatus)
+                    }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), itemVerticalAlignment = Alignment.CenterVertically) {
+                        StockPriceChange(
+                            percentage = if (overview.changeAmount != null) "(${overview.changePercent})" else overview.changePercent,
+                            direction = overview.direction,
+                            amount = overview.changeAmount,
+                            style = typography.numberMedium,
+                            maxLines = 2
+                        )
+                        Text(stringResource(Res.string.details_today), style = typography.small, color = colors.textSupporting)
+                    }
+                    updated?.let { Text(stringResource(Res.string.details_updated, it), style = typography.caption, color = colors.textMeta) }
+                }
+                CompanyActions(showEarningsAction, onAction, Modifier.padding(top = spacing.sm))
             }
         }
+    }
+}
+
+/**
+ * Header actions: Add to portfolio (primary) and Compare side by side, Practice Buy full width below; at large font scale every action
+ * takes its own full-width row, so labels never clip. Earnings is offered here only when the page has no Earnings section.
+ */
+@Composable
+private fun CompanyActions(showEarningsAction: Boolean, onAction: (CompanyDetailsAction) -> Unit, modifier: Modifier) {
+    val spacing = StockStepsTheme.spacing
+    val large = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
+    val add: @Composable (Modifier) -> Unit = { m -> StockButton("Add to portfolio", { onAction(CompanyDetailsAction.AddPortfolio) }, m) }
+    val compare: @Composable (Modifier) -> Unit = { m -> StockButton("Compare", { onAction(CompanyDetailsAction.Compare) }, m, variant = StockButtonVariant.SECONDARY) }
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        if (large) {
+            add(Modifier.fillMaxWidth()); compare(Modifier.fillMaxWidth())
+        } else Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            add(Modifier.weight(1f)); compare(Modifier.weight(1f))
+        }
+        StockButton("Practice Buy", { onAction(CompanyDetailsAction.PracticeBuy) }, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY)
+        if (showEarningsAction) StockButton("Earnings", { onAction(CompanyDetailsAction.Earnings) }, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY)
     }
 }
 
@@ -254,7 +252,7 @@ private fun ChartSection(
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
-    StockCard(modifier, bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm)) {
+    StockCard(modifier, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm)) {
         StockPillSelector(ChartRange.entries, range, label = { it.label }, onSelect = onSelect)
         val chart = (section as? Section.Content)?.value
         val summary = remember(chart, dayDirection) { chart?.let { ChartPresentation.summary(it.points, range, dayDirection) } }
@@ -278,7 +276,7 @@ private fun ChartSection(
                     Modifier.fillMaxSize(), onScrub = { scrub = it })
             }
         }
-        if (quickStats != null) {
+        if (!quickStats.isNullOrEmpty()) {
             StockDivider(Modifier.padding(top = spacing.sm))
             Row(Modifier.padding(top = spacing.xxs), horizontalArrangement = Arrangement.spacedBy(spacing.lg)) {
                 quickStats.chunked((quickStats.size + 1) / 2).forEach { column ->
@@ -328,20 +326,6 @@ private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (Str
                 }
             }
         }
-        if (why.sources.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                why.sources.forEach { source ->
-                    Text(
-                        source.publisher ?: source.title,
-                        modifier = Modifier.clickable(role = Role.Button) { onOpen(source.url) }.padding(vertical = spacing.xs)
-                            .semantics { contentDescription = source.accessibilityLabel },
-                        style = StockStepsTheme.typography.label,
-                        color = colors.primaryText,
-                        maxLines = 1
-                    )
-                }
-            }
-        }
         Text(
             "${stringResource(Res.string.details_why_more)} →",
             modifier = Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget).wrapContentHeight()
@@ -352,32 +336,31 @@ private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (Str
     }
 }
 
-/** 2×2 metric tiles; one column on narrow windows or large text so values never clip. */
+/**
+ * At a Glance: the key metrics in one `StockMetricGrid` (two columns, one at large text; values never truncate — qualifiers such as "(YoY)"
+ * move to the supporting line) and the 52-week / day ranges under a divider. Tapping a metric opens its plain-English explanation.
+ */
 @Composable
-private fun GlanceSection(metrics: List<GlanceMetric>, onExplain: (String) -> Unit, modifier: Modifier) {
+private fun GlanceSection(data: CompanyOverview, onExplain: (String) -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
+    val learn = stringResource(Res.string.details_learn_more)
     SectionTitled(stringResource(Res.string.details_glance_title), modifier) {
-        BoxWithConstraints {
-            val dims = StockStepsTheme.dimensions
-            val columns = if (maxWidth < dims.multiColumnMinWidth || LocalDensity.current.fontScale > dims.largeFontScale) 1 else 2
-            val learn = stringResource(Res.string.details_learn_more)
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                metrics.chunked(columns).forEach { row ->
-                    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        row.forEach { metric ->
-                            val (icon, container, tint) = glanceIcon(metric.id)
-                            StockCard(Modifier.weight(1f).fillMaxHeight(), bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
-                                Row(verticalAlignment = Alignment.Top) {
-                                    StockMetric(
-                                        label = metric.label, value = metric.value, helper = metric.helper, direction = metric.direction,
-                                        onClick = metric.educationId?.let { id -> { onExplain(id) } }, onClickLabel = learn,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    StockIconTile(icon, container, tint, Modifier.padding(top = spacing.xs))
-                                }
-                            }
-                        }
-                        repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+        StockCard(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            StockMetricGrid(data.glance.map { metric ->
+                val shown = CompanyDetailsPresentation.glance(metric)
+                StockMetricItem(metric.label, shown.value, helper = shown.helper.ifBlank { null }, direction = metric.direction,
+                    onClick = metric.educationId?.let { id -> { onExplain(id) } }, onClickLabel = learn)
+            }, maxColumns = 2)
+            if (data.yearRange != null || data.dayRange != null) {
+                StockDivider()
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                    data.yearRange?.let { range ->
+                        val title = stringResource(Res.string.details_year_range)
+                        StockRangeBar(title, range.low, range.high, range.position, stringResource(Res.string.details_range_a11y, title, range.low, range.high))
+                    }
+                    data.dayRange?.let { range ->
+                        val title = stringResource(Res.string.details_day_range)
+                        StockRangeBar(title, range.low, range.high, range.position, stringResource(Res.string.details_range_a11y, title, range.low, range.high))
                     }
                 }
             }
@@ -385,178 +368,138 @@ private fun GlanceSection(metrics: List<GlanceMetric>, onExplain: (String) -> Un
     }
 }
 
+/**
+ * "Understand <company>": the factual assessment rows, the beginner insight, About (description with Show more, country, sector and
+ * industry once as rows plus the context sentence) and the Guided Research entry. Facts first, interpretation second, education last.
+ */
 @Composable
-private fun glanceIcon(id: String): Triple<ImageVector, Color, Color> {
-    val colors = StockStepsTheme.colors
-    return when (id) {
-        "marketCap" -> Triple(StockIcons.Bank, colors.primaryContainer, colors.primaryText)
-        "pe" -> Triple(StockIcons.Tag, colors.warningContainer, colors.cautionText)
-        "revenueGrowth" -> Triple(StockIcons.TrendingUp, colors.positiveContainer, colors.positiveText)
-        else -> Triple(StockIcons.Coin, colors.learnContainerStart, colors.learnAccent)
-    }
-}
-
-@Composable
-private fun AssessmentSection(data: CompanyOverview, onExplain: (String) -> Unit, modifier: Modifier) {
+private fun UnderstandSection(data: CompanyOverview, researchCompleted: Int?, onExplain: (String) -> Unit, onEvidence: () -> Unit,
+                              onResearch: () -> Unit, modifier: Modifier) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
-    SectionTitled(stringResource(Res.string.details_look_title, data.shortName), modifier) {
-        StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
-            data.assessment.forEachIndexed { index, row ->
-                if (index > 0) StockDivider()
-                val (icon, container, tint) = when (row.id) {
-                    "growth" -> Triple(StockIcons.TrendingUp, colors.positiveContainer, colors.positiveText)
-                    "profitability" -> Triple(StockIcons.PieChart, colors.learnContainerStart, colors.learnAccent)
-                    "health" -> Triple(StockIcons.Shield, colors.primaryContainer, colors.primaryText)
-                    else -> Triple(StockIcons.Tag, colors.warningContainer, colors.cautionText)
+    SectionTitled(CompanyDetailsPresentation.understandTitle(data), modifier) {
+        if (data.assessment.isNotEmpty()) {
+            StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
+                data.assessment.forEachIndexed { index, row ->
+                    if (index > 0) StockDivider()
+                    val (icon, container, tint) = when (row.id) {
+                        "growth" -> Triple(StockIcons.TrendingUp, colors.positiveContainer, colors.positiveText)
+                        "profitability" -> Triple(StockIcons.PieChart, colors.learnContainerStart, colors.learnAccent)
+                        "health" -> Triple(StockIcons.Shield, colors.primaryContainer, colors.primaryText)
+                        else -> Triple(StockIcons.Tag, colors.warningContainer, colors.cautionText)
+                    }
+                    StockAssessmentRow(
+                        icon = icon, iconContainer = container, iconContent = tint,
+                        title = row.title, detail = row.detail, badge = row.badge, tone = row.tone, note = row.explanation,
+                        onClick = if (row.id == "valuation") { { onExplain("pe") } } else null,
+                        onClickLabel = stringResource(Res.string.details_learn_more)
+                    )
                 }
-                StockAssessmentRow(
-                    icon = icon, iconContainer = container, iconContent = tint,
-                    title = row.title, detail = row.detail, badge = row.badge, tone = row.tone, note = row.explanation,
-                    onClick = if (row.id == "valuation") { { onExplain("pe") } } else null,
-                    onClickLabel = stringResource(Res.string.details_learn_more)
-                )
             }
         }
+        data.insight?.let { insight ->
+            StockInsightCard(
+                title = stringResource(Res.string.details_insight_title),
+                body = insight,
+                actionText = stringResource(Res.string.details_insight_why),
+                onClick = onEvidence
+            )
+        }
+        if (data.about != null || data.country != null || data.sector != null) AboutCard(data)
+        org.example.stocksteps.presentation.research.UnderstandStockCard(researchCompleted, onResearch, Modifier)
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AboutSection(data: CompanyOverview, modifier: Modifier) {
+private fun AboutCard(data: CompanyOverview) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     var expanded by rememberSaveable(data.symbol) { mutableStateOf(false) }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         StockSectionHeader(
             title = stringResource(Res.string.details_about_title, data.shortName),
             actionText = data.aboutFull?.let { stringResource(if (expanded) Res.string.details_see_less else Res.string.details_see_more) },
             onActionClick = data.aboutFull?.let { { expanded = !expanded } }
         )
         val text = if (expanded) data.aboutFull ?: data.about else data.about
-        text?.let { Text(it, style = StockStepsTheme.typography.body, color = colors.textBody) }
+        text?.let { Text(it, style = StockStepsTheme.typography.small, color = colors.textBody) }
         data.country?.let { country ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 Icon(StockIcons.Globe, contentDescription = null, tint = colors.iconSecondary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
-                Text(country, style = StockStepsTheme.typography.small, color = colors.textSecondary)
+                Text(country, style = StockStepsTheme.typography.small, color = colors.textSupporting)
             }
         }
-        val tags = listOfNotNull(data.sector, data.industry)
-        if (tags.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs), verticalArrangement = Arrangement.spacedBy(spacing.xs)) { tags.forEach { StockTag(it) } }
+        val classification = CompanyDetailsPresentation.classification(data)
+        if (classification.isNotEmpty()) {
+            StockDivider(Modifier.padding(vertical = spacing.xxs))
+            classification.forEach { StockInfoRow(it.label, it.value, compact = true) }
+            if (data.sector != null && data.industry != null) {
+                Text(stringResource(Res.string.details_sector_body, data.shortName, data.sector.orEmpty(), data.industry.orEmpty()),
+                    style = StockStepsTheme.typography.caption, color = colors.textMeta)
+            }
         }
     }
 }
 
+/**
+ * Valuation & financial health: current vs historical P/E (one metric row), the factual headline and explanation, links to the P/E lesson
+ * and the detailed valuation; the financial highlights with their basis; key ratios not already shown in At a Glance.
+ */
 @Composable
-private fun HighlightsSection(data: CompanyOverview, onSeeAll: () -> Unit, modifier: Modifier) {
-    val spacing = StockStepsTheme.spacing
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        StockSectionHeader(stringResource(Res.string.details_highlights_title), actionText = stringResource(Res.string.details_see_financials), onActionClick = onSeeAll)
-        StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
-            if (data.highlights.isEmpty()) {
-                StockEmptyState(stringResource(Res.string.details_highlights_unavailable), Modifier.padding(vertical = spacing.sm))
-            } else {
-                data.highlights.forEachIndexed { index, row ->
-                    if (index > 0) StockDivider()
-                    StockInfoRow(row.label, row.value, helper = row.helper, change = row.change ?: "—", direction = row.changeDirection)
-                }
-            }
-        }
-        data.highlightsBasis?.let { Text(it, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textTertiary) }
-    }
-}
-
-@Composable
-private fun ValuationSection(data: CompanyOverview, onUnderstand: () -> Unit, onSee: () -> Unit, modifier: Modifier) {
+private fun ValuationHealthSection(data: CompanyOverview, onUnderstand: () -> Unit, onValuation: () -> Unit, onFinancials: () -> Unit, modifier: Modifier) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     val valuation = data.valuation
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        StockSectionHeader(stringResource(Res.string.details_valuation_title), actionText = stringResource(Res.string.details_see_details), onActionClick = onSee)
-        if (valuation == null) {
-            StockCard(bordered = false) { StockEmptyState(stringResource(Res.string.details_valuation_unavailable)) }
-            return@Column
-        }
-        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            ValuationTile(stringResource(Res.string.details_valuation_current), valuation.currentPe ?: "N/A", colors.textPrimary, Modifier.weight(1f))
-            ValuationTile(valuation.historicalLabel, valuation.historicalAverage ?: "—", colors.textPrimary, Modifier.weight(1f))
-            ValuationTile(
-                stringResource(Res.string.details_valuation_difference), valuation.difference ?: "—",
-                if (valuation.position == ValuationPosition.ABOVE) colors.cautionText else colors.textPrimary, Modifier.weight(1f)
-            )
-        }
-        val (container, accent) = if (valuation.position == ValuationPosition.ABOVE) colors.warningContainer to colors.cautionText else colors.primaryContainer to colors.primaryText
-        Column(
-            Modifier.fillMaxWidth().clip(StockStepsTheme.shapes.card).background(container).padding(spacing.md),
-            verticalArrangement = Arrangement.spacedBy(spacing.xs)
-        ) {
-            valuation.headline?.let { headline ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    Icon(StockIcons.Tag, contentDescription = null, tint = accent, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
-                    Text(headline, style = StockStepsTheme.typography.bodyMedium, color = accent)
-                }
-            }
-            Text(valuation.explanation, style = StockStepsTheme.typography.small, color = colors.textBody)
-        }
-        Column {
-            LinkAction(stringResource(Res.string.details_understand_pe), onUnderstand)
-            LinkAction(stringResource(Res.string.details_see_valuation), onSee)
-        }
-    }
-}
-
-@Composable
-private fun ValuationTile(label: String, value: String, valueColor: Color, modifier: Modifier) {
-    StockCard(modifier.fillMaxHeight().semantics(mergeDescendants = true) {}, bordered = false, contentPadding = PaddingValues(StockStepsTheme.spacing.sm)) {
-        Text(label, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary, maxLines = 2)
-        Text(value, modifier = Modifier.padding(top = StockStepsTheme.spacing.xxs), style = StockStepsTheme.typography.numberEmphasis, color = valueColor, maxLines = 1)
-    }
-}
-
-@Composable
-private fun RangesSection(data: CompanyOverview, modifier: Modifier) {
-    StockCard(modifier, bordered = false, contentPadding = PaddingValues(StockStepsTheme.spacing.md)) {
-        Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.lg)) {
-            data.yearRange?.let { range ->
-                val title = stringResource(Res.string.details_year_range)
-                StockRangeBar(title, range.low, range.high, range.position, stringResource(Res.string.details_range_a11y, title, range.low, range.high))
-            }
-            data.dayRange?.let { range ->
-                val title = stringResource(Res.string.details_day_range)
-                StockRangeBar(title, range.low, range.high, range.position, stringResource(Res.string.details_range_a11y, title, range.low, range.high))
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectorSection(data: CompanyOverview, modifier: Modifier) {
-    val colors = StockStepsTheme.colors
-    val spacing = StockStepsTheme.spacing
-    SectionTitled(stringResource(Res.string.details_sector_industry), modifier) {
-        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            listOf(
-                Triple(stringResource(Res.string.details_sector), data.sector.orEmpty(), StockIcons.Bank),
-                Triple(stringResource(Res.string.details_industry), data.industry.orEmpty(), StockIcons.PieChart)
-            ).forEach { (label, value, icon) ->
-                StockCard(Modifier.weight(1f).fillMaxHeight().semantics(mergeDescendants = true) {}, bordered = false, contentPadding = PaddingValues(spacing.sm)) {
+    SectionTitled(CompanyDetailsPresentation.VALUATION_HEALTH_TITLE, modifier) {
+        StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            StockSectionHeader(stringResource(Res.string.details_valuation_title))
+            if (valuation == null) {
+                StockEmptyState(stringResource(Res.string.details_valuation_unavailable))
+            } else {
+                StockMetricGrid(listOf(
+                    StockMetricItem(stringResource(Res.string.details_valuation_current), valuation.currentPe ?: "N/A"),
+                    StockMetricItem(valuation.historicalLabel, valuation.historicalAverage ?: "—"),
+                    StockMetricItem(stringResource(Res.string.details_valuation_difference), valuation.difference ?: "—")
+                ), maxColumns = 3, rowsWhenNarrow = true)
+                val accent = if (valuation.position == ValuationPosition.ABOVE) colors.cautionText else colors.primaryText
+                valuation.headline?.let { headline ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        StockIconTile(icon, colors.primaryContainer, colors.primaryText)
-                        Column {
-                            Text(label, style = StockStepsTheme.typography.caption, color = colors.textSecondary)
-                            Text(value, style = StockStepsTheme.typography.bodySemiBold, color = colors.textPrimary)
-                        }
+                        Icon(StockIcons.Tag, contentDescription = null, tint = accent, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+                        Text(headline, style = StockStepsTheme.typography.bodyMedium, color = accent)
+                    }
+                }
+                Text(valuation.explanation, style = StockStepsTheme.typography.small, color = colors.textBody)
+            }
+            StockDivider()
+            StockNavigationRow(stringResource(Res.string.details_understand_pe), onUnderstand, icon = StockIcons.Lightbulb,
+                detail = "What the price-to-earnings ratio tells you")
+            StockDivider()
+            StockNavigationRow(stringResource(Res.string.details_see_valuation), onValuation, icon = StockIcons.TrendingUp,
+                detail = "Historical P/E and how it has changed")
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            StockSectionHeader(stringResource(Res.string.details_highlights_title), actionText = stringResource(Res.string.details_see_financials), onActionClick = onFinancials)
+            StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
+                if (data.highlights.isEmpty()) {
+                    StockEmptyState(stringResource(Res.string.details_highlights_unavailable), Modifier.padding(vertical = spacing.sm))
+                } else {
+                    data.highlights.forEachIndexed { index, row ->
+                        if (index > 0) StockDivider()
+                        StockInfoRow(row.label, row.value, helper = row.helper, change = row.change ?: "—", direction = row.changeDirection)
                     }
                 }
             }
+            data.highlightsBasis?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textMeta) }
         }
-        Text(
-            stringResource(Res.string.details_sector_body, data.shortName, data.sector.orEmpty(), data.industry.orEmpty()),
-            modifier = Modifier.fillMaxWidth().clip(StockStepsTheme.shapes.card).background(colors.primaryContainer).padding(spacing.md),
-            style = StockStepsTheme.typography.small,
-            color = colors.textBody
-        )
+        val ratios = CompanyDetailsPresentation.keyRatios(data)
+        if (ratios.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                StockSectionHeader(stringResource(Res.string.details_key_ratios))
+                StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
+                    ratios.forEach { StockInfoRow(it.label, it.value, compact = true) }
+                }
+            }
+        }
     }
 }
 
@@ -570,7 +513,7 @@ private fun NewsSection(news: Section<List<NewsUiModel>>, onOpen: (String) -> Un
             actionText = if (hasNews) stringResource(Res.string.details_view_all_news) else null,
             onActionClick = if (hasNews) onViewAll else null
         )
-        StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
+        StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
             when (news) {
                 Section.Loading -> StockLoadingState { Column { repeat(2) { StockNewsCardSkeleton() } } }
                 Section.Unavailable -> StockErrorState(stringResource(Res.string.home_news_unavailable), onRetry, Modifier.padding(vertical = spacing.sm))
@@ -593,7 +536,7 @@ private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarnin
     val error = state.error
     val dateText = state.dateText
     SectionTitled("Earnings", modifier) {
-        StockCard(Modifier.fillMaxWidth()) {
+        StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
             when {
                 state.loading -> Text("Loading the next earnings date…", style = typography.small, color = colors.textSecondary)
                 error != null -> StockErrorState(error, { onAction(CompanyDetailsAction.RetryEarnings) })
@@ -601,7 +544,7 @@ private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarnin
                     contentDescription = "Next earnings: ${state.spokenDate}. ${state.timingText}. ${state.statusText}."
                 }) {
                     Text("Next earnings", style = typography.label, color = colors.textSecondary)
-                    Text(dateText, style = typography.bodySemiBold, color = colors.textPrimary)
+                    Text(dateText, style = typography.bodySemiBold, color = colors.textTitle)
                     state.timingText?.let { Text(it, style = typography.small, color = colors.textBody) }
                     state.statusText?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
                 }
@@ -625,10 +568,12 @@ private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarnin
                 StockButton("Explain With AI", onClick = { onAction(CompanyDetailsAction.LatestResults) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb)
             }
             if (state.sampleData) Text("Sample earnings data.", style = typography.caption, color = colors.cautionText)
-            Row(horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-                StockButton("View Earnings Calendar", onClick = { onAction(CompanyDetailsAction.EarningsCalendar) }, variant = StockButtonVariant.TEXT)
-                StockButton("Earnings history", onClick = { onAction(CompanyDetailsAction.Earnings) }, variant = StockButtonVariant.TEXT)
-            }
+            StockDivider()
+            StockNavigationRow("Earnings calendar", { onAction(CompanyDetailsAction.EarningsCalendar) }, icon = StockIcons.TrendingUp,
+                detail = "Upcoming report dates across companies")
+            StockDivider()
+            StockNavigationRow("Earnings history", { onAction(CompanyDetailsAction.Earnings) }, icon = StockIcons.Document,
+                detail = "Past results for this company")
         }
     }
 }
@@ -638,17 +583,6 @@ private fun SectionTitled(title: String, modifier: Modifier, content: @Composabl
     Column(modifier, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
         StockSectionHeader(title)
         content()
-    }
-}
-
-/** Compact text link with a full 48dp touch target, so stacked links stay tight. */
-@Composable
-private fun LinkAction(text: String, onClick: () -> Unit) {
-    Box(
-        Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(role = Role.Button, onClick = onClick),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Text("$text →", style = StockStepsTheme.typography.bodyMedium, color = StockStepsTheme.colors.primaryText)
     }
 }
 

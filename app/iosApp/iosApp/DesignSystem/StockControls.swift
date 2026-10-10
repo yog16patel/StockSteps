@@ -102,6 +102,9 @@ struct StockMetricItem: Identifiable {
     let value: String
     var helper: String?
     var direction: PriceDirection?
+    /// Opens an explanation (like Compose `StockMetricItem.onClick`); `hint` is what VoiceOver says the tap does.
+    var action: (() -> Void)? = nil
+    var hint: String? = nil
 }
 
 /// Metric row/grid: up to `maxColumns` equal columns, fewer (one at large text) instead of truncating — the same
@@ -148,7 +151,17 @@ struct StockMetricGrid: View {
             ForEach(Array(stride(from: 0, to: items.count, by: columns)), id: \.self) { start in
                 GridRow {
                     ForEach(items[start..<min(start + columns, items.count)]) { item in
-                        StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction)
+                        if let action = item.action {
+                            Button(action: action) {
+                                StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction)
+                                    .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget), alignment: .topLeading)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint(item.hint ?? "")
+                        } else {
+                            StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction)
+                        }
                     }
                     ForEach(0..<(columns - min(columns, items.count - start)), id: \.self) { _ in Color.clear.frame(height: 0) }
                 }

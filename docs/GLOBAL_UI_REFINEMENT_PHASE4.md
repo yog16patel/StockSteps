@@ -1,8 +1,8 @@
 # Global UI Refinement Phase 4 — Home, Markets, Company Details
 
 Status: **Phase 4A (Home) committed and pushed** as "Redesign Home with a market overview and portfolio summary (Global UI Refinement
-Phase 4A) on Android and iOS". **Phase 4B (Markets) implemented, verified, committed and pushed** as "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS" (2026-10-10). Phase 4C (Company Details) has
-not started and waits for review of 4B. **Phase 4B.1 (Markets refinement to the final reference) committed and pushed** ("Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)")
+Phase 4A) on Android and iOS". **Phase 4B (Markets) implemented, verified, committed and pushed** as "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS" (2026-10-10). Phase 4C (Company Details) is
+implemented in `docs/GLOBAL_UI_REFINEMENT_PHASE4C.md`. **Phase 4B.1 (Markets refinement to the final reference) committed and pushed** ("Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)")
 (2026-10-10). Reference: the Phase 3.1 Portfolio screen
 (`docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md`, `docs/design/phase3_1/`). UI-only: no formulas, API contracts, endpoints, entitlements,
 navigation destinations, Firebase or MOCK fixtures changed.

@@ -1,6 +1,8 @@
 package org.example.stocksteps.designsystem.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +27,7 @@ import org.example.stocksteps.designsystem.theme.StockStepsTheme
  * One fact-based assessment line: icon tile, title, optional descriptive badge, the fact, and a
  * plain-English note. Tappable rows open more detail and show a chevron.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun StockAssessmentRow(
     icon: ImageVector,
@@ -52,8 +55,11 @@ internal fun StockAssessmentRow(
     ) {
         StockIconTile(icon, iconContainer, iconContent)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                Text(title, modifier = Modifier.weight(1f), style = StockStepsTheme.typography.bodySemiBold, color = colors.textPrimary)
+            // Title and badge share a line while both fit (badge at the end); otherwise the badge moves below, so the title never breaks
+            // mid-word ("Financia / l Health" at large text on narrow phones, Phase 4C).
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(spacing.xxs),
+                itemVerticalAlignment = Alignment.CenterVertically) {
+                Text(title, Modifier.padding(end = spacing.sm), style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
                 if (badge != null) StockBadge(badge, tone)
             }
             Text(detail, style = StockStepsTheme.typography.small, color = colors.textBody)

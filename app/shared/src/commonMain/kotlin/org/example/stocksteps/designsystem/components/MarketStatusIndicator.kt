@@ -11,61 +11,39 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.model.MarketStatus
-import org.example.stocksteps.resources.*
-import org.jetbrains.compose.resources.stringResource
+import org.example.stocksteps.presentation.companydetails.CompanyDetailsPresentation
+import org.example.stocksteps.presentation.markets.MarketsScreenPresentation
 
 /**
- * "Market Open [switch]" status from the backend's market-status flag. The switch is a
- * read-only display (on only during the regular session) and is never focusable or tappable;
- * the label always names the state, so neither color nor switch position is the only signal.
- * UNKNOWN renders nothing: market hours are never guessed from the device clock.
+ * US market status chip from the backend's market-status flag (Phase 4C, Phase 4B.1 semantics): a dot — green while open, amber for
+ * pre-market/after-hours, neutral when closed (closed is not a loss) — and the state in words, so colour is never the only signal.
+ * Read-only. UNKNOWN renders nothing: market hours are never guessed from the device clock.
  */
 @Composable
 internal fun MarketStatusIndicator(status: MarketStatus, modifier: Modifier = Modifier) {
     val colors = StockStepsTheme.colors
-    val (label, spoken) = when (status) {
-        MarketStatus.OPEN -> Res.string.home_market_status_open to Res.string.market_status_open_a11y
-        MarketStatus.CLOSED -> Res.string.home_market_status_closed to Res.string.market_status_closed_a11y
-        MarketStatus.PRE_MARKET -> Res.string.home_market_status_pre to Res.string.market_status_pre_a11y
-        MarketStatus.AFTER_HOURS -> Res.string.home_market_status_after to Res.string.market_status_after_a11y
-        MarketStatus.UNKNOWN -> return
-    }
-    val description = stringResource(spoken)
+    val spacing = StockStepsTheme.spacing
+    val label = CompanyDetailsPresentation.statusLabel(status) ?: return
+    val description = CompanyDetailsPresentation.statusDescription(status) ?: label
     Row(
-        modifier = modifier.clearAndSetSemantics { contentDescription = description },
+        modifier = modifier.clip(StockStepsTheme.shapes.pill).background(colors.surfaceSecondary)
+            .padding(horizontal = spacing.sm, vertical = spacing.xxs)
+            .clearAndSetSemantics { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)
+        horizontalArrangement = Arrangement.spacedBy(spacing.xs)
     ) {
-        Text(stringResource(label), style = StockStepsTheme.typography.label, color = colors.textSecondary, maxLines = 1)
-        MarketStatusSwitch(status)
-    }
-}
-
-/**
- * Read-only mini switch: green with the thumb right when open, red with it left when closed,
- * grey with it left for pre-market/after hours.
- */
-@Composable
-private fun MarketStatusSwitch(status: MarketStatus) {
-    val colors = StockStepsTheme.colors
-    val dimensions = StockStepsTheme.dimensions
-    val on = status == MarketStatus.OPEN
-    val track = when (status) {
-        MarketStatus.OPEN -> colors.positive
-        MarketStatus.CLOSED -> colors.negative
-        else -> colors.textDisabled
-    }
-    Box(
-        modifier = Modifier
-            .size(dimensions.statusSwitchWidth, dimensions.statusSwitchHeight)
-            .background(track, CircleShape)
-            .padding(horizontal = (dimensions.statusSwitchHeight - dimensions.statusSwitchThumb) / 2),
-        contentAlignment = if (on) Alignment.CenterEnd else Alignment.CenterStart
-    ) {
-        Box(Modifier.size(dimensions.statusSwitchThumb).background(colors.onPrimary, CircleShape))
+        Box(Modifier.size(spacing.sm).clip(CircleShape).background(
+            when (CompanyDetailsPresentation.statusDot(status)) {
+                MarketsScreenPresentation.StatusDot.OPEN -> colors.positive
+                MarketsScreenPresentation.StatusDot.EXTENDED -> colors.caution
+                MarketsScreenPresentation.StatusDot.NEUTRAL -> colors.textDisabled
+            }
+        ))
+        Text(label, style = StockStepsTheme.typography.label, color = colors.textSupporting, maxLines = 1)
     }
 }

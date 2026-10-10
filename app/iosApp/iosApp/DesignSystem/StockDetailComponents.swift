@@ -142,8 +142,11 @@ struct StockLineChart: View {
                         }
                     }
                     .contentShape(Rectangle())
-                    .gesture(DragGesture(minimumDistance: 0)
+                    // Phase 4C.1: recognised alongside the page scroll and only scrubs while the drag is mostly horizontal, so a vertical
+                    // swipe that starts on the chart scrolls the page (it was captured by a minimumDistance-0 drag before).
+                    .simultaneousGesture(DragGesture(minimumDistance: 8)
                         .onChanged { value in
+                            guard touched != nil || abs(value.translation.width) > abs(value.translation.height) else { return }
                             let index = min(max(Int((value.location.x / max(size.width, 1)) * CGFloat(closes.count - 1)), 0), closes.count - 1)
                             touched = index
                             onScrub(index)
@@ -189,10 +192,17 @@ struct StockAssessmentRow: View {
         let content = HStack(spacing: CGFloat(space.md)) {
             StockIconTile(systemName: systemName, container: iconContainer, content: iconContent)
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                HStack(spacing: CGFloat(space.sm)) {
-                    Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
-                    Spacer(minLength: 0)
-                    if let badge { StockBadge(text: badge, tone: tone) }
+                // Title and badge share a line while both fit; otherwise the badge moves below so the title never breaks mid-word (Phase 4C).
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: CGFloat(space.sm)) {
+                        Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+                        Spacer(minLength: 0)
+                        if let badge { StockBadge(text: badge, tone: tone) }
+                    }
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+                        if let badge { StockBadge(text: badge, tone: tone) }
+                    }
                 }
                 Text(detail).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
                 if let note {

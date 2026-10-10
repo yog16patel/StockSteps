@@ -41,84 +41,86 @@ struct CompanyDetailsScreen: View {
     private let type = StockStepsTheme.typography
     private let dims = StockStepsTheme.dimensions
 
-    /// Next earnings date, timing and status; never an invented date.
+    private let present = CompanyDetailsPresentation.shared
+
+    /// Next earnings date, timing and status (never an invented date), the latest results, then calendar and history as navigation rows.
     @ViewBuilder private func earningsSection(_ e: CompanyEarningsState, _ colors: StockColors) -> some View {
         titled("Earnings") {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 if e.loading {
-                    Text("Loading the next earnings date…").font(.subheadline).foregroundStyle(colors.textSecondary)
+                    Text("Loading the next earnings date…").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                 } else if let error = e.error {
                     StockSectionMessage(message: error, actionTitle: "Try again", action: onRetryEarnings)
                 } else if let dateText = e.dateText {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Next earnings").font(.caption).foregroundStyle(colors.textSecondary)
-                        Text(dateText).font(.headline).foregroundStyle(colors.textPrimary)
-                        if let timing = e.timingText { Text(timing).font(.subheadline).foregroundStyle(colors.textBody) }
-                        if let status = e.statusText { Text(status).font(.caption).foregroundStyle(colors.textSecondary) }
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        Text("Next earnings").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSupporting)
+                        Text(dateText).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+                        if let timing = e.timingText { Text(timing).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody) }
+                        if let status = e.statusText { Text(status).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textMeta) }
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("Next earnings: \(e.spokenDate ?? dateText). \(e.timingText ?? ""). \(e.statusText ?? "").")
                 } else {
-                    Text(e.message ?? "").font(.subheadline).foregroundStyle(colors.textSecondary)
+                    Text(e.message ?? "").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                 }
+                if let earningsReminder, e.eventId != nil { ReminderControlButton(control: earningsReminder, compact: true, action: onRemindEarnings) }
                 // Latest published results (comparable measures only), linking to the full Earnings Results.
                 if let title = e.latestTitle {
-                    Divider()
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(title).font(.caption).foregroundStyle(colors.textSecondary)
-                        if let summary = e.latestSummary { Text(summary).font(.headline).foregroundStyle(colors.textPrimary) }
+                    StockDivider()
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        Text(title).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSupporting)
+                        if let summary = e.latestSummary { Text(summary).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle) }
                     }
                     .accessibilityElement(children: .combine)
                     if let onLatestResults {
-                        Button("View Results", action: onLatestResults).buttonStyle(.bordered).frame(minHeight: 48)
+                        Button("View Results", action: onLatestResults).buttonStyle(.stockSecondary)
                         // Phase 5 preview: the AI explanation lives on Earnings Results (StockSteps+, checked by the server there).
                         HStack(alignment: .top) {
                             Text("AI Earnings Insight: a plain-English explanation of these results, built only from verified figures.")
-                                .font(.caption).foregroundStyle(colors.textSecondary)
-                            Spacer(minLength: 4)
+                                .font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textSupporting)
+                            Spacer(minLength: CGFloat(space.xs))
                             PlusBadge()
                         }
-                        Button("Explain With AI", systemImage: "lightbulb", action: onLatestResults).frame(minHeight: 48)
+                        Button("Explain With AI", systemImage: "lightbulb", action: onLatestResults)
+                            .font(StockStepsTheme.font(type.label)).foregroundStyle(colors.primaryText).frame(minHeight: CGFloat(dims.touchTarget))
                     }
                 }
-                if let earningsReminder, e.eventId != nil { ReminderControlButton(control: earningsReminder, compact: true, action: onRemindEarnings) }
-                if e.sampleData { Text("Sample earnings data.").font(.caption).foregroundStyle(colors.cautionText) }
-                HStack {
-                    if let onEarningsCalendar { Button("View Earnings Calendar", action: onEarningsCalendar).frame(minHeight: 48) }
-                    Button("Earnings history", action: onEarnings).frame(minHeight: 48)
+                if e.sampleData { Text("Sample earnings data.").font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.cautionText) }
+                if let onEarningsCalendar {
+                    StockDivider()
+                    StockNavigationRow(title: "Earnings calendar", detail: "Upcoming report dates across companies", icon: "calendar", action: onEarningsCalendar)
                 }
+                StockDivider()
+                StockNavigationRow(title: "Earnings history", detail: "Past results for this company", icon: "clock.arrow.circlepath", action: onEarnings)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .stockCard()
         }
     }
 
+    /// Order (Phase 4C): identity and price → chart → why it moved → At a Glance → understand → valuation & financial health → earnings → news.
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 header(colors)
-                ScrollView(.horizontal, showsIndicators: false) { HStack {
-                    Button("Add to portfolio", systemImage: "briefcase", action: onAddPortfolio).buttonStyle(.bordered)
-                    Button("Compare", systemImage: "square.split.2x1", action: onCompare).buttonStyle(.bordered)
-                    Button("Earnings", systemImage: "calendar", action: onEarnings).buttonStyle(.bordered)
-                    Button("Practice Buy", systemImage: "graduationcap", action: onPracticeBuy).buttonStyle(.bordered)
-                        .accessibilityHint("Opens a simulated order with virtual money")
-                } }
-                chartSection(colors).padding(.top, CGFloat(space.lg))
-                if showResearch { UnderstandStockCard(completed: researchCompleted, action: onResearch).padding(.top, CGFloat(space.xl)) }
-                if let nextEarnings { earningsSection(nextEarnings, colors).padding(.top, CGFloat(space.xl)) }
+                chartSection(colors).padding(.top, CGFloat(space.md))
                 switch model.whyMoving {
-                case .content(let why): if let why { whySection(why, colors).padding(.top, CGFloat(space.xl)) }
+                case .content(let why): if let why { whySection(why, colors).padding(.top, CGFloat(space.sectionGap)) }
                 case .unavailable:
                     titled("Why Did It Move?") {
                         StockSectionMessage(message: "We couldn't load the explanation right now.", actionTitle: "Try again", action: model.loadWhyMoving)
-                            .stockCard(bordered: false)
+                            .stockCard()
                     }
                 case .loading: EmptyView()
                 }
-                if let overview = model.overview.value { overviewSections(overview, colors) }
-                newsSection(colors).padding(.top, CGFloat(space.xl))
+                if let overview = model.overview.value {
+                    overviewSections(overview, colors)
+                } else if showResearch {
+                    UnderstandStockCard(completed: researchCompleted, action: onResearch).padding(.top, CGFloat(space.sectionGap))
+                }
+                if let nextEarnings { earningsSection(nextEarnings, colors) }
+                newsSection(colors).padding(.top, CGFloat(space.sectionGap))
                 Text("Educational information, not a recommendation to buy or sell.")
                     .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
                     .padding(.top, CGFloat(space.lg))
@@ -134,7 +136,7 @@ struct CompanyDetailsScreen: View {
             if watchlistEnabled {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: onToggleWatchlist) {
-                        Image(systemName: watched ? "star.fill" : "star").foregroundStyle(watched ? colors.positive : colors.iconSecondary)
+                        Image(systemName: watched ? "star.fill" : "star").foregroundStyle(watched ? colors.primaryText : colors.iconSecondary)
                     }
                     .accessibilityLabel(watched ? "Remove from watchlist" : "Add to watchlist")
                 }
@@ -159,6 +161,8 @@ struct CompanyDetailsScreen: View {
 
     // MARK: Header
 
+    /// Compact identity (logo, wrapping name, ticker · exchange, tags) and the price as the focal point: price, signed change "Today", the US
+    /// market status chip and the quote time; then the secondary actions, wrapping instead of scrolling sideways.
     @ViewBuilder
     private func header(_ colors: StockColors) -> some View {
         switch model.overview {
@@ -168,41 +172,88 @@ struct CompanyDetailsScreen: View {
                 StockSkeleton(width: 180); StockSkeleton(width: 120, height: 24)
             }.accessibilityElement(children: .ignore).accessibilityLabel("Loading")
         case .unavailable:
-            StockSectionMessage(message: "Unable to load company data.", actionTitle: "Try again", action: model.loadCore).stockCard(bordered: false)
+            StockSectionMessage(message: "Unable to load company data.", actionTitle: "Try again", action: model.loadCore).stockCard()
         case .content(let overview):
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                HStack(alignment: .top, spacing: CGFloat(space.md)) {
+                HStack(alignment: .center, spacing: CGFloat(space.md)) {
                     StockTickerAvatar(symbol: overview.symbol, logoUrl: overview.logoUrl, size: CGFloat(dims.avatar))
                     VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                        Text(overview.name).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3).bold()).foregroundStyle(colors.textPrimary)
+                        Text(overview.name).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).foregroundStyle(colors.textTitle)
                             .accessibilityAddTraits(.isHeader)
-                        Text(overview.listing).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
-                        if !overview.tags.isEmpty { tags(overview.tags).padding(.top, CGFloat(space.xxs)) }
+                        Text(overview.listing).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                     }
                 }
-                if let price = overview.price {
-                    Text(price).font(StockStepsTheme.font(type.largeNumber, relativeTo: .largeTitle)).foregroundStyle(colors.textPrimary)
-                        .padding(.top, CGFloat(space.sm))
-                }
-                HStack(spacing: CGFloat(space.sm)) {
-                    StockPriceChange(percentage: [overview.changeAmount, overview.changeAmount == nil ? overview.changePercent : "(\(overview.changePercent))"]
-                        .compactMap { $0 }.joined(separator: " "), direction: overview.direction, style: type.numberMedium)
-                    Text("Today").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
-                }
-                HStack(spacing: CGFloat(space.sm)) {
-                    MarketStatusIndicator(status: overview.marketStatus)
-                    if let updated = overview.updatedAt.map({ Self.quoteTime($0.int64Value) }) {
-                        Text("Updated \(updated)").font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textTertiary)
+                if !overview.tags.isEmpty { tags(overview.tags) }
+                // Price block: the price is the focal point; the session chip sits beside it (never inside the green/red change line);
+                // one spoken sentence for price, change, quote time and session.
+                let updated = overview.updatedAt.map { Self.quoteTime($0.int64Value) }
+                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .center, spacing: CGFloat(space.sm)) {
+                            priceText(overview, colors)
+                            Spacer(minLength: 0)
+                            MarketStatusIndicator(status: overview.marketStatus)
+                        }
+                        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                            priceText(overview, colors)
+                            MarketStatusIndicator(status: overview.marketStatus)
+                        }
+                    }
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: CGFloat(space.sm)) { priceChange(overview, colors) }
+                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { priceChange(overview, colors) }
+                    }
+                    if let updated {
+                        Text("Updated \(updated)").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
                     }
                 }
+                .padding(.top, CGFloat(space.sm))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel([present.priceDescription(overview: overview, updated: updated),
+                                     present.statusDescription(status: overview.marketStatus).map { "\($0)." }].compactMap { $0 }.joined(separator: " "))
+                actions.padding(.top, CGFloat(space.sm))
             }
         }
+    }
+
+    private func priceText(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
+        Text(overview.price ?? "—").font(StockStepsTheme.font(type.largeNumber, relativeTo: .largeTitle)).foregroundStyle(colors.textValue)
+    }
+
+    @ViewBuilder private func priceChange(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
+        StockPriceChange(percentage: [overview.changeAmount, overview.changeAmount == nil ? overview.changePercent : "(\(overview.changePercent))"]
+            .compactMap { $0 }.joined(separator: " "), direction: overview.direction, style: type.numberMedium, lineLimit: nil)
+        Text("Today").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+    }
+
+    /// Add to portfolio (primary) and Compare side by side, Practice Buy full width below; at accessibility sizes every action takes its own
+    /// full-width row. Earnings is offered here only when the page has no Earnings section.
+    private var actions: some View {
+        VStack(spacing: CGFloat(space.sm)) {
+            if typeSize >= .xxxLarge {
+                wide("Add to portfolio", "plus", .stockPrimary, onAddPortfolio)
+                wide("Compare", "square.split.2x1", .stockSecondary, onCompare)
+            } else {
+                HStack(spacing: CGFloat(space.sm)) {
+                    wide("Add to portfolio", "plus", .stockPrimary, onAddPortfolio)
+                    wide("Compare", "square.split.2x1", .stockSecondary, onCompare)
+                }
+            }
+            wide("Practice Buy", "graduationcap", .stockSecondary, onPracticeBuy)
+                .accessibilityHint("Opens a simulated order with virtual money")
+            if nextEarnings == nil { wide("Earnings", "calendar", .stockSecondary, onEarnings) }
+        }
+    }
+
+    /// A header action that fills its share of the row.
+    private func wide<S: ButtonStyle>(_ title: String, _ icon: String, _ style: S, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) { Label(title, systemImage: icon).frame(maxWidth: .infinity) }.buttonStyle(style)
     }
 
     /// Quote time in exchange (New York) time, e.g. "10:41 AM EDT".
     private static func quoteTime(_ seconds: Int64) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a z"
+        formatter.dateFormat = "h:mm a z · MMM d"
         formatter.locale = Locale(identifier: "en_US")
         formatter.timeZone = TimeZone(identifier: "America/New_York")
         return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(seconds)))
@@ -244,7 +295,7 @@ struct CompanyDetailsScreen: View {
                 }
             }
             .frame(height: CGFloat(dims.chartHeight))
-            if let stats = model.overview.value?.quickStats {
+            if let stats = model.overview.value.map({ present.chartStats(overview: $0) }), !stats.isEmpty {
                 StockDivider().padding(.top, CGFloat(space.xs))
                 let half = (stats.count + 1) / 2
                 HStack(alignment: .top, spacing: CGFloat(space.lg)) {
@@ -254,7 +305,7 @@ struct CompanyDetailsScreen: View {
             }
         }
         .padding(.horizontal, CGFloat(space.md) - CGFloat(space.sm))
-        .stockCard(padding: CGFloat(space.sm), bordered: false)
+        .stockCard(padding: CGFloat(space.sm))
     }
 
     // MARK: Why did it move
@@ -286,15 +337,6 @@ struct CompanyDetailsScreen: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(colors.learnContainerStart, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
             }
-            if !why.sources.isEmpty {
-                HStack(spacing: CGFloat(space.md)) {
-                    ForEach(Array(why.sources.enumerated()), id: \.offset) { _, source in
-                        Button(source.publisher ?? source.title) { if let url = URL(string: source.url) { onOpenURL(url) } }
-                            .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText).lineLimit(1)
-                            .accessibilityLabel(source.accessibilityLabel)
-                    }
-                }
-            }
             Button("See full breakdown →", action: onOpenMovement)
                 .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
                 .frame(minHeight: CGFloat(dims.touchTarget))
@@ -307,103 +349,105 @@ struct CompanyDetailsScreen: View {
 
     @ViewBuilder
     private func overviewSections(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
-        titled("At a Glance") { glance(overview.glance, colors) }
-        if !overview.assessment.isEmpty {
-            titled("How Does \(overview.shortName) Look?") {
-                VStack(spacing: 0) {
-                    ForEach(Array(overview.assessment.enumerated()), id: \.offset) { index, row in
-                        if index > 0 { StockDivider() }
-                        let (icon, container, tint) = assessmentIcon(row.id, colors)
-                        StockAssessmentRow(systemName: icon, iconContainer: container, iconContent: tint, title: row.title, detail: row.detail,
-                                           badge: row.badge, tone: row.tone, note: row.explanation,
-                                           action: row.id == "valuation" ? { education = overview.glance.first { $0.id == "pe" } } : nil)
-                    }
+        titled("At a Glance") { glanceCard(overview, colors) }
+        titled(present.understandTitle(overview: overview)) { understand(overview, colors) }
+        titled(present.VALUATION_HEALTH_TITLE) { valuationHealth(overview, colors) }
+    }
+
+    /// Key metrics in one `StockMetricGrid` (values never truncate; "(YoY)"-style qualifiers move to the supporting line) and the ranges.
+    private func glanceCard(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            StockMetricGrid(items: overview.glance.map { metric in
+                let shown = present.glance(metric: metric)
+                return StockMetricItem(label: metric.label, value: shown.value, helper: shown.helper.isEmpty ? nil : shown.helper,
+                                       direction: metric.direction, action: { education = metric }, hint: "Learn what this means")
+            }, maxColumns: 2)
+            if overview.yearRange != nil || overview.dayRange != nil {
+                StockDivider()
+                VStack(alignment: .leading, spacing: CGFloat(space.md)) {
+                    if let range = overview.yearRange { StockRangeBar(title: "52-Week Range", range: range) }
+                    if let range = overview.dayRange { StockRangeBar(title: "Day Range", range: range) }
                 }
-                .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
             }
+        }
+        .stockCard()
+    }
+
+    /// Facts (assessment), interpretation (insight), then education (About with sector/industry once, Guided Research).
+    @ViewBuilder
+    private func understand(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
+        if !overview.assessment.isEmpty {
+            VStack(spacing: 0) {
+                ForEach(Array(overview.assessment.enumerated()), id: \.offset) { index, row in
+                    if index > 0 { StockDivider() }
+                    let (icon, container, tint) = assessmentIcon(row.id, colors)
+                    StockAssessmentRow(systemName: icon, iconContainer: container, iconContent: tint, title: row.title, detail: row.detail,
+                                       badge: row.badge, tone: row.tone, note: row.explanation,
+                                       action: row.id == "valuation" ? { education = overview.glance.first { $0.id == "pe" } } : nil)
+                }
+            }
+            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0)
         }
         if let insight = overview.insight {
             StockInsightCard(title: "Beginner Insight", message: insight, actionTitle: "Why does this matter?", action: { showEvidence = true })
-                .padding(.top, CGFloat(space.xl))
         }
-        if overview.about != nil || overview.country != nil { aboutSection(overview, colors).padding(.top, CGFloat(space.xl)) }
-        highlightsSection(overview, colors).padding(.top, CGFloat(space.xl))
-        valuationSection(overview, colors).padding(.top, CGFloat(space.xl))
-        if overview.dayRange != nil || overview.yearRange != nil {
-            VStack(alignment: .leading, spacing: CGFloat(space.lg)) {
-                if let range = overview.yearRange { StockRangeBar(title: "52-Week Range", range: range) }
-                if let range = overview.dayRange { StockRangeBar(title: "Day Range", range: range) }
-            }
-            .stockCard(padding: CGFloat(space.md), bordered: false)
-            .padding(.top, CGFloat(space.xl))
-        }
-        if !overview.keyRatios.isEmpty {
-            titled("Key Ratios") {
-                VStack(spacing: 0) { ForEach(overview.keyRatios, id: \.label) { StockInfoLine(label: $0.label, value: $0.value, compact: true) } }
-                    .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.xs)).stockCard(padding: 0, bordered: false)
-            }
-        }
-        if let sector = overview.sector, let industry = overview.industry {
-            titled("Sector & Industry") {
-                HStack(spacing: CGFloat(space.sm)) {
-                    sectorTile("Sector", sector, "building.columns.fill", colors)
-                    sectorTile("Industry", industry, "chart.pie.fill", colors)
-                }
-                Text("\(overview.shortName) is part of the \(sector) sector, in the \(industry) industry. Comparing a company with others in its industry gives its numbers more context.")
-                    .font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
-                    .padding(CGFloat(space.md)).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(colors.primaryContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
-            }
-        }
+        if overview.about != nil || overview.country != nil || overview.sector != nil { aboutCard(overview, colors) }
+        if showResearch { UnderstandStockCard(completed: researchCompleted, action: onResearch) }
     }
 
-    private func glance(_ metrics: [GlanceMetric], _ colors: StockColors) -> some View {
-        let columns = typeSize.isAccessibilitySize ? 1 : 2
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: CGFloat(space.sm)), count: columns), spacing: CGFloat(space.sm)) {
-            ForEach(metrics, id: \.id) { metric in
-                let (icon, container, tint) = glanceIcon(metric.id, colors)
-                Button { education = metric } label: {
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                            Text(metric.label).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary)
-                            if let direction = metric.direction, direction != .unavailable {
-                                StockPriceChange(percentage: metric.value, direction: direction, style: type.numberEmphasis)
-                            } else {
-                                Text(metric.value).font(StockStepsTheme.font(type.numberEmphasis, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
-                            }
-                            Text(metric.helper).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
-                        }
-                        Spacer(minLength: 0)
-                        StockIconTile(systemName: icon, container: container, content: tint)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .stockCard(padding: CGFloat(space.md), bordered: false)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityElement(children: .combine)
-                .accessibilityHint("Learn what this means")
-            }
-        }
-    }
-
-    private func aboutSection(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+    private func aboutCard(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             StockSectionHeader(title: "About \(overview.shortName)",
                                actionTitle: overview.aboutFull == nil ? nil : (aboutExpanded ? "See Less" : "See More"),
                                action: overview.aboutFull == nil ? nil : { aboutExpanded.toggle() })
             if let text = aboutExpanded ? (overview.aboutFull ?? overview.about) : overview.about {
-                Text(text).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
+                Text(text).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
             }
             if let country = overview.country {
-                Label(country, systemImage: "globe").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
+                Label(country, systemImage: "globe").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
             }
-            let values = [overview.sector, overview.industry].compactMap { $0 }
-            if !values.isEmpty { tags(values) }
+            let classification = present.classification(overview: overview)
+            if !classification.isEmpty {
+                StockDivider().padding(.vertical, CGFloat(space.xxs))
+                ForEach(classification, id: \.label) { StockInfoLine(label: $0.label, value: $0.value, compact: true) }
+                if let sector = overview.sector, let industry = overview.industry {
+                    Text("\(overview.shortName) is part of the \(sector) sector, in the \(industry) industry. Comparing a company with others in its industry gives its numbers more context.")
+                        .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                }
+            }
         }
+        .stockCard()
     }
 
-    private func highlightsSection(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
+    /// Current vs historical P/E (one metric row), the factual headline, lesson and detail links; highlights; key ratios not in At a Glance.
+    @ViewBuilder
+    private func valuationHealth(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            StockSectionHeader(title: "Valuation")
+            if let valuation = overview.valuation {
+                let accent = valuation.position == .above ? colors.cautionText : colors.primaryText
+                StockMetricGrid(items: [
+                    StockMetricItem(label: "Current P/E", value: valuation.currentPe ?? "N/A"),
+                    StockMetricItem(label: valuation.historicalLabel, value: valuation.historicalAverage ?? "—"),
+                    StockMetricItem(label: "Difference", value: valuation.difference ?? "—")
+                ], maxColumns: 3, rowsWhenNarrow: true)
+                if let headline = valuation.headline {
+                    Label(headline, systemImage: "tag.fill").font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(accent)
+                }
+                Text(valuation.explanation).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
+            } else {
+                StockSectionMessage(message: "Valuation history isn't available for this company.")
+            }
+            StockDivider()
+            StockNavigationRow(title: "Understand P/E Ratio", detail: "What the price-to-earnings ratio tells you", icon: "lightbulb") {
+                education = overview.glance.first { $0.id == "pe" }
+            }
+            StockDivider()
+            StockNavigationRow(title: "See detailed valuation", detail: "Historical P/E and how it has changed", icon: "chart.line.uptrend.xyaxis",
+                               action: onOpenValuation)
+        }
+        .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.sm))
+        .stockCard(padding: 0)
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
             StockSectionHeader(title: "Financial Highlights", actionTitle: "See Financials", action: onOpenFinancials)
             VStack(spacing: 0) {
@@ -416,62 +460,19 @@ struct CompanyDetailsScreen: View {
                     }
                 }
             }
-            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
+            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0)
             if let basis = overview.highlightsBasis {
-                Text(basis).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
+                Text(basis).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
             }
         }
-    }
-
-    private func valuationSection(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-            StockSectionHeader(title: "Valuation", actionTitle: "See Details", action: onOpenValuation)
-            if let valuation = overview.valuation {
-                let above = valuation.position == .above
-                HStack(spacing: CGFloat(space.sm)) {
-                    valuationTile("Current P/E", valuation.currentPe ?? "N/A", colors.textPrimary, colors)
-                    valuationTile(valuation.historicalLabel, valuation.historicalAverage ?? "—", colors.textPrimary, colors)
-                    valuationTile("Difference", valuation.difference ?? "—", above ? colors.cautionText : colors.textPrimary, colors)
-                }
-                VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                    if let headline = valuation.headline {
-                        Label(headline, systemImage: "tag.fill").font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(above ? colors.cautionText : colors.primaryText)
-                    }
-                    Text(valuation.explanation).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
-                }
-                .padding(CGFloat(space.md)).frame(maxWidth: .infinity, alignment: .leading)
-                .background(above ? colors.warningContainer : colors.primaryContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
-                VStack(alignment: .leading, spacing: 0) {
-                    link("Understand P/E Ratio") { education = overview.glance.first { $0.id == "pe" } }
-                    link("See detailed valuation", action: onOpenValuation)
-                }
-            } else {
-                StockSectionMessage(message: "Valuation history isn't available for this company.").stockCard(bordered: false)
+        let ratios = present.keyRatios(overview: overview)
+        if !ratios.isEmpty {
+            VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+                StockSectionHeader(title: "Key Ratios")
+                VStack(spacing: 0) { ForEach(ratios, id: \.label) { StockInfoLine(label: $0.label, value: $0.value, compact: true) } }
+                    .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.xs)).stockCard(padding: 0)
             }
         }
-    }
-
-    private func valuationTile(_ label: String, _ value: String, _ valueColor: Color, _ colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-            Text(label).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary).lineLimit(2)
-            Text(value).font(StockStepsTheme.font(type.numberEmphasis, relativeTo: .headline)).foregroundStyle(valueColor).lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .stockCard(padding: CGFloat(space.sm), bordered: false)
-        .accessibilityElement(children: .combine)
-    }
-
-    private func sectorTile(_ label: String, _ value: String, _ icon: String, _ colors: StockColors) -> some View {
-        HStack(spacing: CGFloat(space.sm)) {
-            StockIconTile(systemName: icon, container: colors.primaryContainer, content: colors.primaryText)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(label).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
-                Text(value).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .stockCard(padding: CGFloat(space.sm), bordered: false)
-        .accessibilityElement(children: .combine)
     }
 
     private func newsSection(_ colors: StockColors) -> some View {
@@ -490,26 +491,11 @@ struct CompanyDetailsScreen: View {
                     }
                 }
             }
-            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
+            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0)
         }
     }
 
     // MARK: Helpers
-
-    private func link(_ title: String, action: @escaping () -> Void) -> some View {
-        Button("\(title) →", action: action)
-            .font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(StockStepsTheme.colors(scheme).primaryText)
-            .frame(minHeight: CGFloat(dims.touchTarget))
-    }
-
-    private func glanceIcon(_ id: String, _ colors: StockColors) -> (String, Color, Color) {
-        switch id {
-        case "marketCap": ("building.columns.fill", colors.primaryContainer, colors.primaryText)
-        case "pe": ("tag.fill", colors.warningContainer, colors.cautionText)
-        case "revenueGrowth": ("chart.line.uptrend.xyaxis", colors.positiveContainer, colors.positiveText)
-        default: ("dollarsign.circle.fill", colors.learnContainerStart, colors.learnAccent)
-        }
-    }
 
     private func assessmentIcon(_ id: String, _ colors: StockColors) -> (String, Color, Color) {
         switch id {
@@ -525,7 +511,7 @@ struct CompanyDetailsScreen: View {
             StockSectionHeader(title: title)
             content()
         }
-        .padding(.top, CGFloat(space.xl))
+        .padding(.top, CGFloat(space.sectionGap))
     }
 
     private func educationTitle(_ metric: GlanceMetric) -> String {

@@ -1,9 +1,39 @@
 # StockSteps — session handoff (2026-10-10, end of session: Global UI Refinement Phases 1, 1A, 2, 3 and 3.1 committed and pushed)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE4B1 below** → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE4C1 below** → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PHASE4C1. Global UI Refinement Phase 4C.1 — Company Details polish (committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)" (pushed; Phases 4C and 4C.1 together), on top of `4eb9e5b` (Phase 4B.1). Commit/push only
+  when asked; every commit updates the root `PROJECT_HANDOFF.md`.
+- **Correction:** the iOS app's `StockStepsMockBackendURL` is a private-LAN address, so all iOS device checks in Phases 4A–4C.1 used the LAN MOCK
+  backend (read-only app calls), not the local server earlier notes named. Android used the local server via `adb reverse`. Details
+  `docs/GLOBAL_UI_REFINEMENT_PHASE4C_1.md` §0.
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE4C_1.md`, evidence `docs/design/phase4c1/`): chart scroll conflict fixed on both platforms
+  (horizontal-only scrub; vertical drags scroll); quote time includes the date; price block = price + status chip, change, update line, one
+  spoken sentence; header actions primary/secondary layout; duplicate inline source links removed.
+- Results: core JVM/iOS 430/0, shared Android 101/0, shared iOS 97/0, `assembleDebug` OK, iOS `xcodebuild` OK. Android edge cases (NVDA, INTC,
+  RIVN) and offline errors checked; iOS header/scrub/XXXL checked. Not run: TalkBack (injected input not routed; enabled then restored),
+  VoiceOver, iOS error state, iOS SE re-check.
+- Next: user review → Phase 5 only after approval.
+
+## PHASE4C. Global UI Refinement Phase 4C — Company Details (committed with 4C.1)
+
+- Repository: `main`, HEAD "Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet
+  (Global UI Refinement Phase 4B.1)" (pushed). **Phase 4C is in the working tree, uncommitted** (commit/push only when asked; update the
+  root `PROJECT_HANDOFF.md` in the commit).
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE4C.md`, screenshots/reference `docs/design/phase4c/`): Company Details reordered for beginners
+  (identity & price → chart → why it moved → At a Glance + ranges → Understand <company> → Valuation & financial health → Earnings → News);
+  wrapping header actions; market status chip with neutral closed (switch removed); At a Glance in one `StockMetricGrid` with the "(YoY)"
+  qualifier moved to the supporting line (truncation fixed); duplicates removed (chart stats, key ratios, sector section); valuation/earnings
+  links as `StockNavigationRow`s; assessment badges wrap below titles; watchlist star blue; new shared `CompanyDetailsPresentation` + 4 tests.
+- Results: core JVM/iOS 430/0, shared Android 100/0, shared iOS 96/0, `assembleDebug` OK, iOS `xcodebuild` OK. Devices: Android light/dark and
+  1.3× at 360 dp, iOS light and dark XXXL, temporary iPhone SE 375 pt (deleted); settings restored, MOCK server stopped (iOS read from the LAN MOCK backend — see §PHASE4C1). Not run: screen
+  readers, loading/offline/error states on device, negative/missing-value companies on device.
+- Next: user review → Phase 5 only after approval.
 
 ## PHASE4B1. Global UI Refinement Phase 4B.1 — Markets final-reference refinement (committed and pushed) — read first
 

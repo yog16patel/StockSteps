@@ -6,6 +6,17 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**Global UI Refinement Phase 4C.1 (Company Details polish) — committed and pushed with 4C as "Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)" (2026-10-10)**: chart scroll conflict fixed
+on Android and iOS, dated quote time, price block with one spoken summary, primary/secondary header actions, duplicate source links removed.
+Core 430/0 (JVM, iOS), shared Android 101/0, shared iOS 97/0, `assembleDebug` and iOS `xcodebuild` OK. **Correction:** iOS device checks in
+Phases 4A–4C.1 used the LAN MOCK backend configured in the app (not the local server). TalkBack/VoiceOver passes still outstanding. Details
+`docs/GLOBAL_UI_REFINEMENT_PHASE4C_1.md`. **Next**: review → Phase 5 on approval.
+
+**Global UI Refinement Phase 4C (Company Details) — committed and pushed with 4C.1 (2026-10-10)**: beginner order (identity & price
+→ chart → why it moved → At a Glance → Understand → Valuation & financial health → Earnings → News), neutral closed status chip, At a Glance
+truncation fixed, duplicate values removed, navigation rows for research links. Core 430/0 (JVM, iOS), shared Android 100/0, shared iOS 96/0,
+`assembleDebug` and iOS `xcodebuild` OK. Details `docs/GLOBAL_UI_REFINEMENT_PHASE4C.md`. **Next**: review → Phase 5 on approval.
+
 **Global UI Refinement Phase 4B.1 (Markets final-reference refinement) — committed and pushed as "Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)" (2026-10-10)**: compact
 "US Market" status card (calendar-based next open, one-line sample footer), US-only indices, sector methodology in an (i) sheet, brief
 labels on their own line. Core 430/0 (JVM, iOS), shared Android 96/0, shared iOS 92/0, `assembleDebug` and iOS `xcodebuild` OK. Details

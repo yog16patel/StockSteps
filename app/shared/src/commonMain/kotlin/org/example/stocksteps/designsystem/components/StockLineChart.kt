@@ -1,7 +1,7 @@
 package org.example.stocksteps.designsystem.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -77,9 +77,11 @@ internal fun StockLineChart(
                     }
                     .pointerInput(closes) {
                         fun index(x: Float) = ((x / size.width) * closes.lastIndex).toInt().coerceIn(0, closes.lastIndex)
-                        detectDragGestures(
+                        // Horizontal only (Phase 4C.1): a vertical drag that starts on the chart scrolls the page instead of scrubbing,
+                        // which mattered at large font scale where the chart fills most of the screen.
+                        detectHorizontalDragGestures(
                             onDragStart = { touched = index(it.x).also(onScrub) },
-                            onDrag = { change, _ -> touched = index(change.position.x).also(onScrub) },
+                            onHorizontalDrag = { change, _ -> touched = index(change.position.x).also(onScrub) },
                             onDragEnd = { touched = null; onScrub(null) },
                             onDragCancel = { touched = null; onScrub(null) }
                         )
