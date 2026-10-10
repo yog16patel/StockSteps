@@ -55,17 +55,15 @@ internal fun StockStepsAuthHeader() {
         modifier = Modifier.semantics(mergeDescendants = true) { heading() }) {
         Box(
             Modifier.size(AuthTokens.logoSize.adp).clip(RoundedCornerShape(AuthTokens.logoRadius.adp))
-                .background(Brush.linearGradient(listOf(colors.primaryBright(), colors.primary, colors.primaryDark))),
+                .background(Brush.linearGradient(listOf(colors.primaryBright, colors.primary, colors.primaryDark))),
             contentAlignment = Alignment.Center
-        ) { Text("S", style = AuthTokens.logo.authStyle(), color = Color.White) }
+        ) { Text("S", style = AuthTokens.logo.authStyle(), color = colors.onPrimary) }
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text("StockSteps", style = AuthTokens.brand.authStyle(), color = colors.textPrimary)
             Text("Learn  •  Practice  •  Invest Smarter", style = AuthTokens.tagline.authStyle(), color = colors.textSecondary)
         }
     }
 }
-
-private fun org.example.stocksteps.designsystem.theme.StockStepsColors.primaryBright() = Color(0xFF2997FF)
 
 /**
  * "Build your investing skills" with a decorative chart (rising curve, translucent bars, soft glow).
@@ -94,6 +92,7 @@ private fun AuthChartIllustration(modifier: Modifier) {
     val colors = StockStepsTheme.colors
     val dark = colors.isDark
     val primary = colors.primary
+    val glow = colors.brandGlow
     Canvas(modifier) {
         val w = size.width; val h = size.height
         // Soft glow behind the chart.
@@ -119,7 +118,7 @@ private fun AuthChartIllustration(modifier: Modifier) {
             cubicTo(w * 0.80f, h * 0.22f, w * 0.88f, h * 0.13f, end.x, end.y)
         }
         drawPath(curve, primary.copy(alpha = 0.25f), style = Stroke(14.dp.toPx(), cap = StrokeCap.Round))
-        drawPath(curve, Brush.linearGradient(listOf(primary.copy(alpha = 0.4f), primary, Color(0xFF6CB8FF)), start = start, end = end),
+        drawPath(curve, Brush.linearGradient(listOf(primary.copy(alpha = 0.4f), primary, glow), start = start, end = end),
             style = Stroke(4.dp.toPx(), cap = StrokeCap.Round))
         val head = 11.dp.toPx()
         drawPath(Path().apply {
@@ -127,7 +126,7 @@ private fun AuthChartIllustration(modifier: Modifier) {
             lineTo(end.x - head, end.y - head * 0.05f)
             lineTo(end.x - head * 0.05f, end.y + head)
             close()
-        }, Color(0xFF6CB8FF))
+        }, glow)
     }
 }
 
@@ -230,16 +229,16 @@ internal fun StockStepsAuthButton(text: String, enabled: Boolean, loading: Boole
     val colors = StockStepsTheme.colors
     Box(
         Modifier.fillMaxWidth().heightIn(min = AuthTokens.controlHeight.adp).clip(RoundedCornerShape(AuthTokens.controlRadius.adp))
-            .background(Brush.horizontalGradient(listOf(colors.primary, Color(0xFF2F8FFF))))
+            .background(Brush.horizontalGradient(listOf(colors.primary, colors.primaryGradientEnd)))
             .clickable(enabled = enabled && !loading, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
             .alpha(if (enabled || loading) 1f else 0.6f)
             .semantics { if (loading) stateDescription = "Signing in" },
         contentAlignment = Alignment.Center
     ) {
-        Text(text, style = AuthTokens.button.authStyle().copy(fontSize = 17.sp), color = Color.White)
+        Text(text, style = AuthTokens.button.authStyle().copy(fontSize = 17.sp), color = colors.onPrimary)
         Box(Modifier.align(Alignment.CenterEnd).padding(end = 20.dp)) {
-            if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-            else Icon(StockIcons.ArrowForward, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+            if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = colors.onPrimary, strokeWidth = 2.dp)
+            else Icon(StockIcons.ArrowForward, contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(22.dp))
         }
     }
 }

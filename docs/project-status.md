@@ -21,6 +21,12 @@ report `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`. Server tests 481/0 (3 ski
 (report §6a: non-root, no secrets, fail-fast config, JSON logs, probes, SIGTERM, `--network none`; 203 MB compressed). Verdict: READY WITH CONDITIONS for Phase 5B (staging deploy). Next: image vulnerability scan;
 owner inputs in `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1; then Phase 5B only on explicit request.
 
+**Global UI Refinement Phase 1 (design-system foundation) — committed and pushed as "Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS" (2026-10-10)**: shared tokens refined (dark palette
+targets, AA-fixed `textTertiary`, text-role aliases, type scale body 15/caption 12/tiny 11, new spacing roles, corners 8/12/16/20, auth
+gradient colours tokenised); Compose and iOS bridges updated (iOS Dynamic Type style by token size, `stockFont`). Shared Android 65/0, shared iOS
+61/0, `assembleDebug` OK, iOS `xcodebuild` OK. Details `docs/GLOBAL_UI_REFINEMENT_PHASE1.md`; handoff `docs/PROJECT_HANDOFF.md` §00000.
+**Next**: Phase 2 (reusable components, screenshot baseline first).
+
 **Phase 5C.1 (committed and pushed: "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs"; closure docs committed and pushed as "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan") — current state**: iOS walkthroughs A–G done; critical iOS navigation hang and stuck search fixed;
 launch requests 19–21 → 13; duplicate screen requests removed; minor #1–#4/#6 fixed; #7/#8 deferred (MOCK fixtures). **Final matrix on the final
 code, all green**: server 482/0 (3 skipped, Firestore emulator), core JVM 429/0, core iOS 429/0, shared Android 55/0, shared iOS 51/0, `assembleDebug`

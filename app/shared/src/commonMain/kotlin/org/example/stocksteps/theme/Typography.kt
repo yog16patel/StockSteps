@@ -5,25 +5,35 @@ package org.example.stocksteps.theme
 // digits for financial numbers (Compose "tnum", SwiftUI monospacedDigit).
 data class ThemeTextStyle(val size: Int, val lineHeight: Int, val weight: Int, val tabular: Boolean = false)
 
+/**
+ * Shared type scale (Global UI Refinement Phase 1). Hierarchy: values and titles dominate, body text reads at 15, supporting text
+ * steps down to 14/13/12 and is coloured with `textSecondary`/`textTertiary` (colour is chosen per use, not baked into the style).
+ * Body line heights are ~1.4×; nothing here sets a fixed height, so text grows with Android font scale and iOS Dynamic Type.
+ */
 object ThemeTypography {
-    val display = ThemeTextStyle(32, 38, 700)
-    val largeNumber = ThemeTextStyle(26, 32, 700, tabular = true)
-    val screenTitle = ThemeTextStyle(24, 30, 700)
-    val sectionTitle = ThemeTextStyle(18, 24, 600)
-    val cardTitle = ThemeTextStyle(16, 21, 600)
-    val body = ThemeTextStyle(14, 20, 400)
-    val bodyMedium = ThemeTextStyle(14, 20, 500)
-    val bodySemiBold = ThemeTextStyle(14, 20, 600)
-    val small = ThemeTextStyle(13, 18, 400)
-    val label = ThemeTextStyle(12, 16, 500)
-    val caption = ThemeTextStyle(11, 15, 400)
-    val tiny = ThemeTextStyle(10, 13, 500)
+    val display = ThemeTextStyle(36, 44, 700)
+    // 32 rather than the 34 target: hero values (portfolio total, price, P/E, practice total) share a line with the currency
+    // code on 360-dp phones; 32 keeps them dominant over screenTitle (28) without new wrapping at default font scale.
+    val largeNumber = ThemeTextStyle(32, 40, 700, tabular = true)
+    val screenTitle = ThemeTextStyle(28, 34, 700)
+    val sectionTitle = ThemeTextStyle(20, 26, 600)
+    val cardTitle = ThemeTextStyle(17, 22, 600)
+    val body = ThemeTextStyle(15, 21, 400)
+    val bodyMedium = ThemeTextStyle(15, 21, 500)
+    val bodySemiBold = ThemeTextStyle(15, 21, 600)
+    val small = ThemeTextStyle(14, 20, 400)
+    val label = ThemeTextStyle(13, 18, 500)
+    val caption = ThemeTextStyle(12, 16, 400)
+    // Medium (not the Regular target): tiny is used for badges and pills, where 11 sp regular is hard to read.
+    val tiny = ThemeTextStyle(11, 14, 500)
 
-    // Financial values use the same scale with tabular digits.
-    val numberEmphasis = cardTitle.copy(tabular = true)
-    val numberMedium = bodyMedium.copy(tabular = true)
-    val numberLabel = label.copy(tabular = true)
-    val numberLabelStrong = ThemeTextStyle(12, 16, 600, tabular = true)
+    // Financial values: same scale family with tabular digits.
+    // numberEmphasis 18 rather than the 22 target: it sits in single-line metric grids (At a Glance, Markets index cards,
+    // valuation) that already truncate long values; it moves to 22 with the wrapping metric component in Phase 2.
+    val numberEmphasis = ThemeTextStyle(18, 24, 600, tabular = true)
+    val numberMedium = ThemeTextStyle(17, 22, 600, tabular = true)
+    val numberLabel = ThemeTextStyle(13, 18, 400, tabular = true)
+    val numberLabelStrong = ThemeTextStyle(13, 18, 500, tabular = true)
 
     // Legacy names used by screens that have not migrated to the design system yet.
     val headline = screenTitle

@@ -12,38 +12,68 @@ object ThemeSpacing {
     val xxl = 24
     val xxxl = 32
 
-    // Semantic aliases.
+    // Semantic roles. Prefer these in new code; they are the only spacing names refined components should use.
+    /** Horizontal screen padding. */
     val screen = lg
+    /**
+     * Default card padding (`StockCard`, `.stockCard`, `StockRow` horizontal inset). Kept at the compact 12 in Phase 1 because
+     * changing it narrows every card and row before Phase 2 makes their content wrap; Phase 2 moves it to [cardPaddingStandard].
+     */
     val cardPadding = md
+    /** Target standard card padding for refined components (Phase 2). */
+    val cardPaddingStandard = lg
+    /** Spacious cards: hero summaries, promotional and educational containers. */
+    val cardPaddingSpacious = xl
     val educationalCardPadding = lg
+    /** Gap between cards in a screen list. */
+    val contentGap = md
+    /**
+     * Today: the card gap on Home, Portfolio, Portfolio Insights, Practice and Daily Brief (same value as [contentGap]).
+     * Phase 3 moves those lists to [contentGap]; then this becomes the gap between major sections ([xxl] = 24).
+     */
     val sectionGap = md
+    /** Gap between items inside a card (rows, chips, stacked lines). */
+    val itemGap = sm
+    /** Label above its value. */
+    val labelValueGap = xs
+    /** Vertical gap between form fields. */
+    val formFieldGap = md
+    /** Heading to its description. */
     val related = sm
+    /** Compact icon-to-label gap. */
     val iconText = sm
+    /** Title to subtitle inside a compact row. */
     val titleSubtitle = xxs
 
-    // Legacy names used by screens that have not migrated to the design system yet.
+    // Legacy names used by screens that have not migrated to the design system yet (tiny/small/medium/large/extraLarge are
+    // still used; migrate them to the scale names when their screens are refined). The off-grid values have no users left.
     val tiny = xs
-    val space6 = 6
+    @Deprecated("Off the 4-pt grid and unused; use xs (4) or sm (8).") val space6 = 6
     val small = sm
-    val space10 = 10
+    @Deprecated("Off the 4-pt grid and unused; use sm (8) or md (12).") val space10 = 10
     val medium = md
-    val space14 = 14
+    @Deprecated("Off the 4-pt grid and unused; use md (12) or lg (16).") val space14 = 14
     val large = lg
     val extraLarge = xxl
-    val space30 = 30
-    val space40 = 40
+    @Deprecated("Off the 4-pt grid and unused; use xxl (24) or xxxl (32).") val space30 = 30
+    @Deprecated("Unused; use xxxl (32).") val space40 = 40
 }
 
+/**
+ * Corner radii (Phase 1): chip 8 · button 12 · card 16 · large container 20. Compose `StockStepsTheme.shapes` and SwiftUI read the
+ * same values. Phase 1 raised button 10 → 12, card 12 → 16 and cardLarge 16 → 20 (radius only; no layout change).
+ */
 object ThemeCorners {
     val chip = 8
-    val button = 10
-    val card = 12
-    val cardLarge = 16
+    val button = 12
+    val card = 16
+    /** Large promotional / hero containers. */
+    val cardLarge = 20
 
     // Legacy names.
     val small = chip
     val medium = card
-    val large = 20
+    val large = cardLarge
 }
 
 object ThemeDimensions {

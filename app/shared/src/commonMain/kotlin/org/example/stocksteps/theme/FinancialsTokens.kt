@@ -2,8 +2,9 @@ package org.example.stocksteps.theme
 
 /** Financial card geometry shared by Compose and SwiftUI (dp / points). */
 object FinancialsTokens {
-    val twoColumnMinWidth = 300
-    val largeTextScale = 1.3f
+    // Same breakpoints as the rest of the app (were duplicated literals).
+    val twoColumnMinWidth = ThemeDimensions.multiColumnMinWidth
+    val largeTextScale = ThemeDimensions.largeFontScale
     val skeletonLabelWidth = 80
     val skeletonValueWidth = 110
     val skeletonContextWidth = 130

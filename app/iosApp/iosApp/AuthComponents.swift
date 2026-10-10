@@ -20,9 +20,9 @@ struct StockStepsAuthHeader: View {
         HStack(spacing: 12) {
             Text("S")
                 .font(AuthTheme.font(t.logo, .title2))
-                .foregroundStyle(.white)
+                .foregroundStyle(colors.onPrimary)
                 .frame(width: CGFloat(t.logoSize), height: CGFloat(t.logoSize))
-                .background(LinearGradient(colors: [Color(red: 0.16, green: 0.59, blue: 1), colors.primary, colors.primaryDark], startPoint: .topLeading, endPoint: .bottomTrailing),
+                .background(LinearGradient(colors: [colors.primaryBright, colors.primary, colors.primaryDark], startPoint: .topLeading, endPoint: .bottomTrailing),
                             in: RoundedRectangle(cornerRadius: CGFloat(t.logoRadius)))
             VStack(alignment: .leading, spacing: 1) {
                 Text("StockSteps").font(AuthTheme.font(t.brand, .title2)).foregroundStyle(colors.textPrimary)
@@ -44,7 +44,7 @@ struct StockStepsAuthHero: View {
     var body: some View {
         let height = CGFloat(compact ? t.heroHeightCompact : t.heroHeight)
         ZStack(alignment: .leading) {
-            AuthChartIllustration(primary: colors.primary, dark: dark)
+            AuthChartIllustration(primary: colors.primary, glow: colors.brandGlow, dark: dark)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .frame(height: height)
                 .accessibilityHidden(true)
@@ -64,6 +64,8 @@ struct StockStepsAuthHero: View {
 
 private struct AuthChartIllustration: View {
     let primary: Color
+    /// `StockColors.brandGlow` (shared palette).
+    let glow: Color
     let dark: Bool
     var body: some View {
         GeometryReader { geo in
@@ -85,7 +87,7 @@ private struct AuthChartIllustration: View {
                     p.addCurve(to: CGPoint(x: x0 + w * 0.96, y: h * 0.06), control1: CGPoint(x: x0 + w * 0.80, y: h * 0.22), control2: CGPoint(x: x0 + w * 0.88, y: h * 0.13))
                 }
                 curve.stroke(primary.opacity(0.25), style: StrokeStyle(lineWidth: 14, lineCap: .round))
-                curve.stroke(LinearGradient(colors: [primary.opacity(0.4), primary, Color(red: 0.42, green: 0.72, blue: 1)], startPoint: .bottomLeading, endPoint: .topTrailing),
+                curve.stroke(LinearGradient(colors: [primary.opacity(0.4), primary, glow], startPoint: .bottomLeading, endPoint: .topTrailing),
                              style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 Path { p in
                     let e = CGPoint(x: x0 + w * 0.96, y: h * 0.06), head: CGFloat = 11
@@ -93,7 +95,7 @@ private struct AuthChartIllustration: View {
                     p.addLine(to: CGPoint(x: e.x - head, y: e.y - head * 0.05))
                     p.addLine(to: CGPoint(x: e.x - head * 0.05, y: e.y + head))
                     p.closeSubpath()
-                }.fill(Color(red: 0.42, green: 0.72, blue: 1))
+                }.fill(glow)
             }
         }
     }
@@ -244,13 +246,13 @@ struct StockStepsAuthButton: View {
                 Text(title).font(AuthTheme.font(AuthTheme.tokens.button, .headline).weight(.semibold))
                 HStack {
                     Spacer()
-                    if loading { ProgressView().tint(.white) } else { Image(systemName: "arrow.right").font(.headline) }
+                    if loading { ProgressView().tint(colors.onPrimary) } else { Image(systemName: "arrow.right").font(.headline) }
                 }
                 .padding(.trailing, 20)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(colors.onPrimary)
             .frame(maxWidth: .infinity, minHeight: AuthTheme.height)
-            .background(LinearGradient(colors: [colors.primary, Color(red: 0.18, green: 0.56, blue: 1)], startPoint: .leading, endPoint: .trailing),
+            .background(LinearGradient(colors: [colors.primary, colors.primaryGradientEnd], startPoint: .leading, endPoint: .trailing),
                         in: RoundedRectangle(cornerRadius: AuthTheme.radius))
             .opacity(enabled || loading ? 1 : 0.6)
         }

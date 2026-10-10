@@ -55,8 +55,20 @@ data class ThemePalette(
     val learnAccent: Int,
     val onLearnAccent: Int,
     // Brand logos are drawn for light backgrounds, so their tile stays light in dark mode.
-    val logoContainer: Int
+    val logoContainer: Int,
+    // StockSteps-owned brand gradient stops (sign-in hero, logo tile, primary call to action). Not Google's colours.
+    val brandGlow: Int,
+    val primaryGradientEnd: Int
 ) {
+    // Text roles (Global UI Refinement Phase 1): names for intent, mapped onto the existing ramp — not a second palette.
+    /** Page titles and major financial values. */
+    val textTitle: Int get() = textPrimary
+    val textValue: Int get() = textPrimary
+    /** Supporting labels, descriptions, units. */
+    val textSupporting: Int get() = textSecondary
+    /** Timestamps, metadata, source labels, optional guidance. */
+    val textMeta: Int get() = textTertiary
+
     // Legacy names used by screens that have not migrated to the design system yet.
     val background: Int get() = appBackground
     val surfaceVariant: Int get() = surfaceSecondary
@@ -76,32 +88,37 @@ object ThemeColors {
         caution = 0xE87924, cautionContainer = 0xFFF0E4, cautionBorder = 0xF5C9A5,
         negative = 0xE5484D, negativeBright = 0xFF5B57, negativeContainer = 0xFDEEEE, negativeBorder = 0xF4C1C1,
         textPrimary = 0x0F172A, textBody = 0x334155, textSecondary = 0x475569,
-        textTertiary = 0x64748B, textDisabled = 0x94A3B8,
+        // textTertiary 0x64748B → 0x5F6F86 (Phase 1): 4.39:1 on surfaceSecondary was below WCAG AA; now ≥ 4.58:1 on every light surface.
+        textTertiary = 0x5F6F86, textDisabled = 0x94A3B8,
         iconPrimary = 0x1E293B, iconSecondary = 0x64748B,
         primaryText = 0x0866C6, positiveText = 0x0E7F54, negativeText = 0xD13338,
         educationContainer = 0xFFF4E6, educationAccent = 0xE07B1F, logoContainer = 0xFFFFFF,
         cautionText = 0xB45309,
-        learnContainerStart = 0xF1ECFF, learnContainerEnd = 0xE6F0FF, learnAccent = 0x3A3FB8, onLearnAccent = 0xFFFFFF
+        learnContainerStart = 0xF1ECFF, learnContainerEnd = 0xE6F0FF, learnAccent = 0x3A3FB8, onLearnAccent = 0xFFFFFF,
+        brandGlow = 0x6CB8FF, primaryGradientEnd = 0x2F8FFF
     )
 
     // Dark is not an inverted light theme: navy grounds, lighter surfaces, subtle borders.
     // The dark spec has no SurfaceSecondary; SurfaceElevated serves that role.
+    // Phase 1: background/surfaces/borders/text moved to the refined navy targets (cards separate a little more from the background).
     val dark = ThemePalette(
-        appBackground = 0x07111C, backgroundAlt = 0x091522,
-        surface = 0x0D1B2A, surfaceElevated = 0x122334, surfaceSecondary = 0x122334, surfaceSelected = 0x17314A,
-        border = 0x243647, borderSubtle = 0x192A39,
+        appBackground = 0x06111D, backgroundAlt = 0x091522,
+        surface = 0x101F30, surfaceElevated = 0x142538, surfaceSecondary = 0x142538, surfaceSelected = 0x17314A,
+        border = 0x26384B, borderSubtle = 0x1B2D40,
         primary = 0x1683FF, primaryBright = 0x2997FF, primaryDark = 0x0866C6,
         primaryContainer = 0x123A5D, primaryTint = 0x62AEFF, onPrimary = 0xFFFFFF,
         positive = 0x20D98B, positiveBright = 0x3EE6A0, positiveContainer = 0x103A31, positiveBorder = 0x17664E,
         warning = 0xF5B942, warningBright = 0xFFC857, warningContainer = 0x40341B, warningBorder = 0x705B25,
         caution = 0xFF9D42, cautionContainer = 0x432D19, cautionBorder = 0x75491F,
         negative = 0xFF5B57, negativeBright = 0xFF665F, negativeContainer = 0x442020, negativeBorder = 0x75302E,
-        textPrimary = 0xF5F7FA, textBody = 0xD4DCE4, textSecondary = 0xAAB7C4,
-        textTertiary = 0x718091, textDisabled = 0x526171,
+        textPrimary = 0xF5F7FB, textBody = 0xD2DAE4, textSecondary = 0xA8B5C5,
+        // textTertiary 0x718091 → 0x94A3B8 (Phase 1): 4.31:1 on surface / 3.95:1 on surfaceElevated was below WCAG AA; now ≥ 6:1.
+        textTertiary = 0x94A3B8, textDisabled = 0x526171,
         iconPrimary = 0xEAF0F6, iconSecondary = 0x8FA0B2,
         primaryText = 0x62AEFF, positiveText = 0x20D98B, negativeText = 0xFF5B57,
         educationContainer = 0x2A2116, educationAccent = 0xF5B942, logoContainer = 0xE8EEF4,
         cautionText = 0xF5B942,
-        learnContainerStart = 0x221D45, learnContainerEnd = 0x132A4A, learnAccent = 0xB4B8FF, onLearnAccent = 0x0D1B2A
+        learnContainerStart = 0x221D45, learnContainerEnd = 0x132A4A, learnAccent = 0xB4B8FF, onLearnAccent = 0x0D1B2A,
+        brandGlow = 0x6CB8FF, primaryGradientEnd = 0x2F8FFF
     )
 }

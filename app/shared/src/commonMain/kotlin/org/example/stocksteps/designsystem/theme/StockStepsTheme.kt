@@ -72,8 +72,17 @@ internal data class StockStepsColors(
     val learnContainerStart: Color,
     val learnContainerEnd: Color,
     val learnAccent: Color,
-    val onLearnAccent: Color
-)
+    val onLearnAccent: Color,
+    val primaryBright: Color,
+    val brandGlow: Color,
+    val primaryGradientEnd: Color
+) {
+    // Text roles mapped onto the ramp (see ThemePalette): titles/values, supporting copy, metadata.
+    val textTitle: Color get() = textPrimary
+    val textValue: Color get() = textPrimary
+    val textSupporting: Color get() = textSecondary
+    val textMeta: Color get() = textTertiary
+}
 
 @Immutable
 internal data class StockStepsTypography(
@@ -109,7 +118,15 @@ internal data class StockStepsSpacing(
     val screen: Dp = ThemeSpacing.screen.dp,
     val cardPadding: Dp = ThemeSpacing.cardPadding.dp,
     val educationalCardPadding: Dp = ThemeSpacing.educationalCardPadding.dp,
-    val sectionGap: Dp = ThemeSpacing.sectionGap.dp
+    val sectionGap: Dp = ThemeSpacing.sectionGap.dp,
+    val cardPaddingStandard: Dp = ThemeSpacing.cardPaddingStandard.dp,
+    val cardPaddingSpacious: Dp = ThemeSpacing.cardPaddingSpacious.dp,
+    val contentGap: Dp = ThemeSpacing.contentGap.dp,
+    val itemGap: Dp = ThemeSpacing.itemGap.dp,
+    val labelValueGap: Dp = ThemeSpacing.labelValueGap.dp,
+    val formFieldGap: Dp = ThemeSpacing.formFieldGap.dp,
+    val related: Dp = ThemeSpacing.related.dp,
+    val iconText: Dp = ThemeSpacing.iconText.dp
 )
 
 @Immutable
@@ -236,7 +253,8 @@ private fun ThemePalette.toComposeColors(isDark: Boolean) = StockStepsColors(
     logoContainer = logoContainer.color(),
     cautionText = cautionText.color(),
     learnContainerStart = learnContainerStart.color(), learnContainerEnd = learnContainerEnd.color(),
-    learnAccent = learnAccent.color(), onLearnAccent = onLearnAccent.color()
+    learnAccent = learnAccent.color(), onLearnAccent = onLearnAccent.color(),
+    primaryBright = primaryBright.color(), brandGlow = brandGlow.color(), primaryGradientEnd = primaryGradientEnd.color()
 )
 
 private fun StockStepsColors.toMaterialScheme() = (if (isDark) darkColorScheme() else lightColorScheme()).copy(

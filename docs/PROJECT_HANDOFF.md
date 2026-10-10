@@ -1,10 +1,40 @@
-# StockSteps — session handoff (2026-10-09, end of session: Phase 5C.1 closed — PASS WITH CONDITIONS; LAN redeploy and UI plan approval pending)
+# StockSteps — session handoff (2026-10-10: Global UI Refinement Phase 1 committed and pushed; Phase 5C.1 closed — PASS WITH CONDITIONS)
 
 Read order for a new session: `CLAUDE.md` → **§0000 below** → §000 → `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md`
 → §00 (Phase 5B Local) → §0 (Phase 5A) → the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## 0000. Phase 5C.1 — where the latest session stopped (read first)
+## 00000. Global UI Refinement Phase 1 — design-system foundation (read first)
+
+### Repository state
+- Branch `main`. Current commit: "Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS" (pushed), on top of "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan" (pushed).
+  Commit/push only when the user asks; every commit updates the root `PROJECT_HANDOFF.md`.
+
+### What Phase 1 did (details, before/after tables: `docs/GLOBAL_UI_REFINEMENT_PHASE1.md`)
+- Shared tokens (`app/shared/src/commonMain/kotlin/org/example/stocksteps/theme/`): dark palette moved to the refined navy targets; `textTertiary`
+  fixed for WCAG AA (light `5F6F86`, dark `94A3B8`); text-role aliases `textTitle/textValue/textSupporting/textMeta`; new `brandGlow`,
+  `primaryGradientEnd`; type scale raised (body 15, caption 12, tiny 11, titles/heroes larger; `largeNumber` 32 and `numberEmphasis` 18 held
+  below targets on purpose); new spacing roles (`cardPaddingStandard/Spacious`, `contentGap`, `itemGap`, `labelValueGap`, `formFieldGap`) while
+  `cardPadding`/`sectionGap` keep 12; `space6/10/14/30/40` deprecated (unused); corners button 12, card 16, cardLarge 20; `FinancialsTokens`
+  reuses `ThemeDimensions`.
+- Bridges: Compose `designsystem/theme/StockStepsTheme.kt` (new colours, aliases, spacing); iOS `Theme.swift` (default Dynamic Type style by
+  token size, `lineSpacing`, `View.stockFont`, new colours/aliases).
+- Sign-in: `presentation/account/AuthComponents.kt` and `AuthComponents.swift` use `primaryBright`/`brandGlow`/`primaryGradientEnd`/`onPrimary`
+  (same RGB, no visual change); Google-button colours kept.
+- Tests: new `app/shared/src/commonTest/.../theme/DesignTokensTest.kt` (10).
+
+### Results (2026-10-10)
+`./gradlew :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue` BUILD SUCCESSFUL — shared
+Android host 65/0, shared iOS 61/0, `assembleDebug` OK; iOS `xcodebuild` BUILD SUCCEEDED. Server/core not re-run (not touched). Screens were
+not visually reviewed (no simulator/emulator use without approval).
+
+### Risks / next
+- Inherited changes: larger text everywhere → more truncation where screens force one line (Screener, Markets, At a Glance, Earnings);
+  rounder cards; lighter dark cards, brighter metadata. White on `primary` is 3.67:1 (primary button label) — brand decision for Phase 2.
+- Next: Phase 2 reusable components, starting with a light/dark × default/largest-text screenshot
+  baseline (needs approval for simulator/emulator use). LAN redeploy (5C.1 brief wording) still awaiting approval.
+
+## 0000. Phase 5C.1 — where the latest session stopped
 
 ### Repository state (verified at handoff, 2026-10-09 ~17:15 EDT)
 - Branch `main`. Current commit: "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan" (doc-only, pushed) on top of

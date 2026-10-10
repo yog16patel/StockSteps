@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-09 (America/Toronto). Current commit: **Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan** on `main` (doc-only, pushed).
-Previous commit: **"Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs"** (pushed); before it **"Fix Phase 5C mobile integration bugs and add end-to-end verification report"** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS** on `main` (pushed).
+Previous commit: **"Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan"** (doc-only, pushed); before it **"Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs"** (pushed) and **"Fix Phase 5C mobile integration bugs and add end-to-end verification report"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
@@ -48,6 +48,15 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Global UI Refinement Phase 1 — design-system foundation (2026-10-10) — commit "Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"
+
+Shared design tokens refined (no screen redesign): dark palette moved to the refined navy targets; `textTertiary` fixed for WCAG AA in both
+modes; text-role aliases; type scale raised (body 15, caption 12, tiny 11; `largeNumber` 32 and `numberEmphasis` 18 held below targets
+because of single-line layouts); new spacing roles with `cardPadding`/`sectionGap` values kept; unused off-grid spacing aliases deprecated;
+corners button 12 / card 16 / large 20; sign-in gradient colours moved into the palette (same appearance, Google colours kept); iOS fonts
+default to the nearest Dynamic Type style plus a line-height helper. New `DesignTokensTest` (10). Shared Android 65/0, shared iOS 61/0,
+`assembleDebug` OK, iOS `xcodebuild` OK. Details: `docs/GLOBAL_UI_REFINEMENT_PHASE1.md`; handoff `docs/PROJECT_HANDOFF.md` §00000.
 
 ## Phase 5C.1 closure (2026-10-09) — commit "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan"
 
