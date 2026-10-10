@@ -251,6 +251,31 @@ object MarketsPresenter {
         return "${if (h % 12 == 0) 12 else h % 12}:${m.toString().padStart(2, '0')} ${if (h < 12) "AM" else "PM"}"
     }
 
+    /**
+     * Compact session line for the Markets status card (Phase 4B): "Closes · 4:00 PM ET" while open (with "early" on early-close days),
+     * otherwise "Next open · Fri, Oct 9 · 9:30 AM ET" (or "Next open · today · 9:30 AM ET"). Uses only the backend's exchange calendar
+     * fields ([MarketSession.closesAt], [MarketSession.nextOpenLocal]) — holidays and weekends are already resolved there; null when the
+     * calendar gave nothing.
+     */
+    fun sessionLine(session: MarketSession): String? = runCatching {
+        // Non-breaking spaces keep "9:30 AM ET" together when the line wraps at large text.
+        fun time(hhmm: String) = clock(hhmm).replace(' ', '\u00A0') + "\u00A0ET"
+        when {
+            session.status == MarketSessionStatus.OPEN -> session.closesAt?.let { "${if (session.earlyClose) "Closes early" else "Closes"} · ${time(it)}" }
+            session.nextOpenLocal != null -> {
+                val local = session.nextOpenLocal!!
+                val date = local.take(10)
+                val opens = time(local.substring(11, 16))
+                val day = if (date == session.sessionDate) "today" else dayNumber(date)?.let { days ->
+                    val (_, month, dom) = civil(days.toLong())
+                    "${WEEKDAYS[(((days + 3) % 7) + 7) % 7]}, ${MONTHS[month - 1]} $dom"
+                } ?: return@runCatching null
+                "Next open · $day · $opens"
+            }
+            else -> null
+        }
+    }.getOrNull()
+
     /** "2026-10-12T09:30" → "Mon, Oct 12 at 9:30 AM" (or "today at …" when the same date). */
     private fun localDateTimeLabel(local: String, today: String?): String {
         val date = local.take(10)

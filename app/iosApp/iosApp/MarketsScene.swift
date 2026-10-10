@@ -107,7 +107,7 @@ struct MarketsScene: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 title(colors).padding(.top, CGFloat(space.md))
                 if let content = model.model {
-                    header(content.header, market: model.overview?.session.market, colors).padding(.top, CGFloat(space.md))
+                    header(content.header, session: model.overview?.session, colors).padding(.top, CGFloat(space.md))
                     indices(content, colors).padding(.top, CGFloat(space.sectionGap))
                 } else if model.loading {
                     VStack(spacing: CGFloat(space.sm)) {
@@ -162,33 +162,33 @@ struct MarketsScene: View {
         }
     }
 
-    /// Market status card: session dot + label in words (closed is neutral, not red), next open/close, market and source update time, sample notice.
-    private func header(_ header: MarketHeaderModel, market: String?, _ colors: StockColors) -> some View {
+    /// Compact US Market status card (Phase 4B.1): "US Market" + Sample badge, dot + short status in words (closed is neutral, not red),
+    /// the calendar's next open/close line and one short footer; the full data notice is the footer's spoken label.
+    private func header(_ header: MarketHeaderModel, session: MarketSession?, _ colors: StockColors) -> some View {
         let dot: Color = switch present.statusDot(tone: header.tone) {
         case .open: colors.positive
         case .extended: colors.warning
         default: colors.textDisabled
         }
-        return VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            StockSectionHeader(title: "Market status") {
+        let indent = CGFloat(space.sm + space.sm)
+        return VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            StockSectionHeader(title: present.STATUS_TITLE) {
                 if header.sampleData { StockStatusBadge(text: "Sample", kind: .sample, size: .compact) }
             }
-            HStack(alignment: .firstTextBaseline, spacing: CGFloat(space.sm)) {
+            HStack(spacing: CGFloat(space.sm)) {
                 Circle().fill(dot).frame(width: CGFloat(space.sm), height: CGFloat(space.sm)).accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                    Text(header.statusLabel).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
-                    if let detail = header.detail {
-                        Text(detail).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSupporting)
-                    }
-                }
+                Text(session.map { present.statusLabel(session: $0) } ?? header.statusLabel)
+                    .font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
             }
-            .accessibilityElement(children: .combine)
-            if let meta = present.statusMeta(header: header, market: market) {
-                Text(meta).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+            if let line = session.flatMap({ present.sessionLine(session: $0) }) ?? header.detail {
+                Text(line).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSupporting)
+                    .padding(.leading, indent)
             }
-            if !header.notice.isEmpty {
-                Text(header.notice).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
+            if let footer = present.statusFooter(header: header) {
+                Text(footer).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
                     .foregroundStyle(header.sampleData ? colors.cautionText : colors.textMeta)
+                    .padding(.leading, indent)
+                    .accessibilityLabel(present.statusFooterDescription(header: header))
             }
         }
         .stockCard()
@@ -199,11 +199,12 @@ struct MarketsScene: View {
     private func indices(_ content: MarketsUiModel, _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
             StockSectionHeader(title: "Major indices")
-            if content.indicesFailed || content.indices.isEmpty {
+            let indices = present.usIndices(cards: content.indices, quotes: model.overview?.indices ?? [])
+            if content.indicesFailed || indices.isEmpty {
                 StockSectionMessage(message: "Market indices aren't available right now.", actionTitle: "Try again", action: model.load).stockCard()
             } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(content.indices.enumerated()), id: \.element.id) { n, card in
+                    ForEach(Array(indices.enumerated()), id: \.element.id) { n, card in
                         if n > 0 { StockDivider().padding(.leading, CGFloat(space.cardPadding)) }
                         Button { lesson = model.client.indexLesson(id: card.id) } label: { indexRow(card, colors) }
                             .buttonStyle(.plain)
@@ -269,8 +270,9 @@ struct MarketsScene: View {
                 let now = brief.client.now()
                 let caution = brief.client.isStale(brief: latest) || state?.offline == true
                 StockNavigationRow(title: "Your Daily Market Brief",
-                                   detail: home.briefMeta(brief: latest, nowMillis: now, offline: state?.offline == true) + (latest.sampleData ? " · Sample data" : ""),
+                                   detail: present.briefDetail(brief: latest, nowMillis: now),
                                    icon: "newspaper", detailColor: caution ? colors.cautionText : colors.textMeta,
+                                   secondaryDetail: present.briefLabels(brief: latest, offline: state?.offline == true),
                                    hint: home.briefAction(brief: latest, nowMillis: now), action: onDailyBrief)
                 StockDivider()
                 Button("Previous briefs", action: onBriefHistory)
@@ -361,7 +363,13 @@ struct MarketsScene: View {
 
     private func sectors(_ sectors: SectorsModel, _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-            StockSectionHeader(title: "Sector Performance")
+            StockSectionHeader(title: "Sector Performance") {
+                Button { lesson = present.methodologyLesson(sectors: sectors) } label: {
+                    Image(systemName: "info.circle").foregroundStyle(colors.iconSecondary)
+                        .frame(width: CGFloat(dims.touchTarget), height: CGFloat(dims.touchTarget))
+                }
+                .accessibilityLabel(present.SECTORS_INFO)
+            }
             VStack(spacing: 0) {
                 if sectors.failed {
                     StockSectionMessage(message: "This section couldn't be loaded.", actionTitle: "Try again", action: model.load).padding(.vertical, CGFloat(space.sm))
@@ -381,7 +389,7 @@ struct MarketsScene: View {
             }
             .padding(.horizontal, CGFloat(space.cardPadding)).padding(.vertical, CGFloat(space.xs))
             .stockCard(padding: 0)
-            Text("\(sectors.period). \(sectors.methodology)").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+            Text(present.sectorsCaption(sectors: sectors)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
         }
     }
 
@@ -410,7 +418,7 @@ struct MarketsScene: View {
                 }
             }
         }
-        .padding(.vertical, CGFloat(space.xs))
+        .padding(.vertical, typeSize >= .xxxLarge ? CGFloat(space.xs) : 0)
         .frame(minHeight: CGFloat(dims.touchTarget))
         .contentShape(Rectangle())
     }

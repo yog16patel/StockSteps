@@ -6,6 +6,11 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**Global UI Refinement Phase 4B.1 (Markets final-reference refinement) — committed and pushed as "Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)" (2026-10-10)**: compact
+"US Market" status card (calendar-based next open, one-line sample footer), US-only indices, sector methodology in an (i) sheet, brief
+labels on their own line. Core 430/0 (JVM, iOS), shared Android 96/0, shared iOS 92/0, `assembleDebug` and iOS `xcodebuild` OK. Details
+`docs/GLOBAL_UI_REFINEMENT_PHASE4.md` §Phase 4B.1. **Next**: review → Phase 4C on approval.
+
 **Global UI Refinement Phase 4B (Markets) — committed and pushed as "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS" (2026-10-10)**: data-first Markets (status card with a
 neutral closed state, grouped index rows, brief entry row, grouped research-tool rows via the new `StockNavigationRow`, wrapping sector
 names), unused `DailyBriefPreviewCard` removed. Core 429/0 (JVM, iOS), shared Android 92/0, shared iOS 88/0, `assembleDebug` and iOS

@@ -2,7 +2,8 @@
 
 Status: **Phase 4A (Home) committed and pushed** as "Redesign Home with a market overview and portfolio summary (Global UI Refinement
 Phase 4A) on Android and iOS". **Phase 4B (Markets) implemented, verified, committed and pushed** as "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS" (2026-10-10). Phase 4C (Company Details) has
-not started and waits for review of 4B. Reference: the Phase 3.1 Portfolio screen
+not started and waits for review of 4B. **Phase 4B.1 (Markets refinement to the final reference) committed and pushed** ("Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)")
+(2026-10-10). Reference: the Phase 3.1 Portfolio screen
 (`docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md`, `docs/design/phase3_1/`). UI-only: no formulas, API contracts, endpoints, entitlements,
 navigation destinations, Firebase or MOCK fixtures changed.
 
@@ -205,3 +206,58 @@ behaviour, not specific to this screen); after relaunch every header and row sca
 Phase 4B is ready for review. **Phase 4C (Company Details) starts only after approval.** Carry-overs: Company Details still uses the
 read-only `MarketStatusIndicator` (red track when closed) — align it with the neutral closed tone; reuse `StockNavigationRow` for its
 research entries and `MarketsScreenPresentation`-style source-time lines; fix "At a Glance" truncation (`+14.9 % (Y…`).
+
+---
+
+## Phase 4B.1 — Markets refinement to the final reference
+
+Reference: `docs/design/phase4b/stocksteps-markets-ui-reference-final.webp` ("Phase 4B Final Reference", visual guidance only; none of its
+values, times or open states were copied). Device use: the Phase 4B-approved iPhone 16 Simulator and emulator-5554 with the local MOCK server
+(stopped afterwards; all settings restored).
+
+### 1. Changes (Android and iOS)
+| Area | Phase 4B | Phase 4B.1 |
+|---|---|---|
+| Status card | "Market status", long "Market closed/After-hours" label, detail, market name + update line, full sample sentence (5 lines) | **"US Market"** + Sample badge; dot + short status ("Open", "Pre-market", "After-hours", "Closed", "Closed for the weekend", "Closed · <holiday>", "Status unavailable"); **"Next open · Fri, Oct 9 · 9:30 AM ET"** / "Closes · 4:00 PM ET" (early close named) from the backend calendar; one footer — "Sample quotes · Not live" for sample data, otherwise the source "Updated …" time; the full data notice is the footer's spoken label. ~100 pt tall at default size |
+| Indices | US and Canadian indices | **US only** (by the API's `region`): S&P 500, Nasdaq Composite, Dow Jones Industrial Average. TSX stays in the data, the Daily Brief and Home |
+| Brief card | Detail with "· Sample data" appended | Freshness · read time on one line; "Sample data" / "Offline copy" on their own line |
+| Sectors | Full ETF methodology paragraph under the card | Short caption "Change since the previous close. Measured with sector ETFs."; the backend's full methodology in an **(i) sheet** ("How sector performance is measured"); rows at the 48 dp/pt touch-target minimum (extra padding only at large text) |
+| Research tools | Earnings fallback "See when companies are reporting results" | "Upcoming earnings dates and reports" (real counts replace it when known) |
+| Wrapping | — | "9:30 AM ET" kept together with non-breaking spaces (it wrapped as "9:30 AM / ET" at 1.3×) |
+
+Unchanged (already matched the reference or the requirements): screen order, Top Movers tabs and rows (company names two lines at large
+text), research-tool rows, Market News rows, Today's lesson card with Learn more (opens the lesson sheet), disclaimer, five-tab navigation.
+
+### 2. Files
+- Core: `markets/MarketsPresentation.kt` — new `MarketsPresenter.sessionLine(session)` (display formatting of the backend's `closesAt` /
+  `earlyClose` / `nextOpenLocal`; no calendar logic), test `MarketsPresenterTest.sessionLineUsesTheBackendCalendarOnly`.
+- Shared: `presentation/markets/MarketsScreenPresentation.kt` (status label/line/footer, US-only filter, brief detail/labels, sector
+  caption + methodology lesson), test `MarketsScreenPresentationTest` (+5 rules; `statusMeta` removed).
+- Android: `presentation/markets/MarketsScene.kt`. iOS: `MarketsScene.swift`.
+
+### 3. Differences from the reference and why
+- **Index sparklines** appear only when the indices card is ≥ 380 dp/pt wide (emulator 427 dp: shown; iPhone 16 / SE / 360 dp: hidden).
+  At the app's accessible type sizes a sparkline on a 393 pt phone squeezed the index name and quote time to ~105 pt (Phase 4B finding);
+  the reference uses smaller text than the design system allows.
+- **"Dow Jones Industrial Average"** keeps its full API name (wraps) instead of the reference's "Dow Jones".
+- **No "View all"** on indices or news and no extra news screen (no destinations exist).
+- **Sector rows** are taller than the reference (48 dp/pt touch targets; each row opens its lesson).
+- **Top Movers tabs** stay the Phase 2 pill selector (blue filled selection) rather than a segmented track.
+- **Lesson topic** rotates daily from reviewed content (the reference's "When is the US stock market open?" appears on its day).
+- **Status footer for REAL data** shows the update time; delayed/cached notices are spoken in full and visible in the brief/offline labels.
+- Design tokens were not changed to the reference hex values; the shared semantic tokens remain authoritative (as the task allows).
+
+### 4. Verification (actually performed)
+- Tests: core JVM **430/0**, core iOS **430/0** (+1), shared Android **96/0**, shared iOS **92/0** (+4 net), `assembleDebug` OK, iOS
+  `xcodebuild` BUILD SUCCEEDED (after the final edit).
+- Devices: iOS light + dark, Android light; iOS XXXL; Android 1.3× at 360 dp (status line wrap fixed and re-checked); Android sector (i)
+  sheet opens with the backend methodology. The iOS card showed "Closed · Next open · Fri, Oct 9" and Android "After-hours · Next open ·
+  Thu, Oct 8" at the same moment because each device's MOCK clock had advanced differently — both come from the calendar data.
+- NOT RUN in 4B.1: VoiceOver/TalkBack walkthrough, iPhone SE (the temporary simulator from 4B was deleted), error/offline states (unchanged
+  code paths, verified in 4B), movers tab switching on device.
+- Evidence (`docs/design/phase4b/`): `final-top-ios-light-ios-dark-android-light.jpg`, `final-android-light-full.jpg`,
+  `final-large-text-ios-xxxl-android-1.3x-360dp.jpg`, `final-android-sector-methodology-sheet.jpg`.
+
+### 5. Remaining issues / next
+- Screen-reader walkthroughs still outstanding for Home and Markets.
+- Phase 4C (Company Details) only after approval; carry-over: Company Details' `MarketStatusIndicator` still uses a red track when closed.

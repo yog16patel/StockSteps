@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS** on `main` (pushed).
-Previous commit: **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)** on `main` (pushed).
+Previous commit: **"Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"** (pushed); before it **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
@@ -48,6 +48,15 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Global UI Refinement Phase 4B.1 — Markets final-reference refinement (2026-10-10) — commit "Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)"
+
+On top of "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS". Compact "US Market" status card (short status, calendar-based "Next open · Fri, Oct 9 · 9:30 AM ET" via new core
+`MarketsPresenter.sessionLine`, one-line "Sample quotes · Not live" footer with the full notice spoken), US-only indices (TSX removed from
+Markets by API region), brief labels on their own line, short sector caption with the methodology in an (i) sheet, compact sector rows,
+non-breaking "9:30 AM ET". Tests: core JVM/iOS 430/0, shared Android 96/0, shared iOS 92/0, `assembleDebug`, iOS `xcodebuild`. Devices: iOS
+light/dark/XXXL, Android light and 1.3× at 360 dp. Not run: screen readers, iPhone SE, error states (verified in 4B). Details:
+`docs/GLOBAL_UI_REFINEMENT_PHASE4.md` §Phase 4B.1. Next: Phase 4C (Company Details) after review.
 
 ## Global UI Refinement Phase 4B — Markets (2026-10-10) — commit "Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"
 

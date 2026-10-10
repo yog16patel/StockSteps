@@ -1,9 +1,22 @@
 # StockSteps — session handoff (2026-10-10, end of session: Global UI Refinement Phases 1, 1A, 2, 3 and 3.1 committed and pushed)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE4B below** → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE4B1 below** → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PHASE4B1. Global UI Refinement Phase 4B.1 — Markets final-reference refinement (committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)" (pushed), on top of Phase 4B. Commit/push only when the user asks; every commit
+  updates the root `PROJECT_HANDOFF.md`.
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE4.md` §Phase 4B.1; reference `docs/design/phase4b/stocksteps-markets-ui-reference-final.webp`):
+  compact "US Market" status card (short status, calendar-based "Next open · Fri, Oct 9 · 9:30 AM ET" via new core
+  `MarketsPresenter.sessionLine`, one-line "Sample quotes · Not live" footer with the full notice spoken); US-only indices (TSX removed
+  from Markets by API region); brief card labels on their own line; sector caption shortened with the methodology in an (i) sheet; compact
+  sector rows; non-breaking "9:30 AM ET".
+- Results: core JVM/iOS 430/0, shared Android 96/0, shared iOS 92/0, `assembleDebug` OK, iOS `xcodebuild` OK. Devices: iOS light/dark/XXXL,
+  Android light and 1.3× at 360 dp, sector sheet; settings restored, MOCK server stopped. Not run: screen readers, iPhone SE, error states.
+- Next: user review → Phase 4C (Company Details) only after approval.
 
 ## PHASE4B. Global UI Refinement Phase 4B — Markets (committed and pushed) — read first
 

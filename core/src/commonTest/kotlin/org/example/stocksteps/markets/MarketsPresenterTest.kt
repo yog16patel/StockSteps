@@ -103,4 +103,20 @@ class MarketsPresenterTest {
             assertFailsWith<StockDataException> { GetMarketsOverview(RemoteMarketsRepository(StockStepsApi(client, "https://stocksteps.test")))() }
         }
     }
+
+    @Test
+    fun sessionLineUsesTheBackendCalendarOnly() {
+        // After-hours on Wed Oct 7: next open from the calendar (Thu Oct 8), never from device weekday logic.
+        assertEquals("Next open · Thu, Oct 8 · 9:30\u00A0AM\u00A0ET", MarketsPresenter.sessionLine(session(MarketSessionStatus.AFTER_HOURS)))
+        // A holiday Monday: the calendar already skipped to Tuesday; the line just reports it.
+        assertEquals("Next open · Tue, Oct 13 · 9:30\u00A0AM\u00A0ET",
+            MarketsPresenter.sessionLine(session(MarketSessionStatus.HOLIDAY, nextOpenLocal = "2026-10-13T09:30", holiday = "Columbus Day")))
+        assertEquals("Next open · today · 9:30\u00A0AM\u00A0ET", MarketsPresenter.sessionLine(session(MarketSessionStatus.PRE_MARKET, nextOpenLocal = "2026-10-07T09:30")))
+        assertEquals("Closes · 4:00\u00A0PM\u00A0ET", MarketsPresenter.sessionLine(session(MarketSessionStatus.OPEN)))
+        assertEquals("Closes early · 1:00\u00A0PM\u00A0ET",
+            MarketsPresenter.sessionLine(session(MarketSessionStatus.OPEN).copy(closesAt = "13:00", earlyClose = true)))
+        // Calendar unavailable or malformed: no line rather than a guess.
+        assertNull(MarketsPresenter.sessionLine(session(MarketSessionStatus.UNKNOWN, nextOpenLocal = null)))
+        assertNull(MarketsPresenter.sessionLine(session(MarketSessionStatus.CLOSED, nextOpenLocal = "garbage")))
+    }
 }

@@ -142,9 +142,9 @@ internal fun MarketsScreen(
                             }
                         }
                     } else {
-                        item(key = "header") { SessionHeader(model.header, state.overview?.session?.market, content.padding(top = spacing.md)) }
+                        item(key = "header") { SessionHeader(model.header, state.overview?.session, content.padding(top = spacing.md)) }
                         item(key = "indices") {
-                            Indices(model, onOpen = { id -> lesson = MarketEducation.index(id) }, onRetry = { onAction(MarketsAction.Retry) }, modifier = section)
+                            Indices(model, state.overview?.indices.orEmpty(), onOpen = { id -> lesson = MarketEducation.index(id) }, onRetry = { onAction(MarketsAction.Retry) }, modifier = section)
                         }
                     }
                     if (brief != null) item(key = "daily-brief") { BriefEntry(brief, onAction, section) }
@@ -152,6 +152,7 @@ internal fun MarketsScreen(
                         item(key = "movers") { Movers(model.movers, onAction, section) }
                         item(key = "sectors") {
                             Sectors(model.sectors, onOpen = { row -> lesson = MarketEducation.sector(row.sector, row.symbol, model.sectors.methodology) },
+                                onInfo = { lesson = MarketsScreenPresentation.methodologyLesson(model.sectors) },
                                 onRetry = { onAction(MarketsAction.Retry) }, modifier = section)
                         }
                     }
@@ -193,48 +194,55 @@ private fun Title(modifier: Modifier, onSearch: () -> Unit) {
     }
 }
 
-/** Market status card: session dot + label in words (closed is neutral, not red), next open/close, market and source update time, sample notice. */
+/**
+ * Compact US Market status card (Phase 4B.1): "US Market" + Sample badge, dot + short status in words (closed is neutral, not red), the
+ * calendar's next open/close line, and one short footer ("Sample quotes · Not live" or the source update time). The full data notice is
+ * the footer's spoken description.
+ */
 @Composable
-private fun SessionHeader(header: MarketHeaderModel, market: String?, modifier: Modifier) {
+private fun SessionHeader(header: MarketHeaderModel, session: org.example.stocksteps.model.MarketSession?, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    StockCard(modifier, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        StockSectionHeader("Market status", trailing = if (header.sampleData) {
+    val present = MarketsScreenPresentation
+    StockCard(modifier, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+        StockSectionHeader(present.STATUS_TITLE, trailing = if (header.sampleData) {
             { StockStatusBadge("Sample", org.example.stocksteps.theme.StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT) }
         } else null)
-        Row(Modifier.semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Box(Modifier.padding(top = spacing.xs + spacing.xxs).size(spacing.sm).clip(androidx.compose.foundation.shape.CircleShape).background(
-                when (MarketsScreenPresentation.statusDot(header.tone)) {
+        Row(Modifier.semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Box(Modifier.size(spacing.sm).clip(androidx.compose.foundation.shape.CircleShape).background(
+                when (present.statusDot(header.tone)) {
                     MarketsScreenPresentation.StatusDot.OPEN -> colors.positive
                     MarketsScreenPresentation.StatusDot.EXTENDED -> colors.caution
                     MarketsScreenPresentation.StatusDot.NEUTRAL -> colors.textDisabled
                 }
             ))
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                Text(header.statusLabel, style = typography.bodySemiBold, color = colors.textTitle)
-                header.detail?.let { Text(it, style = typography.small, color = colors.textSupporting) }
-            }
+            Text(session?.let(present::statusLabel) ?: header.statusLabel, style = typography.bodySemiBold, color = colors.textTitle)
         }
-        MarketsScreenPresentation.statusMeta(header, market)?.let { Text(it, style = typography.caption, color = colors.textMeta) }
-        if (header.notice.isNotBlank()) Text(header.notice, style = typography.caption, color = if (header.sampleData) colors.cautionText else colors.textMeta)
+        val indent = Modifier.padding(start = spacing.sm + spacing.sm)
+        (session?.let(present::sessionLine) ?: header.detail)?.let { Text(it, indent, style = typography.small, color = colors.textSupporting) }
+        present.statusFooter(header)?.let {
+            Text(it, indent.semantics { contentDescription = present.statusFooterDescription(header) }, style = typography.caption,
+                color = if (header.sampleData) colors.cautionText else colors.textMeta)
+        }
     }
 }
 
 /** Major indices as one grouped card of rows: name and source quote time left, value and signed change right; stacked at large text. */
 @Composable
-private fun Indices(model: MarketsUiModel, onOpen: (String) -> Unit, onRetry: () -> Unit, modifier: Modifier) {
+private fun Indices(model: MarketsUiModel, quotes: List<org.example.stocksteps.model.IndexQuote>, onOpen: (String) -> Unit, onRetry: () -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
     Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         StockSectionHeader("Major indices")
-        if (model.indicesFailed || model.indices.isEmpty()) {
+        val indices = MarketsScreenPresentation.usIndices(model.indices, quotes)
+        if (model.indicesFailed || indices.isEmpty()) {
             StockCard { StockErrorState(stringResource(Res.string.markets_indices_failed), onRetry) }
             return@Column
         }
         BoxWithConstraints {
             val width = maxWidth.value
             StockCard(contentPadding = PaddingValues(vertical = spacing.xxs)) {
-                model.indices.forEachIndexed { n, card ->
+                indices.forEachIndexed { n, card ->
                     if (n > 0) StockDivider(startIndent = spacing.cardPadding)
                     IndexRow(card, showTrend = MarketsScreenPresentation.showTrend(width, card), onClick = { onOpen(card.id) })
                 }
@@ -292,8 +300,8 @@ private fun BriefEntry(brief: org.example.stocksteps.brief.DailyBriefUiState, on
                 val now = org.example.stocksteps.presentation.brief.briefNow()
                 val caution = org.example.stocksteps.brief.BriefFormat.isStale(latest, now) || brief.offline
                 StockNavigationRow("Your Daily Market Brief", { onAction(MarketsAction.DailyBrief) },
-                    detail = org.example.stocksteps.presentation.home.HomeDashboardPresentation.briefMeta(latest, now, brief.offline) +
-                        if (latest.sampleData) " · Sample data" else "",
+                    detail = MarketsScreenPresentation.briefDetail(latest, now),
+                    secondaryDetail = MarketsScreenPresentation.briefLabels(latest, brief.offline),
                     icon = StockIcons.News, detailColor = if (caution) colors.cautionText else colors.textMeta,
                     actionLabel = org.example.stocksteps.presentation.home.HomeDashboardPresentation.briefAction(latest, now))
                 StockDivider()
@@ -386,11 +394,16 @@ private fun MoverRow(mover: MoverRowModel, tab: MoversTab, onAction: (MarketsAct
 }
 
 @Composable
-private fun Sectors(sectors: SectorsModel, onOpen: (SectorRowModel) -> Unit, onRetry: () -> Unit, modifier: Modifier) {
+private fun Sectors(sectors: SectorsModel, onOpen: (SectorRowModel) -> Unit, onInfo: () -> Unit, onRetry: () -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        StockSectionHeader(stringResource(Res.string.markets_sectors_title))
+        StockSectionHeader(stringResource(Res.string.markets_sectors_title), trailing = {
+            IconButton(onClick = onInfo) {
+                Icon(StockIcons.Info, contentDescription = MarketsScreenPresentation.SECTORS_INFO, tint = colors.iconSecondary,
+                    modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+            }
+        })
         StockCard(contentPadding = PaddingValues(horizontal = spacing.cardPadding, vertical = spacing.xs)) {
             when {
                 sectors.failed -> StockErrorState(stringResource(Res.string.markets_section_failed), onRetry, Modifier.padding(vertical = spacing.sm))
@@ -400,7 +413,7 @@ private fun Sectors(sectors: SectorsModel, onOpen: (SectorRowModel) -> Unit, onR
                 }
             }
         }
-        Text("${sectors.period}. ${sectors.methodology}", style = StockStepsTheme.typography.caption, color = colors.textMeta)
+        Text(MarketsScreenPresentation.sectorsCaption(sectors), style = StockStepsTheme.typography.caption, color = colors.textMeta)
     }
 }
 
@@ -419,7 +432,7 @@ private fun SectorRow(row: SectorRowModel, onClick: () -> Unit) {
     val rowModifier = Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
         .clickable(role = Role.Button, onClick = onClick)
         .clearAndSetSemantics { contentDescription = row.accessibilityLabel }
-        .padding(vertical = spacing.xs)
+        .then(if (largeText) Modifier.padding(vertical = spacing.xs) else Modifier)
     if (largeText) {
         Column(rowModifier, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
             Text(row.sector, style = StockStepsTheme.typography.small, color = colors.textBody)
