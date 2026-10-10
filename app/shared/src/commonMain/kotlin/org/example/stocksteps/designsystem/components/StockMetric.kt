@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import org.example.stocksteps.companydetail.PriceDirection
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
@@ -72,9 +73,16 @@ internal data class StockMetricItem(
  */
 @Composable
 internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = Modifier, maxColumns: Int = 3) {
-    val fontScale = LocalDensity.current.fontScale
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val valueStyle = StockStepsTheme.typography.numberEmphasis
+    val labelStyle = StockStepsTheme.typography.label
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        val columns = StockLayout.metricColumns(items.size, maxWidth.value, fontScale, maxColumns)
+        val widest = items.maxOfOrNull { item ->
+            val value = (if (item.direction != null && item.direction != PriceDirection.UNAVAILABLE) "↑\u00A0" else "") + item.value
+            maxOf(measurer.measure(value, valueStyle).size.width, measurer.measure(item.label, labelStyle).size.width)
+        }?.let { with(density) { it.toDp().value } } ?: 0f
+        val columns = StockLayout.metricColumns(items.size, maxWidth.value, density.fontScale, maxColumns, widest, StockStepsTheme.spacing.md.value)
         Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.itemGap)) {
             items.chunked(columns).forEach { row ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {

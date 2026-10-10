@@ -56,8 +56,12 @@ internal fun StockTrendChart(
     val spacing = StockStepsTheme.spacing
     var selected by remember(values) { mutableStateOf<Int?>(null) }
     val focus = selected ?: values.indexOfLast { it != null }
-    val high = maxOf(valid.max(), reference ?: valid.max())
-    val low = minOf(valid.min(), reference ?: valid.min())
+    val rawHigh = maxOf(valid.max(), reference ?: valid.max())
+    val rawLow = minOf(valid.min(), reference ?: valid.min())
+    // A flat series (every value equal) is drawn through the middle, not along the bottom edge (Phase 3).
+    val flat = rawHigh <= rawLow
+    val high = if (flat) rawHigh + 1.0 else rawHigh
+    val low = if (flat) rawLow - 1.0 else rawLow
     val span = (high - low).takeIf { it > 0 } ?: 1.0
     Column(modifier.semantics(mergeDescendants = true) { contentDescription = description }) {
         Text(details.getOrNull(focus).orEmpty(), Modifier.clearAndSetSemantics {}, style = typography.label, color = colors.textPrimary)

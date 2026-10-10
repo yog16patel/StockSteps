@@ -99,6 +99,9 @@ class DesignTokensTest {
         assertEquals(1, StockLayout.metricColumns(count = 3, availableWidth = 343f, fontScale = 1.5f))
         assertEquals(1, StockLayout.metricColumns(count = 4, availableWidth = 60f, fontScale = 1f))
         assertEquals(4, StockLayout.metricColumns(count = 6, availableWidth = 600f, fontScale = 1f, maxColumns = 4))
+        // Phase 3: a measured value wider than a third of the row ("↑ +2,129.33" ≈ 115pt) drops to two columns.
+        assertEquals(2, StockLayout.metricColumns(count = 3, availableWidth = 329f, fontScale = 1f, widestContent = 115f, gap = 12f))
+        assertEquals(3, StockLayout.metricColumns(count = 3, availableWidth = 329f, fontScale = 1f, widestContent = 80f, gap = 12f))
     }
 
     @Test

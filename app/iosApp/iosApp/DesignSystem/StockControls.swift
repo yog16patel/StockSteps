@@ -113,8 +113,15 @@ struct StockMetricGrid: View {
     @State private var width: CGFloat = 0
     var body: some View {
         let scale = UIFontMetrics.default.scaledValue(for: 1, compatibleWith: UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize)))
+        let valueFont = StockStepsTheme.uiFont(type.numberEmphasis, typeSize: typeSize)
+        let labelFont = StockStepsTheme.uiFont(type.label, typeSize: typeSize)
+        let widest = items.map { item in
+            let value = ((item.direction.map { $0 != .unavailable } ?? false) ? "↑\u{00A0}" : "") + item.value
+            return max((value as NSString).size(withAttributes: [.font: valueFont]).width, (item.label as NSString).size(withAttributes: [.font: labelFont]).width)
+        }.max() ?? 0
         let columns = width > 0
-            ? Int(StockLayout.shared.metricColumns(count: Int32(items.count), availableWidth: Float(width), fontScale: Float(scale), maxColumns: Int32(maxColumns)))
+            ? Int(StockLayout.shared.metricColumns(count: Int32(items.count), availableWidth: Float(width), fontScale: Float(scale), maxColumns: Int32(maxColumns),
+                                                   widestContent: Float(widest), gap: Float(space.md)))
             : 1
         Grid(alignment: .topLeading, horizontalSpacing: CGFloat(space.md), verticalSpacing: CGFloat(space.itemGap)) {
             ForEach(Array(stride(from: 0, to: items.count, by: columns)), id: \.self) { start in

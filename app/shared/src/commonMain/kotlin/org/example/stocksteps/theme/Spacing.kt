@@ -133,10 +133,12 @@ object StockLayout {
      * Columns for a metric grid of [count] items in [availableWidth] dp/pt: as many as fit at [ThemeDimensions.metricMinColumnWidth]
      * (scaled by [fontScale]), at most [maxColumns]; one column above [ThemeDimensions.largeFontScale].
      */
-    fun metricColumns(count: Int, availableWidth: Float, fontScale: Float, maxColumns: Int = 3): Int {
+    fun metricColumns(count: Int, availableWidth: Float, fontScale: Float, maxColumns: Int = 3, widestContent: Float = 0f, gap: Float = 12f): Int {
         if (count <= 1) return 1
         if (fontScale > ThemeDimensions.largeFontScale) return 1
         val fit = (availableWidth / (ThemeDimensions.metricMinColumnWidth * fontScale.coerceAtLeast(1f))).toInt()
-        return fit.coerceIn(1, minOf(count, maxColumns))
+        // Phase 3: also respect the widest measured label/value, so "↑ +2,129.33" never breaks inside a too-narrow column.
+        val byContent = if (widestContent > 0f) ((availableWidth + gap) / (widestContent + gap)).toInt() else Int.MAX_VALUE
+        return minOf(fit, byContent).coerceIn(1, minOf(count, maxColumns))
     }
 }

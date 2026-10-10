@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline** on `main` (pushed).
-Previous commit: **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** (pushed); before it **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed) and **"Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan"** (doc-only, pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS** on `main` (pushed).
+Previous commit: **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed); before it **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** (pushed) and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
@@ -48,6 +48,16 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Global UI Refinement Phase 3 — Portfolio reference screen (2026-10-10) — commit "Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"
+
+Portfolio redesigned on Android and iOS (reference `docs/design/stocksteps-portfolio-reference.png`, illustrative values not used): segmented My
+Portfolio/Practice, account selector + Add, value hero (today's change or "unavailable", invested/unrealized/realized grid, freshness, SAMPLE
+badge), + Add transaction, performance card (compact empty state, no chart for < 2 values), compact holding rows, allocation bars, readable
+transactions with ⋯ menus, insights row, overflow menu, (i) explanations, one sync/offline banner. Shared `PortfolioPresentation`,
+`PortfolioChartRules`; content-aware `StockMetricGrid`, non-breaking arrows, centred flat charts; iOS allocation blank fixed. MSFT 13,144 %
+traced to the ledger (unit price 4 USD), calculations unchanged. Before/after screenshots `docs/design/phase3/`. Shared Android 80/0, shared iOS
+76/0, `assembleDebug` OK, iOS `xcodebuild` OK. Details: `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md`; handoff `docs/PROJECT_HANDOFF.md` §00000000.
 
 ## Global UI Refinement Phase 2 — remaining reusable components (2026-10-10) — commit "Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"
 

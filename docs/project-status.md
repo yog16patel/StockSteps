@@ -21,6 +21,12 @@ report `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`. Server tests 481/0 (3 ski
 (report §6a: non-root, no secrets, fail-fast config, JSON logs, probes, SIGTERM, `--network none`; 203 MB compressed). Verdict: READY WITH CONDITIONS for Phase 5B (staging deploy). Next: image vulnerability scan;
 owner inputs in `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1; then Phase 5B only on explicit request.
 
+**Global UI Refinement Phase 3 (Portfolio reference screen) — committed and pushed as "Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS" (2026-10-10)**: Portfolio redesigned on Android and
+iOS from `docs/design/stocksteps-portfolio-reference.png` with real data only (mode/account selectors, hero, performance card, compact rows,
+allocation bars, overflow menu, one sync banner); shared `PortfolioPresentation`; content-aware metric grids. MSFT 13,144 % traced to a
+ledger entry (unit price 4) — not a calculation bug. Shared Android 80/0, shared iOS 76/0, `assembleDebug` OK, iOS `xcodebuild` OK. Details
+`docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md`; screenshots `docs/design/phase3/`. **Next**: Phase 4 on approval.
+
 **Global UI Refinement Phase 2 (remaining reusable components) — committed and pushed as "Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline" (2026-10-10)**: shared badge/banner
 semantics (`StockSemanticStyles`), pill selector without truncation, selected chips/pills in the action blue, standard status badges
 (SIMULATED/Sample never split), title+badge layout, banners, editable search field, AA fixes (light `negativeText`, education eyebrow), row/

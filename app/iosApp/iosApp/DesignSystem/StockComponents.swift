@@ -75,8 +75,8 @@ struct StockPriceChange: View {
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         let (arrow, color, spoken): (String, Color, String) = switch direction {
-        case .up: ("↑ ", colors.positiveText, "up \(percentage)")
-        case .down: ("↓ ", colors.negativeText, "down \(percentage)")
+        case .up: ("↑\u{00A0}", colors.positiveText, "up \(percentage)")
+        case .down: ("↓\u{00A0}", colors.negativeText, "down \(percentage)")
         case .unchanged: ("", colors.textSecondary, "unchanged")
         default: ("", colors.textTertiary, "change unavailable")
         }

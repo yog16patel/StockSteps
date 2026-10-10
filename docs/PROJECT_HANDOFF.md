@@ -1,10 +1,28 @@
-# StockSteps — session handoff (2026-10-10: Global UI Refinement Phase 2, 1A and 1 committed and pushed)
+# StockSteps — session handoff (2026-10-10: Global UI Refinement Phases 1, 1A, 2 and 3 (Portfolio) committed and pushed)
 
 Read order for a new session: `CLAUDE.md` → **§0000 below** → §000 → `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md`
 → §00 (Phase 5B Local) → §0 (Phase 5A) → the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## 0000000. Global UI Refinement Phase 2 — remaining reusable components (read first)
+## 00000000. Global UI Refinement Phase 3 — Portfolio reference screen (read first)
+
+- Repository: `main`. Current commit: "Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS" (pushed), on top of "Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline" (pushed).
+  Commit/push only when asked; every commit updates the root `PROJECT_HANDOFF.md`.
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md`): Portfolio redesigned on both platforms (mode selector, account selector,
+  hero, + Add transaction, performance card, compact holding rows, cash/allocation/dividends/transactions cards, insights row, overflow menu,
+  (i) explanations, one sync banner); shared `PortfolioPresentation` + `PortfolioChartRules`; design-system fixes (content-aware
+  `StockMetricGrid`, non-breaking arrow in `StockPriceChange`, flat series centred in `StockTrendChart`); iOS allocation blank block fixed.
+- §14 finding: MSFT 13,144 % matches the ledger (opening position at unit price 4 → cost 12 USD) — a test-data artefact, calculations unchanged.
+- Files: `presentation/portfolio/PortfolioScreen.kt`, `PortfolioHistoryChart.kt`, new `PortfolioPresentation.kt`; design system `StockMetric.kt`,
+  `StockPriceChange.kt`, `StockTrendChart.kt`, theme `Spacing.kt`; iOS `PortfolioScreen.swift`, `PortfolioHistoryChart.swift`,
+  `DesignSystem/StockControls.swift`, `StockComponents.swift`; tests `PortfolioPresentationTest`, `DesignTokensTest`; docs; screenshots
+  `docs/design/phase3/`; reference `docs/design/stocksteps-portfolio-reference.png`.
+- Results: shared Android 80/0/0, shared iOS 76/0/0, `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED.
+- Devices (approved): spare iPhone 16 Simulator (restored, shut down) and emulator-5554 (debug build installed, font scale / size / app theme
+  restored; the user's own account is signed in there and was only viewed; samples are read-only). MOCK server stopped.
+- Next: Phase 4 (Home, Markets, Company Details) only after approval.
+
+## 0000000. Global UI Refinement Phase 2 — remaining reusable components
 
 - Repository: `main`. Current commit: "Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline" (pushed), on top of "Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls" (pushed).
   Commit/push only when asked; every commit updates the root `PROJECT_HANDOFF.md`.

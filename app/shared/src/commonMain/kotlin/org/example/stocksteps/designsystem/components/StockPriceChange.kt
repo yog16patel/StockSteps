@@ -33,8 +33,8 @@ internal fun StockPriceChange(
     val colors = StockStepsTheme.colors
     val value = listOfNotNull(amount, percentage).joinToString(" ")
     val (arrow, color, spoken) = when (direction) {
-        PriceDirection.UP -> Triple("↑ ", colors.positiveText, stringResource(Res.string.price_change_up, value))
-        PriceDirection.DOWN -> Triple("↓ ", colors.negativeText, stringResource(Res.string.price_change_down, value))
+        PriceDirection.UP -> Triple("↑\u00A0", colors.positiveText, stringResource(Res.string.price_change_up, value))
+        PriceDirection.DOWN -> Triple("↓\u00A0", colors.negativeText, stringResource(Res.string.price_change_down, value))
         PriceDirection.UNCHANGED -> Triple("", colors.textSecondary, stringResource(Res.string.price_change_unchanged))
         PriceDirection.UNAVAILABLE -> Triple("", colors.textTertiary, stringResource(Res.string.price_change_unavailable))
     }
