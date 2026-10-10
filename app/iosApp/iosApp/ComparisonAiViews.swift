@@ -220,7 +220,7 @@ struct ComparisonAiView: View {
                 Text(r.scope.name == "DECLINED" ? "StockSteps" : r.scope.name == "FALLBACK" ? "StockSteps (AI answer unavailable)" : "StockSteps AI")
                     .font(.caption.weight(.semibold)).foregroundStyle(colors.textSecondary).accessibilityAddTraits(.isHeader)
                 Spacer()
-                if r.sample { tag("Sample") }
+                if r.sample { StockStatusBadge(text: "Sample", kind: .sample, size: .compact) }
                 if r.cached { tag("Saved answer") }
             }
             Text(r.summary).font(.body)

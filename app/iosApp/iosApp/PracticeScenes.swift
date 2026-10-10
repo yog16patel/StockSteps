@@ -68,10 +68,8 @@ struct PracticeOrderTarget: Hashable, Identifiable {
 struct SimulatedBadge: View {
     @Environment(\.colorScheme) private var scheme
     var body: some View {
-        Text("SIMULATED").font(.caption2.weight(.bold))
-            .padding(.horizontal, CGFloat(space.sm)).padding(.vertical, CGFloat(space.xxs))
-            .background(StockStepsTheme.colors(scheme).warningContainer, in: Capsule())
-            .accessibilityLabel("Simulated with virtual money")
+        // Sample/MOCK disclosure badge (Phase 2): one line at its natural width — was "SIMU-LATED" split mid-word.
+        StockStatusBadge(text: "SIMULATED", kind: .sample, size: .compact, accessibilityText: "Simulated with virtual money")
     }
 }
 
@@ -85,11 +83,9 @@ struct PracticeEntryCard: View {
         let colors = StockStepsTheme.colors(scheme)
         Button(action: action) {
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                HStack {
+                StockTitleWithBadge {
                     Text(title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
-                    Spacer()
-                    SimulatedBadge()
-                }
+                } badge: { SimulatedBadge() }
                 Text(message).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).multilineTextAlignment(.leading)
             }
             .padding(CGFloat(space.cardPadding))
@@ -218,9 +214,10 @@ struct PracticeScreen: View {
     private func header(_ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             HStack {
-                Text("Practice Portfolio").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
-                Spacer()
-                SimulatedBadge()
+                StockTitleWithBadge {
+                    Text("Practice Portfolio").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
+                } badge: { SimulatedBadge() }
+                Spacer(minLength: 0)
                 if let state, state.overview != nil {
                     Menu("More") {
                         Button("Reset practice portfolio") { presenter.showReset() }.disabled(!state.canTrade)
@@ -434,7 +431,7 @@ struct PracticeScreen: View {
         return NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-                    HStack { Text("\(h.instrument.symbol) · \(h.instrument.name ?? "")").font(StockStepsTheme.font(type.sectionTitle)); Spacer(); SimulatedBadge() }
+                    StockTitleWithBadge { Text("\(h.instrument.symbol) · \(h.instrument.name ?? "")").font(StockStepsTheme.font(type.sectionTitle)) } badge: { SimulatedBadge() }
                     DetailRow(label: "Shares", value: client.shares(value: h.quantity))
                     DetailRow(label: "Average cost", value: client.price(value: h.averageCost, currency: base) + " per share")
                     DetailRow(label: "Current price", value: client.price(value: h.currentPrice, currency: h.priceCurrency) + (client.isoDate(iso: h.quoteAsOf).map { " · \($0)" } ?? ""))
@@ -687,12 +684,13 @@ struct PracticeOrderScreen: View {
     private func header(_ state: PracticeOrderState, _ colors: StockColors) -> some View {
         HStack(spacing: CGFloat(space.sm)) {
             StockTickerAvatar(symbol: state.symbol, logoUrl: state.preview?.instrument.logoUrl)
-            VStack(alignment: .leading) {
-                Text(state.preview?.instrument.name ?? state.symbol).font(StockStepsTheme.font(type.screenTitle, relativeTo: .title1)).accessibilityAddTraits(.isHeader)
-                Text([state.symbol, state.preview?.instrument.exchange].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(colors.textSecondary)
-            }
-            Spacer()
-            SimulatedBadge()
+            StockTitleWithBadge {
+                VStack(alignment: .leading) {
+                    Text(state.preview?.instrument.name ?? state.symbol).font(StockStepsTheme.font(type.screenTitle, relativeTo: .title1)).accessibilityAddTraits(.isHeader)
+                    Text([state.symbol, state.preview?.instrument.exchange].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(colors.textSecondary)
+                }
+            } badge: { SimulatedBadge() }
+            Spacer(minLength: 0)
         }
     }
 

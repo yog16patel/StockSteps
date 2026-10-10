@@ -84,15 +84,10 @@ struct StockNewsCard: View {
             HStack(spacing: CGFloat(space.sm)) {
                 if !text.isEmpty {
                     Text(text).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
-                        .foregroundStyle(compact ? colors.textTertiary : colors.textSecondary).lineLimit(1)
+                        .foregroundStyle(colors.textMeta).lineLimit(1)
                 }
                 if model.aiSimplified {
-                    Text("Simplified by AI")
-                        .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2))
-                        .foregroundStyle(colors.primaryText)
-                        .padding(.horizontal, CGFloat(space.sm))
-                        .padding(.vertical, CGFloat(space.xxs))
-                        .background(colors.primaryContainer, in: Capsule())
+                    StockStatusBadge(text: "Simplified by AI", kind: .info, size: .compact)
                 }
             }
         }

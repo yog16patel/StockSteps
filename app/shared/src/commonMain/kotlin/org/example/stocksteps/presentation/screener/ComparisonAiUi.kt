@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.example.stocksteps.designsystem.components.*
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
+import org.example.stocksteps.theme.StockBadgeKind
 import org.example.stocksteps.screener.*
 
 /** AI assistant actions (wired by the Scene to the shared presenter and the Compare screen). */
@@ -232,7 +233,7 @@ private fun AnswerCard(turn: AiTurn, r: ComparisonAiResponse, actions: Compariso
                 ComparisonAiScope.FALLBACK -> "StockSteps (AI answer unavailable)"
                 else -> "StockSteps AI"
             }, Modifier.weight(1f).semantics { heading() }, style = typography.label, color = colors.textSecondary)
-            if (r.sample) StockTag("Sample")
+            if (r.sample) StockStatusBadge("Sample", StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT)
             if (r.cached) StockTag("Saved answer")
         }
         Text(r.summary, style = typography.body, color = colors.textBody)

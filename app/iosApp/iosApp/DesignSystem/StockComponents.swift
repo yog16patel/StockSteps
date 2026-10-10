@@ -99,13 +99,14 @@ struct StockChip: View {
         let shape = Capsule()
         Button(action: action) {
             Text(title)
-                .font(StockStepsTheme.font(type.label, relativeTo: .footnote))
+                .font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(selected ? .semibold : .regular))
                 .foregroundStyle(selected ? colors.onPrimary : colors.textSecondary)
                 .lineLimit(1)
+                .fixedSize()
                 .padding(.horizontal, CGFloat(space.lg))
                 .frame(minHeight: CGFloat(dims.chipHeight))
-                // Strong blue selection; PrimaryDark keeps white text above 4.5:1.
-                .background(selected ? colors.primaryDark : colors.surfaceSecondary, in: shape)
+                // Selected = the accessible action blue with white text (4.86:1), like primary buttons (Phase 2; was primaryDark).
+                .background(selected ? colors.primaryAction : colors.surfaceSecondary, in: shape)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -136,14 +137,16 @@ struct StockRow<Trailing: View>: View {
                     if let name {
                         Text(name)
                             .font(StockStepsTheme.font(compact ? type.caption : type.small, relativeTo: compact ? .caption1 : .subheadline))
-                            .foregroundStyle(colors.textSecondary).lineLimit(1)
+                            .foregroundStyle(colors.textSupporting).lineLimit(1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if let sparkline {
                     sparkline.frame(width: CGFloat(dims.sparklineWidth), height: CGFloat(dims.sparklineHeight))
                 }
+                // Values keep their natural width (Phase 2): the company name truncates first, never the price or change.
                 VStack(alignment: .trailing, spacing: CGFloat(space.xxs)) { trailing() }
+                    .fixedSize(horizontal: true, vertical: false)
                     .padding(.leading, CGFloat(space.xs))
             }
             .padding(.horizontal, horizontalPadding)
@@ -174,7 +177,7 @@ struct StockRowValues: View {
     var body: some View {
         if let price {
             Text(price).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .footnote))
-                .foregroundStyle(StockStepsTheme.colors(scheme).textPrimary).lineLimit(1)
+                .foregroundStyle(StockStepsTheme.colors(scheme).textValue).lineLimit(1)
         }
         StockPriceChange(percentage: change, direction: direction, style: type.numberLabel)
     }

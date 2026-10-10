@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextOverflow
 import org.example.stocksteps.designsystem.components.*
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
+import org.example.stocksteps.theme.StockBadgeKind
 import org.example.stocksteps.practice.*
 
 /** Navigation and actions from Practice; the Screen never resolves dependencies. */
@@ -106,8 +107,9 @@ private fun Header(state: PracticeUiState, onAction: (PracticeAction) -> Unit) {
     var scenarios by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Text("Practice Portfolio", Modifier.weight(1f).semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
-            SimulatedBadge()
+            StockTitleWithBadge(Modifier.weight(1f), title = {
+                Text("Practice Portfolio", Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
+            }) { SimulatedBadge() }
             if (state.overview != null) Box {
                 TextButton(onClick = { menu = true }, modifier = Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)) { Text("More") }
                 DropdownMenu(menu, { menu = false }) {
@@ -131,9 +133,8 @@ private fun Header(state: PracticeUiState, onAction: (PracticeAction) -> Unit) {
 
 @Composable
 internal fun SimulatedBadge() {
-    Text("SIMULATED", Modifier.clip(StockStepsTheme.shapes.pill).background(StockStepsTheme.colors.warningContainer)
-        .padding(horizontal = StockStepsTheme.spacing.sm, vertical = StockStepsTheme.spacing.xxs).semantics { contentDescription = "Simulated with virtual money" },
-        style = StockStepsTheme.typography.tiny, color = StockStepsTheme.colors.textPrimary)
+    // Sample/MOCK disclosure badge (Phase 2): one line, never split mid-word ("SIMU-LATED" before).
+    StockStatusBadge("SIMULATED", StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT, contentDescription = "Simulated with virtual money")
 }
 
 @Composable
@@ -341,8 +342,9 @@ private fun HoldingSheet(h: PracticeHoldingView, base: String, canTrade: Boolean
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = spacing.screen).padding(bottom = spacing.xl),
             verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                Text("${h.instrument.symbol} · ${h.instrument.name ?: ""}", Modifier.weight(1f).semantics { heading() }, style = StockStepsTheme.typography.sectionTitle)
-                SimulatedBadge()
+                StockTitleWithBadge(Modifier.weight(1f), title = {
+                    Text("${h.instrument.symbol} · ${h.instrument.name ?: ""}", Modifier.semantics { heading() }, style = StockStepsTheme.typography.sectionTitle)
+                }) { SimulatedBadge() }
             }
             Detail("Shares", PracticeFormat.shares(h.quantity))
             Detail("Average cost", PracticeFormat.price(h.averageCost, base) + " per share")
@@ -542,8 +544,9 @@ internal fun PracticeEntryCard(onClick: () -> Unit, modifier: Modifier = Modifie
         onClick = onClick, onClickLabel = "Open Practice Portfolio", containerColor = StockStepsTheme.colors.educationContainer, bordered = false,
         verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
-            Text(title, Modifier.weight(1f), style = StockStepsTheme.typography.cardTitle, color = StockStepsTheme.colors.textPrimary)
-            SimulatedBadge()
+            StockTitleWithBadge(Modifier.weight(1f), title = {
+                Text(title, style = StockStepsTheme.typography.cardTitle, color = StockStepsTheme.colors.textPrimary)
+            }) { SimulatedBadge() }
         }
         Text(body, style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textBody)
     }

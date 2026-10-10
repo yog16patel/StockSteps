@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.fillMaxWidth
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
@@ -49,7 +50,8 @@ internal fun <T> StockSegmentedControl(
             val content = if (isSelected) colors.primaryText else colors.textSecondary
             val body: @Composable () -> Unit = {
                 segment.icon?.let { Icon(it, contentDescription = null, tint = content, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall)) }
-                Text(segment.label, style = StockStepsTheme.typography.label, color = content, textAlign = TextAlign.Center)
+                Text(segment.label, style = if (isSelected) StockStepsTheme.typography.label.copy(fontWeight = FontWeight.SemiBold) else StockStepsTheme.typography.label,
+                    color = content, textAlign = TextAlign.Center)
             }
             val itemModifier = Modifier
                 .weight(1f)

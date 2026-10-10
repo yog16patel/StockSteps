@@ -96,7 +96,8 @@ object ThemeColors {
         // textTertiary 0x64748B → 0x5F6F86 (Phase 1): 4.39:1 on surfaceSecondary was below WCAG AA; now ≥ 4.58:1 on every light surface.
         textTertiary = 0x5F6F86, textDisabled = 0x94A3B8,
         iconPrimary = 0x1E293B, iconSecondary = 0x64748B,
-        primaryText = 0x0866C6, positiveText = 0x0E7F54, negativeText = 0xD13338,
+        // negativeText 0xD13338 → 0xCA3035 (Phase 2): 4.39:1 on negativeContainer (negative badges, destructive buttons) was below AA.
+        primaryText = 0x0866C6, positiveText = 0x0E7F54, negativeText = 0xCA3035,
         educationContainer = 0xFFF4E6, educationAccent = 0xE07B1F, logoContainer = 0xFFFFFF,
         cautionText = 0xB45309,
         learnContainerStart = 0xF1ECFF, learnContainerEnd = 0xE6F0FF, learnAccent = 0x3A3FB8, onLearnAccent = 0xFFFFFF,

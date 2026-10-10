@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -64,7 +65,8 @@ internal fun StockRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = if (compact) dimensions.rowCompactMinHeight else dimensions.rowMinHeight)
-            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+            // Clickable rows merge automatically; plain rows are merged too so TalkBack reads one row, not each text (Phase 2).
+            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier.semantics(mergeDescendants = true) {})
             .padding(contentPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(spacing.sm)
@@ -86,7 +88,7 @@ internal fun StockRow(
                 Text(
                     text = name,
                     style = if (compact) typography.caption else typography.small,
-                    color = StockStepsTheme.colors.textSecondary,
+                    color = StockStepsTheme.colors.textSupporting,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -107,7 +109,7 @@ internal fun StockRow(
                     Text(
                         text = price,
                         style = typography.numberLabelStrong,
-                        color = StockStepsTheme.colors.textPrimary,
+                        color = StockStepsTheme.colors.textValue,
                         maxLines = 1
                     )
                 }

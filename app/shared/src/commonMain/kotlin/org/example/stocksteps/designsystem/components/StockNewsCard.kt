@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import coil3.compose.AsyncImage
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
+import org.example.stocksteps.theme.StockBadgeKind
 import org.example.stocksteps.news.NewsUiModel
 import org.example.stocksteps.resources.Res
 import org.example.stocksteps.resources.news_ai_label
@@ -129,22 +130,13 @@ private fun NewsMeta(model: NewsUiModel, compact: Boolean) {
                 text = meta,
                 modifier = Modifier.weight(1f, fill = false),
                 style = typography.caption,
-                color = if (compact) colors.textTertiary else colors.textSecondary,
+                color = colors.textMeta,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
         if (model.aiSimplified) {
-            Text(
-                text = stringResource(Res.string.news_ai_label),
-                modifier = Modifier
-                    .clip(StockStepsTheme.shapes.pill)
-                    .background(colors.primaryContainer)
-                    .padding(horizontal = spacing.sm, vertical = spacing.xxs),
-                style = typography.tiny,
-                color = colors.primaryText,
-                maxLines = 1
-            )
+            StockStatusBadge(stringResource(Res.string.news_ai_label), StockBadgeKind.INFO, size = StockBadgeSize.COMPACT)
         }
     }
 }

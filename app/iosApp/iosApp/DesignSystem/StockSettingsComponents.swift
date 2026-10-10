@@ -61,7 +61,9 @@ struct StockSegmentedControl: View {
                 Button { onSelect(index) } label: {
                     let label = Group {
                         Image(systemName: segment.1).font(.footnote).accessibilityHidden(true)
-                        Text(segment.0).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).lineLimit(1).minimumScaleFactor(0.8)
+                        // Wraps (up to two lines) instead of shrinking; selected is also semibold, not only blue (Phase 2).
+                        Text(segment.0).font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(isSelected ? .semibold : .regular))
+                            .lineLimit(2).multilineTextAlignment(.center)
                     }
                     Group {
                         if typeSize.isAccessibilitySize { VStack(spacing: CGFloat(space.xxs)) { label } }

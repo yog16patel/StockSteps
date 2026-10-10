@@ -21,6 +21,12 @@ report `docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`. Server tests 481/0 (3 ski
 (report §6a: non-root, no secrets, fail-fast config, JSON logs, probes, SIGTERM, `--network none`; 203 MB compressed). Verdict: READY WITH CONDITIONS for Phase 5B (staging deploy). Next: image vulnerability scan;
 owner inputs in `docs/CLOUD_RUN_DEPLOYMENT_CHECKLIST.md` §1; then Phase 5B only on explicit request.
 
+**Global UI Refinement Phase 2 (remaining reusable components) — committed and pushed as "Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline" (2026-10-10)**: shared badge/banner
+semantics (`StockSemanticStyles`), pill selector without truncation, selected chips/pills in the action blue, standard status badges
+(SIMULATED/Sample never split), title+badge layout, banners, editable search field, AA fixes (light `negativeText`, education eyebrow), row/
+news text roles. iOS before/after screenshots in `docs/design/phase2/` (Android NOT RUN). Shared Android 75/0, shared iOS 71/0,
+`assembleDebug` OK, iOS `xcodebuild` OK. Details `docs/GLOBAL_UI_REFINEMENT_PHASE2.md`. **Next**: Phase 3 Portfolio.
+
 **Global UI Refinement Phase 1A (intermediate component foundation, between plan steps 1 and 2) — committed and pushed as "Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls" (2026-10-10)**: accessible primary buttons (`primaryAction`
 `0F6FDB`; iOS `.stockPrimary` replaces `.borderedProminent`), card padding 16, wrapping metric + metric grid, full empty/error states, select
 and text fields (iOS keyboard Done), `StockLabels`. Shared Android 69/0, shared iOS 65/0, `assembleDebug` OK, iOS `xcodebuild` OK.

@@ -9,13 +9,11 @@ private let type = StockStepsTheme.typography
 private let dims = StockStepsTheme.dimensions
 
 /// Container/content colors for a semantic tone (contrast-safe text on each container).
+/// Delegates to the shared `StockSemanticStyles.badge` mapping (same as Compose).
 func toneColors(_ tone: FactTone, _ colors: StockColors) -> (Color, Color) {
-    switch tone {
-    case .positive: (colors.positiveContainer, colors.positiveText)
-    case .negative: (colors.negativeContainer, colors.negativeText)
-    case .caution: (colors.warningContainer, colors.cautionText)
-    default: (colors.surfaceSecondary, colors.textSecondary)
-    }
+    let palette = colors.palette
+    let t = StockSemanticStyles.shared.badge(kind: tone.badgeKind, p: palette)
+    return (StockStepsTheme.color(t.container), StockStepsTheme.color(t.content))
 }
 
 /// Non-interactive neutral label (sector, industry, size band).
@@ -26,7 +24,7 @@ struct StockTag: View {
         let colors = StockStepsTheme.colors(scheme)
         Text(text)
             .font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
-            .foregroundStyle(colors.textSecondary)
+            .foregroundStyle(colors.textSupporting)
             .lineLimit(1)
             .padding(.horizontal, CGFloat(space.sm))
             .padding(.vertical, CGFloat(space.xxs))
@@ -35,21 +33,11 @@ struct StockTag: View {
     }
 }
 
-/// Short status label tinted by tone; the text always states the status.
+/// Short status label tinted by tone; the text always states the status. Same as `StockStatusBadge` with the tone's kind.
 struct StockBadge: View {
-    @Environment(\.colorScheme) private var scheme
     let text: String
     let tone: FactTone
-    var body: some View {
-        let (container, content) = toneColors(tone, StockStepsTheme.colors(scheme))
-        Text(text)
-            .font(StockStepsTheme.font(type.label, relativeTo: .footnote))
-            .foregroundStyle(content)
-            .lineLimit(1)
-            .padding(.horizontal, CGFloat(space.sm))
-            .padding(.vertical, CGFloat(space.xxs))
-            .background(container, in: Capsule())
-    }
+    var body: some View { StockStatusBadge(text: text, kind: tone.badgeKind) }
 }
 
 /// Decorative SF Symbol on a tinted rounded square.
@@ -226,33 +214,51 @@ struct StockAssessmentRow: View {
     }
 }
 
-/// Equal-width pill selector for short options (chart ranges).
+/// Pill selector for short options (chart ranges): options share the width while every label fits (shared `StockPillLayout`
+/// rule, same as Compose); otherwise — long labels, many options, large text — they scroll horizontally at natural width instead of
+/// collapsing to "…" (Phase 2: "3M"/"ALL" disappeared at large Dynamic Type sizes).
 struct StockPillSelector<Option: Hashable>: View {
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
     let options: [Option]
     let selected: Option
     let label: (Option) -> String
     let onSelect: (Option) -> Void
+    @State private var width: CGFloat = 0
     var body: some View {
-        let colors = StockStepsTheme.colors(scheme)
-        HStack(spacing: 0) {
-            ForEach(options, id: \.self) { option in
-                let isSelected = option == selected
-                Button { onSelect(option) } label: {
-                    Text(label(option))
-                        .font(StockStepsTheme.font(type.label, relativeTo: .footnote))
-                        .foregroundStyle(isSelected ? colors.onPrimary : colors.textSecondary)
-                        .lineLimit(1)
-                        .padding(.horizontal, CGFloat(space.md))
-                        .padding(.vertical, CGFloat(space.xs))
-                        .background(isSelected ? colors.primaryDark : .clear, in: Capsule())
-                        .frame(maxWidth: .infinity, minHeight: CGFloat(dims.touchTarget))
-                        .contentShape(Rectangle())
+        let font = StockStepsTheme.uiFont(type.label, weight: .semibold, typeSize: typeSize)
+        let widths = options.map { KotlinFloat(value: Float((label($0) as NSString).size(withAttributes: [.font: font]).width)) }
+        let equal = width == 0 || StockPillLayout.shared.fitsEqualWidth(labelWidths: widths, availableWidth: Float(width), horizontalPadding: Float(space.md))
+        Group {
+            if equal {
+                HStack(spacing: 0) { ForEach(options, id: \.self) { pill($0).frame(maxWidth: .infinity) } }
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: CGFloat(space.xxs)) { ForEach(options, id: \.self) { pill($0) } }
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isSelected ? [.isSelected] : [])
             }
         }
+        .frame(maxWidth: .infinity)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+
+    private func pill(_ option: Option) -> some View {
+        let colors = StockStepsTheme.colors(scheme)
+        let isSelected = option == selected
+        return Button { onSelect(option) } label: {
+            Text(label(option))
+                .font(StockStepsTheme.font(type.label).weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? colors.onPrimary : colors.textSecondary)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, CGFloat(space.md))
+                .padding(.vertical, CGFloat(space.xs))
+                .background(isSelected ? colors.primaryAction : .clear, in: Capsule())
+                .frame(minWidth: CGFloat(dims.touchTarget), minHeight: CGFloat(dims.touchTarget))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }
 

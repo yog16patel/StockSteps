@@ -1,10 +1,30 @@
-# StockSteps — session handoff (2026-10-10: Global UI Refinement Phase 1A and Phase 1 committed and pushed)
+# StockSteps — session handoff (2026-10-10: Global UI Refinement Phase 2, 1A and 1 committed and pushed)
 
 Read order for a new session: `CLAUDE.md` → **§0000 below** → §000 → `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md`
 → §00 (Phase 5B Local) → §0 (Phase 5A) → the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## 000000. Global UI Refinement Phase 1A — intermediate component foundation (read first)
+## 0000000. Global UI Refinement Phase 2 — remaining reusable components (read first)
+
+- Repository: `main`. Current commit: "Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline" (pushed), on top of "Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls" (pushed).
+  Commit/push only when asked; every commit updates the root `PROJECT_HANDOFF.md`.
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE2.md`): iOS before/after screenshots (approved: spare iPhone 16 Simulator, local MOCK server;
+  Android NOT RUN) → `docs/design/phase2/*.jpg`; shared `StockSemanticStyles` (badge/banner kinds, selection fill, education text, pill
+  fit rule); light `negativeText` → `CA3035` (AA on its container); pill selector scrolls instead of "…"; chips/pills selected =
+  action blue; segmented labels wrap; `StockStatusBadge` + `StockTitleWithBadge` (SIMULATED no longer "SIMU-LATED"); `StockBanner`;
+  editable `StockSearchField` (both, not wired yet); insight-card education text AA; row/news `textSupporting`/`textValue`/`textMeta`, iOS
+  row values never truncate, Compose plain rows merged for TalkBack.
+- Files: theme `Colors.kt`, new `StockSemanticStyles.kt`; Compose `designsystem/theme/StockStepsTheme.kt`, components `StockChip`, `StockTag`,
+  `StockSegmentedControl`, `StockSearchBar`, new `StockBanner`, `StockInsightCard`, `StockRow`, `StockNewsCard`, `StockSampleDataBanner`,
+  `icons/StockIcons`; screens `practice/PracticeScreens.kt`, `screener/ComparisonAiUi.kt` (badge swaps); iOS `Theme.swift`,
+  `DesignSystem/StockComponents.swift`, `StockDetailComponents.swift`, `StockSettingsComponents.swift`, `StockNewsCard.swift`, new
+  `StockStatusViews.swift`, `PracticeScenes.swift`, `ComparisonAiViews.swift`; test `SemanticStylesTest`; docs and `docs/design/phase2/`.
+- Results: shared Android 75/0/0, shared iOS 71/0/0, `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED.
+- Environment: spare iPhone 16 Simulator restored (light, Large text) and shut down; local MOCK server stopped; Android emulator untouched.
+- Next: Phase 3 Portfolio reference screen (on approval) (guidance in the Phase 2 doc §9; approval needed for
+  screenshots).
+
+## 000000. Global UI Refinement Phase 1A — intermediate component foundation
 
 - Repository: `main`. Current commit: "Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls" (pushed), on top of "Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS" (pushed). Commit/push only when asked; every commit
   updates the root `PROJECT_HANDOFF.md`. Reference image (committed): `docs/design/stocksteps-ui-reference.png` (moved from

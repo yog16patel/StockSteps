@@ -30,6 +30,13 @@ enum StockStepsTheme {
         return token.tabular ? font.monospacedDigit() : font
     }
 
+    /// UIKit font for a token at a given Dynamic Type size — for measuring text (pill fitting), not for drawing.
+    static func uiFont(_ token: ThemeTextStyle, weight: UIFont.Weight? = nil, typeSize: DynamicTypeSize) -> UIFont {
+        let w: UIFont.Weight = weight ?? (token.weight >= 700 ? .bold : token.weight >= 600 ? .semibold : token.weight >= 500 ? .medium : .regular)
+        let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize))
+        return UIFontMetrics(forTextStyle: dynamicTypeStyle(for: token)).scaledFont(for: UIFont.systemFont(ofSize: CGFloat(token.size), weight: w), compatibleWith: traits)
+    }
+
     /// The iOS text style whose default (Large) size is nearest the token's size; ties go to the smaller style.
     static func dynamicTypeStyle(for token: ThemeTextStyle) -> UIFont.TextStyle {
         let styles: [(UIFont.TextStyle, Int32)] = [
@@ -72,6 +79,8 @@ struct StockColors {
     let primaryBright, brandGlow, primaryGradientEnd: Color
     /// Primary button fill behind `onPrimary` text (AA); brand `primary` stays for accents.
     let primaryAction: Color
+    /// The shared palette these colours came from, for `StockSemanticStyles` (badges, banners).
+    let palette: ThemePalette
 
     // Text roles mapped onto the ramp (see ThemePalette): titles/values, supporting copy, metadata.
     var textTitle: Color { textPrimary }
@@ -95,5 +104,6 @@ struct StockColors {
         iconSecondary = c(p.iconSecondary)
         primaryBright = c(p.primaryBright); brandGlow = c(p.brandGlow); primaryGradientEnd = c(p.primaryGradientEnd)
         primaryAction = c(p.primaryAction)
+        palette = p
     }
 }

@@ -77,8 +77,13 @@ internal data class StockStepsColors(
     val brandGlow: Color,
     val primaryGradientEnd: Color,
     /** Primary button fill behind `onPrimary` text (AA); brand `primary` stays for accents. */
-    val primaryAction: Color
+    val primaryAction: Color,
+    /** The shared palette these colours came from, for `StockSemanticStyles` (badges, banners). */
+    val palette: ThemePalette
 ) {
+    /** Compose colours for a shared RGB role (`StockSemanticStyles`). */
+    fun rgb(value: Int): Color = Color(0xFF000000L or value.toLong())
+
     // Text roles mapped onto the ramp (see ThemePalette): titles/values, supporting copy, metadata.
     val textTitle: Color get() = textPrimary
     val textValue: Color get() = textPrimary
@@ -259,7 +264,8 @@ private fun ThemePalette.toComposeColors(isDark: Boolean) = StockStepsColors(
     learnContainerStart = learnContainerStart.color(), learnContainerEnd = learnContainerEnd.color(),
     learnAccent = learnAccent.color(), onLearnAccent = onLearnAccent.color(),
     primaryBright = primaryBright.color(), brandGlow = brandGlow.color(), primaryGradientEnd = primaryGradientEnd.color(),
-    primaryAction = primaryAction.color()
+    primaryAction = primaryAction.color(),
+    palette = this
 )
 
 private fun StockStepsColors.toMaterialScheme() = (if (isDark) darkColorScheme() else lightColorScheme()).copy(

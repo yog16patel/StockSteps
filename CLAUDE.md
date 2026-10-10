@@ -85,6 +85,8 @@ Core feature packages: `brief` (Daily Market Brief), `practice` (Practice Portfo
 - **Buttons**: primary fills use `primaryAction` (AA with white), never brand `primary`; on iOS use `.buttonStyle(.stockPrimary)` /
   `.stockSecondary`, not `.borderedProminent` (it fills with the brand-blue tint). Metric values wrap (`StockMetric`/`StockMetricGrid`);
   show readable labels for enums (`StockLabels.humanize` fallback). Visual direction: `docs/design/stocksteps-ui-reference.png`.
+  Status labels use `StockStatusBadge` with a `StockBadgeKind` (MOCK/simulated = SAMPLE), title + badge rows use `StockTitleWithBadge`, banners
+  `StockBanner`; badge/banner colours only via the shared `StockSemanticStyles`.
 - **Sign-in/create-account screens use `StockStepsTheme`** (colours/typography); `theme/AuthTokens.kt` holds sizes only — never a
   separate hard-coded palette (it hides the screens from theme changes and dark mode).
 - Match existing code style (dense Kotlin, KDoc on intent, theme tokens: `StockStepsTheme.spacing/

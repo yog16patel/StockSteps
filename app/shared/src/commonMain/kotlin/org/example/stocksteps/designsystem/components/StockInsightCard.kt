@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
+import org.example.stocksteps.theme.StockSemanticStyles
 
 /** INFO: blue explanations ("Beginner Insight", "Why it moved"). EDUCATION: warm learning entry points. */
 internal enum class InsightTone { INFO, EDUCATION }
@@ -40,6 +41,8 @@ internal fun StockInsightCard(
     val spacing = StockStepsTheme.spacing
     val container = if (tone == InsightTone.EDUCATION) colors.educationContainer else colors.primaryContainer
     val accent = if (tone == InsightTone.EDUCATION) colors.educationAccent else colors.primaryText
+    // Text on the education container uses cautionText: educationAccent is 2.75:1 there in light mode (icons keep the accent).
+    val accentText = if (tone == InsightTone.EDUCATION) colors.rgb(StockSemanticStyles.educationText(colors.palette)) else colors.primaryText
     StockCard(
         modifier = modifier,
         onClick = onClick,
@@ -62,8 +65,8 @@ internal fun StockInsightCard(
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                if (eyebrow != null) Text(eyebrow, style = typography.label, color = accent)
-                Text(title, style = if (leading != null) typography.bodySemiBold else typography.cardTitle, color = colors.textPrimary)
+                if (eyebrow != null) Text(eyebrow, style = typography.label, color = accentText)
+                Text(title, style = if (leading != null) typography.bodySemiBold else typography.cardTitle, color = colors.textTitle)
                 Text(body, style = if (leading != null) typography.caption else typography.small, color = colors.textBody)
                 if (actionText != null && onClick != null && leading == null) {
                     Text("$actionText →", style = typography.bodyMedium, color = colors.primaryText)
