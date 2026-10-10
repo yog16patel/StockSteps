@@ -1,5 +1,6 @@
 package org.example.stocksteps.home
 
+import org.example.stocksteps.format.ReadableDates
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.builtins.ListSerializer
@@ -184,7 +185,7 @@ class PersonalDashboardStore(
                 val missing = data?.quotes.orEmpty().count { it.price == null }
                 mutable.update { it.copy(quotesLoading = false,
                     quotesError = if (missing > 0) "Some prices are unavailable. Try again." else null,
-                    quoteNotice = if (offline) "Saved prices · offline" else "Updated ${data?.generatedAt}") }
+                    quoteNotice = if (offline) "Saved prices · offline" else data?.generatedAt?.let { "Prices updated ${ReadableDates.dateTime(it)}" }) }
                 render()
             } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause

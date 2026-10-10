@@ -393,27 +393,3 @@ struct PortfolioScreen: View {
     }
 }
 
-struct PortfolioSummaryCard: View {
-    let state: PortfolioUiState
-    var onOpen: (() -> Void)? = nil
-    @Environment(\.colorScheme) private var scheme
-    var body: some View {
-        VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.sm)) {
-            Text(state.accountName).font(.headline)
-            if state.accounts.filter({ !$0.archived }).isEmpty { Text("Track the investments you own, alongside your separate watchlists.") }
-            else {
-            Text("\(state.currency) \(PortfolioFormat.shared.amount(value: state.total))").font(.largeTitle).monospacedDigit()
-            Text("Today \(PortfolioFormat.shared.amount(value: state.dailyGain)) (\(PortfolioFormat.shared.amount(value: state.dailyPercent))%)")
-            if state.accounts.filter({ !$0.archived }).count > 1 { Text("All accounts · \(state.currency) \(PortfolioFormat.shared.amount(value: state.combinedTotal))") }
-            Text("Invested cost \(PortfolioFormat.shared.amount(value: state.basis))")
-            Text("Unrealized \(PortfolioFormat.shared.amount(value: state.unrealized)) · Realized \(PortfolioFormat.shared.amount(value: state.realized))").font(.subheadline)
-            if let notice = state.notice { Text(notice).font(.caption) }
-            if let asOf = state.quoteAsOf { Text("Prices as of \(asOf)").font(.caption) }
-            if let asOf = state.fxAsOf { Text("Exchange rate as of \(asOf)").font(.caption) }
-            }
-            if let sample = state.mockScenario { Text("Read-only sample · \(sample)").font(.caption) }
-            if let onOpen { Button(state.accounts.isEmpty ? "Create portfolio" : "View portfolio", action: onOpen) }
-        }.padding(CGFloat(StockStepsTheme.spacing.cardPadding)).frame(maxWidth: .infinity, alignment: .leading)
-            .background(StockStepsTheme.colors(scheme).surface, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
-    }
-}

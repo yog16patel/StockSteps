@@ -89,7 +89,8 @@ internal fun StockRow(
                     text = name,
                     style = if (compact) typography.caption else typography.small,
                     color = StockStepsTheme.colors.textSupporting,
-                    maxLines = 1,
+                    // Large text gets a second line so long company names stay readable (Phase 4A); prices never truncate.
+                    maxLines = if (LocalDensity.current.fontScale >= dimensions.largeFontScale) 2 else 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }

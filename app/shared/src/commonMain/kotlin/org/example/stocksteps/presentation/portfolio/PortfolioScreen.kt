@@ -10,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -460,30 +459,4 @@ private fun PortfolioAboutDialog(state: PortfolioUiState, onDismiss: () -> Unit)
                 ).forEach { Text(it, style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textBody) }
             }
         })
-}
-
-@Composable
-internal fun PortfolioSummaryCard(state: PortfolioUiState, onOpen: (() -> Unit)? = null) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = StockStepsTheme.colors.surface)
-    ) {
-        Column(Modifier.padding(StockStepsTheme.spacing.cardPadding), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-            Text(state.accountName, style = StockStepsTheme.typography.cardTitle)
-            if (state.accounts.none { !it.archived }) {
-                Text("Track the investments you own, alongside your separate watchlists.")
-            } else {
-            Text("${state.currency} ${PortfolioFormat.amount(state.total)}", style = StockStepsTheme.typography.largeNumber, fontFamily = FontFamily.Monospace)
-            Text("Today ${PortfolioFormat.amount(state.dailyGain)} (${PortfolioFormat.amount(state.dailyPercent)}%)")
-            if (state.accounts.count { !it.archived } > 1) Text("All accounts · ${state.currency} ${PortfolioFormat.amount(state.combinedTotal)}")
-            Text("Invested cost ${PortfolioFormat.amount(state.basis)}")
-            Text("Unrealized ${PortfolioFormat.amount(state.unrealized)} · Realized ${PortfolioFormat.amount(state.realized)}")
-            state.notice?.let { Text(it, style = StockStepsTheme.typography.caption) }
-            state.quoteAsOf?.let { Text("Prices as of $it", style = StockStepsTheme.typography.caption) }
-            state.fxAsOf?.let { Text("Exchange rate as of $it", style = StockStepsTheme.typography.caption) }
-            }
-            if (state.mockScenario != null) Text("Read-only sample · ${state.mockScenario}", style = StockStepsTheme.typography.caption)
-            if (onOpen != null) TextButton(onClick = onOpen) { Text(if (state.accounts.isEmpty()) "Create portfolio" else "View portfolio") }
-        }
-    }
 }

@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS** on `main` (pushed).
-Previous commit: **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS** on `main` (pushed).
+Previous commit: **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
@@ -48,6 +48,15 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+## Global UI Refinement Phase 4A — Home (2026-10-10) — commit "Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"
+
+On top of "Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS". Home redesigned on
+Android and iOS: "Markets today" (Daily Brief index snapshot + sessions + brief entry, no new requests), compact portfolio summary, fact rows,
+grouped Learn and practice tier, MOCK picker moved to the end; `ReadableDates` (core) shared with Portfolio; `StockRow` two-line names at
+large text. Tests: core JVM/iOS 429/0, shared Android 87/0, shared iOS 83/0, server 482/0 (3 skipped), `assembleDebug`, iOS `xcodebuild`.
+Device pass on iPhone 16 Simulator and emulator-5554 (light/dark, large text, 360 dp). Not run: screen readers, iOS narrow width.
+Details: `docs/GLOBAL_UI_REFINEMENT_PHASE4.md`. Next: Phase 4B (Markets) after review. 
 
 ## Global UI Refinement Phase 3.1 — Portfolio polish (2026-10-10) — commit "Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"
 

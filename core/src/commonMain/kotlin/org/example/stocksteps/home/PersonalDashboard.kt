@@ -1,6 +1,7 @@
 package org.example.stocksteps.home
 
 import org.example.stocksteps.markets.MarketsPresenter
+import org.example.stocksteps.format.ReadableDates
 
 import kotlinx.serialization.Serializable
 import org.example.stocksteps.model.*
@@ -45,7 +46,7 @@ class VerifiedDailyBrief(private val significantMovePercent: Double = PersonalDa
             it.symbol in symbols && !it.stale && it.changePercent?.isFinite() == true && abs(it.changePercent) >= significantMovePercent
         }.sortedByDescending { abs(it.changePercent!!) }.map {
             HomeFact("move:${it.symbol}", "${it.symbol} ${HomePresentation.percent(it.changePercent)} today",
-                "Daily price change, not your investment return. Quote: ${it.asOf ?: "time unavailable"}.", it.symbol)
+                "Daily price change, not your investment return. Quote: ${it.asOf?.let(ReadableDates::dateTime) ?: "time unavailable"}.", it.symbol)
         }
         return (moves + events).distinctBy { it.id }.take(PersonalDashboardRules.MAX_BRIEF)
     }
@@ -164,7 +165,7 @@ data class HomePersonaFixture(
             stories = PersonalDashboardRules.stories(news, instruments.map { it.symbol }.toSet()),
             quotesError = if (quotesFailed) "Sample prices unavailable. Try another scenario." else null,
             newsError = if (newsFailed) "Sample news unavailable. Try another scenario." else null,
-            quoteNotice = "Sample scenario · $date", recent = recent,
+            quoteNotice = "Sample scenario · ${ReadableDates.date(date)}", recent = recent,
             newsNotice = limitation, mockPersona = id)
     }
 }

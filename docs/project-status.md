@@ -1,10 +1,22 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-09 (end of session) against the repository (`main`, HEAD "Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan" (doc-only) on top of `fc3961e` "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs", in sync with `origin/main`; Phase 5C `a50a2e3` below it, both pushed). Verify with
+Last reviewed: 2026-10-10 (end of session) against the repository (`main`, HEAD `6ec2267` "Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS", in sync with `origin/main`). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
+
+**Global UI Refinement Phase 4A (Home) — committed and pushed as "Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS" (2026-10-10)**: "Markets today" card from the Daily Brief
+already on Home (no new requests), compact portfolio summary in the Phase 3 language, fact rows with chevrons, readable UTC dates via core
+`ReadableDates`, `StockRow` names wrap at large text. Core 429/0 (JVM, iOS), shared Android 87/0, shared iOS 83/0, server 482/0 (3 skipped),
+`assembleDebug` and iOS `xcodebuild` OK. Details `docs/GLOBAL_UI_REFINEMENT_PHASE4.md`. **Next**: review → Phase 4B (Markets) on approval.
+
+**Current state (2026-10-10, end of session)**: Global UI Refinement Phases 1 (tokens), 1A (intermediate components), 2 (remaining components),
+3 (Portfolio reference screen) and 3.1 (Portfolio polish) are **committed and pushed**; nothing is in progress. **Next: Phase 4 — Home,
+Markets, Company Details — only after the user approves it** (plan and first steps in `docs/PROJECT_HANDOFF.md` §SESSION). Latest verified:
+shared Android 81/0, shared iOS 77/0, `assembleDebug` OK, iOS `xcodebuild` OK; server 482/0 (3 skipped), core JVM/iOS 429/0 (earlier this
+session, untouched since). Open: LAN backend still on Phase 5C image (5C.1 brief wording not deployed; redeploy needs approval), no UI-test
+targets, screen-reader and physical-device passes not run, Phase 5D Firebase persistence and Cloud Run staging deferred.
 
 Phase 4: **`4586889` "Add financial API Phase 4: public API protection, durable AI quotas, provider budgets and usage monitoring"** — pushed (Phase 4: admission/identity, existence gate, watch-data cap, per-job internal auth, App Check monitor mode, durable AI quotas,
 provider budgets, usage summaries, audit and implementation docs), on top of `6a70d0e` "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage".

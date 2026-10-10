@@ -11,14 +11,14 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-09, end of session)
+## Current task (as of 2026-10-10, end of session)
 
-HEAD: "Close Phase 5C.1: fix iOS navigation hang, search and duplicate requests, finish iOS walkthroughs" (pushed; on top of the Phase 5C commit). **Phase 5C.1
-(verification closure) is committed**: iOS walkthroughs A–G, critical iOS navigation hang + stuck search fixed, launch requests 19–21 → 13, minor
-fixes; report `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` §9–§16. Next: re-run the interrupted test matrix (core iOS, assembleDebug, iOS xcodebuild); redeploy the LAN backend
-(`deploy/local/deploy.sh deploy`, approval); physical devices and screen readers. Cloud Run staging remains deferred. Read `docs/PROJECT_HANDOFF.md`
-§0000 first. A MOCK server started by the user may be running on the Mac's :8081; the LAN MOCK backend runs on the Ubuntu host (address in git-ignored
-`deploy/local/server.env`).
+HEAD: "Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS" (pushed), on top of Phase 3.1 `6ec2267`. **Global UI Refinement
+Phases 1, 1A, 2, 3 (Portfolio) and 3.1 are committed**; no work in progress. **Phase 4A (Home) is committed and pushed** ("Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS") (`docs/GLOBAL_UI_REFINEMENT_PHASE4.md`). Next: **Phase 4B (Markets), then
+4C (Company Details), each only after the user approves** — plan, decisions and first steps in `docs/PROJECT_HANDOFF.md` §SESSION; phase docs `docs/GLOBAL_UI_REFINEMENT_*.md`;
+visual direction `docs/design/stocksteps-ui-reference.png` (+ `stocksteps-portfolio-reference.png`). Still open: approved LAN backend redeploy
+(5C.1 brief wording; `deploy/local/deploy.sh deploy`), screen readers and physical devices. Cloud Run staging remains deferred. The local MOCK
+server is stopped; the LAN MOCK backend runs on the Ubuntu host (address in git-ignored `deploy/local/server.env`).
 
 ## Repository layout
 
@@ -87,6 +87,9 @@ Core feature packages: `brief` (Daily Market Brief), `practice` (Practice Portfo
   show readable labels for enums (`StockLabels.humanize` fallback). Visual direction: `docs/design/stocksteps-ui-reference.png`.
   Status labels use `StockStatusBadge` with a `StockBadgeKind` (MOCK/simulated = SAMPLE), title + badge rows use `StockTitleWithBadge`, banners
   `StockBanner`; badge/banner colours only via the shared `StockSemanticStyles`.
+- **Portfolio display** goes through `presentation/portfolio/PortfolioPresentation` (labels for account types/transaction kinds, signed
+  changes, direction, holding text), `PortfolioDates` (readable dates; UTC stays UTC) and `PortfolioChartRules` (chart only with ≥ 2 dated
+  values) on both platforms — never raw enums, never `0.00` for missing data; Portfolio is the reference screen for later UI phases.
 - **Sign-in/create-account screens use `StockStepsTheme`** (colours/typography); `theme/AuthTokens.kt` holds sizes only — never a
   separate hard-coded palette (it hides the screens from theme changes and dark mode).
 - Match existing code style (dense Kotlin, KDoc on intent, theme tokens: `StockStepsTheme.spacing/

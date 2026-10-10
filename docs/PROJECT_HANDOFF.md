@@ -1,10 +1,160 @@
-# StockSteps — session handoff (2026-10-10: Global UI Refinement Phases 1, 1A, 2, 3 and 3.1 committed and pushed)
+# StockSteps — session handoff (2026-10-10, end of session: Global UI Refinement Phases 1, 1A, 2, 3 and 3.1 committed and pushed)
 
-Read order for a new session: `CLAUDE.md` → **§0000 below** → §000 → `docs/PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md` → `docs/LOCAL_DEVELOPMENT_SERVER.md`
-→ §00 (Phase 5B Local) → §0 (Phase 5A) → the rest of this file (Phase 3/4 context) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
+Read order for a new session: `CLAUDE.md` → **§PHASE4A below** → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+`docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
+§0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## 000000000. Global UI Refinement Phase 3.1 — Portfolio polish (read first)
+## PHASE4A. Global UI Refinement Phase 4A — Home (committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS" (pushed), on top of `6ec2267` (Phase 3.1). Commit/push only when the user asks; every
+  commit updates the root `PROJECT_HANDOFF.md`. The SESSION section below predates Phase 4A.
+- Done (details and evidence: `docs/GLOBAL_UI_REFINEMENT_PHASE4.md`, screenshots `docs/design/phase4a/`): Home reordered (header + greeting →
+  "Markets today" → portfolio → watchlist → facts → Learn and practice → news → recent → MOCK picker); "Markets today" card built from the
+  Daily Brief already loaded on Home (sessions, three indices, brief entry row; **no new requests**); compact `HomePortfolioSummary` in the
+  Phase 3 language replaces the old `PortfolioSummaryCard` (removed on both platforms); `HomeLinkRow` fact rows; watchlist rows edge-to-edge;
+  alerts error inside its card; `ReadableDates` moved to core (`PortfolioDates` delegates) so Home's core strings show readable UTC dates;
+  `StockRow` names may wrap to two lines at large text.
+- Files: `app/shared/.../presentation/home/{HomeScreen,HomeComponents,HomeDashboardPresentation}.kt`, `portfolio/{PortfolioScreen,
+  PortfolioPresentation}.kt`, `designsystem/components/StockRow.kt`; iOS `HomeScreen.swift`, `HomeComponents.swift`, `PortfolioScreen.swift`,
+  `DesignSystem/StockComponents.swift`; core `format/ReadableDates.kt`, `home/PersonalDashboard.kt`, `home/PersonalDashboardStore.kt`; test
+  `HomeDashboardPresentationTest` (6); docs.
+- Results: core JVM 429/0, core iOS 429/0, shared Android 87/0, shared iOS 83/0, `assembleDebug` OK, server 482/0 (3 skipped), iOS
+  `xcodebuild` BUILD SUCCEEDED. Device pass (approved): iPhone 16 Simulator + emulator-5554, light/dark, iOS XXXL, Android 1.3× at 360 dp;
+  settings restored, MOCK server stopped. NOT RUN: VoiceOver/TalkBack, iOS narrow width, visual check of the two-line `StockRow` names,
+  populated iOS watchlist rows.
+- Next: user review of 4A → **Phase 4B (Markets) only after approval**, then 4C (Company Details).
+
+## SESSION. End-of-session handoff (2026-10-10) — read first
+
+### Repository state (verified at handoff)
+- Branch `main`, **in sync with `origin/main`, working tree clean** before this documentation update (only `docs/PROJECT_HANDOFF.md`,
+  `docs/project-status.md` and `CLAUDE.md` are edited by the handoff itself; not committed).
+- HEAD `6ec2267` "Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS". Commits made and pushed in this
+  session (newest first):
+  1. `6ec2267` Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS
+  2. `5d3b3cd` Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS
+  3. `314894e` Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline
+  4. `f098846` Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls
+  5. `d9912bf` Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS
+  6. `2171975` Close Phase 5C.1 verification: final test matrix, backend check and Global UI Refinement plan (doc-only)
+  Below them: `fc3961e` Phase 5C.1 code, `a50a2e3` Phase 5C, `1c1b073` Phase 5B Local.
+- Commit/push only when the user explicitly asks (each time); every commit updates the root `PROJECT_HANDOFF.md` and names the current commit.
+
+### Current development objective
+**Global UI Refinement** (`docs/GLOBAL_UI_REFINEMENT_PLAN.md`): make every screen calm, readable and consistent on Android (Compose) and iOS
+(SwiftUI) using shared KMP tokens and components, following the approved visual direction `docs/design/stocksteps-ui-reference.png` (and
+`docs/design/stocksteps-portfolio-reference.png` for Portfolio). Images are illustrative — never a source of data or navigation. Plan order:
+1 tokens ✅ → 1A intermediate components ✅ → 2 remaining components ✅ → 3 Portfolio reference screen ✅ (+ 3.1 polish ✅) →
+**4 Home, Markets, Company Details (next, needs approval)** → 5 Watchlist, Screener, Comparison → 6 Learn, Daily Brief, Earnings →
+7 Settings, authentication and remaining screens.
+
+### Exact task at the end of the session
+Phase 3.1 (Portfolio polish) was finished, committed and pushed; the user then asked for this handoff. **No implementation is in progress.**
+Phase 4 has **not** been started and must not start without the user's approval.
+
+### Work completed in this session
+- **Phase 5C.1 closure** (`2171975`): final matrix (server 482/0/3 skipped, core JVM 429/0, core iOS 429/0, shared Android 55/0, shared iOS 51/0,
+  `assembleDebug`, iOS `xcodebuild`), hang regression strategy (report §13a), LAN backend inspected read-only, `docs/GLOBAL_UI_REFINEMENT_PLAN.md`.
+- **Phase 1 tokens** (`d9912bf`, `docs/GLOBAL_UI_REFINEMENT_PHASE1.md`): dark navy palette, AA `textTertiary`, text-role aliases
+  (`textTitle/textValue/textSupporting/textMeta`), type scale (body 15 … tiny 11; `largeNumber` 32, `numberEmphasis` 18), semantic spacing,
+  corners 8/12/16/20, auth gradient tokens, iOS Dynamic Type mapping + `stockFont`, `DesignTokensTest`.
+- **Phase 1A** (`f098846`, `docs/GLOBAL_UI_REFINEMENT_PHASE1A.md`): `primaryAction` `0F6FDB` (AA buttons; iOS `.stockPrimary`/`.stockSecondary`
+  replaced all `.borderedProminent`), `cardPadding` 16, wrapping `StockMetric` + `StockMetricGrid` (`StockLayout.metricColumns`), full
+  empty/error states, `StockSelectField`, iOS `StockTextField` (keyboard Done), `StockLabels.humanize`.
+- **Phase 2** (`314894e`, `docs/GLOBAL_UI_REFINEMENT_PHASE2.md`): `StockSemanticStyles` (badge kinds NEUTRAL…SAMPLE, banner kinds, selection
+  fill, education text, pill fit rule), `StockStatusBadge`, `StockTitleWithBadge`, `StockBanner`, editable `StockSearchField` (not wired),
+  pill selector that scrolls instead of truncating, chips/pills in the action blue, light `negativeText` `CA3035`, row/news text roles;
+  iOS before/after screenshots `docs/design/phase2/`.
+- **Phase 3 Portfolio** (`5d3b3cd`, `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md`): Portfolio redesigned on both platforms (header (i) + ⋯,
+  My Portfolio | Practice segmented control, account selector + Add, value hero, + Add transaction, performance card, compact holding rows,
+  allocation bars, transactions with menus, insights row, one sync/offline banner); shared `PortfolioPresentation`, `PortfolioChartRules`;
+  content-aware metric grids, non-breaking price arrows, centred flat charts; iOS allocation blank block fixed; screenshots `docs/design/phase3/`.
+- **Phase 3.1 polish** (`6ec2267`, `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md`): `PortfolioDates` (readable "as of" dates, UTC labelled),
+  hero metric rows (`StockMetricGrid(rowsWhenNarrow)`), "Today's change unavailable · Why?", "Cash and dividends" card, consistent allocation
+  rows, per-share trade prices and readable dates, width-aware holding-row stacking (`PortfolioLayout.stackedRowWidth` 320), short chart axis
+  dates and iOS data-based y-domain; screenshots `docs/design/phase3_1/`.
+- Reference images moved into `docs/design/` (`stocksteps-ui-reference.png`, `stocksteps-portfolio-reference.png`).
+
+### Files created or modified this session (all committed)
+- Shared tokens `app/shared/src/commonMain/kotlin/org/example/stocksteps/theme/`: `Colors.kt`, `Typography.kt`, `Spacing.kt` (incl. `StockLayout`),
+  `FinancialsTokens.kt`, new `StockSemanticStyles.kt`.
+- Compose design system `designsystem/`: `theme/StockStepsTheme.kt`, new `StockLabels.kt`, components `StockButton`, `StockCard`, `StockMetric`,
+  `StockPriceChange`, `StockStates`, `StockTag` (+ `StockStatusBadge`, `StockTitleWithBadge`), `StockTextField`, new `StockSelectField`,
+  `StockChip` (+ `StockPillSelector`), `StockSegmentedControl`, `StockSearchBar` (+ `StockSearchField`), new `StockBanner`, `StockInsightCard`,
+  `StockRow`, `StockNewsCard`, `StockSampleDataBanner`, `StockTrendChart`, `icons/StockIcons` (Check, Close, ChevronDown).
+- Compose screens: `presentation/portfolio/PortfolioScreen.kt`, `PortfolioHistoryChart.kt`, new `PortfolioPresentation.kt`;
+  `presentation/account/AuthComponents.kt` (token colours); `presentation/practice/PracticeScreens.kt`, `presentation/screener/ComparisonAiUi.kt`
+  (badge swaps).
+- iOS: `Theme.swift`, `DesignSystem/StockComponents.swift`, `StockDetailComponents.swift`, `StockSettingsComponents.swift`, `StockNewsCard.swift`,
+  new `DesignSystem/StockControls.swift`, new `DesignSystem/StockStatusViews.swift`, `PortfolioScreen.swift`, `PortfolioHistoryChart.swift`,
+  `AuthComponents.swift`, `PracticeScenes.swift`, `ComparisonAiViews.swift`, and the `.stockPrimary` swap in `ComparisonResearchViews`,
+  `DailyBriefScenes`, `EarningsPremiumViews`, `EarningsScenes`, `GuidedResearchScenes`, `PortfolioInsightsScreen`, `ScreenerScenes`.
+- Tests (`app/shared/src/commonTest/`): `theme/DesignTokensTest.kt`, `theme/SemanticStylesTest.kt`, `designsystem/StockLabelsTest.kt`,
+  `presentation/portfolio/PortfolioPresentationTest.kt`.
+- Docs: `GLOBAL_UI_REFINEMENT_PLAN.md`, `_PHASE1.md`, `_PHASE1A.md`, `_PHASE2.md`, `_PHASE3_PORTFOLIO.md`, `_PHASE3_1_POLISH.md`,
+  `PHASE5C_MOBILE_INTEGRATION_TEST_REPORT.md`, `docs/design/**`, handoffs, status, `CLAUDE.md` (button/badge rules).
+
+### Important decisions and reasons
+- KMP tokens are the single source; Compose and SwiftUI only bridge them. Badge/banner colours only via `StockSemanticStyles`; layout rules
+  shared (`StockLayout.metricColumns`, `StockPillLayout`, `PortfolioChartRules`, `PortfolioLayout`) so both platforms reflow identically.
+- Reference-image colours that fail WCAG AA were **not** adopted (light tertiary `94A3B8`, light positive `16A34A`, warning `D97706`, dark
+  negative `EF4444`); the education colour family stays amber/indigo (purple needs user approval).
+- `primaryAction` `0F6FDB` for white-text buttons/selection; brand `1683FF` stays for accents, links, charts.
+- `largeNumber` 32 (target 34) and `numberEmphasis` 18 (target 22) held back until screens using single-line metric cells adopt
+  `StockMetricGrid` (Phase 4/5). `sectionGap` keeps 12 (it is the card gap on Home/Portfolio Insights/Practice/Brief) until screens move to
+  `contentGap`; then it becomes 24.
+- Portfolio: display only — every value from `PortfolioUiState` via `PortfolioFormat`; missing values stay missing; daily change unavailable is
+  stated; history loads only after a period is chosen (presenter behaviour kept), so no pill is shown selected before data; charts need ≥ 2
+  dated values; dates are UTC-labelled because there is no time-zone database (no new dependency).
+- `PortfolioSummaryCard` (Home) intentionally unchanged until Phase 4.
+
+### Known bugs, blockers and risks
+- **LAN MOCK backend** (Ubuntu host) still runs `stocksteps-local:a50a2e3cc833` (Phase 5C) — the 5C.1 Daily Brief wording is not deployed.
+  Redeploy needs approval: `deploy/local/deploy.sh deploy` (10–30 s downtime, MOCK in-memory data reset), `deploy/local/deploy.sh smoke`
+  (23/23), check `upstream` 0; rollback `deploy/local/deploy.sh rollback a50a2e3cc833`.
+- Test data: the spare simulator's throwaway account has MSFT opening position at unit price **4 USD** → 13,144 % unrealized; correct maths,
+  bad input. Optional follow-up (approval): non-blocking "price far from market" hint in the transaction form.
+- No UI-test targets (Compose UI tests / XCUITest): layout/navigation regressions are covered only by device screenshots.
+- Not run: VoiceOver/TalkBack walkthroughs, physical devices, high-contrast mode, real Firebase/Google sign-in, push, Firestore persistence
+  tests (3 skipped, Phase 5D).
+- Freshness times are shown in UTC (no local time zone); Home still shows raw ISO timestamps in `PortfolioSummaryCard`.
+- `StockSearchField` and `StockBanner` exist but most screens do not use them yet; Screener metric labels truncate at large text; Company
+  Details stats table under-scales (Phase 4/5 items).
+- Environment: spare **iPhone 16 Simulator** `A04A9C8B-…` is booted (light, Large text) with the latest Debug build (localhost:8081 MOCK URL)
+  and the throwaway account cached. **emulator-5554** has this session's debug build installed and the **user's own Google account signed in**
+  (only viewed; font scale 1.0, size reset, app theme Light). The local MOCK server is stopped (start: `STOCKSTEPS_DATA_MODE=mock PORT=8081
+  server/build/install/server/bin/server` after `./gradlew :server:installDist`, or `./gradlew :server:runMock`). Do not drive devices without
+  the user's approval.
+
+### Build and test results
+Verified (final code, `6ec2267`, 2026-10-10):
+- `./gradlew :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue` → BUILD SUCCESSFUL:
+  shared Android host **81 / 0 failed / 0 skipped**, shared iOS **77 / 0 / 0**, `assembleDebug` OK.
+- iOS `xcodebuild -project app/iosApp/iosApp.xcodeproj -scheme app.iosApp -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+  CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES build` → BUILD SUCCEEDED (no warnings in changed files).
+- Manual device checks of Portfolio (iOS light/dark, default/XXXL; Android 427 dp and 360 dp at 1.0×/1.3×, light/dark) — screenshots in
+  `docs/design/phase3/` and `phase3_1/`.
+Verified earlier this session, not re-run since (server/core untouched by the UI phases): server 482/0 (3 skipped), core JVM 429/0, core iOS 429/0.
+Unverified: Android visuals of the Phase 2 components outside Portfolio; screen-reader walkthroughs; physical devices.
+
+### Exact next steps
+1. `git status` / `git log -3 --oneline` (expect HEAD `6ec2267`, clean except any handoff doc edits).
+2. Ask the user to approve **Phase 4 (Home, Markets, Company Details)** and device use for before/after screenshots.
+3. Phase 4 plan (from the Phase 3/3.1 docs): Home portfolio card → reuse the Portfolio hero pattern (`PortfolioPresentation`, readable dates,
+   no raw "Today — (—%)"); move `PortfolioDates` into a general date helper; promote the holding-row stacking into `StockRow`; Markets index
+   cards and Company Details "At a Glance"/valuation onto `StockMetricGrid` (then raise `numberEmphasis` to 22); fix Company Details stats
+   table scaling and the "Sample scenario" hanging indent; screen card gaps → `contentGap` (then `sectionGap` → 24).
+4. Run the shared tests + `assembleDebug` + iOS `xcodebuild`; one Gradle/xcodebuild run at a time.
+5. Optional with approval: LAN backend redeploy + smoke; VoiceOver/TalkBack pass.
+6. Commit only when asked.
+
+### Requirements discussed but not implemented
+Phases 4–7 of the plan; local-time "as of" dates; separate holdings/transactions screens ("View all"); 2×2 quick tiles from the portfolio
+reference; education colour family change (needs approval); `largeNumber` 34 / `numberEmphasis` 22; transaction-form price sanity hint;
+UI-test targets; Phase 5D Firebase persistence; physical-device, screen-reader and real-auth testing; Cloud Run staging (deferred).
+
+## 000000000. Global UI Refinement Phase 3.1 — Portfolio polish
 
 - Repository: `main`. Current commit: "Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS" (pushed), on top of "Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS" (pushed).
   Commit/push only when asked; every commit updates the root `PROJECT_HANDOFF.md`.

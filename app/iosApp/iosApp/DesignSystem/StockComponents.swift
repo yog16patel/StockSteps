@@ -119,6 +119,7 @@ struct StockChip: View {
 /// `compact` is the dense list treatment; `trailing` replaces the change/price column.
 struct StockRow<Trailing: View>: View {
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
     let symbol: String
     let name: String?
     var logoUrl: String?
@@ -137,7 +138,8 @@ struct StockRow<Trailing: View>: View {
                     if let name {
                         Text(name)
                             .font(StockStepsTheme.font(compact ? type.caption : type.small, relativeTo: compact ? .caption1 : .subheadline))
-                            .foregroundStyle(colors.textSupporting).lineLimit(1)
+                            // Large text gets a second line so long company names stay readable (Phase 4A); prices never truncate.
+                            .foregroundStyle(colors.textSupporting).lineLimit(typeSize >= .xxxLarge ? 2 : 1)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
