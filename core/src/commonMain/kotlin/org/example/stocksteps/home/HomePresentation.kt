@@ -180,6 +180,17 @@ object HomePresentation {
         PriceDirection.UNCHANGED -> "0.00%"
     }
 
+    /** "+$3.04" / "-$0.37" / "$0.00"; null for a missing or non-finite value (never shown as zero). */
+    fun signedPrice(value: Double?, currency: String?): String? {
+        if (value == null || !value.isFinite()) return null
+        val amount = price(abs(value), currency) ?: return null
+        return when {
+            value > 0 -> "+$amount"
+            value < 0 -> "-$amount"
+            else -> amount
+        }
+    }
+
     fun price(value: Double, currency: String?): String? {
         if (!value.isFinite()) return null
         val amount = if (abs(value) < 1.0) subDollar(value) else twoDecimals(value)

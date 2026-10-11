@@ -271,11 +271,11 @@ struct StockPillSelector<Option: Hashable>: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: CGFloat(space.xxs)) { ForEach(options, id: \.self) { pill($0).id($0) } }
                     }
-                    // Fade only while more than half a pill is hidden: a few points of padding past the edge is not "more options".
+                    // Shared rule: fade only while more than half a pill is hidden, so a fully visible last option is never dimmed (Phase 5A).
                     .onScrollGeometryChange(for: [Bool].self) { geometry in
-                        let slack = CGFloat(dims.touchTarget) / 2
-                        return [geometry.contentOffset.x > slack,
-                                geometry.contentOffset.x + geometry.containerSize.width < geometry.contentSize.width - slack]
+                        let hiddenAfter = geometry.contentSize.width - geometry.contentOffset.x - geometry.containerSize.width
+                        return [StockPillLayout.shared.fadesEdge(hiddenBeyondEdge: Float(geometry.contentOffset.x), touchTarget: Float(dims.touchTarget)),
+                                StockPillLayout.shared.fadesEdge(hiddenBeyondEdge: Float(hiddenAfter), touchTarget: Float(dims.touchTarget))]
                     } action: { _, edges in moreBefore = edges[0]; moreAfter = edges[1] }
                     .mask(fadeMask)
                     .onAppear { proxy.scrollTo(selected) }

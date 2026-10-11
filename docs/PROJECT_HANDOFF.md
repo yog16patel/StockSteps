@@ -1,11 +1,22 @@
 # StockSteps — session handoff (2026-10-10, end of session: Global UI Refinement Phases 1, 1A, 2, 3 and 3.1 committed and pushed)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE4C3 below** → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE5A below** → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## PHASE4C3. Global UI Refinement Phase 4C.3 — Company Details responsive UX and accessibility polish (committed and pushed) — read first
+## PHASE5A. Global UI Refinement Phase 5A — Watchlist (committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS" (pushed), on top of `e08ceb2` (4C.2 + 4C.3).
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE5A.md`, evidence `docs/design/phase5a/`): 4C.3 selector fade closed with shared
+  `StockPillLayout.fadesEdge`; Watchlist on both platforms reordered (header with count/updated → full-name selector → compact grouped rows with
+  "+$3.04 (+0.91%)" → context line + Add a company → "Alerts and more" rows → insights); shared `StockQuoteRowLayout`; "No data available" /
+  loading / prices-unavailable states; empty state with one primary action; row menu starts with View details.
+- Results: core JVM/iOS 439/0, shared Android 109/0, shared iOS 105/0, `assembleDebug` OK, iOS `xcodebuild` OK. Not run: iOS SE, iOS signed-in,
+  TalkBack, VoiceOver. Verdict PASS WITH CONDITIONS.
+- Next: user review → Phase 5B (Screener) only after approval.
+
+## PHASE4C3. Global UI Refinement Phase 4C.3 — Company Details responsive UX and accessibility polish (committed and pushed)
 
 - Repository: `main`. Current commit: "Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)" (pushed; 4C.2 and 4C.3 together), on top of `7adc89c` (4C + 4C.1).
 - Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE4C_3.md`, evidence `docs/design/phase4c3/`): Android sources-button semantics (one "3 sources"

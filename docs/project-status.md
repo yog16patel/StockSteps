@@ -6,6 +6,11 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**Global UI Refinement Phase 5A (Watchlist) — committed and pushed as "Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS" (2026-10-10)**: 4C.3 selector fade closed (shared `fadesEdge`); compact
+Watchlist on Android and iOS with full-name selector, signed amount + percentage rows, shared `StockQuoteRowLayout`, unavailable/loading/error
+states, grouped "Alerts and more" actions. Core 439/0 (JVM, iOS), shared Android 109/0, shared iOS 105/0, builds OK. iOS SE/signed-in and screen
+readers NOT RUN. Details `docs/GLOBAL_UI_REFINEMENT_PHASE5A.md`. **Next**: review → Phase 5B on approval.
+
 **Global UI Refinement Phases 4C.2 + 4C.3 (Company Details polish) — committed and pushed as "Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)" (2026-10-10)**: natural loss wording, classified
 chart states (no history / connection / temporary) in a compact centered layout, date-aware change label, responsive header actions (shared
 `StockActionLayout`), range-selector scroll affordance, long badges below titles, duplicate valuation headline removed, iOS MOCK banner above the

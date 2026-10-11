@@ -130,9 +130,9 @@ internal fun <T> StockPillSelector(options: List<T>, selected: T, label: (T) -> 
                     .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                     .drawWithContent {
                         drawContent()
-                        // Fade only while more than half a pill is hidden: a few pixels of padding past the edge is not "more options".
-                        val start = if (scroll.value > edge / 2) Color.Transparent else Color.Black
-                        val end = if (scroll.maxValue - scroll.value > edge / 2) Color.Transparent else Color.Black
+                        // Shared rule: fade only while more than half a pill is hidden, so a fully visible last option is never dimmed.
+                        val start = if (StockPillLayout.fadesEdge(scroll.value.toFloat(), edge)) Color.Transparent else Color.Black
+                        val end = if (StockPillLayout.fadesEdge((scroll.maxValue - scroll.value).toFloat(), edge)) Color.Transparent else Color.Black
                         val fade = (edge / size.width).coerceIn(0f, 0.5f)
                         drawRect(Brush.horizontalGradient(0f to start, fade to Color.Black, 1f - fade to Color.Black, 1f to end), blendMode = BlendMode.DstIn)
                     }

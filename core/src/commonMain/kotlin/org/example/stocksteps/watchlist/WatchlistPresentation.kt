@@ -15,11 +15,15 @@ data class WatchlistRowModel(
     val symbol: String,
     val name: String?,
     val logoUrl: String?,
-    /** "$258.42" */
+    /** "$258.42", or "41.20 CAD" outside USD (the currency is already in the text; never append [currency] again). */
     val price: String?,
     val currency: String?,
     val change: String,
     val direction: PriceDirection,
+    /** Signed amount and percentage, "+$3.04 (+0.91%)"; the percentage alone when the amount is missing; null without a quote (Phase 5A). */
+    val changeLine: String?,
+    /** False when no quote came back: the row shows [UNAVAILABLE] instead of a price, never $0.00 or 0.00%. */
+    val quoteAvailable: Boolean,
     /** "Delayed · as of Oct 6" when the quote isn't from the latest session. */
     val staleLabel: String?,
     val notePreview: String?,
@@ -48,13 +52,28 @@ data class WatchlistModel(
     val selectedId: String?,
     val summary: WatchlistSummary?,
     val rows: List<WatchlistRowModel>,
-    /** Deterministic statements about today, only when supported by the data. */
+    /** Deterministic statements about today, only when supported by the data (the equal-weighted average first, Phase 5A). */
     val insights: List<String>,
-    val emptyMessage: String?
+    val emptyMessage: String?,
+    /** Title for the empty state ("Your watchlist is empty"); null when the list has stocks. */
+    val emptyTitle: String? = null
 )
 
 @OptIn(ExperimentalTime::class)
 object WatchlistPresenter {
+    /** Shown in place of a price when no quote came back (Phase 5A). */
+    const val UNAVAILABLE = "No data available"
+    /** What the row's change refers to, shown once under the list. */
+    const val CHANGE_CONTEXT = "Change since the previous close. Prices may be delayed."
+    const val EMPTY_MESSAGE = "Add companies to follow and see their latest prices and news in one place."
+
+    /**
+     * Phase 5A: a message when the list has stocks but the price request failed (not while it is still loading, and never as an empty list);
+     * null otherwise. Rows stay, showing [UNAVAILABLE].
+     */
+    fun pricesUnavailableMessage(hasRows: Boolean, hasData: Boolean, loading: Boolean): String? =
+        if (hasRows && !hasData && !loading) "Prices couldn't be loaded. Check your connection and try again." else null
+
     fun build(
         lists: List<Watchlist>,
         selectedId: String?,
@@ -75,9 +94,26 @@ object WatchlistPresenter {
             selectedId = selected.id,
             summary = summary,
             rows = rows,
-            insights = insights(selected, quotes, data),
-            emptyMessage = if (selected.entries.isEmpty()) "No stocks in ${selected.name} yet. Search for a company and tap Add to Watchlist." else null
+            insights = listOfNotNull(summary.change?.let { average(it, summary) }) + insights(selected, quotes, data),
+            emptyMessage = if (selected.entries.isEmpty()) "No stocks in ${selected.name} yet. Search for a company and tap Add to Watchlist." else null,
+            emptyTitle = if (selected.entries.isEmpty()) (if (selected.isDefault) "Your watchlist is empty" else "${selected.name} is empty") else null
         )
+    }
+
+    /**
+     * The equal-weighted average as a plain sentence (it used to be its own card): "On average, these 5 stocks moved +0.50% today
+     * (equal-weighted; not a portfolio return)." When only some stocks have today's price it says so instead of implying all moved.
+     */
+    private fun average(change: String, summary: WatchlistSummary): String? {
+        val counts = summary.methodology?.substringAfter("average of ")?.substringBefore(" stocks")?.split(" of ")?.mapNotNull { it.trim().toIntOrNull() }
+        // An "average" of one stock only repeats that row.
+        if (counts != null && counts.size == 2 && counts[0] < 2) return null
+        val subject = when {
+            counts == null || counts.size != 2 -> "these stocks"
+            counts[0] == counts[1] -> "these ${counts[0]} stocks"
+            else -> "the ${counts[0]} of ${counts[1]} stocks with today's prices"
+        }
+        return "On average, $subject moved ${change.removeSuffix(" today")} today (equal-weighted; not a portfolio return)."
     }
 
     private fun row(entry: WatchlistEntry, quote: WatchQuote?, alerts: Int, offset: Int, offline: Boolean): WatchlistRowModel {
@@ -93,6 +129,21 @@ object WatchlistPresenter {
         }
         val name = quote?.name ?: entry.instrument.name
         val preview = entry.note?.lineSequence()?.firstOrNull()?.let { if (it.length > 80) it.take(79).trimEnd() + "…" else it }
+        val direction = HomePresentation.direction(quote?.changePercent)
+        val amount = HomePresentation.signedPrice(quote?.change, currency)
+        val changeLine = when {
+            quote?.changePercent == null && amount == null -> null
+            amount != null && quote?.changePercent != null -> "$amount ($change)"
+            amount != null -> amount
+            else -> change
+        }
+        // Spoken direction in words, never colour alone: "up $3.04, 0.91% today".
+        val spoken = when {
+            price == null -> "price unavailable"
+            changeLine == null -> "$price, change unavailable"
+            direction == PriceDirection.UNCHANGED -> "$price, unchanged today"
+            else -> "$price, ${if (direction == PriceDirection.UP) "up" else "down"} ${listOfNotNull(amount?.trimStart('+', '-'), change.trimStart('+', '-').takeIf { quote?.changePercent != null }).joinToString(", ")} today"
+        }
         return WatchlistRowModel(
             entryId = entry.id,
             symbol = entry.instrument.symbol,
@@ -101,12 +152,14 @@ object WatchlistPresenter {
             price = price,
             currency = currency,
             change = change,
-            direction = HomePresentation.direction(quote?.changePercent),
+            direction = direction,
+            changeLine = changeLine,
+            quoteAvailable = price != null,
             staleLabel = stale,
             notePreview = preview,
             note = entry.note,
             activeAlerts = alerts,
-            accessibilityLabel = listOfNotNull(entry.instrument.symbol, name, price?.let { "$it ${currency.orEmpty()}".trim() }, change.takeIf { quote?.changePercent != null },
+            accessibilityLabel = listOfNotNull(entry.instrument.symbol, name, spoken,
                 stale, if (alerts > 0) "$alerts active alert${if (alerts == 1) "" else "s"}" else null, preview?.let { "Note: $it" }).joinToString(", ")
         )
     }

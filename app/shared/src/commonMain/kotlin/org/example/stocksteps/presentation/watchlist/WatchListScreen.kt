@@ -14,7 +14,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +30,7 @@ import org.example.stocksteps.model.Watchlist
 import org.example.stocksteps.presentation.AdaptiveSinglePane
 import org.example.stocksteps.resources.*
 import org.example.stocksteps.watchlist.WatchlistModel
+import org.example.stocksteps.watchlist.WatchlistPresenter
 import org.example.stocksteps.watchlist.WatchlistRowModel
 import org.jetbrains.compose.resources.stringResource
 
@@ -85,12 +89,14 @@ internal fun WatchListScreen(state: WatchListState, hinge: WindowHinge?, onActio
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxSize()
                 ) {
+                    // Phase 5A order: header → watchlist selector → stocks → alerts and related actions → education.
                     item(key = "header") { Header(state, model, content.padding(top = spacing.lg), onAction, onManage = { sheet = it }) }
                     if (state.signedIn && model == null) {
                         item(key = "status") {
                             if (state.lists.loading || state.session.initializing) StockLoadingState(content.padding(top = spacing.lg)) { repeat(4) { StockRowSkeleton() } }
                             else StockCard(content.padding(top = spacing.lg), bordered = false) {
-                                StockErrorState(state.lists.error ?: stringResource(Res.string.watchlist_load_failed), { onAction(WatchListAction.Refresh) })
+                                StockErrorState(state.lists.error ?: stringResource(Res.string.watchlist_load_failed), { onAction(WatchListAction.Refresh) },
+                                    title = "Couldn't load your watchlist")
                             }
                         }
                         return@LazyColumn
@@ -99,35 +105,45 @@ internal fun WatchListScreen(state: WatchListState, hinge: WindowHinge?, onActio
                     if (state.signedIn && model.tabs.isNotEmpty()) {
                         item(key = "tabs") { Tabs(model, content.padding(top = spacing.md), onAction, onNew = { sheet = Sheet.Name(null) }) }
                     }
-                    model.summary?.takeIf { model.rows.isNotEmpty() }?.let { summary ->
-                        item(key = "summary") { SummaryCard(summary, content.padding(top = spacing.md)) }
-                    }
                     if (state.lists.offline && state.lists.error != null) {
                         item(key = "offline") { Text(state.lists.error!!, content.padding(top = spacing.sm), style = StockStepsTheme.typography.caption, color = colors.cautionText) }
                     }
-                    if (!state.signedIn) item(key = "signin") { SignInCard(content.padding(top = spacing.md)) { onAction(WatchListAction.SignIn) } }
-                    model.emptyMessage?.let { message ->
+                    model.emptyMessage?.let {
                         item(key = "empty") {
                             StockCard(content.padding(top = spacing.md), bordered = false) {
-                                StockEmptyState(if (state.signedIn) message else stringResource(Res.string.watchlist_guest_empty))
-                                StockButton(stringResource(Res.string.watchlist_find_stocks), onClick = { onAction(WatchListAction.Search) },
-                                    modifier = Modifier.padding(top = spacing.sm), variant = StockButtonVariant.SECONDARY)
+                                StockEmptyState(
+                                    message = if (state.signedIn) WatchlistPresenter.EMPTY_MESSAGE else "${WatchlistPresenter.EMPTY_MESSAGE} They're saved on this device.",
+                                    title = model.emptyTitle ?: "Your watchlist is empty",
+                                    icon = StockIcons.StarOutline,
+                                    actionText = "Add a company",
+                                    onAction = { onAction(WatchListAction.Search) }
+                                )
                             }
                         }
                     }
                     if (model.rows.isNotEmpty()) {
-                        // At most 100 rows per list, so one card keeps the grouped layout simple.
+                        // At most 100 rows per list: one grouped card of compact rows (no card per stock).
                         item(key = "rows") {
                             StockCard(content.padding(top = spacing.md), bordered = false, contentPadding = PaddingValues(vertical = spacing.xxs)) {
                                 model.rows.forEachIndexed { index, row ->
                                     if (index > 0) StockDivider(startIndent = spacing.cardPadding)
-                                    StockRowLine(row, state.signedIn, onAction, onMore = { sheet = Sheet.RowActions(row, index) })
+                                    WatchlistQuoteRow(row, loading = state.dataLoading, signedIn = state.signedIn, onAction = onAction, onMore = { sheet = Sheet.RowActions(row, index) })
                                 }
                             }
                         }
+                        item(key = "context") {
+                            val unavailable = WatchlistPresenter.pricesUnavailableMessage(hasRows = true, hasData = state.data != null, loading = state.dataLoading)
+                            Column(content.padding(top = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                                if (unavailable != null) StockErrorState(unavailable, { onAction(WatchListAction.Refresh) })
+                                else Text(WatchlistPresenter.CHANGE_CONTEXT, style = StockStepsTheme.typography.caption, color = colors.textMeta)
+                                StockButton("Add a company", onClick = { onAction(WatchListAction.Search) }, modifier = Modifier.fillMaxWidth(),
+                                    variant = StockButtonVariant.SECONDARY, icon = StockIcons.Search)
+                            }
+                        }
                     }
+                    item(key = "related") { RelatedActions(state, content.padding(top = spacing.sectionGap), onAction) }
                     if (model.insights.isNotEmpty()) {
-                        item(key = "insights") { InsightsCard(model.insights, content.padding(top = spacing.xl)) }
+                        item(key = "insights") { InsightsCard(model.insights, content.padding(top = spacing.md)) }
                     }
                     item(key = "disclaimer") {
                         Text(stringResource(Res.string.watchlist_disclaimer), content.padding(top = spacing.lg), style = StockStepsTheme.typography.caption, color = colors.textTertiary)
@@ -165,89 +181,110 @@ internal fun WatchListScreen(state: WatchListState, hinge: WindowHinge?, onActio
     }
 }
 
+/**
+ * "Watchlist", the company count and update time, then search and (signed in) the watchlist menu — new, rename, delete. Alerts, earnings and
+ * comparison moved to the related-actions group under the stocks (Phase 5A), so the header stays compact.
+ */
 @Composable
 private fun Header(state: WatchListState, model: WatchlistModel?, modifier: Modifier, onAction: (WatchListAction) -> Unit, onManage: (Sheet) -> Unit) {
     val colors = StockStepsTheme.colors
     var menu by remember { mutableStateOf(false) }
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-            Text(stringResource(Res.string.watchlist_title), Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
-            Text(stringResource(Res.string.watchlist_subtitle), style = StockStepsTheme.typography.small, color = colors.textSecondary)
-            val shown = (state.selected?.entries?.sortedBy { it.order }?.map { it.instrument } ?: if (!state.signedIn) state.guestItems.map { InstrumentRef(it.symbol, it.name) } else emptyList())
-                .map { org.example.stocksteps.screener.SelectedCompany(it.symbol, it.name ?: it.symbol) }
-            Row(Modifier.horizontalScroll(rememberScrollState())) {
-                if (shown.size >= 2) StockButton("Compare these companies", onClick = { onAction(WatchListAction.Compare(shown.take(3))) }, variant = StockButtonVariant.TEXT)
-                if (state.signedIn) {
-                    StockButton("Earnings dates for your watchlists", onClick = { onAction(WatchListAction.Earnings) }, variant = StockButtonVariant.TEXT)
-                    StockButton("Earnings Reminders", onClick = { onAction(WatchListAction.EarningsReminders) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Bell)
-                }
+            Text("Watchlist", Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
+            model?.summary?.let { summary ->
+                val subtitle = listOfNotNull(summary.companies, summary.updated?.takeIf { model.rows.isNotEmpty() }).joinToString(" · ")
+                Text(subtitle, style = StockStepsTheme.typography.small, color = if (summary.stale && model.rows.isNotEmpty()) colors.cautionText else colors.textSecondary)
             }
         }
-        IconButton(onClick = { onAction(WatchListAction.Search) }) { Icon(StockIcons.Search, stringResource(Res.string.markets_search), tint = colors.textPrimary) }
-        if (state.signedIn) {
-            IconButton(onClick = { onAction(WatchListAction.OpenAlerts(null)) }) { Icon(StockIcons.Bell, stringResource(Res.string.alerts_title), tint = colors.textPrimary) }
-            val selected = state.selected
-            if (model != null && selected != null) {
-                Box {
-                    IconButton(onClick = { menu = true }) { Icon(StockIcons.More, stringResource(Res.string.watchlist_manage), tint = colors.textPrimary) }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = colors.surface) {
-                        DropdownMenuItem(text = { Text(stringResource(Res.string.watchlist_new)) }, onClick = { menu = false; onManage(Sheet.Name(null)) })
-                        DropdownMenuItem(text = { Text(stringResource(Res.string.watchlist_rename)) }, onClick = { menu = false; onManage(Sheet.Name(selected)) })
-                        if (state.watchlists.size > 1) DropdownMenuItem(text = { Text(stringResource(Res.string.watchlist_delete)) }, onClick = {
-                            menu = false
-                            if (selected.entries.isEmpty()) onAction(WatchListAction.DeleteList(selected.id)) else onManage(Sheet.ConfirmDelete(selected))
-                        })
-                    }
+        IconButton(onClick = { onAction(WatchListAction.Search) }) { Icon(StockIcons.Search, "Add a company", tint = colors.textPrimary) }
+        val selected = state.selected
+        if (state.signedIn && model != null && selected != null) {
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(StockIcons.More, stringResource(Res.string.watchlist_manage), tint = colors.textPrimary) }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = colors.surface) {
+                    DropdownMenuItem(text = { Text(stringResource(Res.string.watchlist_new)) }, onClick = { menu = false; onManage(Sheet.Name(null)) })
+                    DropdownMenuItem(text = { Text(stringResource(Res.string.watchlist_rename)) }, onClick = { menu = false; onManage(Sheet.Name(selected)) })
+                    if (state.watchlists.size > 1) DropdownMenuItem(text = { Text(stringResource(Res.string.watchlist_delete), color = colors.negativeText) }, onClick = {
+                        menu = false
+                        if (selected.entries.isEmpty()) onAction(WatchListAction.DeleteList(selected.id)) else onManage(Sheet.ConfirmDelete(selected))
+                    })
                 }
             }
         }
     }
 }
 
+/** One chip per watchlist (full names; the row scrolls instead of truncating) and a "+" chip to create one. */
 @Composable
 private fun Tabs(model: WatchlistModel, modifier: Modifier, onAction: (WatchListAction) -> Unit, onNew: () -> Unit) {
-    Row(modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-        model.tabs.forEach { tab -> StockChip("${tab.name} ${tab.count}", tab.selected, onClick = { onAction(WatchListAction.Select(tab.id)) }) }
-        StockChip("+ ${stringResource(Res.string.watchlist_new_short)}", false, onClick = onNew)
-    }
-}
-
-@Composable
-private fun SummaryCard(summary: org.example.stocksteps.watchlist.WatchlistSummary, modifier: Modifier) {
-    val spacing = StockStepsTheme.spacing
-    val colors = StockStepsTheme.colors
-    StockCard(modifier, bordered = false, contentPadding = PaddingValues(spacing.md)) {
-        Text(summary.title.uppercase(), style = StockStepsTheme.typography.label, color = colors.textSecondary)
-        Row(Modifier.padding(top = spacing.xxs), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Text(summary.companies, Modifier.weight(1f), style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
-            summary.change?.let { StockPriceChange(it, summary.direction, style = StockStepsTheme.typography.numberEmphasis) }
+    Row(modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs),
+        verticalAlignment = Alignment.CenterVertically) {
+        model.tabs.forEach { tab ->
+            StockChip(tab.name, tab.selected, onClick = { onAction(WatchListAction.Select(tab.id)) },
+                modifier = Modifier.semantics { contentDescription = "${tab.name}, ${tab.count} ${if (tab.count == 1) "company" else "companies"}" })
         }
-        summary.methodology?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textTertiary) }
-        summary.updated?.let { Text(it, style = StockStepsTheme.typography.caption, color = if (summary.stale) colors.cautionText else colors.textTertiary) }
+        StockChip("+", false, onClick = onNew, modifier = Modifier.semantics { contentDescription = "New watchlist" })
     }
 }
 
+/**
+ * Compact quote row (Phase 5A): logo, symbol and name on the left; price and "+$3.04 (+0.91%)" on the right — or on their own line under the
+ * company when they would crowd the name (shared `StockQuoteRowLayout`). Missing quotes say "No data available" (never $0.00); while prices
+ * load, a placeholder is shown instead. The whole row opens Company Details; the bell (active alerts) and ⋮ (actions) are separate 48dp targets.
+ */
 @Composable
-private fun StockRowLine(row: WatchlistRowModel, signedIn: Boolean, onAction: (WatchListAction) -> Unit, onMore: () -> Unit) {
+private fun WatchlistQuoteRow(row: WatchlistRowModel, loading: Boolean, signedIn: Boolean, onAction: (WatchListAction) -> Unit, onMore: () -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val values: @Composable () -> Unit = {
+        when {
+            row.quoteAvailable -> {
+                Text(row.price.orEmpty(), style = typography.numberLabelStrong, color = colors.textValue, maxLines = 1)
+                row.changeLine?.let { StockPriceChange(it, row.direction, style = typography.numberLabel) }
+            }
+            loading -> StockLoadingState { StockSkeleton(Modifier.width(StockStepsTheme.dimensions.touchTarget * 1.5f)) }
+            else -> Text(WatchlistPresenter.UNAVAILABLE, style = typography.caption, color = colors.textTertiary, maxLines = 1)
+        }
+        row.staleLabel?.let { Text(it, style = typography.tiny, color = colors.cautionText, maxLines = 1) }
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            StockRow(
-                symbol = row.symbol,
-                name = row.name,
-                logoUrl = row.logoUrl,
-                modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = row.accessibilityLabel },
-                onClick = { onAction(WatchListAction.OpenStock(row.symbol)) },
-                trailing = {
-                    Text(listOfNotNull(row.price, row.currency).joinToString(" ").ifEmpty { "—" }, style = StockStepsTheme.typography.numberLabelStrong, color = colors.textPrimary, maxLines = 1)
-                    StockPriceChange(row.change, row.direction)
-                    row.staleLabel?.let { Text(it, style = StockStepsTheme.typography.tiny, color = colors.cautionText, maxLines = 1) }
+        BoxWithConstraints(Modifier.weight(1f)) {
+            val valuesWidth = with(density) {
+                listOfNotNull(row.price?.let { measurer.measure(it, typography.numberLabelStrong).size.width },
+                    row.changeLine?.let { measurer.measure(it, typography.numberLabel).size.width + StockStepsTheme.dimensions.iconSmall.roundToPx() })
+                    .maxOrNull()?.toDp()?.value ?: 0f
+            }
+            val beside = maxWidth.value - StockStepsTheme.dimensions.logo.value - spacing.cardPadding.value - spacing.sm.value
+            val stacked = org.example.stocksteps.theme.StockQuoteRowLayout.stacksValues(valuesWidth, beside,
+                accessibilityText = density.fontScale >= StockStepsTheme.dimensions.largeFontScale * 1.15f)
+            // One element for the whole row (identity, values, note): one tap target and one spoken label, even when values are stacked.
+            val open = { onAction(WatchListAction.OpenStock(row.symbol)) }
+            Column(Modifier.clickable(role = Role.Button, onClick = open).clearAndSetSemantics {
+                contentDescription = row.accessibilityLabel
+                role = Role.Button
+                onClick(label = "Open details") { open(); true }
+            }) {
+                StockRow(
+                    symbol = row.symbol,
+                    name = row.name,
+                    logoUrl = row.logoUrl,
+                    contentPadding = PaddingValues(start = spacing.cardPadding, end = spacing.xs, top = spacing.sm, bottom = if (stacked) spacing.xxs else spacing.sm),
+                    trailing = if (stacked) ({}) else ({ values() })
+                )
+                if (stacked) {
+                    // Stacked: price and change share one line (wrapping only if even that doesn't fit), so rows stay compact at large text.
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(Modifier.padding(start = spacing.cardPadding + StockStepsTheme.dimensions.logo + spacing.sm, end = spacing.sm, bottom = spacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.sm), itemVerticalAlignment = Alignment.CenterVertically) { values() }
                 }
-            )
-            row.notePreview?.let {
-                Text("“$it”", Modifier.padding(start = spacing.cardPadding + StockStepsTheme.dimensions.logo + spacing.sm, end = spacing.sm, bottom = spacing.sm),
-                    style = StockStepsTheme.typography.caption, color = colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                row.notePreview?.let {
+                    Text("“$it”", Modifier.padding(start = spacing.cardPadding + StockStepsTheme.dimensions.logo + spacing.sm, end = spacing.sm, bottom = spacing.sm),
+                        style = typography.caption, color = colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
         if (signedIn && row.activeAlerts > 0) {
@@ -256,6 +293,30 @@ private fun StockRowLine(row: WatchlistRowModel, signedIn: Boolean, onAction: (W
             }
         }
         IconButton(onClick = onMore) { Icon(StockIcons.More, stringResource(Res.string.watchlist_row_actions, row.symbol), tint = colors.iconSecondary) }
+    }
+}
+
+/** Alerts and related actions under the stocks: what used to be header links, as one grouped list of navigation rows. */
+@Composable
+private fun RelatedActions(state: WatchListState, modifier: Modifier, onAction: (WatchListAction) -> Unit) {
+    val shown = (state.selected?.entries?.sortedBy { it.order }?.map { it.instrument } ?: if (!state.signedIn) state.guestItems.map { InstrumentRef(it.symbol, it.name) } else emptyList())
+        .map { org.example.stocksteps.screener.SelectedCompany(it.symbol, it.name ?: it.symbol) }
+    val rows = buildList<Pair<String, @Composable () -> Unit>> {
+        if (state.signedIn) {
+            add("alerts" to { StockNavigationRow("My alerts", { onAction(WatchListAction.OpenAlerts(null)) }, icon = StockIcons.Bell, detail = "Price, earnings and news alerts") })
+            add("earnings" to { StockNavigationRow("Earnings dates", { onAction(WatchListAction.Earnings) }, icon = StockIcons.Document, detail = "When your companies report next") })
+            add("reminders" to { StockNavigationRow("Earnings reminders", { onAction(WatchListAction.EarningsReminders) }, icon = StockIcons.Bell, detail = "Get a reminder before results") })
+        }
+        if (shown.size >= 2) add("compare" to { StockNavigationRow("Compare these companies", { onAction(WatchListAction.Compare(shown.take(3))) }, icon = StockIcons.PieChart, detail = "See up to three side by side") })
+    }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+        if (!state.signedIn) SignInCard(Modifier) { onAction(WatchListAction.SignIn) }
+        if (rows.isNotEmpty()) {
+            StockSectionHeader(if (state.signedIn) "Alerts and more" else "More")
+            StockCard(bordered = false, contentPadding = PaddingValues(horizontal = StockStepsTheme.spacing.md, vertical = StockStepsTheme.spacing.xxs)) {
+                rows.forEachIndexed { index, (_, content) -> if (index > 0) StockDivider(); content() }
+            }
+        }
     }
 }
 
@@ -290,17 +351,18 @@ private fun RowActionsSheet(open: Sheet.RowActions, state: WatchListState, onAct
         Column(Modifier.fillMaxWidth().padding(bottom = StockStepsTheme.spacing.xxl)) {
             Text(listOfNotNull(row.symbol, row.name).joinToString(" · "), Modifier.padding(horizontal = StockStepsTheme.spacing.screen, vertical = StockStepsTheme.spacing.sm).semantics { heading() },
                 style = StockStepsTheme.typography.sectionTitle, color = StockStepsTheme.colors.textPrimary)
+            SheetAction("View details") { onAction(WatchListAction.OpenStock(row.symbol)); onDismiss() }
             if (!state.signedIn) {
-                SheetAction(stringResource(Res.string.watchlist_remove)) { onAction(WatchListAction.RemoveGuest(row.symbol)); onDismiss() }
+                SheetAction(stringResource(Res.string.watchlist_remove), destructive = true) { onAction(WatchListAction.RemoveGuest(row.symbol)); onDismiss() }
                 return@Column
+            }
+            SheetAction(stringResource(Res.string.alert_add)) {
+                onAction(WatchListAction.AddAlert(InstrumentRef(row.symbol, row.name, currency = row.currency), row.price)); onDismiss()
             }
             SheetAction("Add to portfolio") {
                 val instrument = state.watchlists.flatMap { it.entries }.firstOrNull { it.instrument.symbol == row.symbol }?.instrument
                     ?: InstrumentRef(row.symbol, row.name, currency = row.currency)
                 onAction(WatchListAction.AddPortfolio(instrument)); onDismiss()
-            }
-            SheetAction(stringResource(Res.string.alert_add)) {
-                onAction(WatchListAction.AddAlert(InstrumentRef(row.symbol, row.name, currency = row.currency), row.price)); onDismiss()
             }
             SheetAction(stringResource(if (row.note == null) Res.string.watchlist_add_note else Res.string.watchlist_edit_note)) { onSheet(Sheet.Note(row)) }
             if (others) {

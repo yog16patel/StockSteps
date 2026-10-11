@@ -134,6 +134,8 @@ struct WatchListScene: View {
     @State private var naming: Watchlist??
     @State private var name = ""
     @State private var confirmDelete: Watchlist?
+    @State private var listWidth: CGFloat = 0
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
@@ -142,45 +144,54 @@ struct WatchListScene: View {
         let symbols = content?.rows.map(\.symbol) ?? []
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                header(signedIn: signedIn, colors).padding(.top, CGFloat(space.lg))
+                // Phase 5A order: header → watchlist selector → stocks → alerts and related actions → education.
+                header(content, signedIn: signedIn, colors).padding(.top, CGFloat(space.lg))
                 if let content {
                     if signedIn {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: CGFloat(space.xs)) {
+                                // Full names (the row scrolls instead of truncating); counts are spoken, the header shows the selected list's count.
                                 ForEach(content.tabs, id: \.id) { tab in
-                                    StockChip(title: "\(tab.name) \(tab.count)", selected: tab.selected) { model.selectedId = tab.id }
+                                    StockChip(title: tab.name, selected: tab.selected) { model.selectedId = tab.id }
+                                        .accessibilityLabel("\(tab.name), \(tab.count) \(tab.count == 1 ? "company" : "companies")")
                                 }
-                                StockChip(title: "+ New list", selected: false) { name = ""; naming = .some(nil) }
+                                StockChip(title: "+", selected: false) { name = ""; naming = .some(nil) }.accessibilityLabel("New watchlist")
                             }
                         }
                         .padding(.top, CGFloat(space.md))
                     }
-                    if let summary = content.summary, !content.rows.isEmpty { summaryCard(summary, colors).padding(.top, CGFloat(space.md)) }
                     if signedIn, model.user?.offline == true, let error = model.user?.listsError {
                         Text(error).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.cautionText).padding(.top, CGFloat(space.sm))
                     }
-                    if !signedIn {
-                        StockInsightCard(title: "Sign in for more", message: "Create several watchlists, add private notes and get price, earnings and news alerts.",
-                                         actionTitle: "Sign in", action: onSignIn)
-                            .padding(.top, CGFloat(space.md))
-                    }
-                    if let empty = content.emptyMessage {
-                        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-                            StockSectionMessage(message: signedIn ? empty : "No stocks saved yet. Search for a company and tap Add to Watchlist.")
-                            Button("Find stocks", action: onSearch).font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(colors.primaryText)
-                                .frame(minHeight: CGFloat(dims.touchTarget))
-                        }
-                        .stockCard(padding: CGFloat(space.md), bordered: false).padding(.top, CGFloat(space.md))
+                    if content.emptyMessage != nil {
+                        let presenter = WatchlistPresenter.shared
+                        StockStateMessage(title: content.emptyTitle ?? "Your watchlist is empty",
+                                          message: signedIn ? presenter.EMPTY_MESSAGE : "\(presenter.EMPTY_MESSAGE) They're saved on this device.",
+                                          systemImage: "star", actionTitle: "Add a company", action: onSearch)
+                            .stockCard(padding: CGFloat(space.md), bordered: false).padding(.top, CGFloat(space.md))
                     }
                     if !content.rows.isEmpty {
+                        // One grouped card of compact rows (no card per stock).
                         VStack(spacing: 0) {
                             ForEach(Array(content.rows.enumerated()), id: \.element.entryId) { index, row in
                                 if index > 0 { StockDivider() }
                                 rowView(row, index: index, count: content.rows.count, signedIn: signedIn, colors)
                             }
                         }
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { listWidth = $0 }
                         .stockCard(padding: 0, bordered: false).padding(.top, CGFloat(space.md))
+                        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+                            let presenter = WatchlistPresenter.shared
+                            if let unavailable = presenter.pricesUnavailableMessage(hasRows: true, hasData: model.data != nil, loading: model.dataLoading) {
+                                StockSectionMessage(message: unavailable, actionTitle: "Try again") { model.loadData(symbols: symbols, force: true) }
+                            } else {
+                                Text(presenter.CHANGE_CONTEXT).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                            }
+                            Button(action: onSearch) { Label("Add a company", systemImage: "plus").frame(maxWidth: .infinity) }.buttonStyle(.stockSecondary)
+                        }
+                        .padding(.top, CGFloat(space.sm))
                     }
+                    relatedActions(signedIn: signedIn, colors).padding(.top, CGFloat(space.sectionGap))
                     if !content.insights.isEmpty {
                         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                             Text("Your watchlist today").font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
@@ -189,12 +200,13 @@ struct WatchListScene: View {
                         }
                         .padding(CGFloat(space.md)).frame(maxWidth: .infinity, alignment: .leading)
                         .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
-                        .padding(.top, CGFloat(space.xl))
+                        .padding(.top, CGFloat(space.md))
                     }
                 } else if signedIn && (model.user?.listsLoading ?? true) {
                     VStack(spacing: 0) { ForEach(0..<4, id: \.self) { _ in StockRowSkeleton() } }.padding(.top, CGFloat(space.lg)).accessibilityLabel("Loading")
                 } else if signedIn {
-                    StockSectionMessage(message: model.user?.listsError ?? "Your watchlists couldn't be loaded.", actionTitle: "Try again") {
+                    StockStateMessage(title: "Couldn't load your watchlist", message: model.user?.listsError ?? "Your watchlists couldn't be loaded.",
+                                      systemImage: "wifi.exclamationmark", isError: true, actionTitle: "Try again") {
                         Task { await model.refresh(symbols: symbols) }
                     }
                     .stockCard(padding: CGFloat(space.md), bordered: false).padding(.top, CGFloat(space.lg))
@@ -250,42 +262,67 @@ struct WatchListScene: View {
             ?? InstrumentRef(symbol: row.symbol, name: row.name, exchange: nil, currency: row.currency)
     }
 
-    private func header(signedIn: Bool, _ colors: StockColors) -> some View {
+    /// "Watchlist", the company count and update time, then search and (signed in) the watchlist menu. Alerts, earnings and comparison moved to
+    /// the related-actions group under the stocks (Phase 5A), so the header stays compact.
+    private func header(_ content: WatchlistModel?, signedIn: Bool, _ colors: StockColors) -> some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                Text("My Watchlists").font(StockStepsTheme.font(type.screenTitle, relativeTo: .title2)).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
-                Text("Track companies that interest you.").font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSecondary)
-                if let list = model.selected, list.entries.count >= 2 {
-                    let first = list.entries.sorted { $0.order < $1.order }.prefix(3)
-                    Button("Compare these companies", systemImage: "square.split.2x1") {
-                        onCompare(first.map { $0.instrument.symbol }, first.map { $0.instrument.name ?? $0.instrument.symbol })
-                    }.font(.subheadline).frame(minHeight: 44)
-                }
-                if signedIn {
-                    Button("Earnings dates for your watchlists", action: onEarnings).font(.subheadline).frame(minHeight: 44)
-                    Button("Earnings Reminders", systemImage: "bell", action: onEarningsReminders).font(.subheadline).frame(minHeight: 44)
+                Text("Watchlist").font(StockStepsTheme.font(type.screenTitle, relativeTo: .title2)).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
+                if let content, let summary = content.summary {
+                    let hasRows = !content.rows.isEmpty
+                    Text([summary.companies, hasRows ? summary.updated : nil].compactMap { $0 }.joined(separator: " · "))
+                        .font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(summary.stale && hasRows ? colors.cautionText : colors.textSecondary)
                 }
             }
             Spacer(minLength: CGFloat(space.sm))
-            iconButton("magnifyingglass", label: "Search stocks", colors, action: onSearch)
-            if signedIn {
-                iconButton("bell", label: "My Alerts", colors) { onOpenAlerts(nil) }
-                if let selected = model.selected {
-                    Menu {
-                        Button("New watchlist") { name = ""; naming = .some(nil) }
-                        Button("Rename watchlist") { name = selected.name; naming = .some(selected) }
-                        if model.watchlists.count > 1 {
-                            Button("Delete", role: .destructive) {
-                                if selected.entries.isEmpty { model.perform { try await $0.deleteWatchlist(id: selected.id) }; model.selectedId = nil }
-                                else { confirmDelete = selected }
-                            }
+            iconButton("magnifyingglass", label: "Add a company", colors, action: onSearch)
+            if signedIn, let selected = model.selected {
+                Menu {
+                    Button("New watchlist", systemImage: "plus") { name = ""; naming = .some(nil) }
+                    Button("Rename watchlist", systemImage: "pencil") { name = selected.name; naming = .some(selected) }
+                    if model.watchlists.count > 1 {
+                        Button("Delete watchlist", systemImage: "trash", role: .destructive) {
+                            if selected.entries.isEmpty { model.perform { try await $0.deleteWatchlist(id: selected.id) }; model.selectedId = nil }
+                            else { confirmDelete = selected }
                         }
-                    } label: {
-                        Image(systemName: "ellipsis.circle").font(.title3).foregroundStyle(colors.textPrimary)
-                            .frame(width: CGFloat(dims.touchTarget), height: CGFloat(dims.touchTarget))
                     }
-                    .accessibilityLabel("Manage watchlist")
+                } label: {
+                    Image(systemName: "ellipsis").font(.title3).foregroundStyle(colors.textPrimary)
+                        .frame(width: CGFloat(dims.touchTarget), height: CGFloat(dims.touchTarget))
                 }
+                .accessibilityLabel("Manage watchlist")
+            }
+        }
+    }
+
+    /// Alerts and related actions under the stocks: what used to be header links, as one grouped list of navigation rows.
+    @ViewBuilder
+    private func relatedActions(signedIn: Bool, _ colors: StockColors) -> some View {
+        let first = (model.selected?.entries.sorted { $0.order < $1.order } ?? []).prefix(3)
+        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            if !signedIn {
+                StockInsightCard(title: "Sign in for more", message: "Create several watchlists, add private notes and get price, earnings and news alerts.",
+                                 actionTitle: "Sign in", action: onSignIn)
+            }
+            if signedIn || first.count >= 2 {
+                StockSectionHeader(title: signedIn ? "Alerts and more" : "More")
+                VStack(spacing: 0) {
+                    if signedIn {
+                        StockNavigationRow(title: "My alerts", detail: "Price, earnings and news alerts", icon: "bell") { onOpenAlerts(nil) }
+                        StockDivider()
+                        StockNavigationRow(title: "Earnings dates", detail: "When your companies report next", icon: "calendar", action: onEarnings)
+                        StockDivider()
+                        StockNavigationRow(title: "Earnings reminders", detail: "Get a reminder before results", icon: "bell.badge", action: onEarningsReminders)
+                    }
+                    if first.count >= 2 {
+                        if signedIn { StockDivider() }
+                        StockNavigationRow(title: "Compare these companies", detail: "See up to three side by side", icon: "square.split.2x1") {
+                            onCompare(first.map { $0.instrument.symbol }, first.map { $0.instrument.name ?? $0.instrument.symbol })
+                        }
+                    }
+                }
+                .padding(.horizontal, CGFloat(space.md))
+                .stockCard(padding: 0, bordered: false)
             }
         }
     }
@@ -298,45 +335,41 @@ struct WatchListScene: View {
         .accessibilityLabel(label)
     }
 
-    private func summaryCard(_ summary: WatchlistSummary, _ colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-            Text(summary.title.uppercased()).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary)
-            HStack {
-                Text(summary.companies).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
-                Spacer()
-                if let change = summary.change { StockPriceChange(percentage: change, direction: summary.direction, style: type.numberEmphasis) }
-            }
-            if let methodology = summary.methodology {
-                Text(methodology).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
-            }
-            if let updated = summary.updated {
-                Text(updated).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(summary.stale ? colors.cautionText : colors.textTertiary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .stockCard(padding: CGFloat(space.md), bordered: false)
-        .accessibilityElement(children: .combine)
-    }
-
+    /// Compact quote row (Phase 5A): identity on the left; price and "+$3.04 (+0.91%)" on the right — or on their own line under the company
+    /// when they would crowd the name (shared `StockQuoteRowLayout`, same rule as Android). Missing quotes say "No data available" (never $0.00);
+    /// a placeholder shows while prices load. The whole row is one element that opens Company Details; bell and ⋮ are separate 44 pt targets.
     private func rowView(_ row: WatchlistRowModel, index: Int, count: Int, signedIn: Bool, _ colors: StockColors) -> some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                StockRow(symbol: row.symbol, name: row.name, logoUrl: row.logoUrl, action: { onExplore(row.symbol) }) {
-                    Text([row.price, row.currency].compactMap { $0 }.joined(separator: " ").isEmpty ? "—" : [row.price, row.currency].compactMap { $0 }.joined(separator: " "))
-                        .font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .subheadline)).foregroundStyle(colors.textPrimary).lineLimit(1)
-                    StockPriceChange(percentage: row.change, direction: row.direction)
-                    if let stale = row.staleLabel {
-                        Text(stale).font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.cautionText).lineLimit(1)
+        let alertsButton = signedIn && row.activeAlerts > 0
+        let stacked = valuesStacked(row, buttons: alertsButton ? 2 : 1)
+        return HStack(spacing: 0) {
+            Button { onExplore(row.symbol) } label: {
+                VStack(alignment: .leading, spacing: 0) {
+                    StockRow(symbol: row.symbol, name: row.name, logoUrl: row.logoUrl, horizontalPadding: 0, action: {}) {
+                        if !stacked { values(row, colors) }
+                    }
+                    .allowsHitTesting(false)
+                    if stacked {
+                        // Stacked: price and change share one line when they fit, else one under the other (rows stay compact at large text).
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: CGFloat(space.sm)) { values(row, colors) }
+                            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { values(row, colors) }
+                        }
+                            .padding(.leading, CGFloat(dims.logo) + CGFloat(space.sm)).padding(.bottom, CGFloat(space.sm))
+                    }
+                    if let note = row.notePreview {
+                        Text("“\(note)”").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary).lineLimit(1)
+                            .padding(.leading, CGFloat(dims.logo) + CGFloat(space.sm)).padding(.bottom, CGFloat(space.sm))
                     }
                 }
-                if let note = row.notePreview {
-                    Text("“\(note)”").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary).lineLimit(1)
-                        .padding(.leading, CGFloat(space.cardPadding) + CGFloat(dims.logo) + CGFloat(space.sm)).padding(.bottom, CGFloat(space.sm))
-                }
+                .padding(.leading, CGFloat(space.cardPadding))
+                .contentShape(Rectangle())
             }
-            .accessibilityElement(children: .combine)
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(row.accessibilityLabel)
-            if signedIn && row.activeAlerts > 0 {
+            .accessibilityHint("Opens company details")
+            .accessibilityAddTraits(.isButton)
+            if alertsButton {
                 Button { onOpenAlerts(row.symbol) } label: {
                     Image(systemName: "bell.fill").foregroundStyle(colors.primaryText).frame(width: CGFloat(dims.touchTarget), height: CGFloat(dims.touchTarget))
                 }
@@ -346,13 +379,40 @@ struct WatchListScene: View {
         }
     }
 
+    @ViewBuilder
+    private func values(_ row: WatchlistRowModel, _ colors: StockColors) -> some View {
+        if row.quoteAvailable {
+            Text(verbatim: row.price ?? "").font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .subheadline)).foregroundStyle(colors.textValue).lineLimit(1)
+            if let change = row.changeLine { StockPriceChange(percentage: change, direction: row.direction) }
+        } else if model.dataLoading {
+            StockSkeleton(width: CGFloat(dims.touchTarget) * 1.5).accessibilityHidden(true)
+        } else {
+            Text(WatchlistPresenter.shared.UNAVAILABLE).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary).lineLimit(1)
+        }
+        if let stale = row.staleLabel {
+            Text(stale).font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.cautionText).lineLimit(1)
+        }
+    }
+
+    /// Shared `StockQuoteRowLayout` decision from measured values and the width beside the logo (minus the row's icon buttons).
+    private func valuesStacked(_ row: WatchlistRowModel, buttons: Int) -> Bool {
+        let price = StockStepsTheme.uiFont(type.numberLabelStrong, typeSize: typeSize)
+        let change = StockStepsTheme.uiFont(type.numberLabel, typeSize: typeSize)
+        let widths = [row.price.map { ($0 as NSString).size(withAttributes: [.font: price]).width },
+                      row.changeLine.map { ($0 as NSString).size(withAttributes: [.font: change]).width + CGFloat(dims.iconSmall) }].compactMap { $0 }
+        let beside = listWidth - CGFloat(space.cardPadding) - CGFloat(dims.logo) - CGFloat(space.sm) - CGFloat(dims.touchTarget) * CGFloat(buttons)
+        return StockQuoteRowLayout.shared.stacksValues(valuesWidth: Float(widths.max() ?? 0), availableWidth: Float(beside),
+                                                       accessibilityText: typeSize.isAccessibilitySize)
+    }
+
     private func rowMenu(_ row: WatchlistRowModel, index: Int, count: Int, signedIn: Bool, _ colors: StockColors) -> some View {
         Menu {
+            Button("View details", systemImage: "chart.line.uptrend.xyaxis") { onExplore(row.symbol) }
             if signedIn, let list = model.selected {
+                Button("Add alert", systemImage: "bell") { sheet = .alert(InstrumentRef(symbol: row.symbol, name: row.name, exchange: nil, currency: row.currency), row.price) }
                 Button("Add to portfolio", systemImage: "briefcase") {
                     portfolioInstrument = stateInstrument(row)
                 }
-                Button("Add alert", systemImage: "bell") { sheet = .alert(InstrumentRef(symbol: row.symbol, name: row.name, exchange: nil, currency: row.currency), row.price) }
                 Button(row.note == nil ? "Add note" : "Edit note", systemImage: "note.text") { sheet = .note(row) }
                 let others = model.watchlists.filter { $0.id != list.id }
                 if !others.isEmpty {

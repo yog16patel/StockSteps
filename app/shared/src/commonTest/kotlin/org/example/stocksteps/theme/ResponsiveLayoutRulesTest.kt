@@ -30,4 +30,26 @@ class ResponsiveLayoutRulesTest {
             assertFalse(StockBadgeLayout.mayShareTitleLine(it), it)
         }
     }
+
+    @Test
+    fun selectorFadesOnlyWhenMoreThanHalfAPillIsHidden() {
+        // iPhone 16 default: the 7 ranges overflow by a few points of padding and ALL is fully visible, so there is no fade.
+        assertFalse(StockPillLayout.fadesEdge(hiddenBeyondEdge = 6f, touchTarget = 44f))
+        assertFalse(StockPillLayout.fadesEdge(hiddenBeyondEdge = 22f, touchTarget = 44f))
+        // Android 360 dp: a whole 48 dp pill (ALL) is beyond the edge, so the edge fades as a "more options" cue.
+        assertTrue(StockPillLayout.fadesEdge(hiddenBeyondEdge = 50f, touchTarget = 48f))
+        // At the start of the row nothing is hidden before it.
+        assertFalse(StockPillLayout.fadesEdge(hiddenBeyondEdge = 0f, touchTarget = 48f))
+    }
+
+    @Test
+    fun quoteRowsStackValuesOnlyWhenTheyWouldCrowdTheName() {
+        // 360 dp at the default size: "+$3.04 (+0.91%)" ≈ 105 dp of ≈ 236 dp beside the logo, so values stay on the right.
+        assertFalse(StockQuoteRowLayout.stacksValues(valuesWidth = 105f, availableWidth = 236f, accessibilityText = false))
+        // Larger text or a narrower row: values would take more than half, so they move under the company.
+        assertTrue(StockQuoteRowLayout.stacksValues(valuesWidth = 140f, availableWidth = 236f, accessibilityText = false))
+        assertTrue(StockQuoteRowLayout.stacksValues(valuesWidth = 40f, availableWidth = 400f, accessibilityText = true))
+        // Unmeasured width: keep the default side-by-side layout.
+        assertFalse(StockQuoteRowLayout.stacksValues(valuesWidth = 140f, availableWidth = 0f, accessibilityText = false))
+    }
 }

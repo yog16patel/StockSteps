@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)** on `main` (pushed).
-Previous commit: **"Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)"** (pushed); before it **"Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)"** (pushed); before it **"Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"** (pushed); before it **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS** on `main` (pushed).
+Previous commit: **"Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)"** (pushed); before it **"Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)"** (pushed); before it **"Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)"** (pushed); before it **"Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"** (pushed); before it **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
@@ -49,6 +49,19 @@ item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
 
+
+
+## Global UI Refinement Phase 5A — Watchlist (current commit)
+
+- **Completed** (`docs/GLOBAL_UI_REFINEMENT_PHASE5A.md`): Phase 4C.3 selector fade closed with shared `StockPillLayout.fadesEdge` (iPhone 16 "ALL"
+  no longer dimmed). Watchlist on Android and iOS: header with count and update time; full-name list selector; compact grouped rows with signed
+  amount and percentage (`HomePresentation.signedPrice`, `WatchlistRowModel.changeLine`); values stack under the company via shared
+  `StockQuoteRowLayout`; "No data available" / loading / prices-unavailable states; empty state with one "Add a company" action; "Alerts and
+  more" navigation rows; equal-weighted average as an insight sentence (2+ priced stocks only); row menu starts with View details.
+- **Validation**: core JVM/iOS 439/0, shared Android 109/0, shared iOS 105/0, `assembleDebug` OK, iOS `xcodebuild` OK. Devices (local MOCK only,
+  signed-in data in MOCK memory only): Android 360 dp 1.0×/1.3× light/dark, iPhone 16 default/XXXL dark (guest). Screenshots `docs/design/phase5a/`.
+- **Limits**: iOS SE and iOS signed-in screens, TalkBack and VoiceOver NOT RUN; "No data available" covered by tests only.
+- **Next**: owner review → Phase 5B (Screener) only after approval.
 
 ## Global UI Refinement Phases 4C.2 + 4C.3 — Company Details polish (current commit)
 

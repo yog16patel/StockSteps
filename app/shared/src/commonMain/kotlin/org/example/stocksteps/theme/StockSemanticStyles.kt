@@ -45,6 +45,13 @@ object StockSemanticStyles {
 
 /** Pill/segment layout rule shared by both platforms. */
 object StockPillLayout {
+    /**
+     * Whether a scrolling selector should fade an edge (Phase 5A, closing 4C.3): only while more than half a touch target of content is hidden
+     * beyond it ([hiddenBeyondEdge] in the same unit as [touchTarget]). A few pixels of trailing padding past the edge is not "more options", so
+     * a fully visible last option is never dimmed (iPhone 16: "ALL" was faded although fully visible).
+     */
+    fun fadesEdge(hiddenBeyondEdge: Float, touchTarget: Float): Boolean = hiddenBeyondEdge > touchTarget / 2
+
     /** Equal-width pills fit when every label (measured) plus padding fits its share of [availableWidth]; otherwise scroll horizontally. */
     fun fitsEqualWidth(labelWidths: List<Float>, availableWidth: Float, horizontalPadding: Float): Boolean {
         if (labelWidths.isEmpty()) return true
@@ -73,4 +80,16 @@ object StockBadgeLayout {
     const val INLINE_MAX_CHARACTERS = 14
 
     fun mayShareTitleLine(badge: String): Boolean = badge.trim().length <= INLINE_MAX_CHARACTERS
+}
+
+/**
+ * Watchlist quote rows (Phase 5A), shared by both platforms: price and change sit to the right of the company while the wider of the two
+ * measured values takes at most [MAX_VALUE_SHARE] of the space beside the logo; otherwise — narrow phones, large text — they move onto their
+ * own line under the company, so the name keeps room and values never wrap into fragments. Always stacked at accessibility text sizes.
+ */
+object StockQuoteRowLayout {
+    const val MAX_VALUE_SHARE = 0.5f
+
+    fun stacksValues(valuesWidth: Float, availableWidth: Float, accessibilityText: Boolean): Boolean =
+        accessibilityText || (availableWidth > 0 && valuesWidth > availableWidth * MAX_VALUE_SHARE)
 }

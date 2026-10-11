@@ -42,9 +42,11 @@ class WatchlistPresenterTest {
     @Test fun insightsOnlyStateWhatTheDataSupports() {
         val insights = WatchlistPresenter.build(listOf(list), null, data(quote("AAA", 2.0), quote("BBB", -1.5), quote("CCC", 0.5),
             earnings = listOf(UpcomingEarnings("BBB", "2026-10-15", status = EarningsDateStatus.ESTIMATED, source = "s"), UpcomingEarnings("CCC", "2026-12-01", source = "s"))), emptyList(), null).insights
-        assertEquals(listOf("2 stocks rose and 1 stock fell today.", "AAA had the largest gain (+2.00%).", "BBB had the largest decline (-1.50%).",
+        assertEquals(listOf("On average, the 3 of 5 stocks with today's prices moved +0.33% today (equal-weighted; not a portfolio return).",
+            "2 stocks rose and 1 stock fell today.", "AAA had the largest gain (+2.00%).", "BBB had the largest decline (-1.50%).",
             "BBB Corp reports earnings on Oct 15 (estimated date)."), insights)
-        assertTrue(WatchlistPresenter.build(listOf(list), null, data(quote("AAA", 2.0)), emptyList(), null).insights.isEmpty(), "one stock: no comparison")
+        assertTrue(WatchlistPresenter.build(listOf(list), null, data(quote("AAA", 2.0)), emptyList(), null).insights.isEmpty(),
+            "one stock with a price: no average (it would repeat the row) and no comparison")
     }
 
     @Test fun emptyAndMultipleLists() {
@@ -69,5 +71,54 @@ class WatchlistPresenterTest {
         assertEquals("Earnings reminder · day before", AlertPresenter.cards(rules, AlertFilter.PAUSED, -240).single().title)
         val history = AlertPresenter.history(listOf(AlertEvent("k", "p", "AAPL", AlertType.PRICE_ABOVE, "t", "b", 1_791_403_200_000, delivery = DeliveryStatus.ACCEPTED, sourceUrl = "http://insecure")), -240).single()
         assertEquals("Sent to your devices", history.delivery); assertEquals("Oct 7, 4:00 PM ET", history.time); assertNull(history.sourceUrl)
+    }
+
+    // ---------- Phase 5A ----------
+
+    private fun fullQuote(symbol: String, change: Double?, percent: Double?, price: Double? = 336.67, currency: String = "USD") =
+        WatchQuote(symbol, "$symbol Corp", price, change, percent, 333.63, currency, "2026-10-07T20:00:00Z", "2026-10-07")
+
+    @Test fun rowsShowSignedAmountAndPercentWithDirectionInWords() {
+        val one = Watchlist("default", "My Stocks", 0, 0, 0, true, listOf(entry("AAA"), entry("BBB"), entry("CCC"), entry("DDD")))
+        val rows = WatchlistPresenter.build(listOf(one), null, data(fullQuote("AAA", 3.04, 0.91), fullQuote("BBB", -4.32, -1.76), fullQuote("CCC", 0.0, 0.0)), emptyList(), null).rows
+        val up = rows[0]
+        assertEquals("$336.67", up.price, "USD price carries its own symbol; the currency code is not repeated")
+        assertEquals("+$3.04 (+0.91%)", up.changeLine); assertTrue(up.quoteAvailable)
+        assertTrue(up.accessibilityLabel.contains("up $3.04, 0.91% today"), up.accessibilityLabel)
+        val down = rows[1]
+        assertEquals("-$4.32 (-1.76%)", down.changeLine); assertEquals(PriceDirection.DOWN, down.direction)
+        assertTrue(down.accessibilityLabel.contains("down $4.32, 1.76% today"), down.accessibilityLabel)
+        assertTrue(rows[2].accessibilityLabel.contains("unchanged today"), rows[2].accessibilityLabel)
+        // No quote at all: unavailable, never $0.00 or 0.00%.
+        val missing = rows[3]
+        assertFalse(missing.quoteAvailable); assertNull(missing.price); assertNull(missing.changeLine)
+        assertTrue(missing.accessibilityLabel.contains("price unavailable"))
+        assertFalse(missing.accessibilityLabel.contains("$0"))
+    }
+
+    @Test fun partialQuotesAndOtherCurrencies() {
+        val one = Watchlist("default", "My Stocks", 0, 0, 0, true, listOf(entry("AAA"), entry("BBB")))
+        val rows = WatchlistPresenter.build(listOf(one), null, data(fullQuote("AAA", null, 0.5), fullQuote("BBB", -0.37, -2.03, price = 17.91, currency = "CAD")), emptyList(), null).rows
+        assertEquals("+0.50%", rows[0].changeLine, "missing amount: percentage only, no invented amount")
+        assertEquals("17.91 CAD", rows[1].price)
+        assertEquals("-0.37 CAD (-2.03%)", rows[1].changeLine)
+    }
+
+    @Test fun emptyStateTitleAndPricesUnavailableRule() {
+        val empty = Watchlist("default", "My Stocks", 0, 0, 0, true)
+        assertEquals("Your watchlist is empty", WatchlistPresenter.build(listOf(empty), null, null, emptyList(), null).emptyTitle)
+        assertEquals("Tech is empty", WatchlistPresenter.build(listOf(empty, Watchlist("t", "Tech", 1, 0, 0)), "t", null, emptyList(), null).emptyTitle)
+        assertNull(WatchlistPresenter.build(listOf(list), null, null, emptyList(), null).emptyTitle)
+        // A failed price request is not an empty list, and is not reported while it is still loading.
+        assertNotNull(WatchlistPresenter.pricesUnavailableMessage(hasRows = true, hasData = false, loading = false))
+        assertNull(WatchlistPresenter.pricesUnavailableMessage(hasRows = true, hasData = false, loading = true))
+        assertNull(WatchlistPresenter.pricesUnavailableMessage(hasRows = false, hasData = false, loading = false))
+        assertNull(WatchlistPresenter.pricesUnavailableMessage(hasRows = true, hasData = true, loading = false))
+    }
+
+    @Test fun longNamesAndSymbolsAreKeptWhole() {
+        val long = Watchlist("default", "My Stocks", 0, 0, 0, true, listOf(WatchlistEntry("e", InstrumentRef("BRK.B", "Berkshire Hathaway Inc. Class B", currency = "USD"), 0, 0)))
+        val row = WatchlistPresenter.build(listOf(long), null, null, emptyList(), null).rows.single()
+        assertEquals("BRK.B", row.symbol); assertEquals("Berkshire Hathaway Inc. Class B", row.name, "the presenter never truncates; layouts wrap")
     }
 }
