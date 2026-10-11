@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS** on `main` (pushed).
-Previous commit: **"Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)"** (pushed); before it **"Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)"** (pushed); before it **"Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)"** (pushed); before it **"Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"** (pushed); before it **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS** on `main` (pushed).
+Previous commit: **"Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS"** (pushed); before it **"Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)"** (pushed); before it **"Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)"** (pushed); before it **"Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)"** (pushed); before it **"Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"** (pushed); before it **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
@@ -50,6 +50,19 @@ limitations, and pending items. Read the actual code and check `git status` befo
 file when a feature, architecture decision, or important limitation changes.
 
 
+
+
+## Global UI Refinement Phase 5A.1 — Watchlist final polish (current commit)
+
+- **Completed** (`docs/GLOBAL_UI_REFINEMENT_PHASE5A_1.md`): shared `WatchlistModel.headerLine` (wraps only between parts), `headerCaution`,
+  "This watchlist is empty" with a spoken list name (`emptySpokenTitle`), offline saved-price label once in the header (rows keep only differing
+  dates); `StockRow` name line limit (Watchlist uses 2); shared `StockFadingScrollRow` (Compose + SwiftUI) used by the pill selector and the
+  watchlist selector; optional spoken title on the shared empty state.
+- **Validation**: core JVM/iOS 441/0, shared Android 109/0, shared iOS 105/0, `assembleDebug` OK, iOS `xcodebuild` OK. Devices (local MOCK only):
+  Android 360 dp 1.0×/1.3× light/dark, iPhone 16 default/XXXL, temporary iPhone SE (deleted). Offline and missing-quote states verified on device.
+- **Limits**: TalkBack/VoiceOver speech, iOS signed-in screens and iPhone SE at XXXL NOT RUN. Device builds must use
+  `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (the default build points at the LAN host).
+- **Next**: owner review → Phase 5B (Screener) only after approval.
 
 ## Global UI Refinement Phase 5A — Watchlist (current commit)
 

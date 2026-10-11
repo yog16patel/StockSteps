@@ -126,6 +126,8 @@ struct StockRow<Trailing: View>: View {
     var compact = false
     var horizontalPadding: CGFloat = CGFloat(space.cardPadding)
     var sparkline: AnyView? = nil
+    /// Lines for the company name; nil keeps the default (1, or 2 at accessibility sizes). Watchlist rows pass 2 (Phase 5A.1).
+    var nameLineLimit: Int? = nil
     let action: () -> Void
     @ViewBuilder var trailing: () -> Trailing
     var body: some View {
@@ -139,7 +141,7 @@ struct StockRow<Trailing: View>: View {
                         Text(name)
                             .font(StockStepsTheme.font(compact ? type.caption : type.small, relativeTo: compact ? .caption1 : .subheadline))
                             // Large text gets a second line so long company names stay readable (Phase 4A); prices never truncate.
-                            .foregroundStyle(colors.textSupporting).lineLimit(typeSize >= .xxxLarge ? 2 : 1)
+                            .foregroundStyle(colors.textSupporting).lineLimit(nameLineLimit ?? (typeSize >= .xxxLarge ? 2 : 1))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

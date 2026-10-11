@@ -114,6 +114,7 @@ internal fun WatchListScreen(state: WatchListState, hinge: WindowHinge?, onActio
                                 StockEmptyState(
                                     message = if (state.signedIn) WatchlistPresenter.EMPTY_MESSAGE else "${WatchlistPresenter.EMPTY_MESSAGE} They're saved on this device.",
                                     title = model.emptyTitle ?: "Your watchlist is empty",
+                                    titleDescription = model.emptySpokenTitle,
                                     icon = StockIcons.StarOutline,
                                     actionText = "Add a company",
                                     onAction = { onAction(WatchListAction.Search) }
@@ -192,9 +193,9 @@ private fun Header(state: WatchListState, model: WatchlistModel?, modifier: Modi
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
             Text("Watchlist", Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
-            model?.summary?.let { summary ->
-                val subtitle = listOfNotNull(summary.companies, summary.updated?.takeIf { model.rows.isNotEmpty() }).joinToString(" · ")
-                Text(subtitle, style = StockStepsTheme.typography.small, color = if (summary.stale && model.rows.isNotEmpty()) colors.cautionText else colors.textSecondary)
+            // Count and freshness under the title; wraps only between parts, never inside "5:16 PM ET" (Phase 5A.1).
+            model?.headerLine?.let { line ->
+                Text(line, style = StockStepsTheme.typography.small, color = if (model.headerCaution) colors.cautionText else colors.textSecondary)
             }
         }
         IconButton(onClick = { onAction(WatchListAction.Search) }) { Icon(StockIcons.Search, "Add a company", tint = colors.textPrimary) }
@@ -218,15 +219,18 @@ private fun Header(state: WatchListState, model: WatchlistModel?, modifier: Modi
 /** One chip per watchlist (full names; the row scrolls instead of truncating) and a "+" chip to create one. */
 @Composable
 private fun Tabs(model: WatchlistModel, modifier: Modifier, onAction: (WatchListAction) -> Unit, onNew: () -> Unit) {
-    Row(modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs),
-        verticalAlignment = Alignment.CenterVertically) {
-        model.tabs.forEach { tab ->
-            StockChip(tab.name, tab.selected, onClick = { onAction(WatchListAction.Select(tab.id)) },
-                modifier = Modifier.semantics { contentDescription = "${tab.name}, ${tab.count} ${if (tab.count == 1) "company" else "companies"}" })
+    // Phase 5A.1: the shared fading scroll row shows that more lists (and "+") lie beyond a long selected name, and keeps the selected list in view.
+    Box(modifier) {
+        StockFadingScrollRow(model.tabs.map { it.id } + NEW_LIST, model.selectedId, Modifier.selectableGroup(), StockStepsTheme.spacing.xs) { id, itemModifier ->
+            val tab = model.tabs.firstOrNull { it.id == id }
+            if (tab == null) StockChip("+", false, onClick = onNew, modifier = itemModifier.semantics { contentDescription = "New watchlist" })
+            else StockChip(tab.name, tab.selected, onClick = { onAction(WatchListAction.Select(tab.id)) },
+                modifier = itemModifier.semantics { contentDescription = "${tab.name}, ${tab.count} ${if (tab.count == 1) "company" else "companies"}" })
         }
-        StockChip("+", false, onClick = onNew, modifier = Modifier.semantics { contentDescription = "New watchlist" })
     }
 }
+
+private const val NEW_LIST = "__new_list__"
 
 /**
  * Compact quote row (Phase 5A): logo, symbol and name on the left; price and "+$3.04 (+0.91%)" on the right — or on their own line under the
@@ -272,6 +276,7 @@ private fun WatchlistQuoteRow(row: WatchlistRowModel, loading: Boolean, signedIn
                     symbol = row.symbol,
                     name = row.name,
                     logoUrl = row.logoUrl,
+                    nameMaxLines = 2,
                     contentPadding = PaddingValues(start = spacing.cardPadding, end = spacing.xs, top = spacing.sm, bottom = if (stacked) spacing.xxs else spacing.sm),
                     trailing = if (stacked) ({}) else ({ values() })
                 )

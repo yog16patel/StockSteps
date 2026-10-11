@@ -6,6 +6,11 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**Global UI Refinement Phase 5A.1 (Watchlist polish) — committed and pushed as "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS" (2026-10-10)**: header wraps between parts, two-line names,
+fading list selector, short empty title, offline label once. Core 441/0 (JVM, iOS), shared Android 109/0, shared iOS 105/0, builds OK; offline and
+missing data verified on device. Screen-reader speech, iOS signed-in and SE XXXL NOT RUN. Details `docs/GLOBAL_UI_REFINEMENT_PHASE5A_1.md`.
+**Next**: review → Phase 5B on approval.
+
 **Global UI Refinement Phase 5A (Watchlist) — committed and pushed as "Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS" (2026-10-10)**: 4C.3 selector fade closed (shared `fadesEdge`); compact
 Watchlist on Android and iOS with full-name selector, signed amount + percentage rows, shared `StockQuoteRowLayout`, unavailable/loading/error
 states, grouped "Alerts and more" actions. Core 439/0 (JVM, iOS), shared Android 109/0, shared iOS 105/0, builds OK. iOS SE/signed-in and screen

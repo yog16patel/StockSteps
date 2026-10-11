@@ -56,6 +56,8 @@ internal fun StockRow(
     ),
     onClick: (() -> Unit)? = null,
     sparkline: (@Composable () -> Unit)? = null,
+    /** Lines for the company name; null keeps the default (1, or 2 at large text). Watchlist rows pass 2 (Phase 5A.1). */
+    nameMaxLines: Int? = null,
     trailing: (@Composable ColumnScope.() -> Unit)? = null
 ) {
     val spacing = StockStepsTheme.spacing
@@ -90,7 +92,7 @@ internal fun StockRow(
                     style = if (compact) typography.caption else typography.small,
                     color = StockStepsTheme.colors.textSupporting,
                     // Large text gets a second line so long company names stay readable (Phase 4A); prices never truncate.
-                    maxLines = if (LocalDensity.current.fontScale >= dimensions.largeFontScale) 2 else 1,
+                    maxLines = nameMaxLines ?: if (LocalDensity.current.fontScale >= dimensions.largeFontScale) 2 else 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }

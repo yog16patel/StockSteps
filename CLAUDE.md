@@ -13,8 +13,8 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-10, end of session)
 
-HEAD: "Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS" (pushed). **Global UI Refinement Phases 1–3.1, 4A (Home), 4B/4B.1 (Markets), 4C–4C.3 (Company Details) and 5A (Watchlist) are
-committed and pushed**; no work in progress. Next: **Phase 5B (Screener) only after the user approves** — read `docs/PROJECT_HANDOFF.md` §PHASE5A
+HEAD: "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS" (pushed). **Global UI Refinement Phases 1–3.1, 4A (Home), 4B/4B.1 (Markets), 4C–4C.3 (Company Details) and 5A/5A.1 (Watchlist)
+are committed and pushed**; no work in progress. Next: **Phase 5B (Screener) only after the user approves** — read `docs/PROJECT_HANDOFF.md` §PHASE5A1
 first; phase docs `docs/GLOBAL_UI_REFINEMENT_*.md`. Note: the iOS app's MOCK backend URL (Info.plist `StockStepsMockBackendURL`)
 comes from git-ignored `app/iosApp/Configuration/Local.xcconfig` (LAN host); for local-only device checks build with
 `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` on the xcodebuild command line. Visual direction `docs/design/stocksteps-ui-reference.png`

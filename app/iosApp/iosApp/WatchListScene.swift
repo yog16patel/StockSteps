@@ -135,6 +135,7 @@ struct WatchListScene: View {
     @State private var name = ""
     @State private var confirmDelete: Watchlist?
     @State private var listWidth: CGFloat = 0
+    private static let newList = "__new_list__"
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
@@ -148,13 +149,13 @@ struct WatchListScene: View {
                 header(content, signedIn: signedIn, colors).padding(.top, CGFloat(space.lg))
                 if let content {
                     if signedIn {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: CGFloat(space.xs)) {
-                                // Full names (the row scrolls instead of truncating); counts are spoken, the header shows the selected list's count.
-                                ForEach(content.tabs, id: \.id) { tab in
-                                    StockChip(title: tab.name, selected: tab.selected) { model.selectedId = tab.id }
-                                        .accessibilityLabel("\(tab.name), \(tab.count) \(tab.count == 1 ? "company" : "companies")")
-                                }
+                        // Full names (the row scrolls instead of truncating); the shared fading row shows that more lists and "+" lie beyond a long
+                        // name and keeps the selected list in view (Phase 5A.1). Counts are spoken; the header shows the selected list's count.
+                        StockFadingScrollRow(items: content.tabs.map(\.id) + [Self.newList], selected: content.selectedId) { id in
+                            if let tab = content.tabs.first(where: { $0.id == id }) {
+                                StockChip(title: tab.name, selected: tab.selected) { model.selectedId = tab.id }
+                                    .accessibilityLabel("\(tab.name), \(tab.count) \(tab.count == 1 ? "company" : "companies")")
+                            } else {
                                 StockChip(title: "+", selected: false) { name = ""; naming = .some(nil) }.accessibilityLabel("New watchlist")
                             }
                         }
@@ -167,7 +168,7 @@ struct WatchListScene: View {
                         let presenter = WatchlistPresenter.shared
                         StockStateMessage(title: content.emptyTitle ?? "Your watchlist is empty",
                                           message: signedIn ? presenter.EMPTY_MESSAGE : "\(presenter.EMPTY_MESSAGE) They're saved on this device.",
-                                          systemImage: "star", actionTitle: "Add a company", action: onSearch)
+                                          systemImage: "star", actionTitle: "Add a company", action: onSearch, titleAccessibilityLabel: content.emptySpokenTitle)
                             .stockCard(padding: CGFloat(space.md), bordered: false).padding(.top, CGFloat(space.md))
                     }
                     if !content.rows.isEmpty {
@@ -268,10 +269,10 @@ struct WatchListScene: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                 Text("Watchlist").font(StockStepsTheme.font(type.screenTitle, relativeTo: .title2)).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
-                if let content, let summary = content.summary {
-                    let hasRows = !content.rows.isEmpty
-                    Text([summary.companies, hasRows ? summary.updated : nil].compactMap { $0 }.joined(separator: " · "))
-                        .font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(summary.stale && hasRows ? colors.cautionText : colors.textSecondary)
+                // Count and freshness under the title; wraps only between parts, never inside "5:16 PM ET" (Phase 5A.1).
+                if let line = content?.headerLine {
+                    Text(verbatim: line).font(StockStepsTheme.font(type.small, relativeTo: .subheadline))
+                        .foregroundStyle(content?.headerCaution == true ? colors.cautionText : colors.textSecondary)
                 }
             }
             Spacer(minLength: CGFloat(space.sm))
@@ -344,7 +345,7 @@ struct WatchListScene: View {
         return HStack(spacing: 0) {
             Button { onExplore(row.symbol) } label: {
                 VStack(alignment: .leading, spacing: 0) {
-                    StockRow(symbol: row.symbol, name: row.name, logoUrl: row.logoUrl, horizontalPadding: 0, action: {}) {
+                    StockRow(symbol: row.symbol, name: row.name, logoUrl: row.logoUrl, horizontalPadding: 0, nameLineLimit: 2, action: {}) {
                         if !stacked { values(row, colors) }
                     }
                     .allowsHitTesting(false)

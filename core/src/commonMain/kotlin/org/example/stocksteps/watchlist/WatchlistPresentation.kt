@@ -55,8 +55,20 @@ data class WatchlistModel(
     /** Deterministic statements about today, only when supported by the data (the equal-weighted average first, Phase 5A). */
     val insights: List<String>,
     val emptyMessage: String?,
-    /** Title for the empty state ("Your watchlist is empty"); null when the list has stocks. */
-    val emptyTitle: String? = null
+    /**
+     * Visible empty-state title: "Your watchlist is empty" for the default list, "This watchlist is empty" otherwise — the selector already shows
+     * the name, so a long name no longer becomes a multi-line heading (Phase 5A.1). Null when the list has stocks.
+     */
+    val emptyTitle: String? = null,
+    /** Spoken form that keeps the list's identity: "Long Term Growth is empty". */
+    val emptySpokenTitle: String? = null,
+    /**
+     * One line under the title: company count and freshness, "5 companies · Updated 5:16 PM ET". Inside each part spaces are non-breaking, so
+     * it wraps only between parts, never inside a time ("5:16 / PM ET", Phase 5A.1). Null when there is no list.
+     */
+    val headerLine: String? = null,
+    /** True when [headerLine] reports offline / saved prices (shown in the caution colour). */
+    val headerCaution: Boolean = false
 )
 
 @OptIn(ExperimentalTime::class)
@@ -87,8 +99,17 @@ object WatchlistPresenter {
         val quotes = data?.quotes.orEmpty().associateBy { it.symbol }
         val offset = data?.session?.utcOffsetMinutes ?: 0
         val activeAlerts = alerts.filter { it.status == AlertStatus.ACTIVE }.groupingBy { it.instrument.symbol }.eachCount()
-        val rows = selected.entries.map { entry -> row(entry, quotes[entry.instrument.symbol], activeAlerts[entry.instrument.symbol] ?: 0, offset, offlineSince != null) }
+        val built = selected.entries.map { entry -> row(entry, quotes[entry.instrument.symbol], activeAlerts[entry.instrument.symbol] ?: 0, offset, offlineSince != null) }
+        // Offline: the label most rows share ("Saved prices · as of Oct 7") moves to the header once; rows keep it only when their date differs.
+        // The spoken row label still says it (Phase 5A.1: the same orange line was repeated on every row).
+        val shared = if (offlineSince != null) built.mapNotNull { it.staleLabel }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key else null
+        val rows = if (shared == null) built else built.map { if (it.staleLabel == shared) it.copy(staleLabel = null) else it }
         val summary = summary(selected, quotes, data, offlineSince)
+        val freshness = when {
+            selected.entries.isEmpty() -> null
+            offlineSince != null -> "Offline · " + (shared?.replace(" · ", " ")?.replaceFirstChar { it.lowercase() } ?: "saved prices")
+            else -> summary.updated
+        }
         return WatchlistModel(
             tabs = tabs,
             selectedId = selected.id,
@@ -96,9 +117,15 @@ object WatchlistPresenter {
             rows = rows,
             insights = listOfNotNull(summary.change?.let { average(it, summary) }) + insights(selected, quotes, data),
             emptyMessage = if (selected.entries.isEmpty()) "No stocks in ${selected.name} yet. Search for a company and tap Add to Watchlist." else null,
-            emptyTitle = if (selected.entries.isEmpty()) (if (selected.isDefault) "Your watchlist is empty" else "${selected.name} is empty") else null
+            emptyTitle = if (selected.entries.isEmpty()) (if (selected.isDefault) "Your watchlist is empty" else "This watchlist is empty") else null,
+            emptySpokenTitle = if (selected.entries.isEmpty()) "${selected.name} is empty" else null,
+            headerLine = listOfNotNull(summary.companies, freshness).joinToString(" · ") { keepTogether(it) },
+            headerCaution = offlineSince != null && selected.entries.isNotEmpty()
         )
     }
+
+    /** Non-breaking spaces inside a header part, except around its own " · " separators, so lines break only between parts. */
+    internal fun keepTogether(part: String): String = part.split(" · ").joinToString(" · ") { it.replace(' ', '\u00A0') }
 
     /**
      * The equal-weighted average as a plain sentence (it used to be its own card): "On average, these 5 stocks moved +0.50% today

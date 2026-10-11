@@ -244,18 +244,6 @@ struct StockPillSelector<Option: Hashable>: View {
     let label: (Option) -> String
     let onSelect: (Option) -> Void
     @State private var width: CGFloat = 0
-    @State private var moreBefore = false
-    @State private var moreAfter = false
-
-    /// Opaque in the middle, fading to clear on an edge only while more options lie beyond it.
-    private var fadeMask: some View {
-        let edge = CGFloat(dims.touchTarget) // about one pill, so the last visible option visibly fades
-        return HStack(spacing: 0) {
-            LinearGradient(colors: [moreBefore ? .clear : .black, .black], startPoint: .leading, endPoint: .trailing).frame(width: edge)
-            Color.black
-            LinearGradient(colors: [.black, moreAfter ? .clear : .black], startPoint: .leading, endPoint: .trailing).frame(width: edge)
-        }
-    }
 
     var body: some View {
         let font = StockStepsTheme.uiFont(type.label, weight: .semibold, typeSize: typeSize)
@@ -265,22 +253,7 @@ struct StockPillSelector<Option: Hashable>: View {
             if equal {
                 HStack(spacing: 0) { ForEach(options, id: \.self) { pill($0).frame(maxWidth: .infinity) } }
             } else {
-                // Phase 4C.3: a cut-off pill at the edge looked like the last option. The row fades out on the side that has more options (a
-                // mask, so it works on any background) and scrolls just enough to keep the selected option visible.
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: CGFloat(space.xxs)) { ForEach(options, id: \.self) { pill($0).id($0) } }
-                    }
-                    // Shared rule: fade only while more than half a pill is hidden, so a fully visible last option is never dimmed (Phase 5A).
-                    .onScrollGeometryChange(for: [Bool].self) { geometry in
-                        let hiddenAfter = geometry.contentSize.width - geometry.contentOffset.x - geometry.containerSize.width
-                        return [StockPillLayout.shared.fadesEdge(hiddenBeyondEdge: Float(geometry.contentOffset.x), touchTarget: Float(dims.touchTarget)),
-                                StockPillLayout.shared.fadesEdge(hiddenBeyondEdge: Float(hiddenAfter), touchTarget: Float(dims.touchTarget))]
-                    } action: { _, edges in moreBefore = edges[0]; moreAfter = edges[1] }
-                    .mask(fadeMask)
-                    .onAppear { proxy.scrollTo(selected) }
-                    .onChange(of: selected) { _, option in withAnimation { proxy.scrollTo(option) } }
-                }
+                StockFadingScrollRow(items: options, selected: selected, spacing: CGFloat(space.xxs)) { pill($0) }
             }
         }
         .frame(maxWidth: .infinity)
@@ -304,6 +277,44 @@ struct StockPillSelector<Option: Hashable>: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+}
+
+/// A horizontally scrolling row that shows more content exists: it fades the side with hidden items (a mask, so it works on any background)
+/// only while more than half a touch target is hidden (shared `StockPillLayout.fadesEdge`), and scrolls just enough to keep `selected`
+/// visible. Used by the pill selector (Phase 4C.3) and the Watchlist list selector (Phase 5A.1); same behaviour as Compose.
+struct StockFadingScrollRow<Item: Hashable, Content: View>: View {
+    let items: [Item]
+    let selected: Item?
+    var spacing: CGFloat = CGFloat(space.xs)
+    @ViewBuilder let content: (Item) -> Content
+    @State private var moreBefore = false
+    @State private var moreAfter = false
+
+    /// Opaque in the middle, fading to clear on an edge only while more items lie beyond it.
+    private var fadeMask: some View {
+        let edge = CGFloat(dims.touchTarget) // about one pill, so the last visible item visibly fades
+        return HStack(spacing: 0) {
+            LinearGradient(colors: [moreBefore ? .clear : .black, .black], startPoint: .leading, endPoint: .trailing).frame(width: edge)
+            Color.black
+            LinearGradient(colors: [.black, moreAfter ? .clear : .black], startPoint: .leading, endPoint: .trailing).frame(width: edge)
+        }
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing) { ForEach(items, id: \.self) { content($0).id($0) } }
+            }
+            .onScrollGeometryChange(for: [Bool].self) { geometry in
+                let hiddenAfter = geometry.contentSize.width - geometry.contentOffset.x - geometry.containerSize.width
+                return [StockPillLayout.shared.fadesEdge(hiddenBeyondEdge: Float(geometry.contentOffset.x), touchTarget: Float(dims.touchTarget)),
+                        StockPillLayout.shared.fadesEdge(hiddenBeyondEdge: Float(hiddenAfter), touchTarget: Float(dims.touchTarget))]
+            } action: { _, edges in moreBefore = edges[0]; moreAfter = edges[1] }
+            .mask(fadeMask)
+            .onAppear { if let selected { proxy.scrollTo(selected) } }
+            .onChange(of: selected) { _, item in if let item { withAnimation { proxy.scrollTo(item) } } }
+        }
     }
 }
 

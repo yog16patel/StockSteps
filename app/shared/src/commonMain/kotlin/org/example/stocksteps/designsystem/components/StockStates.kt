@@ -56,10 +56,12 @@ internal fun StockEmptyState(
     actionText: String? = null,
     onAction: (() -> Unit)? = null,
     title: String? = null,
-    icon: ImageVector? = null
+    icon: ImageVector? = null,
+    /** Spoken form of [title] when the visible one is shortened ("This watchlist is empty" read as "Tech is empty", Phase 5A.1). */
+    titleDescription: String? = null
 ) {
     if (title == null) SectionMessage(message, modifier, actionText, onAction)
-    else FullStateMessage(title, message, icon, actionText, onAction, StockButtonVariant.PRIMARY, isError = false, modifier)
+    else FullStateMessage(title, message, icon, actionText, onAction, StockButtonVariant.PRIMARY, isError = false, modifier, titleDescription)
 }
 
 /**
@@ -102,7 +104,8 @@ private fun FullStateMessage(
     onAction: (() -> Unit)?,
     actionVariant: StockButtonVariant,
     isError: Boolean,
-    modifier: Modifier
+    modifier: Modifier,
+    titleDescription: String? = null
 ) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
@@ -121,7 +124,7 @@ private fun FullStateMessage(
                     modifier = Modifier.size(StockStepsTheme.dimensions.iconLarge))
             }
         }
-        Text(title, Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary,
+        Text(title, Modifier.semantics { heading(); titleDescription?.let { contentDescription = it } }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary,
             textAlign = TextAlign.Center)
         Text(message, style = StockStepsTheme.typography.small, color = colors.textSecondary, textAlign = TextAlign.Center)
         if (actionText != null && onAction != null) {

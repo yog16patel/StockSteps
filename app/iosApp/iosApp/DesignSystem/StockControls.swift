@@ -186,6 +186,8 @@ struct StockStateMessage: View {
     var isError = false
     var actionTitle: String?
     var action: (() -> Void)?
+    /// Spoken form of `title` when the visible one is shortened ("This watchlist is empty" read as "Tech is empty", Phase 5A.1).
+    var titleAccessibilityLabel: String? = nil
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         VStack(spacing: CGFloat(space.sm)) {
@@ -200,6 +202,7 @@ struct StockStateMessage: View {
             }
             Text(title).font(StockStepsTheme.font(type.cardTitle)).foregroundStyle(colors.textPrimary)
                 .multilineTextAlignment(.center).accessibilityAddTraits(.isHeader)
+                .accessibilityLabel(titleAccessibilityLabel ?? title)
             Text(message).stockFont(type.small).foregroundStyle(colors.textSecondary).multilineTextAlignment(.center)
             if let actionTitle, let action {
                 if isError {

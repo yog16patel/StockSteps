@@ -35,8 +35,10 @@ class WatchlistPresenterTest {
         assertEquals("Delayed · as of Oct 7", rows.first { it.symbol == "CCC" }.staleLabel)
         val missing = rows.first { it.symbol == "BBB" }
         assertNull(missing.price); assertEquals(PriceDirection.UNAVAILABLE, missing.direction); assertEquals("BBB Inc.", missing.name)
-        val offline = WatchlistPresenter.build(listOf(list), "default", data(quote("AAA", 1.0)), emptyList(), offlineSince = 1).rows.first()
-        assertEquals("Saved prices · as of Oct 7", offline.staleLabel)
+        val offline = WatchlistPresenter.build(listOf(list), "default", data(quote("AAA", 1.0)), emptyList(), offlineSince = 1)
+        assertNull(offline.rows.first().staleLabel, "the shared saved-prices label moves to the header (Phase 5A.1)")
+        assertTrue(offline.rows.first().accessibilityLabel.contains("Saved prices · as of Oct 7"), "still spoken per row")
+        assertEquals("Offline · saved prices as of Oct 7", offline.headerLine!!.split(" · ").drop(1).joinToString(" · ").replace('\u00A0', ' '))
     }
 
     @Test fun insightsOnlyStateWhatTheDataSupports() {
@@ -107,7 +109,9 @@ class WatchlistPresenterTest {
     @Test fun emptyStateTitleAndPricesUnavailableRule() {
         val empty = Watchlist("default", "My Stocks", 0, 0, 0, true)
         assertEquals("Your watchlist is empty", WatchlistPresenter.build(listOf(empty), null, null, emptyList(), null).emptyTitle)
-        assertEquals("Tech is empty", WatchlistPresenter.build(listOf(empty, Watchlist("t", "Tech", 1, 0, 0)), "t", null, emptyList(), null).emptyTitle)
+        val tech = WatchlistPresenter.build(listOf(empty, Watchlist("t", "Long Term Growth and Dividends", 1, 0, 0)), "t", null, emptyList(), null)
+        assertEquals("This watchlist is empty", tech.emptyTitle, "short visible title; the selector shows the name")
+        assertEquals("Long Term Growth and Dividends is empty", tech.emptySpokenTitle)
         assertNull(WatchlistPresenter.build(listOf(list), null, null, emptyList(), null).emptyTitle)
         // A failed price request is not an empty list, and is not reported while it is still loading.
         assertNotNull(WatchlistPresenter.pricesUnavailableMessage(hasRows = true, hasData = false, loading = false))
@@ -120,5 +124,26 @@ class WatchlistPresenterTest {
         val long = Watchlist("default", "My Stocks", 0, 0, 0, true, listOf(WatchlistEntry("e", InstrumentRef("BRK.B", "Berkshire Hathaway Inc. Class B", currency = "USD"), 0, 0)))
         val row = WatchlistPresenter.build(listOf(long), null, null, emptyList(), null).rows.single()
         assertEquals("BRK.B", row.symbol); assertEquals("Berkshire Hathaway Inc. Class B", row.name, "the presenter never truncates; layouts wrap")
+    }
+
+    // ---------- Phase 5A.1 ----------
+
+    @Test fun headerLineWrapsOnlyBetweenParts() {
+        val model = WatchlistPresenter.build(listOf(list), null, data(quote("AAA", 1.0)), emptyList(), null)
+        val parts = model.headerLine!!.split(" · ")
+        assertEquals(listOf("5 companies", "Updated 5:15 PM ET"), parts.map { it.replace('\u00A0', ' ') })
+        parts.forEach { assertFalse(it.contains(' '), "no breakable space inside \"$it\"") }
+        assertFalse(model.headerCaution)
+        assertEquals("0 companies", WatchlistPresenter.build(listOf(Watchlist("e", "E", 0, 0, 0, true)), null, null, emptyList(), null).headerLine!!.replace('\u00A0', ' '))
+    }
+
+    @Test fun offlineRowsKeepOnlyDatesThatDiffer() {
+        val two = Watchlist("default", "My Stocks", 0, 0, 0, true, listOf(entry("AAA"), entry("BBB"), entry("CCC")))
+        val older = WatchQuote("CCC", "CCC Corp", 10.0, 0.1, 1.0, 9.9, "USD", "2026-10-05T20:00:00Z", "2026-10-05", false)
+        val model = WatchlistPresenter.build(listOf(two), null, data(quote("AAA", 1.0), quote("BBB", -1.0), older), emptyList(), offlineSince = 1)
+        assertTrue(model.headerCaution)
+        assertEquals(listOf(null, null, "Saved prices · as of Oct 5"), model.rows.map { it.staleLabel }, "the row with a different date keeps its own")
+        // Saved prices are never presented as missing or zero.
+        assertTrue(model.rows.all { it.quoteAvailable })
     }
 }

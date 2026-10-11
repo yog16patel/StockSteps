@@ -1,11 +1,20 @@
 # StockSteps — session handoff (2026-10-10, end of session: Global UI Refinement Phases 1, 1A, 2, 3 and 3.1 committed and pushed)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE5A below** → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE5A1 below** → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## PHASE5A. Global UI Refinement Phase 5A — Watchlist (committed and pushed) — read first
+## PHASE5A1. Global UI Refinement Phase 5A.1 — Watchlist final polish (committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS" (pushed), on top of `50580b5` (Phase 5A).
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE5A_1.md`, evidence `docs/design/phase5a_1/`): header line wraps only between parts; two-line company
+  names; shared `StockFadingScrollRow` for the list selector; "This watchlist is empty" with a spoken name; offline label once in the header.
+- Results: core JVM/iOS 441/0, shared Android 109/0, shared iOS 105/0, `assembleDebug` OK, iOS `xcodebuild` OK. Closure pass: offline and missing data
+  verified on device; no new defects. NOT RUN: TalkBack/VoiceOver speech, iOS signed-in, iPhone SE XXXL. Verdict PASS WITH CONDITIONS.
+- Next: user review → Phase 5B only after approval.
+
+## PHASE5A. Global UI Refinement Phase 5A — Watchlist (committed and pushed)
 
 - Repository: `main`. Current commit: "Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS" (pushed), on top of `e08ceb2` (4C.2 + 4C.3).
 - Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE5A.md`, evidence `docs/design/phase5a/`): 4C.3 selector fade closed with shared
