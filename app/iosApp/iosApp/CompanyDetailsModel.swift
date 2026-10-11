@@ -18,6 +18,8 @@ final class CompanyDetailsModel {
     private(set) var overview: SectionState<CompanyOverview> = .loading
     private(set) var range: ChartRange = .oneMonth
     private(set) var chart: SectionState<PriceChart> = .loading
+    /// Why the chart can't be drawn (connection / temporary / no history); nil while loading or when it draws (Phase 4C.2).
+    private(set) var chartIssue: ChartIssue?
     /// `.content(nil)`: no source-backed explanation exists, so the section is hidden.
     private(set) var whyMoving: SectionState<WhyMoving?> = .loading
     private(set) var news: SectionState<[NewsUiModel]> = .loading
@@ -52,14 +54,17 @@ final class CompanyDetailsModel {
     func retryChart() { charts[range] = nil; loadChart(range) }
 
     private func loadChart(_ requested: ChartRange) {
-        if let cached = charts[requested] { chart = .content(cached); return }
+        if let cached = charts[requested] {
+            chart = .content(cached); chartIssue = ChartPresentation.shared.issue(chart: cached); return
+        }
         chartTask?.cancel()
         chart = .loading
+        chartIssue = nil
         chartTask = Task {
-            let result = try? await client.getChart(symbol: symbol, range: requested)
-            guard !Task.isCancelled else { return }
-            if let result { charts[requested] = result }
-            chart = result.map(SectionState.content) ?? .unavailable
+            guard let result = try? await client.loadChart(symbol: symbol, range: requested), !Task.isCancelled else { return }
+            if let loaded = result.chart { charts[requested] = loaded }
+            chart = result.chart.map(SectionState.content) ?? .unavailable
+            chartIssue = result.issue
         }
     }
 

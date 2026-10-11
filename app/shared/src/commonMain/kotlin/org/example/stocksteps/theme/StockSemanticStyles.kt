@@ -52,3 +52,25 @@ object StockPillLayout {
         return labelWidths.all { it + 2 * horizontalPadding <= share }
     }
 }
+
+/**
+ * Side-by-side header actions (Company Details "Add to portfolio" + "Compare", Phase 4C.3), shared by both platforms: the pair shares a row
+ * only while every measured label (icon included) plus padding fits its equal share after the [gap]; never at accessibility text sizes. Otherwise
+ * each action takes its own full-width row — labels and fonts are never shrunk to force one row.
+ */
+object StockActionLayout {
+    fun sideBySide(labelWidths: List<Float>, availableWidth: Float, horizontalPadding: Float, gap: Float, accessibilityText: Boolean): Boolean =
+        !accessibilityText && labelWidths.isNotEmpty() && availableWidth > 0 &&
+            StockPillLayout.fitsEqualWidth(labelWidths, availableWidth - gap * (labelWidths.size - 1), horizontalPadding)
+}
+
+/**
+ * Where a status badge sits next to a row title (Phase 4C.3): short badges ("High margin", "Near History") may share the title's line when it
+ * fits; long ones ("More cash than debt") always go below the title so they never squeeze it. Character count, not pixels, so both platforms
+ * decide the same way at every text size; the fit check stays with each layout.
+ */
+object StockBadgeLayout {
+    const val INLINE_MAX_CHARACTERS = 14
+
+    fun mayShareTitleLine(badge: String): Boolean = badge.trim().length <= INLINE_MAX_CHARACTERS
+}

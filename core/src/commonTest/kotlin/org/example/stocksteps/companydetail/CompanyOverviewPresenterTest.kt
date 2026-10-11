@@ -12,6 +12,8 @@ class CompanyOverviewPresenterTest {
         dividend: FinancialFact = fact(0.8),
         history: HistoricalComparison? = HistoricalComparison(average = 27.4, validCount = 5, differencePercent = 13.9, reliable = true),
         errors: List<SnapshotSectionError> = emptyList(),
+        netMargin: FinancialFact = fact(35.1),
+        revenueGrowth: FinancialFact = fact(15.3),
         quote: StockQuote = StockQuote("MSFT", "Microsoft Corporation", 425.18, 5.26, 1.25, 426.18, 419.85, volume = 18_400_000,
             timestamp = 1_791_403_200, marketCap = 3_160_000_000_000, open = 420.32, yearHigh = 467.56, yearLow = 309.45)
     ) = CompanyDetails(
@@ -22,8 +24,8 @@ class CompanyOverviewPresenterTest {
         fundamentals = CompanyFundamentals(
             "MSFT",
             financials = CompanyFinancials(
-                growth = mapOf("revenue" to fact(amount = 245_000_000_000), "revenueGrowth" to fact(15.3), "netIncome" to fact(amount = 88_000_000_000)),
-                profitability = mapOf("netMargin" to fact(35.1)),
+                growth = mapOf("revenue" to fact(amount = 245_000_000_000), "revenueGrowth" to revenueGrowth, "netIncome" to fact(amount = 88_000_000_000)),
+                profitability = mapOf("netMargin" to netMargin),
                 financialHealth = mapOf("cash" to fact(amount = 80_000_000_000), "debt" to fact(amount = 76_000_000_000)),
                 cashFlow = mapOf("freeCashFlow" to fact(amount = 74_000_000_000)),
                 shareholderReturns = mapOf("dividendYield" to dividend)
@@ -141,5 +143,51 @@ class CompanyOverviewPresenterTest {
         assertEquals(listOf("2022", "2023", "2024", "2026"), years.xLabels)
         assertEquals("Oct 7, 2026 • $40.00", ChartPresentation.scrubLabel(daily.last(), ChartRange.ONE_MONTH))
         assertNull(ChartPresentation.summary(daily.take(1), ChartRange.ONE_MONTH))
+    }
+
+    @Test fun marginWordingReadsNaturallyForEverySign() {
+        assertEquals("Apple kept about $32 of every $100 in revenue as profit.", MarginWording.sentence("Apple", 32.04))
+        assertEquals("Rivian lost about $80 for every $100 in revenue.", MarginWording.sentence("Rivian", -80.2))
+        assertEquals("Acme kept less than $1 of every $100 in revenue as profit.", MarginWording.sentence("Acme", 0.3))
+        assertEquals("Acme lost less than $1 for every $100 in revenue.", MarginWording.sentence("Acme", -0.4))
+        assertTrue(MarginWording.sentence("Acme", 0.0)!!.startsWith("Acme broke even"))
+        assertNull(MarginWording.sentence("Acme", null))
+        assertNull(MarginWording.sentence("Acme", Double.NaN))
+    }
+
+    @Test fun lossMakingCompanyNeverShowsANegativeDollarAmount() {
+        val overview = CompanyOverviewPresenter.build(details(netMargin = fact(-80.2), revenueGrowth = fact(-12.1)))
+        val profitability = overview.assessment.first { it.id == "profitability" }
+        assertEquals("Microsoft lost about $80 for every $100 in revenue.", profitability.explanation)
+        assertEquals("Losing money", profitability.badge)
+        val insight = overview.insight!!
+        assertTrue(insight.contains("revenue fell 12.1%.") && insight.contains("It lost about $80 for every $100 in revenue."), insight)
+        val everything = (overview.assessment.mapNotNull { it.explanation } + insight + overview.highlights.mapNotNull { it.helper }).joinToString(" ")
+        assertFalse(everything.contains("$-"), everything)
+        // The margin value itself is unchanged.
+        assertEquals("Net Margin -80.2%", profitability.detail)
+    }
+
+    @Test fun explanationsInterpretInsteadOfRepeatingTheNumbers() {
+        val overview = CompanyOverviewPresenter.build(details())
+        val growth = overview.assessment.first { it.id == "growth" }
+        assertEquals("Revenue +15.3% YoY", growth.detail)
+        assertEquals("Microsoft brought in more money from sales than a year earlier.", growth.explanation)
+        // The net-margin sentence lives in Profitability; the Financial Highlights row shows the figure only.
+        assertNull(overview.highlights.first { it.label == "Net Margin" }.helper)
+    }
+
+    @Test fun chartFailuresMapToNoHistoryConnectionOrTemporary() {
+        assertEquals(ChartIssue.NO_HISTORY, ChartPresentation.issue(org.example.stocksteps.domain.StockDataException("x", 404, "CHART_NOT_FOUND")))
+        assertEquals(ChartIssue.CONNECTION, ChartPresentation.issue(org.example.stocksteps.domain.StockDataException("x")))
+        assertEquals(ChartIssue.TEMPORARY, ChartPresentation.issue(org.example.stocksteps.domain.StockDataException("x", 429, "PROVIDER_RATE_LIMITED")))
+        assertEquals(ChartIssue.TEMPORARY, ChartPresentation.issue(IllegalStateException("x")))
+        assertEquals(ChartIssue.NO_HISTORY, ChartPresentation.issue(PriceChart("X", ChartRange.ONE_DAY, emptyList(), "5min")))
+        assertNull(ChartPresentation.issue(PriceChart("X", ChartRange.ONE_DAY, listOf(PricePoint("2026-10-07 09:30:00", 1.0), PricePoint("2026-10-07 09:35:00", 1.1)), "5min")))
+        assertEquals(listOf(false, true, true), ChartIssue.entries.map { ChartPresentation.notice(it).canRetry })
+        // Phase 4C.3: each state has its own short title; only "no history" suggests another range, only failures mention trying again.
+        assertEquals(listOf("No price history", "Couldn't load the chart", "Chart temporarily unavailable"), ChartIssue.entries.map { ChartPresentation.notice(it).title })
+        assertTrue(ChartPresentation.notice(ChartIssue.NO_HISTORY).message.contains("another range"))
+        assertTrue(ChartPresentation.notice(ChartIssue.CONNECTION).message.contains("connection"))
     }
 }

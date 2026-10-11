@@ -1,7 +1,7 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)** on `main` (pushed).
-Previous commit: **"Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)"** (pushed); before it **"Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"** (pushed); before it **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)** on `main` (pushed).
+Previous commit: **"Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)"** (pushed); before it **"Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)"** (pushed); before it **"Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"** (pushed); before it **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
 Includes Phase 5A — Google Cloud Run deployment preparation and remote container verification (`docs/FINANCIAL_API_PHASE5A_IMPLEMENTATION.md`). Nothing deployed.
@@ -48,6 +48,22 @@ This file describes the current state, not a request to implement every pending
 item. Update this handoff in every commit, including completed work, validation,
 limitations, and pending items. Read the actual code and check `git status` before continuing. Update this
 file when a feature, architecture decision, or important limitation changes.
+
+
+## Global UI Refinement Phases 4C.2 + 4C.3 — Company Details polish (current commit)
+
+- **Completed** (`docs/GLOBAL_UI_REFINEMENT_PHASE4C_2.md`, `docs/GLOBAL_UI_REFINEMENT_PHASE4C_3.md`): core `MarginWording` ("lost about $80 for
+  every $100 in revenue"); `StockDataException.status/code` → `ChartPresentation.issue/notice` (no history without retry; connection/temporary
+  with retry) in a compact centered state; `CompanyDetailsPresentation.changeLabel` ("Today" only for today's session confirmed by the server,
+  else the quote date); growth explanation interprets; repeated net-margin helper and valuation headline removed; 48 dp "3 sources" with one
+  label; shared `StockActionLayout` (header actions) and `StockBadgeLayout` (long badges below titles); `StockPillSelector` edge fade +
+  keep-selected-visible; iOS MOCK banner above the tab bar. New server test `CompanyDetailsFixtureWordingTest` (MOCK fixtures only).
+- **Validation**: core JVM/iOS 435/0, shared Android 107/0, shared iOS 103/0, server fixture test 3/0, `assembleDebug` OK, iOS `xcodebuild` OK.
+  Devices with approval on the local MOCK server only (no LAN host): Android 360 dp 1.0×/1.3× light/dark, iPhone 16 default/XXXL, temporary
+  iPhone SE default/XXXL (deleted). Screenshots `docs/design/phase4c3/`.
+- **Limits**: TalkBack and VoiceOver NOT RUN; iPhone 16 default shows "ALL" fully visible but faded (planned fade-slack fix); selector change
+  affects every `StockPillSelector`, re-checked on Company Details only; recommendations R1–R5 open (phase doc §1).
+- **Next**: owner review → Phase 5 (Watchlist, Screener, Comparison) only after approval; LAN backend redeploy still needs approval.
 
 ## Global UI Refinement Phases 4C and 4C.1 — Company Details (2026-10-10) — commit "Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)"
 

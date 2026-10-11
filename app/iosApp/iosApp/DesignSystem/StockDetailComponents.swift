@@ -192,17 +192,19 @@ struct StockAssessmentRow: View {
         let content = HStack(spacing: CGFloat(space.md)) {
             StockIconTile(systemName: systemName, container: iconContainer, content: iconContent)
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                // Title and badge share a line while both fit; otherwise the badge moves below so the title never breaks mid-word (Phase 4C).
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: CGFloat(space.sm)) {
-                        Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
-                        Spacer(minLength: 0)
-                        if let badge { StockBadge(text: badge, tone: tone) }
+                // Short badges share the title's line while both fit; otherwise — and always for long badges such as "More cash than debt"
+                // (shared `StockBadgeLayout`, Phase 4C.3) — the badge sits below, so it never squeezes the title or breaks it mid-word.
+                if badge.map({ StockBadgeLayout.shared.mayShareTitleLine(badge: $0) }) ?? true {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: CGFloat(space.sm)) {
+                            Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+                            Spacer(minLength: 0)
+                            if let badge { StockBadge(text: badge, tone: tone) }
+                        }
+                        stackedTitle(colors)
                     }
-                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                        Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
-                        if let badge { StockBadge(text: badge, tone: tone) }
-                    }
+                } else {
+                    stackedTitle(colors)
                 }
                 Text(detail).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
                 if let note {
@@ -222,6 +224,13 @@ struct StockAssessmentRow: View {
             content.accessibilityElement(children: .combine)
         }
     }
+
+    private func stackedTitle(_ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+            if let badge { StockBadge(text: badge, tone: tone) }
+        }
+    }
 }
 
 /// Pill selector for short options (chart ranges): options share the width while every label fits (shared `StockPillLayout`
@@ -235,6 +244,19 @@ struct StockPillSelector<Option: Hashable>: View {
     let label: (Option) -> String
     let onSelect: (Option) -> Void
     @State private var width: CGFloat = 0
+    @State private var moreBefore = false
+    @State private var moreAfter = false
+
+    /// Opaque in the middle, fading to clear on an edge only while more options lie beyond it.
+    private var fadeMask: some View {
+        let edge = CGFloat(dims.touchTarget) // about one pill, so the last visible option visibly fades
+        return HStack(spacing: 0) {
+            LinearGradient(colors: [moreBefore ? .clear : .black, .black], startPoint: .leading, endPoint: .trailing).frame(width: edge)
+            Color.black
+            LinearGradient(colors: [.black, moreAfter ? .clear : .black], startPoint: .leading, endPoint: .trailing).frame(width: edge)
+        }
+    }
+
     var body: some View {
         let font = StockStepsTheme.uiFont(type.label, weight: .semibold, typeSize: typeSize)
         let widths = options.map { KotlinFloat(value: Float((label($0) as NSString).size(withAttributes: [.font: font]).width)) }
@@ -243,8 +265,21 @@ struct StockPillSelector<Option: Hashable>: View {
             if equal {
                 HStack(spacing: 0) { ForEach(options, id: \.self) { pill($0).frame(maxWidth: .infinity) } }
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: CGFloat(space.xxs)) { ForEach(options, id: \.self) { pill($0) } }
+                // Phase 4C.3: a cut-off pill at the edge looked like the last option. The row fades out on the side that has more options (a
+                // mask, so it works on any background) and scrolls just enough to keep the selected option visible.
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: CGFloat(space.xxs)) { ForEach(options, id: \.self) { pill($0).id($0) } }
+                    }
+                    // Fade only while more than half a pill is hidden: a few points of padding past the edge is not "more options".
+                    .onScrollGeometryChange(for: [Bool].self) { geometry in
+                        let slack = CGFloat(dims.touchTarget) / 2
+                        return [geometry.contentOffset.x > slack,
+                                geometry.contentOffset.x + geometry.containerSize.width < geometry.contentSize.width - slack]
+                    } action: { _, edges in moreBefore = edges[0]; moreAfter = edges[1] }
+                    .mask(fadeMask)
+                    .onAppear { proxy.scrollTo(selected) }
+                    .onChange(of: selected) { _, option in withAnimation { proxy.scrollTo(option) } }
                 }
             }
         }

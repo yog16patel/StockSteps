@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModelStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
+import org.example.stocksteps.companydetail.ChartIssue
+import org.example.stocksteps.companydetail.ChartPresentation
 import org.example.stocksteps.domain.*
 import org.example.stocksteps.model.*
 import kotlin.test.*
@@ -40,6 +42,51 @@ class CompanyDetailsViewModelTest {
             model.selectRange(ChartRange.ONE_YEAR); advanceUntilIdle()
             model.selectRange(ChartRange.ONE_MONTH); advanceUntilIdle()
             assertEquals(listOf(ChartRange.ONE_MONTH, ChartRange.ONE_YEAR), chartRequests, "returning to a range reuses its chart")
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
+
+    @Test fun chartFailuresAreClassifiedSoNoHistoryIsNotAConnectionError() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        var failure: Exception? = StockDataException("Could not reach StockSteps.")
+        var points = emptyList<PricePoint>()
+        val details = object : CompanyDetailsRepository {
+            override suspend fun getDetails(symbol: String) = CompanyDetails(symbol)
+            override suspend fun getChart(symbol: String, range: ChartRange): PriceChart = failure?.let { throw it } ?: PriceChart(symbol, range, points, "1day")
+            override suspend fun getWhyMoving(symbol: String): WhyMoving? = null
+        }
+        val news = object : MarketRepository {
+            override suspend fun getGainers() = emptyList<MarketMover>()
+            override suspend fun getLosers() = emptyList<MarketMover>()
+            override suspend fun getNews() = emptyList<NewsArticle>()
+            override suspend fun getCompanyNews(symbol: String) = emptyList<NewsArticle>()
+        }
+        val store = ViewModelStore()
+        try {
+            val model = CompanyDetailsViewModel("SMPL", GetCompanyDetails(details), GetPriceChart(details), GetWhyMoving(details), GetCompanyNews(news)) {}
+            store.put("details", model)
+            advanceUntilIdle()
+            assertEquals(Section.Unavailable, model.state.value.chart)
+            assertEquals(ChartIssue.CONNECTION, model.state.value.chartIssue, "no HTTP status: the backend wasn't reached")
+            assertTrue(ChartPresentation.notice(ChartIssue.CONNECTION).canRetry)
+
+            failure = StockDataException("Market data is temporarily unavailable.", 503, "PROVIDER_UNAVAILABLE")
+            model.retryChart(); advanceUntilIdle()
+            assertEquals(ChartIssue.TEMPORARY, model.state.value.chartIssue)
+
+            failure = StockDataException("Price history is not available for this range.", 404, "CHART_NOT_FOUND")
+            model.retryChart(); advanceUntilIdle()
+            assertEquals(ChartIssue.NO_HISTORY, model.state.value.chartIssue)
+            assertFalse(ChartPresentation.notice(ChartIssue.NO_HISTORY).canRetry, "retrying can't create history")
+
+            // A successful response with fewer than two prices is content, shown as "no history" (not an error), and is never padded.
+            failure = null; points = listOf(PricePoint("2026-10-07", 10.0))
+            model.selectRange(ChartRange.ONE_YEAR); advanceUntilIdle()
+            assertIs<Section.Content<*>>(model.state.value.chart)
+            assertEquals(ChartIssue.NO_HISTORY, model.state.value.chartIssue)
+
+            points = listOf(PricePoint("2026-10-06", 9.0), PricePoint("2026-10-07", 10.0))
+            model.selectRange(ChartRange.FIVE_YEARS); advanceUntilIdle()
+            assertNull(model.state.value.chartIssue, "a drawable chart has no notice")
         } finally { store.clear(); Dispatchers.resetMain() }
     }
 

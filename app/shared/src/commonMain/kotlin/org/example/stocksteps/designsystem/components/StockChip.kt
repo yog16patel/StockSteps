@@ -1,6 +1,16 @@
 package org.example.stocksteps.designsystem.components
 
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 
 import androidx.compose.foundation.layout.fillMaxWidth
 
@@ -98,8 +108,41 @@ internal fun <T> StockPillSelector(options: List<T>, selected: T, label: (T) -> 
         if (equal) {
             Row(Modifier.fillMaxWidth().selectableGroup()) { options.forEach { pill(it, Modifier.weight(1f)) } }
         } else {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                options.forEach { pill(it, Modifier) }
+            // Phase 4C.3: a cut-off pill at the edge looked like the last option ("ALL" was hidden at 360dp). The row now fades out on the side that
+            // has more options (an alpha mask, so it works on any background) and scrolls just enough to keep the selected option visible —
+            // horizontally only, so a range change never moves the page.
+            val scroll = rememberScrollState()
+            val bounds = remember(options) { mutableStateMapOf<T, IntRange>() }
+            val viewport = with(density) { maxWidth.roundToPx() }
+            // About one pill wide, so the last visible option visibly fades (a narrower fade can fall on empty space between pills).
+            val edge = with(density) { StockStepsTheme.dimensions.touchTarget.toPx() }
+            LaunchedEffect(selected, bounds[selected], viewport) {
+                val span = bounds[selected] ?: return@LaunchedEffect
+                val target = when {
+                    span.first < scroll.value + edge -> span.first - edge.toInt()
+                    span.last > scroll.value + viewport - edge -> span.last - viewport + edge.toInt()
+                    else -> return@LaunchedEffect
+                }
+                scroll.animateScrollTo(target.coerceIn(0, scroll.maxValue))
+            }
+            Row(
+                Modifier.fillMaxWidth()
+                    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                    .drawWithContent {
+                        drawContent()
+                        // Fade only while more than half a pill is hidden: a few pixels of padding past the edge is not "more options".
+                        val start = if (scroll.value > edge / 2) Color.Transparent else Color.Black
+                        val end = if (scroll.maxValue - scroll.value > edge / 2) Color.Transparent else Color.Black
+                        val fade = (edge / size.width).coerceIn(0f, 0.5f)
+                        drawRect(Brush.horizontalGradient(0f to start, fade to Color.Black, 1f - fade to Color.Black, 1f to end), blendMode = BlendMode.DstIn)
+                    }
+                    .horizontalScroll(scroll)
+                    .selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.xxs)
+            ) {
+                options.forEach { option ->
+                    pill(option, Modifier.onGloballyPositioned { bounds[option] = it.positionInParent().x.toInt()..(it.positionInParent().x.toInt() + it.size.width) })
+                }
             }
         }
     }

@@ -37,6 +37,7 @@ struct CompanyDetailsScreen: View {
     @State private var showSources = false
     @State private var aboutExpanded = false
     @State private var scrub: Int?
+    @State private var actionsWidth: CGFloat = 0
     private let space = StockStepsTheme.spacing
     private let type = StockStepsTheme.typography
     private let dims = StockStepsTheme.dimensions
@@ -161,7 +162,8 @@ struct CompanyDetailsScreen: View {
 
     // MARK: Header
 
-    /// Compact identity (logo, wrapping name, ticker · exchange, tags) and the price as the focal point: price, signed change "Today", the US
+    /// Compact identity (logo, wrapping name, ticker · exchange, tags) and the price as the focal point: price, signed change with its session
+    /// ("Today" or the quote's date), the US
     /// market status chip and the quote time; then the secondary actions, wrapping instead of scrolling sideways.
     @ViewBuilder
     private func header(_ colors: StockColors) -> some View {
@@ -187,6 +189,7 @@ struct CompanyDetailsScreen: View {
                 // Price block: the price is the focal point; the session chip sits beside it (never inside the green/red change line);
                 // one spoken sentence for price, change, quote time and session.
                 let updated = overview.updatedAt.map { Self.quoteTime($0.int64Value) }
+                let changeLabel = present.changeLabel(overview: overview)
                 VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                     ViewThatFits(in: .horizontal) {
                         HStack(alignment: .center, spacing: CGFloat(space.sm)) {
@@ -200,8 +203,8 @@ struct CompanyDetailsScreen: View {
                         }
                     }
                     ViewThatFits(in: .horizontal) {
-                        HStack(spacing: CGFloat(space.sm)) { priceChange(overview, colors) }
-                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { priceChange(overview, colors) }
+                        HStack(spacing: CGFloat(space.sm)) { priceChange(overview, changeLabel, colors) }
+                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { priceChange(overview, changeLabel, colors) }
                     }
                     if let updated {
                         Text("Updated \(updated)").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
@@ -209,7 +212,7 @@ struct CompanyDetailsScreen: View {
                 }
                 .padding(.top, CGFloat(space.sm))
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel([present.priceDescription(overview: overview, updated: updated),
+                .accessibilityLabel([present.priceDescription(overview: overview, updated: updated, change: changeLabel),
                                      present.statusDescription(status: overview.marketStatus).map { "\($0)." }].compactMap { $0 }.joined(separator: " "))
                 actions.padding(.top, CGFloat(space.sm))
             }
@@ -220,29 +223,44 @@ struct CompanyDetailsScreen: View {
         Text(overview.price ?? "—").font(StockStepsTheme.font(type.largeNumber, relativeTo: .largeTitle)).foregroundStyle(colors.textValue)
     }
 
-    @ViewBuilder private func priceChange(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
+    @ViewBuilder private func priceChange(_ overview: CompanyOverview, _ label: CompanyDetailsPresentation.ChangeLabel, _ colors: StockColors) -> some View {
         StockPriceChange(percentage: [overview.changeAmount, overview.changeAmount == nil ? overview.changePercent : "(\(overview.changePercent))"]
             .compactMap { $0 }.joined(separator: " "), direction: overview.direction, style: type.numberMedium, lineLimit: nil)
-        Text("Today").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+        Text(verbatim: label.text).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
     }
 
-    /// Add to portfolio (primary) and Compare side by side, Practice Buy full width below; at accessibility sizes every action takes its own
-    /// full-width row. Earnings is offered here only when the page has no Earnings section.
+    /// Add to portfolio (primary) and Compare side by side, Practice Buy full width below; when the pair doesn't fit on one line each (narrow
+    /// phones, accessibility sizes) every action takes its own full-width row. Earnings is offered here only when the page has no Earnings section.
     private var actions: some View {
         VStack(spacing: CGFloat(space.sm)) {
-            if typeSize >= .xxxLarge {
-                wide("Add to portfolio", "plus", .stockPrimary, onAddPortfolio)
-                wide("Compare", "square.split.2x1", .stockSecondary, onCompare)
-            } else {
+            if actionPairFits {
                 HStack(spacing: CGFloat(space.sm)) {
                     wide("Add to portfolio", "plus", .stockPrimary, onAddPortfolio)
                     wide("Compare", "square.split.2x1", .stockSecondary, onCompare)
                 }
+            } else {
+                wide("Add to portfolio", "plus", .stockPrimary, onAddPortfolio)
+                wide("Compare", "square.split.2x1", .stockSecondary, onCompare)
             }
             wide("Practice Buy", "graduationcap", .stockSecondary, onPracticeBuy)
                 .accessibilityHint("Opens a simulated order with virtual money")
             if nextEarnings == nil { wide("Earnings", "calendar", .stockSecondary, onEarnings) }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { actionsWidth = $0 }
+    }
+
+    /// Add to portfolio and Compare share a row only while both labels (icon included) fit their equal share — the shared
+    /// `StockActionLayout` rule Android uses (Phase 4C.3: on a 375 pt iPhone SE at the default size "Add to portfolio" wrapped onto two lines and
+    /// the pair had unequal heights). Otherwise, and always at accessibility sizes, each action takes its own full-width row.
+    private var actionPairFits: Bool {
+        guard actionsWidth > 0 else { return typeSize < .xxxLarge }
+        let font = StockStepsTheme.uiFont(type.bodySemiBold, weight: .semibold, typeSize: typeSize)
+        // Label width = text + SF Symbol (about 1.2× the point size) + the Label's icon–title spacing.
+        let widths = ["Add to portfolio", "Compare"].map { title in
+            KotlinFloat(value: Float((title as NSString).size(withAttributes: [.font: font]).width + font.pointSize * 1.2 + CGFloat(space.sm)))
+        }
+        return StockActionLayout.shared.sideBySide(labelWidths: widths, availableWidth: Float(actionsWidth), horizontalPadding: Float(space.lg),
+                                                   gap: Float(space.sm), accessibilityText: typeSize >= .xxxLarge)
     }
 
     /// A header action that fills its share of the row.
@@ -280,21 +298,18 @@ struct CompanyDetailsScreen: View {
         let changeColor = scrubLabel != nil ? colors.textPrimary : directionColor
         return VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             StockPillSelector(options: ChartRange.entries, selected: model.range, label: { $0.label }) { model.select(range: $0) }
-            Text(scrubLabel ?? summary?.change ?? " ")
-                .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(changeColor)
-            ZStack {
-                switch model.chart {
-                case .loading: StockSkeleton(width: 1, height: 1).frame(maxWidth: .infinity, maxHeight: .infinity).accessibilityLabel("Loading")
-                case .unavailable: StockSectionMessage(message: "Price history isn't available for this range.", actionTitle: "Try again", action: model.retryChart)
-                case .content:
-                    if let summary {
-                        StockLineChart(summary: summary) { scrub = $0 }
-                    } else {
-                        StockSectionMessage(message: "Price history isn't available for this range.", actionTitle: "Try again", action: model.retryChart)
-                    }
-                }
+            switch model.chart {
+            case .loading:
+                // Loading keeps the chart's full height (a skeleton of the chart), so it reads differently from the compact notice.
+                StockSkeleton(width: 1, height: 1).frame(maxWidth: .infinity).frame(height: CGFloat(dims.chartHeight)).accessibilityLabel("Loading")
+            case .content where summary != nil:
+                Text(scrubLabel ?? summary?.change ?? " ")
+                    .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(changeColor)
+                if let summary { StockLineChart(summary: summary) { scrub = $0 }.frame(height: CGFloat(dims.chartHeight)) }
+            default:
+                // Phase 4C.3: a compact centered state instead of a chart-sized blank area; no flat or placeholder line is drawn.
+                chartNotice
             }
-            .frame(height: CGFloat(dims.chartHeight))
             if let stats = model.overview.value.map({ present.chartStats(overview: $0) }), !stats.isEmpty {
                 StockDivider().padding(.top, CGFloat(space.xs))
                 let half = (stats.count + 1) / 2
@@ -308,6 +323,14 @@ struct CompanyDetailsScreen: View {
         .stockCard(padding: CGFloat(space.sm))
     }
 
+    /// Failure (connection / temporary) offers Try again; "no history" is an answer, so it doesn't (Phase 4C.2, same as Android).
+    private var chartNotice: some View {
+        let notice: ChartNotice = ChartPresentation.shared.notice(issue: model.chartIssue ?? ChartIssue.noHistory)
+        let retry: (() -> Void)? = notice.canRetry ? { model.retryChart() } : nil
+        return StockStateMessage(title: notice.title, message: notice.message, isError: notice.canRetry,
+                                 actionTitle: notice.canRetry ? "Try again" : nil, action: retry)
+    }
+
     // MARK: Why did it move
 
     private func whySection(_ why: WhyMoving, _ colors: StockColors) -> some View {
@@ -318,10 +341,17 @@ struct CompanyDetailsScreen: View {
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 0)
                 if !why.sources.isEmpty {
-                    Button("\(why.sources.count) sources →") { showSources = true }
-                        .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
-                        .padding(.horizontal, CGFloat(space.sm)).padding(.vertical, CGFloat(space.xs))
-                        .background(colors.surface, in: Capsule())
+                    // Compact pill inside a full 44 pt+ touch target, read as "3 sources" (no arrow).
+                    Button { showSources = true } label: {
+                        Text(verbatim: "\(why.sources.count) sources →")
+                            .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
+                            .padding(.horizontal, CGFloat(space.sm)).padding(.vertical, CGFloat(space.xs))
+                            .background(colors.surface, in: Capsule())
+                            .frame(minHeight: CGFloat(dims.touchTarget))
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(why.sources.count) sources")
                 }
             }
             Text(why.summary).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
@@ -431,7 +461,7 @@ struct CompanyDetailsScreen: View {
                     StockMetricItem(label: valuation.historicalLabel, value: valuation.historicalAverage ?? "—"),
                     StockMetricItem(label: "Difference", value: valuation.difference ?? "—")
                 ], maxColumns: 3, rowsWhenNarrow: true)
-                if let headline = valuation.headline {
+                if let headline = present.valuationHeadline(overview: overview) {
                     Label(headline, systemImage: "tag.fill").font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(accent)
                 }
                 Text(valuation.explanation).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)

@@ -1,7 +1,9 @@
 package org.example.stocksteps.companydetail
 
+import org.example.stocksteps.domain.StockDataException
 import org.example.stocksteps.home.HomePresentation
 import org.example.stocksteps.model.ChartRange
+import org.example.stocksteps.model.PriceChart
 import org.example.stocksteps.model.PricePoint
 
 /** Everything a price chart shows besides the line itself, shared by Compose and SwiftUI. */
@@ -17,6 +19,18 @@ data class ChartSummary(
     /** Screen-reader summary of the whole chart. */
     val description: String
 )
+
+/**
+ * Why a chart can't be drawn (Phase 4C.2). [NO_HISTORY] is an answer (the source has fewer than two prices for the range), so retrying is
+ * pointless; [CONNECTION] and [TEMPORARY] are failures worth retrying.
+ */
+enum class ChartIssue { NO_HISTORY, CONNECTION, TEMPORARY }
+
+/**
+ * The compact state shown instead of the chart (short [title], one-sentence [message]); [canRetry] decides whether a Try again action is
+ * offered. Phase 4C.3 added the title so both platforms render the same centered state.
+ */
+data class ChartNotice(val title: String, val message: String, val canRetry: Boolean)
 
 /**
  * Price-chart labels from backend points ("yyyy-MM-dd HH:mm:ss" for intraday, "yyyy-MM-dd"
@@ -47,6 +61,30 @@ object ChartPresentation {
             description = "Price chart, ${range.label}: from ${axisPrice(first)} to ${axisPrice(last)}, ${HomePresentation.percent(percent)}."
         )
     }
+
+    /**
+     * Classifies a failed chart request: "not found" from the backend means no history for the range; no HTTP status means the backend
+     * wasn't reached; anything else (server error, rate limit, provider outage) is temporary.
+     */
+    fun issue(cause: Throwable): ChartIssue {
+        val failure = cause as? StockDataException ?: return ChartIssue.TEMPORARY
+        return when {
+            failure.code in NO_HISTORY_CODES -> ChartIssue.NO_HISTORY
+            failure.status == null -> ChartIssue.CONNECTION
+            else -> ChartIssue.TEMPORARY
+        }
+    }
+
+    /** A successful response that can't be drawn (fewer than two finite closes) is "no history", never an error. */
+    fun issue(chart: PriceChart): ChartIssue? = if (summary(chart.points, chart.range) == null) ChartIssue.NO_HISTORY else null
+
+    fun notice(issue: ChartIssue): ChartNotice = when (issue) {
+        ChartIssue.NO_HISTORY -> ChartNotice("No price history", "No prices are available for this period. Try another range.", canRetry = false)
+        ChartIssue.CONNECTION -> ChartNotice("Couldn't load the chart", "Check your connection and try again.", canRetry = true)
+        ChartIssue.TEMPORARY -> ChartNotice("Chart temporarily unavailable", "Price data isn't available right now. Try again in a moment.", canRetry = true)
+    }
+
+    private val NO_HISTORY_CODES = setOf("CHART_NOT_FOUND", "SYMBOL_NOT_FOUND")
 
     /** Label for a touched point: time/date plus price. */
     fun scrubLabel(point: PricePoint, range: ChartRange): String =

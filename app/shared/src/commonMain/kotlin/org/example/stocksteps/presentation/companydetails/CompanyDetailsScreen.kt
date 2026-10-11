@@ -95,6 +95,7 @@ internal fun CompanyDetailsScreen(
                 item(key = "chart") {
                     ChartSection(
                         section = state.chart,
+                        issue = state.chartIssue,
                         range = state.range,
                         dayDirection = overview?.direction,
                         quickStats = overview?.let(CompanyDetailsPresentation::chartStats),
@@ -153,7 +154,8 @@ internal fun CompanyDetailsScreen(
 }
 
 /**
- * Compact identity (logo, name that wraps, ticker · exchange, tags) and the price as the focal point: price, signed change "Today",
+ * Compact identity (logo, name that wraps, ticker · exchange, tags) and the price as the focal point: price, signed change with its session
+ * ("Today" or the quote's date),
  * the US market status chip and the quote time; then the secondary actions, wrapping instead of scrolling sideways.
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -190,8 +192,9 @@ private fun CompanyHeader(section: Section<CompanyOverview>, showEarningsAction:
                 // Price block: the price is the focal point; the session chip sits beside it (never inside the green/red change line);
                 // one spoken sentence for price, change and quote time.
                 val updated = overview.updatedAt?.let(::formatQuoteTime)
+                val changeLabel = remember(overview) { CompanyDetailsPresentation.changeLabel(overview) }
                 Column(Modifier.padding(top = spacing.sm).clearAndSetSemantics {
-                    contentDescription = listOfNotNull(CompanyDetailsPresentation.priceDescription(overview, updated),
+                    contentDescription = listOfNotNull(CompanyDetailsPresentation.priceDescription(overview, updated, changeLabel),
                         CompanyDetailsPresentation.statusDescription(overview.marketStatus)?.let { "$it." }).joinToString(" ")
                 },
                     verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
@@ -208,7 +211,7 @@ private fun CompanyHeader(section: Section<CompanyOverview>, showEarningsAction:
                             style = typography.numberMedium,
                             maxLines = 2
                         )
-                        Text(stringResource(Res.string.details_today), style = typography.small, color = colors.textSupporting)
+                        Text(changeLabel.text, style = typography.small, color = colors.textSupporting)
                     }
                     updated?.let { Text(stringResource(Res.string.details_updated, it), style = typography.caption, color = colors.textMeta) }
                 }
@@ -219,23 +222,31 @@ private fun CompanyHeader(section: Section<CompanyOverview>, showEarningsAction:
 }
 
 /**
- * Header actions: Add to portfolio (primary) and Compare side by side, Practice Buy full width below; at large font scale every action
- * takes its own full-width row, so labels never clip. Earnings is offered here only when the page has no Earnings section.
+ * Header actions: Add to portfolio (primary) and Compare side by side, Practice Buy full width below. The pair shares a row only while both
+ * measured labels fit their equal share (shared `StockActionLayout`, same rule as iOS, Phase 4C.3); at large font scale or on narrow widths
+ * every action takes its own full-width row, so labels never clip or wrap. Earnings is offered here only when the page has no Earnings section.
  */
 @Composable
 private fun CompanyActions(showEarningsAction: Boolean, onAction: (CompanyDetailsAction) -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
-    val large = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = StockStepsTheme.typography.bodySemiBold
     val add: @Composable (Modifier) -> Unit = { m -> StockButton("Add to portfolio", { onAction(CompanyDetailsAction.AddPortfolio) }, m) }
     val compare: @Composable (Modifier) -> Unit = { m -> StockButton("Compare", { onAction(CompanyDetailsAction.Compare) }, m, variant = StockButtonVariant.SECONDARY) }
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        if (large) {
-            add(Modifier.fillMaxWidth()); compare(Modifier.fillMaxWidth())
-        } else Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            add(Modifier.weight(1f)); compare(Modifier.weight(1f))
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val widths = listOf("Add to portfolio", "Compare").map { with(density) { measurer.measure(it, labelStyle).size.width.toDp().value } }
+        val sideBySide = org.example.stocksteps.theme.StockActionLayout.sideBySide(widths, maxWidth.value, spacing.lg.value, spacing.sm.value,
+            accessibilityText = density.fontScale >= StockStepsTheme.dimensions.largeFontScale)
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            if (sideBySide) Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                add(Modifier.weight(1f)); compare(Modifier.weight(1f))
+            } else {
+                add(Modifier.fillMaxWidth()); compare(Modifier.fillMaxWidth())
+            }
+            StockButton("Practice Buy", { onAction(CompanyDetailsAction.PracticeBuy) }, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY)
+            if (showEarningsAction) StockButton("Earnings", { onAction(CompanyDetailsAction.Earnings) }, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY)
         }
-        StockButton("Practice Buy", { onAction(CompanyDetailsAction.PracticeBuy) }, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY)
-        if (showEarningsAction) StockButton("Earnings", { onAction(CompanyDetailsAction.Earnings) }, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY)
     }
 }
 
@@ -243,6 +254,7 @@ private fun CompanyActions(showEarningsAction: Boolean, onAction: (CompanyDetail
 @Composable
 private fun ChartSection(
     section: Section<PriceChart>,
+    issue: ChartIssue?,
     range: ChartRange,
     dayDirection: PriceDirection?,
     quickStats: List<InfoRow>?,
@@ -257,24 +269,31 @@ private fun ChartSection(
         val chart = (section as? Section.Content)?.value
         val summary = remember(chart, dayDirection) { chart?.let { ChartPresentation.summary(it.points, range, dayDirection) } }
         var scrub by remember(chart) { mutableStateOf<Int?>(null) }
-        Text(
-            text = scrub?.let { index -> chart?.points?.getOrNull(index)?.let { ChartPresentation.scrubLabel(it, range) } } ?: summary?.change.orEmpty(),
-            modifier = Modifier.padding(top = spacing.xs),
-            style = StockStepsTheme.typography.label,
-            color = when {
-                scrub != null -> colors.textPrimary
-                summary?.direction == PriceDirection.UP -> colors.positiveText
-                summary?.direction == PriceDirection.DOWN -> colors.negativeText
-                else -> colors.textSecondary
+        if (section == Section.Loading) {
+            // Loading keeps the chart's full height (a skeleton of the chart), so it reads differently from the compact notice below.
+            StockLoadingState(Modifier.fillMaxWidth().padding(top = spacing.xs).height(StockStepsTheme.dimensions.chartHeight)) {
+                StockSkeleton(Modifier.fillMaxSize(), shape = StockStepsTheme.shapes.card)
             }
-        )
-        Box(Modifier.fillMaxWidth().padding(top = spacing.xs).height(StockStepsTheme.dimensions.chartHeight), contentAlignment = Alignment.Center) {
-            when {
-                section == Section.Loading -> StockLoadingState(Modifier.fillMaxSize()) { StockSkeleton(Modifier.fillMaxSize(), shape = StockStepsTheme.shapes.card) }
-                summary == null -> StockErrorState(stringResource(Res.string.details_chart_unavailable), onRetry)
-                else -> StockLineChart(summary.closes, summary.direction, summary.yLabels, summary.xLabels, summary.description,
-                    Modifier.fillMaxSize(), onScrub = { scrub = it })
-            }
+        } else if (summary == null) {
+            // Phase 4C.3: a compact centered state instead of a chart-sized blank area; no flat or placeholder line is drawn. Connection and
+            // temporary failures offer Try again; "no history" is an answer, so it suggests another range instead (Phase 4C.2 classification).
+            val notice = ChartPresentation.notice(issue ?: ChartIssue.NO_HISTORY)
+            if (notice.canRetry) StockErrorState(notice.message, onRetry, title = notice.title)
+            else StockEmptyState(notice.message, title = notice.title)
+        } else {
+            Text(
+                text = scrub?.let { index -> chart?.points?.getOrNull(index)?.let { ChartPresentation.scrubLabel(it, range) } } ?: summary.change,
+                modifier = Modifier.padding(top = spacing.xs),
+                style = StockStepsTheme.typography.label,
+                color = when {
+                    scrub != null -> colors.textPrimary
+                    summary.direction == PriceDirection.UP -> colors.positiveText
+                    summary.direction == PriceDirection.DOWN -> colors.negativeText
+                    else -> colors.textSecondary
+                }
+            )
+            StockLineChart(summary.closes, summary.direction, summary.yLabels, summary.xLabels, summary.description,
+                Modifier.fillMaxWidth().padding(top = spacing.xs).height(StockStepsTheme.dimensions.chartHeight), onScrub = { scrub = it })
         }
         if (!quickStats.isNullOrEmpty()) {
             StockDivider(Modifier.padding(top = spacing.sm))
@@ -301,16 +320,21 @@ private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (Str
             Icon(StockIcons.Lightbulb, contentDescription = null, tint = colors.educationAccent, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
             Text(stringResource(Res.string.details_why_title), Modifier.weight(1f).semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
             if (why.sources.isNotEmpty()) {
-                Text(
-                    "${stringResource(Res.string.details_why_sources, why.sources.size)} →",
-                    modifier = Modifier
-                        .clip(StockStepsTheme.shapes.pill)
-                        .background(colors.surface)
-                        .clickable(role = Role.Button, onClick = onSources)
-                        .padding(horizontal = spacing.sm, vertical = spacing.xs),
-                    style = StockStepsTheme.typography.label,
-                    color = colors.primaryText
-                )
+                val sources = stringResource(Res.string.details_why_sources, why.sources.size)
+                // The pill stays compact; the clickable box around it is a full 48dp touch target, read as "3 sources, button". The label
+                // replaces the pill's own text (Phase 4C.3: a separate description node made TalkBack hear "3 sources" twice plus the arrow).
+                Box(
+                    Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(role = Role.Button, onClick = onSources),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "$sources →",
+                        modifier = Modifier.clearAndSetSemantics { contentDescription = sources }
+                            .clip(StockStepsTheme.shapes.pill).background(colors.surface).padding(horizontal = spacing.sm, vertical = spacing.xs),
+                        style = StockStepsTheme.typography.label,
+                        color = colors.primaryText
+                    )
+                }
             }
         }
         Text(why.summary, style = StockStepsTheme.typography.body, color = colors.textBody)
@@ -442,7 +466,7 @@ private fun AboutCard(data: CompanyOverview) {
 }
 
 /**
- * Valuation & financial health: current vs historical P/E (one metric row), the factual headline and explanation, links to the P/E lesson
+ * Valuation & financial health: current vs historical P/E (one metric row), the factual headline (unless Understand already says it) and explanation, links to the P/E lesson
  * and the detailed valuation; the financial highlights with their basis; key ratios not already shown in At a Glance.
  */
 @Composable
@@ -462,7 +486,7 @@ private fun ValuationHealthSection(data: CompanyOverview, onUnderstand: () -> Un
                     StockMetricItem(stringResource(Res.string.details_valuation_difference), valuation.difference ?: "—")
                 ), maxColumns = 3, rowsWhenNarrow = true)
                 val accent = if (valuation.position == ValuationPosition.ABOVE) colors.cautionText else colors.primaryText
-                valuation.headline?.let { headline ->
+                CompanyDetailsPresentation.valuationHeadline(data)?.let { headline ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         Icon(StockIcons.Tag, contentDescription = null, tint = accent, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
                         Text(headline, style = StockStepsTheme.typography.bodyMedium, color = accent)

@@ -5,7 +5,11 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
+import org.example.stocksteps.companydetail.ChartIssue
+import org.example.stocksteps.companydetail.ChartPresentation
+import org.example.stocksteps.domain.GetPriceChart
 import org.example.stocksteps.domain.GetWhyMoving
+import org.example.stocksteps.model.ChartRange
 import org.example.stocksteps.domain.StockDataException
 import org.example.stocksteps.network.StockStepsApi
 import org.example.stocksteps.network.configureStockStepsClient
@@ -32,5 +36,21 @@ class RemoteCompanyDetailsRepositoryTest {
     ) { repo ->
         val error = assertFailsWith<StockDataException> { GetWhyMoving(repo)("MSFT") }
         assertFalse(error.message.orEmpty().contains("FMP"))
+    }
+
+    @Test fun chartFailuresKeepStatusAndCodeButConnectionFailuresHaveNone() = runBlocking {
+        suspend fun chartError(engine: MockEngine): StockDataException =
+            HttpClient(engine) { configureStockStepsClient() }.use { client ->
+                assertFailsWith<StockDataException> { GetPriceChart(RemoteCompanyDetailsRepository(StockStepsApi(client, "https://stocksteps.test")))("MSFT", ChartRange.ONE_YEAR) }
+            }
+        val notFound = chartError(MockEngine {
+            respond("""{"code":"CHART_NOT_FOUND","message":"Price history is not available for this range."}""", HttpStatusCode.NotFound,
+                headersOf(HttpHeaders.ContentType, "application/json"))
+        })
+        assertEquals(404 to "CHART_NOT_FOUND", notFound.status to notFound.code)
+        assertEquals(ChartIssue.NO_HISTORY, ChartPresentation.issue(notFound))
+        val offline = chartError(MockEngine { throw IllegalStateException("offline") })
+        assertNull(offline.status); assertNull(offline.code)
+        assertEquals(ChartIssue.CONNECTION, ChartPresentation.issue(offline))
     }
 }

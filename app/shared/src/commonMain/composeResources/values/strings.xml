@@ -91,12 +91,10 @@
     <string name="settings_sign_out_body">You'll need to sign in again to sync your StockSteps account. Your watchlist and account are not deleted.</string>
     <string name="action_cancel">Cancel</string>
     <string name="sample_data_banner">Sample data · mock backend</string>
-    <string name="details_today">Today</string>
     <string name="details_watchlist_add">Add to watchlist</string>
     <string name="details_watchlist_remove">Remove from watchlist</string>
     <string name="details_unavailable">Unable to load company data.</string>
     <string name="details_section_unavailable">This information is temporarily unavailable.</string>
-    <string name="details_chart_unavailable">Price history isn't available for this range.</string>
     <string name="details_chart_summary">Price over %1$s: from %2$s to %3$s</string>
     <string name="details_why_title">Why Did It Move?</string>
     <string name="details_why_matters">Why this matters</string>

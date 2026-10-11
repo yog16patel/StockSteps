@@ -1,9 +1,32 @@
 # StockSteps — session handoff (2026-10-10, end of session: Global UI Refinement Phases 1, 1A, 2, 3 and 3.1 committed and pushed)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE4C1 below** → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE4C3 below** → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PHASE4C3. Global UI Refinement Phase 4C.3 — Company Details responsive UX and accessibility polish (committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)" (pushed; 4C.2 and 4C.3 together), on top of `7adc89c` (4C + 4C.1).
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE4C_3.md`, evidence `docs/design/phase4c3/`): Android sources-button semantics (one "3 sources"
+  label); shared `StockActionLayout` for side-by-side header actions on both platforms (iPhone SE wrap fixed); `StockPillSelector` scroll
+  affordance (edge fade, keep selected visible, all call sites); compact centered chart error/empty states (`ChartNotice.title`); iOS MOCK banner
+  above the tab bar (`sampleDataInset`, `SampleBannerPlacement`); long badges below titles (`StockBadgeLayout`); duplicate valuation headline removed.
+- Results: core JVM/iOS 435/0, shared Android 107/0, shared iOS 103/0, server fixture wording test 3/0, `assembleDebug` OK, iOS `xcodebuild` OK.
+  Devices (local MOCK only): Android 360 dp 1.0×/1.3×, iPhone 16, temporary iPhone SE default/XXXL. TalkBack and VoiceOver: NOT RUN.
+- Open: iPhone 16 default shows "ALL" fully visible but faded (fade-slack fix planned, §7 of the phase doc); R1–R5 decisions. Next: user review →
+  Phase 5 only after approval.
+
+## PHASE4C2. Global UI Refinement Phase 4C.2 — final Company Details UX polish (committed with 4C.3)
+
+- Committed and pushed together with 4C.3 as "Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)".
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE4C_2.md`): natural negative-margin wording via core `MarginWording` ("lost about $80 for every
+  $100"); chart failures classified (`StockDataException.status/code` → `ChartPresentation.issue/notice`: no history without retry, connection /
+  temporary with retry); date-aware change label (`CompanyDetailsPresentation.changeLabel`, "Today" only for today's session confirmed by the
+  server status); repeated net-margin helper removed, growth row interprets; 48 dp/pt sources target.
+- Results: core JVM/iOS 435/0, shared Android 104/0, shared iOS 100/0, `assembleDebug` OK, iOS `xcodebuild` OK. Not run: any device check,
+  screenshots, TalkBack, VoiceOver. Verdict PASS WITH CONDITIONS.
+- Next: user review (and device access for the visual pass) → Phase 5 only after approval.
 
 ## PHASE4C1. Global UI Refinement Phase 4C.1 — Company Details polish (committed and pushed) — read first
 

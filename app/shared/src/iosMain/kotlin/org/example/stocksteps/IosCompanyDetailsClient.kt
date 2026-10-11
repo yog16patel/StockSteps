@@ -1,5 +1,7 @@
 package org.example.stocksteps
 
+import org.example.stocksteps.companydetail.ChartIssue
+import org.example.stocksteps.companydetail.ChartPresentation
 import org.example.stocksteps.companydetail.CompanyDetailPresenter
 import org.example.stocksteps.companydetail.CompanyOverview
 import org.example.stocksteps.companydetail.FinancialMetric
@@ -18,6 +20,7 @@ import org.example.stocksteps.news.NewsUiModel
 import org.example.stocksteps.model.MovementPeriod
 import org.example.stocksteps.model.NewsArticle
 import org.example.stocksteps.news.*
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -41,8 +44,17 @@ class IosCompanyDetailsClient(baseUrl: () -> String) {
     @Throws(Exception::class)
     suspend fun getOverview(symbol: String): CompanyOverview = CompanyOverviewPresenter.build(details(symbol))
 
-    @Throws(Exception::class)
-    suspend fun getChart(symbol: String, range: ChartRange): PriceChart = chart(symbol, range)
+    /**
+     * The chart, or why it can't be drawn (Phase 4C.2): a failed request becomes a [ChartIssue] (connection / temporary / no history) and a
+     * response with fewer than two prices is "no history", so Swift needs no `NSError` parsing. Cancellation still propagates.
+     */
+    @Throws(CancellationException::class)
+    suspend fun loadChart(symbol: String, range: ChartRange): ChartLoad = try {
+        chart(symbol, range).let { ChartLoad(it, ChartPresentation.issue(it)) }
+    } catch (cause: Exception) {
+        if (cause is CancellationException) throw cause
+        ChartLoad(null, ChartPresentation.issue(cause))
+    }
 
     /** Null when no source-backed explanation exists (the section is hidden, not an error). */
     @Throws(Exception::class)
@@ -100,3 +112,6 @@ class IosCompanyDetailsClient(baseUrl: () -> String) {
 
     private companion object { const val NEWS_ON_PAGE = 3 }
 }
+
+/** A chart load for SwiftUI: [chart] when the request succeeded, [issue] when it can't be drawn (both set for a too-short response). */
+data class ChartLoad(val chart: PriceChart?, val issue: ChartIssue?)

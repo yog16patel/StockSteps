@@ -42,21 +42,51 @@ object CompanyDetailsPresentation {
 
     // ---------- Price ----------
 
+    /** The label beside the daily change ("Today" / "Oct 8") and its spoken form ("today" / "on Oct 8"). */
+    data class ChangeLabel(val text: String, val spoken: String)
+
+    /** [changeLabel] for the overview's quote: its exchange date, the server's market status and today's exchange date. */
+    fun changeLabel(overview: CompanyOverview): ChangeLabel =
+        changeLabel(overview.marketStatus, overview.updatedAt?.let(::exchangeDate), currentExchangeDate())
+
+    /**
+     * Which session the daily change belongs to (Phase 4C.2). "Today" only when the quote's own exchange date is today's exchange date
+     * **and** the server reports a known, non-pre-market session — the device clock alone never makes a quote "today", and before the
+     * open the change still belongs to the previous session. Otherwise the quote's date ("Oct 8"); without a quote time, "Today" only while
+     * the server says the market is open, else "Latest session". Dates are "yyyy-MM-dd" in exchange (New York) time.
+     */
+    fun changeLabel(status: MarketStatus, quoteDate: String?, today: String?): ChangeLabel {
+        val sameDay = quoteDate != null && quoteDate == today && status != MarketStatus.PRE_MARKET && status != MarketStatus.UNKNOWN
+        val openWithoutTime = quoteDate == null && status == MarketStatus.OPEN
+        if (sameDay || openWithoutTime) return ChangeLabel("Today", "today")
+        val date = quoteDate?.let(::monthDay) ?: return ChangeLabel("Latest session", "in the latest session")
+        return ChangeLabel(date, "on $date")
+    }
+
+    /** "2026-10-08" → "Oct 8"; null when the date isn't in that form. */
+    private fun monthDay(date: String): String? {
+        val parts = date.split('-')
+        val month = parts.getOrNull(1)?.toIntOrNull()?.let { MONTHS.getOrNull(it - 1) } ?: return null
+        val day = parts.getOrNull(2)?.toIntOrNull() ?: return null
+        return "$month $day"
+    }
+    private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
     /**
      * One spoken sentence for the price block: "Price $336.67. Up $3.04, 0.91%, today. Updated 4:00 PM EDT · Oct 7." The direction is in
-     * words (never colour alone); a missing price or change is said to be unavailable, never zero.
+     * words (never colour alone); a missing price or change is said to be unavailable, never zero; [change] names the session.
      */
-    fun priceDescription(overview: CompanyOverview, updated: String?): String {
+    fun priceDescription(overview: CompanyOverview, updated: String?, change: ChangeLabel): String {
         val price = overview.price?.let { "Price $it." } ?: "Price unavailable."
         val amount = overview.changeAmount?.trimStart('+', '-', '−')
         val percent = overview.changePercent.trimStart('+', '-', '−')
-        val change = when (overview.direction) {
-            PriceDirection.UP -> "Up ${listOfNotNull(amount, percent).joinToString(", ")}, today."
-            PriceDirection.DOWN -> "Down ${listOfNotNull(amount, percent).joinToString(", ")}, today."
-            PriceDirection.UNCHANGED -> "Unchanged today."
-            PriceDirection.UNAVAILABLE -> "Today's change unavailable."
+        val sentence = when (overview.direction) {
+            PriceDirection.UP -> "Up ${listOfNotNull(amount, percent).joinToString(", ")}, ${change.spoken}."
+            PriceDirection.DOWN -> "Down ${listOfNotNull(amount, percent).joinToString(", ")}, ${change.spoken}."
+            PriceDirection.UNCHANGED -> "Unchanged ${change.spoken}."
+            PriceDirection.UNAVAILABLE -> "Change unavailable."
         }
-        return listOfNotNull(price, change, updated?.let { "Updated $it." }).joinToString(" ")
+        return listOfNotNull(price, sentence, updated?.let { "Updated $it." }).joinToString(" ")
     }
 
     // ---------- At a Glance ----------
@@ -95,6 +125,15 @@ object CompanyDetailsPresentation {
     /** Sector and industry as label/value rows (shown once, in About, instead of a separate section). */
     fun classification(overview: CompanyOverview): List<InfoRow> =
         listOfNotNull(overview.sector?.let { InfoRow("Sector", it) }, overview.industry?.let { InfoRow("Industry", it) })
+
+    // ---------- Valuation ----------
+
+    /**
+     * The Valuation section's headline, or null when the Understand section's Valuation row already says the same sentence (Phase 4C.3: "Trading
+     * near its historical P/E valuation." appeared twice). The section keeps its numbers and the interpretive explanation.
+     */
+    fun valuationHeadline(overview: CompanyOverview): String? =
+        overview.valuation?.headline?.takeUnless { headline -> overview.assessment.any { it.explanation == headline } }
 
     // ---------- Section titles ----------
 

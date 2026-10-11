@@ -8,7 +8,6 @@ internal suspend fun <T> stockDataRequest(block: suspend () -> T): T = try {
     block()
 } catch (cause: Exception) {
     if (cause is CancellationException) throw cause
-    val message = if (cause is StockStepsApiException) cause.error.message
-        else "Could not reach StockSteps. Check the server connection and try again."
-    throw StockDataException(message)
+    throw if (cause is StockStepsApiException) StockDataException(cause.error.message, cause.status, cause.error.code)
+        else StockDataException("Could not reach StockSteps. Check the server connection and try again.")
 }

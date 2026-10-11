@@ -1,5 +1,6 @@
 package org.example.stocksteps.designsystem.components
 
+import org.example.stocksteps.theme.StockBadgeLayout
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -55,12 +56,17 @@ internal fun StockAssessmentRow(
     ) {
         StockIconTile(icon, iconContainer, iconContent)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            // Title and badge share a line while both fit (badge at the end); otherwise the badge moves below, so the title never breaks
-            // mid-word ("Financia / l Health" at large text on narrow phones, Phase 4C).
-            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(spacing.xxs),
-                itemVerticalAlignment = Alignment.CenterVertically) {
-                Text(title, Modifier.padding(end = spacing.sm), style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
-                if (badge != null) StockBadge(badge, tone)
+            // Short badges share the title's line while both fit (badge at the end); otherwise — and always for long badges such as "More cash
+            // than debt" (shared `StockBadgeLayout`, Phase 4C.3) — the badge sits below, so it never squeezes the title or breaks it mid-word.
+            if (badge == null || StockBadgeLayout.mayShareTitleLine(badge)) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(spacing.xxs),
+                    itemVerticalAlignment = Alignment.CenterVertically) {
+                    Text(title, Modifier.padding(end = spacing.sm), style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
+                    if (badge != null) StockBadge(badge, tone)
+                }
+            } else {
+                Text(title, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
+                StockBadge(badge, tone)
             }
             Text(detail, style = StockStepsTheme.typography.small, color = colors.textBody)
             if (note != null) Text(note, style = StockStepsTheme.typography.caption, color = colors.textSecondary)

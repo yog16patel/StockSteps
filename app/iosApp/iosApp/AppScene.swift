@@ -15,6 +15,7 @@ struct AppScene: View {
     @State private var showingSettings = false
     @State private var initialStock: StockSearchResult?
     @State private var selectedTab = AppRoute.home
+    @Environment(SampleBannerPlacement.self) private var bannerPlacement
     /// Symbol of the Company Details page pushed on the main stack (Home, Watchlist and Search share it).
     @State private var detailsSymbol: String?
     @State private var showingDiscover = false
@@ -91,12 +92,14 @@ struct AppScene: View {
                         Color.clear
                     }
                 }
+                .sampleDataInset()
                 .tabItem { Label("Home", systemImage: "house") }
                 .tag(AppRoute.home)
 
                 MarketsScene(model: marketsModel, onOpenStock: explore, onSearch: { initialStock = nil; showingSearch = true },
                              onDiscover: { showingDiscover = true }, onCompare: { showingCompare = true }, onEarnings: { earningsCalendar = EarningsCalendarTarget() }, earnings: earningsModel,
                              brief: briefModel, onDailyBrief: { briefTarget = BriefTarget(briefId: nil) }, onBriefHistory: { showingBriefHistory = true })
+                    .sampleDataInset()
                     .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
                     .tag(AppRoute.markets)
 
@@ -106,6 +109,7 @@ struct AppScene: View {
                             onSignIn: { showingAuth = true }, onAlerts: { alertsTarget = $0 }, onPractice: openPractice)
                     } else { Color.clear }
                 }
+                .sampleDataInset()
                 .tabItem { Label("Portfolio", systemImage: "briefcase") }
                 .tag(AppRoute.portfolio)
 
@@ -114,15 +118,21 @@ struct AppScene: View {
                                onEarnings: { earningsCalendar = EarningsCalendarTarget(filter: "WATCHLIST") },
                                onEarningsReminders: { showingEarningsReminders = true },
                                onCompare: { symbols, names in screenerModel.client.compareCompanies(symbols: symbols, names: names); showingCompare = true })
+                    .sampleDataInset()
                     .tabItem { Label("Watchlist", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 
                 LearnScene(learning: learningModel, onResearch: { researchTarget = $0 }, onSearch: { initialStock = nil; showingSearch = true }, onPractice: openPractice)
+                    .sampleDataInset()
                     .tabItem { Label("Learn", systemImage: "book") }
                     .tag(AppRoute.learn)
 
             }
             .tint(StockStepsTheme.color(ThemeColors.shared.light.primary))
+            // The tab bar is on screen exactly while the TabView is (a pushed destination covers it): the MOCK banner then sits above the tab bar
+            // inside each tab; otherwise ContentView shows it at the bottom (Phase 4C.3).
+            .onAppear { bannerPlacement.tabBarVisible = true }
+            .onDisappear { bannerPlacement.tabBarVisible = false }
             .task {
                 screenerModel.activate(); earningsModel.activate(); learningModel.activate(); briefModel?.activate()
             }

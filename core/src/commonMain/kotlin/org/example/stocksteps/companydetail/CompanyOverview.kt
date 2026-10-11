@@ -145,6 +145,26 @@ object AssessmentRules {
 }
 
 /**
+ * Plain-English sentences for a net margin (percent of revenue kept as profit), shared by every Company Details sentence that states it
+ * (Phase 4C.2). Negative margins read as a loss ("lost about $80 for every $100") instead of "$-80"; values that round to $0 say "less than
+ * $1"; an exact zero is break-even. The margin itself is never changed; a missing or non-finite margin gives no sentence.
+ */
+object MarginWording {
+    /** "Apple kept about $32 of every $100 in revenue as profit." / "Rivian lost about $80 for every $100 in revenue." */
+    fun sentence(subject: String, margin: Double?): String? {
+        if (margin == null || !margin.isFinite()) return null
+        val dollars = abs(margin).roundToLong()
+        return when {
+            margin == 0.0 -> "$subject broke even: revenue and expenses were about the same, with no profit or loss."
+            margin > 0 && dollars == 0L -> "$subject kept less than $1 of every $100 in revenue as profit."
+            margin > 0 -> "$subject kept about $$dollars of every $100 in revenue as profit."
+            dollars == 0L -> "$subject lost less than $1 for every $100 in revenue."
+            else -> "$subject lost about $$dollars for every $100 in revenue."
+        }
+    }
+}
+
+/**
  * Company Details presentation. Every sentence is assembled from normalized facts with fixed
  * rules: no scores, no AI judgement, no buy/sell language. Missing facts are omitted, never
  * replaced with zero.
@@ -219,7 +239,7 @@ object CompanyOverviewPresenter {
                     val growth = number("netIncomeGrowth")
                     InfoRow("Net Income", money(it), change = growth?.let(::signedPercent), changeDirection = growth?.let(HomePresentation::direction))
                 },
-                netMargin?.let { InfoRow("Net Margin", percent(it), helper = "$shortName keeps about $${it.roundToLong()} in profit for every $100 of revenue.") },
+                netMargin?.let { InfoRow("Net Margin", percent(it)) },
                 number("freeCashFlow")?.let { InfoRow("Free Cash Flow", money(it)) }
             ),
             highlightsBasis = revenueBasis?.let { basis ->
@@ -269,12 +289,16 @@ object CompanyOverviewPresenter {
         growth?.let {
             val (badge, tone) = AssessmentRules.growth(it)
             AssessmentRow("growth", "Growth", "Revenue ${signedPercent(it)} YoY", badge = badge, tone = tone,
-                explanation = "Revenue ${if (it >= 0) "grew" else "fell"} ${percent(abs(it))} compared with the prior year.")
+                explanation = when {
+                    it > 0 -> "$name brought in more money from sales than a year earlier."
+                    it < 0 -> "$name brought in less money from sales than a year earlier."
+                    else -> "$name's sales were about the same as a year earlier."
+                })
         },
         margin?.let {
             val (badge, tone) = AssessmentRules.profitability(it)
             AssessmentRow("profitability", "Profitability", "Net Margin ${percent(it)}", badge = badge, tone = tone,
-                explanation = if (it >= 0) "$name keeps about $${it.roundToLong()} in profit for every $100 of revenue." else "$name spent more than it earned over the period.")
+                explanation = MarginWording.sentence(name, it))
         },
         if (cash != null || debt != null) {
             val (badge, tone) = if (cash != null && debt != null) AssessmentRules.health(cash, debt) else null to FactTone.NEUTRAL
@@ -296,9 +320,8 @@ object CompanyOverviewPresenter {
     /** Factual sentences only; each clause appears only when its facts exist. */
     private fun insight(name: String, growth: Double?, margin: Double?, pe: Double?, difference: Double?): String? {
         val parts = buildList {
-            if (growth != null && margin != null) add("Over the latest year, $name's revenue ${if (growth >= 0) "grew" else "fell"} ${percent(abs(growth))} and it kept about $${margin.roundToLong()} of every $100 in revenue as profit.")
-            else if (growth != null) add("Over the latest year, $name's revenue ${if (growth >= 0) "grew" else "fell"} ${percent(abs(growth))}.")
-            else if (margin != null) add("$name kept about $${margin.roundToLong()} of every $100 in revenue as profit.")
+            if (growth != null) add("Over the latest year, $name's revenue ${if (growth >= 0) "grew" else "fell"} ${percent(abs(growth))}.")
+            MarginWording.sentence(if (growth != null) "It" else name, margin)?.let(::add)
             if (pe != null && difference != null) {
                 val position = when (AssessmentRules.valuation(difference)) {
                     ValuationPosition.NEAR -> "close to its own recent average"

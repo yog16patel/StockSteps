@@ -65,10 +65,54 @@ class CompanyDetailsPresentationTest {
 
     @Test
     fun priceIsSpokenWithDirectionInWordsAndNeverAsZero() {
-        assertEquals("Price $336.67. Up $3.04, 0.91%, today. Updated 4:00 PM EDT · Oct 7.", present.priceDescription(overview(), "4:00 PM EDT · Oct 7"))
+        val today = CompanyDetailsPresentation.ChangeLabel("Today", "today")
+        assertEquals("Price $336.67. Up $3.04, 0.91%, today. Updated 4:00 PM EDT · Oct 7.", present.priceDescription(overview(), "4:00 PM EDT · Oct 7", today))
         val down = overview().copy(changeAmount = "-$0.22", changePercent = "-0.96%", direction = PriceDirection.DOWN)
-        assertEquals("Price $336.67. Down $0.22, 0.96%, today.", present.priceDescription(down, null))
+        assertEquals("Price $336.67. Down $0.22, 0.96%, today.", present.priceDescription(down, null, today))
         val missing = overview().copy(price = null, changeAmount = null, changePercent = "—", direction = PriceDirection.UNAVAILABLE)
-        assertEquals("Price unavailable. Today's change unavailable.", present.priceDescription(missing, null))
+        assertEquals("Price unavailable. Change unavailable.", present.priceDescription(missing, null, today))
+        // A change from an earlier session is spoken with its date, matching the visible label.
+        val earlier = present.changeLabel(MarketStatus.CLOSED, "2026-10-08", "2026-10-10")
+        assertEquals("Price $336.67. Up $3.04, 0.91%, on Oct 8. Updated 4:00 PM EDT · Oct 8.", present.priceDescription(overview(), "4:00 PM EDT · Oct 8", earlier))
+    }
+
+    @Test
+    fun changeIsTodayOnlyForTodaysSessionConfirmedByTheServer() {
+        fun label(status: MarketStatus, quote: String?, today: String? = "2026-10-08") = present.changeLabel(status, quote, today).text
+        // Same exchange date and a known session from the server → Today (open, after-hours, or closed in the evening).
+        assertEquals("Today", label(MarketStatus.OPEN, "2026-10-08"))
+        assertEquals("Today", label(MarketStatus.AFTER_HOURS, "2026-10-08"))
+        assertEquals("Today", label(MarketStatus.CLOSED, "2026-10-08"))
+        // Quote from an earlier session (weekend, holiday, stale source) → its date, never "Today".
+        assertEquals("Oct 8", label(MarketStatus.CLOSED, "2026-10-08", today = "2026-10-10"))
+        assertEquals("Oct 7", label(MarketStatus.OPEN, "2026-10-07"))
+        // Before the open the change still belongs to the previous session; an unknown status never trusts the device clock alone.
+        assertEquals("Oct 8", label(MarketStatus.PRE_MARKET, "2026-10-08"))
+        assertEquals("Oct 8", label(MarketStatus.UNKNOWN, "2026-10-08"))
+        assertEquals("Oct 8", label(MarketStatus.CLOSED, "2026-10-08", today = null))
+        // No quote time: Today only while the server says the market is open.
+        assertEquals("Today", label(MarketStatus.OPEN, null))
+        assertEquals("Latest session", label(MarketStatus.CLOSED, null))
+        assertEquals(CompanyDetailsPresentation.ChangeLabel("Jan 2", "on Jan 2"), present.changeLabel(MarketStatus.CLOSED, "2027-01-02", "2027-01-04"))
+    }
+
+    @Test
+    fun exchangeDateUsesNewYorkTime() {
+        // 2026-10-09T01:30Z is 9:30 PM EDT on Oct 8 in New York (after-hours trading of the Oct 8 session).
+        assertEquals("2026-10-08", exchangeDate(1_791_509_400))
+        assertEquals(10, currentExchangeDate()?.length)
+    }
+
+    @Test
+    fun valuationHeadlineIsShownOnceAcrossTheScreen() {
+        val headline = "Trading near its historical P/E valuation."
+        val valuation = org.example.stocksteps.companydetail.ValuationSummary("28.0", "27.5", "5Y Average", "+2%",
+            org.example.stocksteps.companydetail.ValuationPosition.NEAR, headline, "Investors are paying about what they have on average.")
+        val row = org.example.stocksteps.companydetail.AssessmentRow("valuation", "Valuation", "P/E 28.0 • 5Y Avg 27.5", explanation = headline)
+        // Understand already states it, so the Valuation section keeps only its numbers and explanation.
+        assertNull(present.valuationHeadline(overview().copy(valuation = valuation, assessment = listOf(row))))
+        // Without that row (or with different wording) the section keeps its headline.
+        assertEquals(headline, present.valuationHeadline(overview().copy(valuation = valuation)))
+        assertNull(present.valuationHeadline(overview()))
     }
 }

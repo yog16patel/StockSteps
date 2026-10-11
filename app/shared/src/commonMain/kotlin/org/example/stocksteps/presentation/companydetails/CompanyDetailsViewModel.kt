@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.example.stocksteps.companydetail.ChartIssue
+import org.example.stocksteps.companydetail.ChartPresentation
 import org.example.stocksteps.companydetail.CompanyOverview
 import org.example.stocksteps.companydetail.CompanyOverviewPresenter
 import org.example.stocksteps.domain.GetCompanyDetails
@@ -32,6 +34,11 @@ internal data class CompanyDetailsState(
     val overview: Section<CompanyOverview> = Section.Loading,
     val range: ChartRange = ChartRange.ONE_MONTH,
     val chart: Section<PriceChart> = Section.Loading,
+    /**
+     * Why the chart can't be drawn: set for a failed request (connection / temporary / no history from the backend) and for a successful
+     * response with fewer than two prices (no history); null while loading or when the chart draws (Phase 4C.2).
+     */
+    val chartIssue: ChartIssue? = null,
     /** Content(null) means no source-backed explanation exists, so the section is hidden. */
     val whyMoving: Section<WhyMoving?> = Section.Loading,
     val news: Section<List<NewsUiModel>> = Section.Loading
@@ -73,11 +80,22 @@ internal class CompanyDetailsViewModel(
 
     private fun loadChart(range: ChartRange, force: Boolean = false) {
         charts[range]?.takeUnless { force }?.let { cached ->
-            mutableState.update { it.copy(chart = Section.Content(cached)) }
+            mutableState.update { it.copy(chart = Section.Content(cached), chartIssue = ChartPresentation.issue(cached)) }
             return
         }
         chartJob?.cancel()
-        chartJob = load({ copy(chart = it) }) { getChart(symbol, range).also { charts[range] = it } }
+        mutableState.update { it.copy(chart = Section.Loading, chartIssue = null) }
+        chartJob = viewModelScope.launch {
+            val update: CompanyDetailsState.() -> CompanyDetailsState = try {
+                val chart = getChart(symbol, range).also { charts[range] = it }
+                ({ copy(chart = Section.Content(chart), chartIssue = ChartPresentation.issue(chart)) })
+            } catch (cause: Exception) {
+                if (cause is CancellationException) throw cause
+                val issue = ChartPresentation.issue(cause)
+                ({ copy(chart = Section.Unavailable, chartIssue = issue) })
+            }
+            mutableState.update(update)
+        }
     }
 
     fun loadWhyMoving() = load({ copy(whyMoving = it) }) { getWhyMoving(symbol) }
