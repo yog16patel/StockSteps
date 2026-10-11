@@ -1,11 +1,108 @@
-# StockSteps — session handoff (2026-10-10, end of session: Global UI Refinement Phases 1, 1A, 2, 3 and 3.1 committed and pushed)
+# StockSteps — session handoff (2026-10-10, end of session: Global UI Refinement through Phase 5A.1 committed and pushed; next Phase 5B Screener)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE5A1 below** → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§NEXT below** → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## PHASE5A1. Global UI Refinement Phase 5A.1 — Watchlist final polish (committed and pushed) — read first
+## NEXT. Session handoff — start here (2026-10-10, end of session)
+
+### Repository state (verified with `git status` / `git log` at handoff)
+- Branch `main`, HEAD `bb7105e` "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label
+  (Global UI Refinement Phase 5A.1) on Android and iOS", in sync with `origin/main`. Then the docs-only closure commit "Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff" on top.
+- Commits made this session (all pushed, newest first): `bb7105e` 5A.1 Watchlist polish · `50580b5` 5A Watchlist · `e08ceb2` 4C.2 + 4C.3 Company
+  Details · (earlier, already in history) `7adc89c` 4C + 4C.1.
+
+### Phase 5A.1 closure review (2026-10-11) — committed as "Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff" (docs only)
+- Code review confirmed every 5A.1 fix on both platforms; **no code changes**. Tests re-run with cleaned outputs (no cache): core JVM 441/0, core iOS
+  441/0, shared Android 109/0, shared iOS 105/0, `assembleDebug` OK; iOS `xcodebuild` BUILD SUCCEEDED.
+- Screen readers, iOS signed-in, SE XXXL and mixed saved dates on device: **NOT RUN** (no device use approved; manual procedure in §5b of the phase
+  doc). Verdict unchanged: PASS WITH CONDITIONS, no blocking defects — ready to close. Phase 5B starts after the owner approves the closure.
+
+### Current development objective
+Global UI Refinement (plan `docs/GLOBAL_UI_REFINEMENT_PLAN.md` §3): screen-by-screen visual/UX polish on Android (Compose) and iOS (SwiftUI) with shared
+KMP rules, **no** data/presenter-contract/navigation/business-logic changes. Done: steps 1–4 (tokens, components, Portfolio, Home, Markets, Company
+Details) and step 5 part A (Watchlist = Phase 5A + 5A.1). **Next task: Phase 5B — Screener ("Discover Stocks")**, then 5C — Comparison. Only start 5B
+after the owner approves; the owner usually sends a detailed phase brief (often with a reference image) — follow it.
+
+### Work completed this session (details in each phase doc)
+- **4C.2** (`docs/GLOBAL_UI_REFINEMENT_PHASE4C_2.md`): core `MarginWording` ("lost about $80 for every $100 in revenue"); `StockDataException.status/code`
+  + `ChartPresentation.issue/notice` (no history w/o retry; connection / temporary with retry); date-aware change label
+  `CompanyDetailsPresentation.changeLabel` ("Today" only when the quote's NY date is today **and** the server status is known, non-pre-market);
+  growth row interprets; repeated net-margin helper removed; 48 dp sources target.
+- **4C.3** (`docs/GLOBAL_UI_REFINEMENT_PHASE4C_3.md`): shared `StockActionLayout` (header actions pair only when both measured labels fit),
+  `StockBadgeLayout` (long badges below titles), compact centered chart notices (`ChartNotice.title`), duplicate valuation headline removed,
+  Android sources-button single label, iOS MOCK banner above the tab bar (`sampleDataInset` + `SampleBannerPlacement` in `ContentView.swift`).
+- **5A** (`docs/GLOBAL_UI_REFINEMENT_PHASE5A.md`): `StockPillLayout.fadesEdge` (fade only when > half a touch target is hidden — closed the 4C.3
+  "ALL faded on iPhone 16" issue); Watchlist reorder (header → selector → grouped compact rows → context line + Add a company → "Alerts and more" →
+  insights); `HomePresentation.signedPrice`; `WatchlistRowModel.changeLine/quoteAvailable`; shared `StockQuoteRowLayout`; "No data available";
+  empty state with one primary action; average as an insight sentence (2+ priced stocks only).
+- **5A.1** (`docs/GLOBAL_UI_REFINEMENT_PHASE5A_1.md`): `WatchlistModel.headerLine/headerCaution` (non-breaking spaces inside parts), two-line names
+  (`StockRow` `nameMaxLines` / `nameLineLimit`), shared `StockFadingScrollRow` (Compose `StockChip.kt`, SwiftUI `StockDetailComponents.swift`) used by
+  the pill selector and the watchlist selector, "This watchlist is empty" + spoken name (`titleDescription` / `titleAccessibilityLabel`), offline
+  saved-price label once in the header.
+- New server test `server/src/test/.../market/CompanyDetailsFixtureWordingTest.kt` (MOCK fixtures through the shared presenter).
+
+### Files most often touched (for orientation)
+Core: `companydetail/{ChartPresentation,CompanyOverview}.kt`, `watchlist/WatchlistPresentation.kt`, `home/HomePresentation.kt`, `domain/StockRepository.kt`,
+`data/StockDataRequest.kt`. Shared: `theme/StockSemanticStyles.kt` (all shared layout rules), `designsystem/components/{StockChip,StockRow,StockStates,
+StockAssessmentRow}.kt`, `presentation/companydetails/*`, `presentation/watchlist/WatchListScreen.kt`. iOS: `CompanyDetailsScreen.swift`,
+`CompanyDetailsModel.swift`, `WatchListScene.swift`, `ContentView.swift`, `AppScene.swift`, `DesignSystem/{StockDetailComponents,StockComponents,
+StockControls}.swift`. Tests: `core/.../watchlist/WatchlistPresenterTest.kt`, `core/.../companydetail/CompanyOverviewPresenterTest.kt`,
+`app/shared/.../theme/ResponsiveLayoutRulesTest.kt`, `app/shared/.../companydetails/*Test.kt`.
+
+### Important decisions (and why)
+- Responsive rules live in shared KMP objects in `theme/StockSemanticStyles.kt` (`StockPillLayout`, `StockActionLayout`, `StockBadgeLayout`,
+  `StockQuoteRowLayout`); each platform only measures text and calls the rule → identical decisions on Compose and SwiftUI, unit-testable.
+- New component parameters are optional with unchanged defaults (e.g. `nameMaxLines`, `titleDescription`) so other screens don't change.
+- Missing data is never zero: "No data available" / "—"; spoken labels say "price unavailable"; the average is shown only with ≥ 2 priced stocks.
+- "Today" is never inferred from the device clock alone (quote date + server market status).
+- iOS banner: tab content insets it above the tab bar; root shows it only when no tab bar is visible (UIKit tab bar ignores SwiftUI root insets).
+
+### Build and test results
+- **Verified** (final runs, sequential): core JVM **441/0**, core iOS **441/0**, shared Android **109/0**, shared iOS **105/0**,
+  `:app:androidApp:assembleDebug` OK, iOS `xcodebuild … generic/platform=iOS Simulator … build` **BUILD SUCCEEDED**; server
+  `CompanyDetailsFixtureWordingTest` 3/0. The full `:server:test` suite was **not** run this session (no server main code changed).
+- **Verified on devices** (local MOCK server only): Android emulator-5554 at 360 dp (1.0×/1.3×, light/dark); iPhone 16 (default/XXXL, light/dark,
+  guest); temporary iOS 18.3 iPhone SE (created/deleted). Offline header and missing-quote "No data available" confirmed on device.
+- **Not verified**: TalkBack/VoiceOver spoken output (TalkBack runs but the user-build emulator can't log speech; VoiceOver absent in Simulator);
+  iOS signed-in Watchlist (no sign-in on simulators); iPhone SE at XXXL for 5A.1; iOS runtime accessibility labels (code review only).
+
+### Known bugs, risks, blockers
+- Android watchlist chip: description and selected state are on separate accessibility nodes — expected to read correctly, unconfirmed (no speech capture).
+- Watch-data repository reuses quotes < 60 s old, so an immediate refresh after going offline still says "Updated …" (existing, intentional caching).
+- **Device-check trap:** the default `xcodebuild` writes the LAN MOCK URL (git-ignored `app/iosApp/Configuration/Local.xcconfig`) into the shared
+  DerivedData app. Before launching on a simulator rebuild with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (verify with
+  `PlistBuddy -c "Print :StockStepsMockBackendURL" …/StockSteps.app/Info.plist`). Never contact the LAN host without approval.
+- iPhone 16 simulator currently has the localhost build installed; its guest list holds AAPL, MSFT, TSLA, NVDA (device state only).
+- MOCK search only matches captured queries (works: Apple, Microsoft, Nvidia, Tesla, Amazon; not Rivian/RIVN). RIVN and LONGN are reachable via
+  Markets → Earnings Calendar → company filter → View Company Details. MOCK server data (signed-in lists) is in memory and lost on restart.
+- Simulator input can lag a few seconds; tap with point coordinates (iPhone 16 = 393×852 pt: nav-bar back/star at y≈76, not screenshot pixels).
+- Open owner decisions: R1 server "Why Did It Move?" repeats its caution; R2 "+135.60% past ALL" wording; R3 iOS hides tab bar on Company Details
+  (Android keeps it); R5 failed `/info` hides the MOCK banner for the session; LAN backend still on the Phase 5C image (redeploy needs approval).
+
+### Requirements discussed but not yet implemented
+- Phase 5B Screener and 5C Comparison redesign (plan step 5).
+- Known 5B input: Screener "Discover" cards break words mid-word at 1.3× ("Compan/ies", seen in 4C.3 at 360 dp). Suggested in 5A doc: reuse
+  `StockQuoteRowLayout` for result rows and grouped `StockNavigationRow` patterns for tools.
+- Plan steps 6 (Learn, Daily Brief, Earnings) and 7 (Settings, auth, Practice, Guided Research, search, onboarding).
+- Screen-reader passes on physical devices; iOS signed-in verification with the Firebase Auth emulator (approved test account only).
+
+### Exact next steps
+1. `git status`, `git log -5 --oneline`; read `CLAUDE.md`, this section, `docs/GLOBAL_UI_REFINEMENT_PLAN.md`, `docs/GLOBAL_UI_REFINEMENT_PHASE5A.md`
+   and `…PHASE5A_1.md`.
+2. Wait for the owner's Phase 5B brief/approval. Then audit read-only: Android `presentation/screener/{ScreenerScene,ScreenerScreen}.kt`,
+   iOS `ScreenerScenes.swift` (943 lines, also hosts Comparison entry views), core `screener/{ScreenerPresentation,ScreenerModels,ScreenerEngine}.kt`;
+   report structure/constraints before editing (owner asks for this).
+3. Implement with shared rules in `theme/StockSemanticStyles.kt` + tests in `ResponsiveLayoutRulesTest.kt`; reuse `StockRow`, `StockCard`,
+   `StockPriceChange`, `StockNavigationRow`, `StockStateMessage`/`StockEmptyState`, `StockFadingScrollRow`, `StockPillSelector`.
+4. Ask before device use; use local MOCK only (`./gradlew :server:runMock`, `adb reverse tcp:8081 tcp:8081`, localhost iOS build); restore settings.
+5. Run sequentially: `./gradlew :core:jvmTest :core:iosSimulatorArm64Test :app:shared:testAndroidHostTest :app:shared:iosSimulatorArm64Test
+   :app:androidApp:assembleDebug --continue`, then the iOS `xcodebuild` (takes ~15–20 min in total; run in background and wait).
+6. Write `docs/GLOBAL_UI_REFINEMENT_PHASE5B.md` (issues table, files, tests, screenshots in `docs/design/phase5b/`, accessibility status,
+   verdict); commit/push only when asked, updating root `PROJECT_HANDOFF.md`, this file, `docs/project-status.md` and `CLAUDE.md` "Current task".
+
+## PHASE5A1. Global UI Refinement Phase 5A.1 — Watchlist final polish (committed and pushed)
 
 - Repository: `main`. Current commit: "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS" (pushed), on top of `50580b5` (Phase 5A).
 - Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE5A_1.md`, evidence `docs/design/phase5a_1/`): header line wraps only between parts; two-line company

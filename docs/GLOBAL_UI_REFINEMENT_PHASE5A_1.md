@@ -75,6 +75,41 @@ pull-to-refresh right after going offline still shows "Updated …" until that w
 confirmed by captured speech (risk, not a confirmed defect); (3) the default `xcodebuild` writes the LAN-host MOCK URL into the shared
 DerivedData app, so device checks must rebuild with the localhost override before launching (done; nothing contacted the LAN host).
 
+## 5b. Closure review (2026-10-11, committed as "Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff" — before Phase 5B)
+
+No code changes. Repository: `main` at `bb7105e` (5A.1), in sync with `origin/main`; only handoff docs modified.
+
+**Code review against the 5A.1 requirements** (core `WatchlistPresentation.kt`, Compose `WatchListScreen.kt`, SwiftUI `WatchListScene.swift`):
+header parts joined with non-breaking spaces (`keepTogether`, so "5:16 PM ET" never splits) — present; `nameMaxLines = 2` / `nameLineLimit: 2` — present
+on both platforms; selector on `StockFadingScrollRow` — both; "This watchlist is empty" + spoken `emptySpokenTitle` — both; offline label once in
+the header via `headerCaution`, rows keep only differing dates (`offlineRowsKeepOnlyDatesThatDiffer`) — present; missing quote shows
+`UNAVAILABLE` = "No data available", spoken "price unavailable", never `$0` (test asserts) — present. Observation (not a defect): the visible text
+says "No data available" and the spoken text "price unavailable"; both state missing data, wording differs.
+
+**Tests re-run on the current tree** (test outputs cleaned first, so nothing came from the Gradle cache; one sequential command, then `xcodebuild`):
+core JVM **441/0**, core iOS **441/0**, shared Android **109/0**, shared iOS **105/0**, `assembleDebug` OK (BUILD SUCCESSFUL in 8m 21s), iOS
+`xcodebuild` (default command above) **BUILD SUCCEEDED**.
+
+**Outstanding conditions — status this session** (device use needs the owner's approval; none was used in this review):
+
+| # | Scenario | Result | Evidence / reason |
+|---|---|---|---|
+| 1 | Android TalkBack spoken order and labels | **NOT RUN** | Needs a human listener (the user-build emulator can't capture speech). Labels verified earlier from the accessibility tree (§6). Procedure below |
+| 2 | iOS VoiceOver spoken order and labels | **NOT RUN** | VoiceOver isn't available in the Simulator; needs a physical device. Procedure below |
+| 3 | iOS signed-in Watchlist (several lists, long names, offline) | **NOT RUN** | Needs sign-in; only the Firebase Auth emulator with an approved test account is allowed, not approved |
+| 4 | iPhone SE at XXXL | **NOT RUN** | No device use approved this session (earlier pass: SE access prompt unanswered) |
+| 5 | Rows with different saved-price dates | **NOT RUN on device** | Unit test `offlineRowsKeepOnlyDatesThatDiffer` passes; a device check needs a fixture with mixed dates |
+| 6 | Missing-quote rows and their spoken description | iOS visual **PASS** (earlier pass, `VERIFY-ios-iphone16-missing-quote-no-data-available.jpg`); spoken text **NOT RUN** | Unit tests assert "price unavailable" and no "$0" |
+
+Manual screen-reader procedure (for 1, 2 and 6): local MOCK server, Watchlist with ≥ 3 companies, one without a quote. (a) Swipe from the
+title: expect title → header line ("5 companies · Updated …", or "Offline · saved prices as of …") → list selector chips ("My Stocks, 5 companies",
+selected) → each row as one element ("AAPL, Apple Inc., $336.67, up $3.04, 0.91% today") → "More actions for AAPL" → "Add a company" → "Alerts and
+more". (b) Missing-quote row reads "…, price unavailable" (no "$0"). (c) Empty custom list reads "<list name> is empty". (d) Offline: rows don't
+repeat the saved-price label except a row with a different date. Record PASS/FAIL per step with the device and OS version.
+
+**Closure verdict:** no blocking defects. Phase 5A.1 stays **PASS WITH CONDITIONS** — the conditions are environment/approval limits (screen
+readers, iOS signed-in, SE at XXXL), not code defects. Ready to close.
+
 ## 6. Accessibility checks actually performed
 - Android accessibility tree (uiautomator): offline row reads "AAPL, Apple Inc., $336.67, up $3.04, 0.91% today, Saved prices · as of Oct 7";
   empty title node "This watchlist is empty" with description "Long Term Growth and Dividends is empty"; chips "My Stocks, 5 companies",

@@ -1,14 +1,21 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-10 (end of session) against the repository (`main`, HEAD `6ec2267` "Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS", in sync with `origin/main`). Verify with
+Last reviewed: 2026-10-10 (end of session) against the repository (`main`, HEAD `bb7105e` "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS", in sync with `origin/main`). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**State at end of session (2026-10-10)**: Global UI Refinement steps 1–4 and step 5 part A (Watchlist, Phases 5A + 5A.1) are committed and pushed; nothing
+is in progress. **Next: Phase 5B — Screener ("Discover Stocks"), only after owner approval**, then 5C — Comparison. Start from
+`docs/PROJECT_HANDOFF.md` §NEXT (decisions, risks, exact steps). Latest verified: core 441/0 (JVM, iOS), shared Android 109/0, shared iOS 105/0,
+`assembleDebug` and iOS `xcodebuild` OK. Not verified: screen-reader speech, iOS signed-in Watchlist, iPhone SE XXXL for 5A.1, full `:server:test`.
+
 **Global UI Refinement Phase 5A.1 (Watchlist polish) — committed and pushed as "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS" (2026-10-10)**: header wraps between parts, two-line names,
 fading list selector, short empty title, offline label once. Core 441/0 (JVM, iOS), shared Android 109/0, shared iOS 105/0, builds OK; offline and
 missing data verified on device. Screen-reader speech, iOS signed-in and SE XXXL NOT RUN. Details `docs/GLOBAL_UI_REFINEMENT_PHASE5A_1.md`.
+**Closure review (committed as "Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff")**: code re-checked, no changes; tests re-run without cache — core 441/0 (JVM, iOS), shared Android 109/0, shared iOS
+105/0, `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED; device/screen-reader conditions still NOT RUN (procedure in the phase doc §5b). No blocking defects; ready to close.
 **Next**: review → Phase 5B on approval.
 
 **Global UI Refinement Phase 5A (Watchlist) — committed and pushed as "Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS" (2026-10-10)**: 4C.3 selector fade closed (shared `fadesEdge`); compact

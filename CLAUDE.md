@@ -13,8 +13,8 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-10, end of session)
 
-HEAD: "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS" (pushed). **Global UI Refinement Phases 1–3.1, 4A (Home), 4B/4B.1 (Markets), 4C–4C.3 (Company Details) and 5A/5A.1 (Watchlist)
-are committed and pushed**; no work in progress. Next: **Phase 5B (Screener) only after the user approves** — read `docs/PROJECT_HANDOFF.md` §PHASE5A1
+HEAD: "Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff" (docs only; on top of 5A.1 "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS", pushed). **Global UI Refinement Phases 1–3.1, 4A (Home), 4B/4B.1 (Markets), 4C–4C.3 (Company Details) and 5A/5A.1 (Watchlist)
+are committed and pushed**; no work in progress. Next: **Phase 5B (Screener) only after the user approves** — read `docs/PROJECT_HANDOFF.md` §NEXT
 first; phase docs `docs/GLOBAL_UI_REFINEMENT_*.md`. Note: the iOS app's MOCK backend URL (Info.plist `StockStepsMockBackendURL`)
 comes from git-ignored `app/iosApp/Configuration/Local.xcconfig` (LAN host); for local-only device checks build with
 `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` on the xcodebuild command line. Visual direction `docs/design/stocksteps-ui-reference.png`
@@ -89,6 +89,10 @@ Core feature packages: `brief` (Daily Market Brief), `practice` (Practice Portfo
   show readable labels for enums (`StockLabels.humanize` fallback). Visual direction: `docs/design/stocksteps-ui-reference.png`.
   Status labels use `StockStatusBadge` with a `StockBadgeKind` (MOCK/simulated = SAMPLE), title + badge rows use `StockTitleWithBadge`, banners
   `StockBanner`; badge/banner colours only via the shared `StockSemanticStyles`.
+- **Responsive layout decisions** (Global UI Refinement 4C.3–5A.1) live in shared objects in `app/shared/.../theme/StockSemanticStyles.kt`
+  (`StockPillLayout`, `StockActionLayout`, `StockBadgeLayout`, `StockQuoteRowLayout`) with tests in `ResponsiveLayoutRulesTest`; Compose and SwiftUI only
+  measure text and call them. Scrolling chip/pill rows use `StockFadingScrollRow` on both platforms. New component parameters stay optional with
+  unchanged defaults. iOS device checks need a build with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (the default build targets the LAN host).
 - **Portfolio display** goes through `presentation/portfolio/PortfolioPresentation` (labels for account types/transaction kinds, signed
   changes, direction, holding text), `PortfolioDates` (readable dates; UTC stays UTC) and `PortfolioChartRules` (chart only with ≥ 2 dated
   values) on both platforms — never raw enums, never `0.00` for missing data; Portfolio is the reference screen for later UI phases.
