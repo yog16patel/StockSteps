@@ -127,10 +127,29 @@ object ScreenerDisplay {
         val v = it / scale(definition)
         if (v == kotlin.math.round(v) && kotlin.math.abs(v) < 1e15) v.toLong().toString() else v.toString()
     }.orEmpty()
-    /** Null for empty or non-numeric input ("no limit"); accepts a comma as the decimal separator. */
-    fun parseInput(text: String, definition: MetricDefinition?): Double? =
-        text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }?.times(scale(definition))
+    /**
+     * Null for empty or non-numeric input ("no limit"). Thousands separators are removed ("100,000" = 100000, "1,250.5"); a single comma
+     * without a dot is a decimal comma from a comma-decimal keyboard ("2,5" = 2.5). Phase 5B closure: every comma used to become a decimal
+     * point, so "100,000" filtered on 100.
+     */
+    fun parseInput(text: String, definition: MetricDefinition?): Double? {
+        val t = text.trim()
+        val normalized = when {
+            GROUPED.matches(t) -> t.replace(",", "")
+            t.count { it == ',' } == 1 && '.' !in t -> t.replace(',', '.')
+            else -> t
+        }
+        return normalized.toDoubleOrNull()?.takeIf { it.isFinite() }?.times(scale(definition))
+    }
+    private val GROUPED = Regex("""^-?\d{1,3}(,\d{3})+(\.\d+)?$""")
     fun boundsError(low: Double?, high: Double?): String? = if (low != null && high != null && low > high) "The first value is above the second." else null
+
+    /**
+     * The first inverted range in a draft ("P/E ratio (trailing): the first value is above the second."), or null. The editor disables "Show
+     * results" while one exists, so an input mistake isn't sent and shown as "Couldn't load screener results" (the server rejects it too).
+     */
+    fun invalidRange(draft: ScreenerQuery): String? =
+        draft.ranges.firstOrNull { r -> r.min != null && r.max != null && r.min > r.max }?.let { "${label(it.metric)}: the first value is above the second." }
 
     // ---------- Applied filters ----------
 

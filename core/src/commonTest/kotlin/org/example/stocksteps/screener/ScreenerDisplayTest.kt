@@ -83,6 +83,27 @@ class ScreenerDisplayTest {
         assertEquals("", ScreenerDisplay.inputText(null, pe))
     }
 
+    @Test fun thousandsSeparatorsAreNotDecimalCommas() {
+        val volume = ScreenerDefinitions.metric("volume")!!
+        // Phase 5B closure: "100,000" used to become 100.0 (every comma was read as a decimal point).
+        assertEquals(100_000.0, ScreenerDisplay.parseInput("100,000", volume))
+        assertEquals(1_250_000.5, ScreenerDisplay.parseInput("1,250,000.5", volume))
+        assertEquals(1_000.0, ScreenerDisplay.parseInput(" 1,000 ", ScreenerDefinitions.metric("price")))
+        // A single decimal comma from a comma-decimal keyboard still works; other shapes are not guessed.
+        assertEquals(2.5, ScreenerDisplay.parseInput("2,5", yield))
+        assertEquals(12.75, ScreenerDisplay.parseInput("12,75", yield))
+        assertEquals(-10.0, ScreenerDisplay.parseInput("-10", yield))
+        assertNull(ScreenerDisplay.parseInput("1,00,0", volume))
+        assertNull(ScreenerDisplay.parseInput("1.000,5", volume))
+    }
+
+    @Test fun invertedRangesAreReportedBeforeSearching() {
+        assertNull(ScreenerDisplay.invalidRange(ScreenerQuery(ranges = listOf(RangeFilter("pe", 5.0, 25.0), RangeFilter("dividendYield", min = 2.0)))))
+        assertNull(ScreenerDisplay.invalidRange(ScreenerQuery(ranges = listOf(RangeFilter("pe", 10.0, 10.0)))))   // equal bounds are a valid (inclusive) range
+        assertEquals("P/E ratio (trailing): the first value is above the second.",
+            ScreenerDisplay.invalidRange(ScreenerQuery(ranges = listOf(RangeFilter("dividendYield", min = 1.0), RangeFilter("pe", 30.0, 10.0)))))
+    }
+
     @Test fun activeFiltersReadAsWordsAndKeepOrder() {
         val query = ScreenerQuery(ranges = listOf(RangeFilter("pe", max = 25.0), RangeFilter("dividendYield", min = 2.0), RangeFilter("evEbitda")),
             choices = listOf(ChoiceFilter(ChoiceField.SECTOR, listOf("Energy", "Utilities"))))

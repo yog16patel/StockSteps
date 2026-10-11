@@ -86,8 +86,11 @@ internal fun FilterEditorSheet(state: ScreenerUiState, actions: ScreenerActions,
                 }
             }
             val count = state.draft.activeFilterCount
+            // An inverted range isn't sent (the server would reject it and the screen would show a load error); the reason stays visible here.
+            val invalid = ScreenerDisplay.invalidRange(state.draft)
+            invalid?.let { Text(it, Modifier.padding(horizontal = spacing.screen).padding(top = spacing.xs), style = typography.caption, color = colors.negativeText) }
             StockButton(if (count > 0) "Show results (${ScreenerDisplay.filterCount(count)})" else "Show all companies", { actions.onApply(); onDismiss() },
-                Modifier.fillMaxWidth().padding(horizontal = spacing.screen).padding(top = spacing.xs, bottom = spacing.lg))
+                Modifier.fillMaxWidth().padding(horizontal = spacing.screen).padding(top = spacing.xs, bottom = spacing.lg), enabled = invalid == null)
         }
     }
 }

@@ -1,11 +1,23 @@
 # StockSteps — session handoff (2026-10-11: Phase 5A.1 closed; Phase 5B Screener committed and pushed; next Phase 5C Comparison after approval)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE5B below** → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE5B-CLOSURE below** → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## PHASE5B. Global UI Refinement Phase 5B — Screener / Discover Stocks (committed and pushed) — read first
+## PHASE5B-CLOSURE. Phase 5B closure verification (2026-10-11, committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief" (pushed), on top of `b1aa29c` (5B).
+- Report `docs/GLOBAL_UI_REFINEMENT_PHASE5B_CLOSURE.md`: audit PASS on both platforms after five fixes — D1 `ScreenerDisplay.parseInput` thousands
+  separators ("100,000" was 100), D2 `ScreenerDisplay.invalidRange` disables Show results for inverted ranges, D3 iOS `ShowResultsBar` on every editor
+  page, D4 iOS preset title drawn with the measured Dynamic Type style, D5 Android chip semantics click action. +2 core tests.
+- Results: core JVM 456/0, core iOS 456/0, shared Android 110/0, shared iOS 106/0, `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED.
+- NOT RUN: device screenshots, large-text device checks, TalkBack, VoiceOver (approval pending). Verdict **PASS WITH CONDITIONS**.
+- Known limitation kept: Android system Back closes the filter sheet (draft kept). Phase 5A.1 conditions still open.
+- Phase 5C brief (read-only review, nothing changed): `docs/GLOBAL_UI_REFINEMENT_PHASE5C_BRIEF.md`. Readiness READY WITH CONDITIONS.
+- Next: device checks on the local MOCK server if approved → Phase 5C only after approval.
+
+## PHASE5B. Global UI Refinement Phase 5B — Screener / Discover Stocks (committed and pushed)
 
 - Repository: `main`. Current commit: "Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS" (pushed), on top of
   `f08350c` "Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff" (docs only, pushed).

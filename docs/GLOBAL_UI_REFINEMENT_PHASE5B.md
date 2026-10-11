@@ -120,6 +120,11 @@ Selected/Not selected; headings marked; touch targets 48 dp / 44 pt (pill, chips
 - Dollar daily change isn't available from screener data (percentage only).
 - Phase 5A.1 conditions still open: TalkBack/VoiceOver speech, iOS signed-in Watchlist, iPhone SE at XXXL, mixed saved dates on device.
 
+## 11a. Closure pass (2026-10-11)
+See `docs/GLOBAL_UI_REFINEMENT_PHASE5B_CLOSURE.md`: five fixes (thousands separators in filter inputs, inverted ranges blocked before search, iOS
+"Show results" on the single-filter page, iOS preset title measurement, Android chip click action for TalkBack), core 456/0, shared 110/0 and 106/0,
+both builds OK; device and screen-reader checks still NOT RUN. Phase 5C brief: `docs/GLOBAL_UI_REFINEMENT_PHASE5C_BRIEF.md`.
+
 ## 12. Verdict
 **PASS WITH CONDITIONS** — every brief item implemented on both platforms with shared rules and tests; all suites and both builds pass. Conditions: device
 screenshots, large-text and screen-reader checks are NOT RUN pending approval. Next: Phase 5C — Company Comparison, only after approval.

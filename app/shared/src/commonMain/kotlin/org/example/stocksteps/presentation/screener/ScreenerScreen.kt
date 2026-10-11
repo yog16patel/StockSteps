@@ -253,7 +253,11 @@ private fun ActiveFilters(filters: List<ActiveFilterView>, expanded: Boolean, mo
     } else StockFadingScrollRow(filters, null, modifier, spacing.xs) { filter, itemModifier ->
         Row(itemModifier.heightIn(min = StockStepsTheme.dimensions.touchTarget).clip(StockStepsTheme.shapes.pill).background(colors.surfaceSecondary)
             .clickable(onClickLabel = "Remove filter") { onRemove(filter) }
-            .clearAndSetSemantics { contentDescription = "${filter.spoken}. Remove filter"; role = androidx.compose.ui.semantics.Role.Button }
+            // Cleared semantics drop the clickable's action, so it is set again (as on Watchlist rows) for TalkBack's double-tap.
+            .clearAndSetSemantics {
+                contentDescription = "${filter.spoken}. Remove filter"; role = androidx.compose.ui.semantics.Role.Button
+                onClick(label = "Remove filter") { onRemove(filter); true }
+            }
             .padding(start = spacing.md, end = spacing.sm), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             Text(filter.chipText, style = StockStepsTheme.typography.label, color = colors.textBody, maxLines = 1)
             Icon(StockIcons.Close, null, tint = colors.iconSecondary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))

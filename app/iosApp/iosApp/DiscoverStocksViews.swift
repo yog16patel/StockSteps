@@ -138,7 +138,8 @@ struct DiscoverStocksScreen: View {
         Button { client.screener.selectPreset(id: preset.id) } label: {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 StockIconTile(systemName: presetIcon(preset.id), container: colors.primaryContainer, content: colors.primaryText)
-                Text(preset.name).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle)
+                // Drawn with the token's own Dynamic Type style — the same one `uiFont` measures with for `StockCardGridLayout`.
+                Text(preset.name).font(StockStepsTheme.font(type.cardTitle)).foregroundStyle(colors.textTitle)
                     .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
                 Text(display.presetSummary(preset: preset)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
                     .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
@@ -503,12 +504,12 @@ struct DiscoverFilterEditor: View {
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: String.self) { id in
                 if let category = categories.first(where: { $0.id == id }) {
-                    DiscoverCategoryView(category: category, state: state, client: client, onInfo: onInfo)
-                        .safeAreaInset(edge: .bottom, spacing: 0) { showResults(colors) }
+                    DiscoverCategoryView(category: category, state: state, client: client, onInfo: onInfo, onDone: onDone)
+                        .safeAreaInset(edge: .bottom, spacing: 0) { ShowResultsBar(state: state, client: client, onDone: onDone) }
                 }
             }
             .toolbar { toolbar }
-            .safeAreaInset(edge: .bottom, spacing: 0) { showResults(colors) }
+            .safeAreaInset(edge: .bottom, spacing: 0) { ShowResultsBar(state: state, client: client, onDone: onDone) }
         }
     }
 
@@ -519,18 +520,31 @@ struct DiscoverFilterEditor: View {
         }
     }
 
-    private func showResults(_ colors: StockColors) -> some View {
-        let count = state.draft.activeFilterCount
-        return Button(count > 0 ? "Show results (\(display.filterCount(count: count)))" : "Show all companies") { client.screener.apply(); onDone() }
-            .buttonStyle(.stockPrimary).frame(maxWidth: .infinity)
-            .padding(.horizontal, CGFloat(space.screen)).padding(.vertical, CGFloat(space.sm))
-            .background(colors.surface)
-    }
-
     private func groupedCard<Content: View>(_ colors: StockColors, @ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 0) { content() }
             .padding(.horizontal, CGFloat(space.md))
             .background(colors.surfaceSecondary, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
+    }
+}
+
+/// "Show results (N filters)", pinned at the bottom of every editor page (above the keyboard). Disabled while a range is inverted, with the
+/// reason shown, so an input mistake isn't sent and shown as a load error (Phase 5B closure; same as Android).
+private struct ShowResultsBar: View {
+    let state: ScreenerUiState
+    let client: IosScreenerClient
+    let onDone: () -> Void
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        let count = state.draft.activeFilterCount
+        let invalid = ScreenerDisplay.shared.invalidRange(draft: state.draft)
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            if let invalid { Text(invalid).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.negativeText) }
+            Button(count > 0 ? "Show results (\(ScreenerDisplay.shared.filterCount(count: count)))" : "Show all companies") { client.screener.apply(); onDone() }
+                .buttonStyle(.stockPrimary).frame(maxWidth: .infinity).disabled(invalid != nil)
+        }
+        .padding(.horizontal, CGFloat(space.screen)).padding(.vertical, CGFloat(space.sm))
+        .background(colors.surface)
     }
 }
 
@@ -560,6 +574,7 @@ private struct DiscoverCategoryView: View {
     let state: ScreenerUiState
     let client: IosScreenerClient
     let onInfo: (MetricInfo) -> Void
+    let onDone: () -> Void
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
@@ -585,7 +600,9 @@ private struct DiscoverCategoryView: View {
                             if index > 0 { StockDivider() }
                             let range = state.draft.ranges.first { $0.metric == metric.id }
                             NavigationLink {
+                                // The single-filter page keeps "Show results" too (Phase 5B closure: it was only on the first two pages).
                                 DiscoverMetricEditor(definition: metric, current: range, client: client, onInfo: { onInfo(client.education(id: metric.id)) })
+                                    .safeAreaInset(edge: .bottom, spacing: 0) { ShowResultsBar(state: state, client: client, onDone: onDone) }
                             } label: {
                                 navigationLabel(metric.label, detail: range.map { ScreenerDisplay.shared.rangeValue(range: $0) } ?? ScreenerDisplay.shared.operatorOf(range: nil).label,
                                                 secondary: nil, detailColor: range == nil ? nil : colors.primaryText, icon: nil, colors)
