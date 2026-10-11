@@ -1,11 +1,24 @@
-# StockSteps — session handoff (2026-10-10, end of session: Global UI Refinement through Phase 5A.1 committed and pushed; next Phase 5B Screener)
+# StockSteps — session handoff (2026-10-11: Phase 5A.1 closed; Phase 5B Screener committed and pushed; next Phase 5C Comparison after approval)
 
-Read order for a new session: `CLAUDE.md` → **§NEXT below** → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE5B below** → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## NEXT. Session handoff — start here (2026-10-10, end of session)
+## PHASE5B. Global UI Refinement Phase 5B — Screener / Discover Stocks (committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS" (pushed), on top of
+  `f08350c` "Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff" (docs only, pushed).
+- Done (details `docs/GLOBAL_UI_REFINEMENT_PHASE5B.md`): shared core `screener/ScreenerDisplay.kt` (copy, categories, inclusive-range operators, chips, sort
+  labels, spoken text, "No data available"); `ScreenerRowView.priceAvailable` + spoken direction in words; shared `StockCardGridLayout` (preset cards 2 → 1
+  column instead of breaking "Compan/ies"); Compose `ScreenerScreen.kt` rewritten + new `ScreenerFilters.kt`; SwiftUI new `DiscoverStocksViews.swift`
+  (old Discover views removed from `ScreenerScenes.swift`). Catalog errors now have Try again. Tabs unchanged (Watchlist stays; no Screener tab).
+- Results: core JVM 454/0, core iOS 454/0, shared Android 110/0, shared iOS 106/0, `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED.
+  NOT RUN: device screenshots, Android 360 dp 1.3× / iOS XXXL / compact iOS on device, TalkBack, VoiceOver (approval pending). Verdict PASS WITH CONDITIONS.
+- Phase 5A.1 conditions remain open (screen readers, iOS signed-in Watchlist, iPhone SE XXXL, mixed saved dates on device).
+- Next: device checks on the local MOCK server if approved (screenshots into `docs/design/phase5b/`) → **Phase 5C — Company Comparison only after approval** (not started).
+
+## NEXT. Session handoff (2026-10-10, end of session; superseded by §PHASE5B for current state)
 
 ### Repository state (verified with `git status` / `git log` at handoff)
 - Branch `main`, HEAD `bb7105e` "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label

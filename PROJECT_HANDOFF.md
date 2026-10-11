@@ -1,7 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff** on `main` (docs only).
-Previous commit: **Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS** on `main` (pushed).
+Previous commit: **Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff** (docs only, pushed).
+Before it: **Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS** (pushed).
 Before it: **"Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS"** (pushed); before it **"Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)"** (pushed); before it **"Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)"** (pushed); before it **"Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)"** (pushed); before it **"Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"** (pushed); before it **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
 Earlier (history below): **"Add Phase 5B Local Docker deployment of the MOCK backend on a LAN host with smoke and reliability checks"** on `main` (pushed).
 Previous commit: **"Add Phase 5A Cloud Run deployment preparation: container image, health probes, startup validation, JSON logging and staging docs"** (pushed).
@@ -53,7 +54,20 @@ file when a feature, architecture decision, or important limitation changes.
 
 
 
-## Global UI Refinement Phase 5A.1 — Watchlist final polish (current commit)
+## Global UI Refinement Phase 5B — Screener / Discover Stocks (current commit)
+
+- **Status**: committed and pushed as "Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS", on top of `f08350c`.
+- **Completed** (`docs/GLOBAL_UI_REFINEMENT_PHASE5B.md`): Discover Stocks hierarchy on Android and iOS — title + help, preset cards with the shared
+  `StockCardGridLayout` (fixes "Compan/ies" at 360 dp 1.3×), Create custom screen, filter bar + removable chips (`StockFadingScrollRow`), categorised filter
+  editor with At least / At most / Between (same inclusive ranges), results header with Sample badge and sort, grouped `StockRow` results with
+  `StockQuoteRowLayout`, "No data available" for missing values, compare in ⋮, More tools rows, distinct loading / empty / error states, catalog retry.
+  Shared core `ScreenerDisplay` holds all copy and spoken labels. No API, filter, entitlement or navigation change; Comparison untouched.
+- **Validation**: core 454/0 (JVM, iOS), shared Android 110/0, shared iOS 106/0, `assembleDebug` OK, iOS `xcodebuild` OK.
+- **Limits**: device screenshots, large-text device checks, TalkBack and VoiceOver NOT RUN (approval pending); Android Back closes the whole filter sheet.
+  Phase 5A.1 conditions still open.
+- **Next**: device checks on the local MOCK server if approved → Phase 5C (Company Comparison) only after approval.
+
+## Global UI Refinement Phase 5A.1 — Watchlist final polish (closed with conditions in `f08350c`)
 
 - **Completed** (`docs/GLOBAL_UI_REFINEMENT_PHASE5A_1.md`): shared `WatchlistModel.headerLine` (wraps only between parts), `headerCaution`,
   "This watchlist is empty" with a spoken list name (`emptySpokenTitle`), offline saved-price label once in the header (rows keep only differing

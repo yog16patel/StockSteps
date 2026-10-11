@@ -93,3 +93,19 @@ object StockQuoteRowLayout {
     fun stacksValues(valuesWidth: Float, availableWidth: Float, accessibilityText: Boolean): Boolean =
         accessibilityText || (availableWidth > 0 && valuesWidth > availableWidth * MAX_VALUE_SHARE)
 }
+
+/**
+ * Card grids such as the Discover Stocks preset cards (Phase 5B), shared by both platforms: two columns only while the longest single word
+ * of every card title fits the text width of one column, so titles wrap between words ("Growing / Companies") and never inside one
+ * ("Compan/ies" at 360 dp, 1.3×). Otherwise — narrow screens, accessibility text sizes or an unmeasured width — one full-width column.
+ */
+object StockCardGridLayout {
+    fun columns(widestTitleWord: Float, availableWidth: Float, gap: Float, cardPadding: Float, accessibilityText: Boolean): Int {
+        if (accessibilityText || availableWidth <= 0f) return 1
+        val textWidth = (availableWidth - gap) / 2 - cardPadding * 2
+        return if (widestTitleWord <= textWidth) 2 else 1
+    }
+
+    /** The words a title can break between (spaces and slashes, as text layout does). */
+    fun words(title: String): List<String> = title.split(' ', '/', ' ').filter { it.isNotBlank() }
+}

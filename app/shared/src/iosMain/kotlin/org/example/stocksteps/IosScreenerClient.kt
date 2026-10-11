@@ -100,18 +100,8 @@ class IosScreenerClient(baseUrl: () -> String, account: IosAccountClient?) {
     fun historyRanges(): List<HistoryRange> = HistoryRange.entries
     fun historyMetrics(): List<HistoryMetric> = HistoryMetric.entries
     fun education(id: String): MetricInfo = MetricFormatter.education(id, ScreenerDefinitions.metric(id))
-    fun rangeText(range: RangeFilter): String = when {
-        range.min != null && range.max != null -> "${format(range.metric, range.min!!)}–${format(range.metric, range.max!!)}"
-        range.min != null -> "≥ ${format(range.metric, range.min!!)}"
-        range.max != null -> "≤ ${format(range.metric, range.max!!)}"
-        else -> "any"
-    }
-    private fun format(metric: String, value: Double): String = when (ScreenerDefinitions.metric(metric)?.unit) {
-        MetricUnit.PERCENT -> "${MetricFormatter.decimals(value, 1)}%"
-        MetricUnit.MULTIPLE -> "${MetricFormatter.decimals(value, 1)}×"
-        MetricUnit.MONEY -> MetricFormatter.money(value, if (metric == "marketCap") "USD" else null)
-        else -> MetricFormatter.decimals(value, 2)
-    }
+    /** Same text as the applied-filter chips (shared `ScreenerDisplay`, Phase 5B). */
+    fun rangeText(range: RangeFilter): String = ScreenerDisplay.rangeValue(range)
 
     @Throws(Exception::class)
     suspend fun searchStocks(query: String): List<StockSearchResult> = search(query).take(8)

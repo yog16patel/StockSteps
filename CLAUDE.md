@@ -11,16 +11,18 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-10, end of session)
+## Current task (as of 2026-10-11)
 
-HEAD: "Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff" (docs only; on top of 5A.1 "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS", pushed). **Global UI Refinement Phases 1–3.1, 4A (Home), 4B/4B.1 (Markets), 4C–4C.3 (Company Details) and 5A/5A.1 (Watchlist)
-are committed and pushed**; no work in progress. Next: **Phase 5B (Screener) only after the user approves** — read `docs/PROJECT_HANDOFF.md` §NEXT
-first; phase docs `docs/GLOBAL_UI_REFINEMENT_*.md`. Note: the iOS app's MOCK backend URL (Info.plist `StockStepsMockBackendURL`)
+HEAD: "Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS" (pushed). **Global UI Refinement Phases 1–3.1, 4A (Home), 4B/4B.1 (Markets), 4C–4C.3
+(Company Details) and 5A/5A.1 (Watchlist; 5A.1 closed with open conditions) are committed.** **Phase 5B (Screener / Discover Stocks) is committed and
+pushed** — `docs/GLOBAL_UI_REFINEMENT_PHASE5B.md` (shared `ScreenerDisplay`, `StockCardGridLayout`; device checks NOT RUN). Next: 5B device checks if approved,
+then **Phase 5C (Company Comparison) only after approval** — read `docs/PROJECT_HANDOFF.md` §NEXT first; phase docs
+`docs/GLOBAL_UI_REFINEMENT_*.md`. Note: the iOS app's MOCK backend URL (Info.plist `StockStepsMockBackendURL`)
 comes from git-ignored `app/iosApp/Configuration/Local.xcconfig` (LAN host); for local-only device checks build with
 `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` on the xcodebuild command line. Visual direction `docs/design/stocksteps-ui-reference.png`
-(+ `stocksteps-portfolio-reference.png`). Still open: approved LAN backend redeploy (5C.1 brief wording; `deploy/local/deploy.sh deploy`), screen
-readers and physical devices. Cloud Run staging remains deferred. The LAN MOCK backend runs on the Ubuntu host (address in git-ignored
-`deploy/local/server.env`).
+(+ `stocksteps-portfolio-reference.png`, Screener `docs/design/phase5b/REFERENCE-screener-discover-stocks.webp`). Still open: approved LAN backend redeploy
+(5C.1 brief wording; `deploy/local/deploy.sh deploy`), screen readers and physical devices. Cloud Run staging remains deferred. The LAN MOCK backend runs on
+the Ubuntu host (address in git-ignored `deploy/local/server.env`).
 
 ## Repository layout
 

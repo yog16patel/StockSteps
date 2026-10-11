@@ -2,6 +2,7 @@ package org.example.stocksteps.theme
 
 import org.example.stocksteps.companydetail.AssessmentRules
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -51,5 +52,21 @@ class ResponsiveLayoutRulesTest {
         assertTrue(StockQuoteRowLayout.stacksValues(valuesWidth = 40f, availableWidth = 400f, accessibilityText = true))
         // Unmeasured width: keep the default side-by-side layout.
         assertFalse(StockQuoteRowLayout.stacksValues(valuesWidth = 140f, availableWidth = 0f, accessibilityText = false))
+    }
+
+    @Test
+    fun discoverCardsUseTwoColumnsOnlyWhenEveryTitleWordFits() {
+        // 360 dp at 1.3×: content 328 dp, gap 8, card padding 12 → 136 dp of text per column; "Companies" ≈ 98 dp fits, so two columns
+        // and the title wraps between words (the old ⓘ button beside the title left ≈ 88 dp, which split "Compan/ies").
+        assertEquals(2, StockCardGridLayout.columns(widestTitleWord = 98f, availableWidth = 328f, gap = 8f, cardPadding = 12f, accessibilityText = false))
+        // A word wider than one column's text width: one column instead of breaking it.
+        assertEquals(1, StockCardGridLayout.columns(widestTitleWord = 140f, availableWidth = 328f, gap = 8f, cardPadding = 12f, accessibilityText = false))
+        // Boundary: exactly the text width still fits.
+        assertEquals(2, StockCardGridLayout.columns(widestTitleWord = 136f, availableWidth = 328f, gap = 8f, cardPadding = 12f, accessibilityText = false))
+        // Accessibility text sizes and an unmeasured width are always one column.
+        assertEquals(1, StockCardGridLayout.columns(widestTitleWord = 10f, availableWidth = 1000f, gap = 8f, cardPadding = 12f, accessibilityText = true))
+        assertEquals(1, StockCardGridLayout.columns(widestTitleWord = 10f, availableWidth = 0f, gap = 8f, cardPadding = 12f, accessibilityText = false))
+        assertEquals(listOf("Growing", "Companies"), StockCardGridLayout.words("Growing Companies"))
+        assertEquals(listOf("Price", "sales"), StockCardGridLayout.words("Price / sales"))
     }
 }

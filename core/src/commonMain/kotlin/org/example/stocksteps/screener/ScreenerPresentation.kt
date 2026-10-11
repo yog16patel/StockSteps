@@ -218,6 +218,9 @@ data class MetricInfo(val title: String, val meaning: String, val calculation: S
 
 // ---------- Screener ----------
 
+/** Placeholder price text when a company has no quote; screens show [ScreenerDisplay.UNAVAILABLE] instead. */
+const val MISSING_PRICE = "—"
+
 data class ScreenerRowView(
     val symbol: String,
     val name: String,
@@ -231,9 +234,19 @@ data class ScreenerRowView(
     val stale: Boolean,
     val selected: Boolean
 ) {
+    /** False when the company has no price (shown as "No data available", never $0.00). */
+    val priceAvailable: Boolean get() = price != MISSING_PRICE
+    /** One spoken label for the row: identity, price and change in words (not colour), then the shown metrics (Phase 5B). */
     val accessibility: String get() = buildString {
-        append("$name, $symbol${exchange?.let { " on $it" } ?: ""}. Price $price, ${change.text} today.")
-        metrics.forEach { (label, cell) -> append(" $label ${cell.text}.") }
+        append("$name, $symbol${exchange?.let { " on $it" } ?: ""}. ")
+        append(when {
+            !priceAvailable -> "Price unavailable."
+            !change.available -> "Price $price, change unavailable."
+            change.tone == Tone.POSITIVE -> "Price $price, up ${change.text.trimStart('+')} today."
+            change.tone == Tone.NEGATIVE -> "Price $price, down ${change.text.trimStart('−', '-')} today."
+            else -> "Price $price, unchanged today."
+        })
+        metrics.forEach { (label, cell) -> append(" $label ${if (cell.available || cell.text == "None") cell.accessibility else "no data available"}.") }
         if (stale) append(" Financial data may be out of date.")
         if (selected) append(" Selected for comparison.")
     }
@@ -321,7 +334,7 @@ class ScreenerPresenter(
         val shown = (page?.displayMetrics ?: mutable.value.applied?.let(ScreenerDefinitions::displayMetricsFor)).orEmpty()
         return ScreenerRowView(
             c.symbol, c.name, c.exchange, c.currency, c.logoUrl,
-            c.price?.let { MetricFormatter.price(it, c.currency) } ?: "—",
+            c.price?.let { MetricFormatter.price(it, c.currency) } ?: MISSING_PRICE,
             MetricFormatter.change(c.changePercent),
             shown.map { id -> val d = ScreenerDefinitions.metric(id); (d?.label ?: id) to MetricFormatter.cell(d, c.metrics[id], c.currency) },
             result.notApplied, c.stale, selection.contains(c.symbol)

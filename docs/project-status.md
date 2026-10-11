@@ -1,13 +1,15 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-10 (end of session) against the repository (`main`, HEAD `bb7105e` "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS", in sync with `origin/main`). Verify with
+Last reviewed: 2026-10-11 against the repository (`main`, HEAD "Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS", in sync with `origin/main`). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**State at end of session (2026-10-10)**: Global UI Refinement steps 1–4 and step 5 part A (Watchlist, Phases 5A + 5A.1) are committed and pushed; nothing
-is in progress. **Next: Phase 5B — Screener ("Discover Stocks"), only after owner approval**, then 5C — Comparison. Start from
+**State (2026-10-11)**: Global UI Refinement steps 1–4 and step 5 part A (Watchlist, 5A + 5A.1; 5A.1 closed with conditions in `f08350c`) are committed.
+**Phase 5B — Screener ("Discover Stocks") is committed and pushed** as "Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS" (`docs/GLOBAL_UI_REFINEMENT_PHASE5B.md`): core 454/0 (JVM, iOS), shared Android 110/0,
+shared iOS 106/0, `assembleDebug` OK, iOS `xcodebuild` OK; device screenshots, large text and screen readers NOT RUN (approval pending); verdict PASS WITH
+CONDITIONS. **Next: device checks if approved → Phase 5C — Company Comparison, only after approval.** Earlier summary: Start from
 `docs/PROJECT_HANDOFF.md` §NEXT (decisions, risks, exact steps). Latest verified: core 441/0 (JVM, iOS), shared Android 109/0, shared iOS 105/0,
 `assembleDebug` and iOS `xcodebuild` OK. Not verified: screen-reader speech, iOS signed-in Watchlist, iPhone SE XXXL for 5A.1, full `:server:test`.
 
