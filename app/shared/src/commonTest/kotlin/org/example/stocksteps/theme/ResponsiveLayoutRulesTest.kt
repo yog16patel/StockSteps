@@ -69,4 +69,26 @@ class ResponsiveLayoutRulesTest {
         assertEquals(listOf("Growing", "Companies"), StockCardGridLayout.words("Growing Companies"))
         assertEquals(listOf("Price", "sales"), StockCardGridLayout.words("Price / sales"))
     }
+
+    @Test
+    fun comparisonColumnsOnlyWhenEveryUnbreakableTokenFits() {
+        // 360 dp content (328 dp), gap 8: two companies → 160 dp columns; three → ≈ 104; four → 76.
+        assertTrue(StockComparisonLayout.sideBySide(widestToken = 110f, companies = 2, availableWidth = 328f, gap = 8f, accessibilityText = false))
+        assertTrue(StockComparisonLayout.sideBySide(widestToken = 100f, companies = 3, availableWidth = 328f, gap = 8f, accessibilityText = false))
+        // "Semiconductors" (≈ 110 dp) can't fit a four-company column: stacked instead of "Semiconduct/ors".
+        assertFalse(StockComparisonLayout.sideBySide(widestToken = 110f, companies = 4, availableWidth = 328f, gap = 8f, accessibilityText = false))
+        // Short values fit four columns at the default size.
+        assertTrue(StockComparisonLayout.sideBySide(widestToken = 60f, companies = 4, availableWidth = 328f, gap = 8f, accessibilityText = false))
+        // Exact fit at the threshold stays side by side; one point more stacks.
+        assertTrue(StockComparisonLayout.sideBySide(widestToken = 76f, companies = 4, availableWidth = 328f, gap = 8f, accessibilityText = false))
+        assertFalse(StockComparisonLayout.sideBySide(widestToken = 77f, companies = 4, availableWidth = 328f, gap = 8f, accessibilityText = false))
+        // Large accessibility text, unmeasured width or no companies: stacked.
+        assertFalse(StockComparisonLayout.sideBySide(widestToken = 10f, companies = 2, availableWidth = 1000f, gap = 8f, accessibilityText = true))
+        assertFalse(StockComparisonLayout.sideBySide(widestToken = 10f, companies = 2, availableWidth = 0f, gap = 8f, accessibilityText = false))
+        assertFalse(StockComparisonLayout.sideBySide(widestToken = 10f, companies = 0, availableWidth = 328f, gap = 8f, accessibilityText = false))
+        // Values never split; text splits only at spaces.
+        assertEquals(listOf("US$1.23T"), StockComparisonLayout.tokens("US$1.23T"))
+        assertEquals(listOf("Auto", "-", "Manufacturers"), StockComparisonLayout.tokens("Auto - Manufacturers"))
+        assertEquals(listOf("FY", "ended", "Sep", "2025"), StockComparisonLayout.tokens("FY ended Sep 2025"))
+    }
 }

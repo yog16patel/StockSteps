@@ -247,14 +247,3 @@ private fun SummaryCard(summary: ResearchSummary, onClose: () -> Unit) {
         StockButton("Close summary", onClick = onClose, variant = StockButtonVariant.TEXT)
     }
 }
-
-/** Compare-screen entry point to the checklist (one card; no repeated banners). */
-@Composable
-internal fun ResearchEntryCard(onResearch: () -> Unit) {
-    StockCard(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-        Text("Research checklist", Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = StockStepsTheme.colors.textPrimary)
-        Text("Work through guided questions about these companies, write private notes and track your progress. Free; StockSteps+ adds advanced research and reports.",
-            style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textBody)
-        StockButton("Open research checklist", onClick = onResearch, variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth())
-    }
-}

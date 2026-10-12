@@ -13,11 +13,10 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-11)
 
-HEAD: "Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief" (pushed). **Global UI Refinement Phases 1–3.1, 4A (Home), 4B/4B.1 (Markets), 4C–4C.3
+HEAD: "Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS" (pushed). **Global UI Refinement Phases 1–3.1, 4A (Home), 4B/4B.1 (Markets), 4C–4C.3
 (Company Details) and 5A/5A.1 (Watchlist; 5A.1 closed with open conditions) are committed.** **Phase 5B (Screener / Discover Stocks) is committed and
-pushed** — `docs/GLOBAL_UI_REFINEMENT_PHASE5B.md` (shared `ScreenerDisplay`, `StockCardGridLayout`; device checks NOT RUN). The 5B **closure pass is committed** (`docs/GLOBAL_UI_REFINEMENT_PHASE5B_CLOSURE.md`: 5 small fixes, PASS WITH CONDITIONS; Phase 5C brief
-`docs/GLOBAL_UI_REFINEMENT_PHASE5C_BRIEF.md`). Next: 5B device checks if approved,
-then **Phase 5C (Company Comparison) only after approval** — read `docs/PROJECT_HANDOFF.md` §NEXT first; phase docs
+pushed** — `docs/GLOBAL_UI_REFINEMENT_PHASE5B.md` (shared `ScreenerDisplay`, `StockCardGridLayout`; device checks NOT RUN). The 5B closure pass is committed. **Phase 5C (Company Comparison) is committed and pushed** (`docs/GLOBAL_UI_REFINEMENT_PHASE5C.md`: shared
+`StockComparisonLayout` + `ComparisonDisplay`; PASS WITH CONDITIONS). Next: **Phase 5D (Earnings audit recommended) only after approval** — read `docs/PROJECT_HANDOFF.md` §NEXT first; phase docs
 `docs/GLOBAL_UI_REFINEMENT_*.md`. Note: the iOS app's MOCK backend URL (Info.plist `StockStepsMockBackendURL`)
 comes from git-ignored `app/iosApp/Configuration/Local.xcconfig` (LAN host); for local-only device checks build with
 `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` on the xcodebuild command line. Visual direction `docs/design/stocksteps-ui-reference.png`

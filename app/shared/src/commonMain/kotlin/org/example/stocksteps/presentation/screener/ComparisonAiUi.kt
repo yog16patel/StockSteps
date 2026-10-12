@@ -46,21 +46,6 @@ internal data class ComparisonAiActions(
     val onBack: () -> Unit = {}
 )
 
-/** Compare-screen entry point (one card; free accounts see what it is and that it's StockSteps+). */
-@Composable
-internal fun ComparisonAiEntryCard(onOpen: () -> Unit) {
-    val spacing = StockStepsTheme.spacing
-    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            Text("Ask StockSteps AI", Modifier.weight(1f).semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = StockStepsTheme.colors.textPrimary)
-            StockTag("StockSteps+")
-        }
-        Text("Understand the financial differences between these companies. Answers use only the verified figures on this screen, with every number linked to its data.",
-            style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textBody)
-        StockButton("Ask StockSteps AI", onClick = onOpen, variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth())
-    }
-}
-
 /**
  * Company Comparison Phase 5: the AI Comparison Assistant. Focused on the selected companies (not a
  * general chatbot): suggested questions, a bounded conversation, cited evidence that opens the source

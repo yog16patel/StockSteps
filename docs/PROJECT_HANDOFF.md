@@ -1,11 +1,22 @@
 # StockSteps — session handoff (2026-10-11: Phase 5A.1 closed; Phase 5B Screener committed and pushed; next Phase 5C Comparison after approval)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE5B-CLOSURE below** → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE5C below** → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## PHASE5B-CLOSURE. Phase 5B closure verification (2026-10-11, committed and pushed) — read first
+## PHASE5C. Global UI Refinement Phase 5C — Company Comparison (committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS" (pushed), on top of `9e764fe` (5B closure).
+- Done (`docs/GLOBAL_UI_REFINEMENT_PHASE5C.md`): shared `StockComparisonLayout` (columns only while every value/word fits; else one line per company),
+  core `ComparisonDisplay` ("No data" + reason control, spoken labels naming company/metric/period), `StockNavigationRow` optional badge; Compose
+  `ComparisonScreen.kt` and SwiftUI `CompareStocksScreen` reworked (selection ⋮, section cards, sticky header only around metrics, chart-only error,
+  More tools with PREMIUM badge), history table uses the same rule; iOS `.bordered` → `.stockSecondary` in Compare/research/AI.
+- Results: core 461/0 (JVM, iOS), shared Android 111/0, shared iOS 107/0, `assembleDebug` OK, iOS `xcodebuild` OK. Device before/after in
+  `docs/design/phase5c/` (29 captures, local MOCK only). NOT RUN: TalkBack, VoiceOver, iPhone SE, Android dark, chart-error/partial/unlocked states.
+  Verdict PASS WITH CONDITIONS. Next: Phase 5D (Earnings audit recommended) only after approval.
+
+## PHASE5B-CLOSURE. Phase 5B closure verification (2026-10-11, committed and pushed)
 
 - Repository: `main`. Current commit: "Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief" (pushed), on top of `b1aa29c` (5B).
 - Report `docs/GLOBAL_UI_REFINEMENT_PHASE5B_CLOSURE.md`: audit PASS on both platforms after five fixes — D1 `ScreenerDisplay.parseInput` thousands

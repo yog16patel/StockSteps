@@ -90,8 +90,12 @@ internal fun ComparisonLearningSummary(insights: List<ComparisonInsight>, onOpen
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        Text("What can we learn from this comparison?", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+    StockCard(bordered = false, containerColor = colors.surfaceSecondary, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            androidx.compose.material3.Icon(org.example.stocksteps.designsystem.icons.StockIcons.Lightbulb, null, tint = colors.cautionText,
+                modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+            Text("What can we learn from this comparison?", Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
+        }
         insights.forEach { insight ->
             Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
                 Text(insight.category.title, style = typography.tiny, color = colors.textTertiary)

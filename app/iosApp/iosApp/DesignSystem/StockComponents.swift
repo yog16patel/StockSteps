@@ -457,6 +457,9 @@ struct StockNavigationRow: View {
     /// A second muted line (e.g. watchlist counts) under `detail`.
     var secondaryDetail: String? = nil
     var hint: String? = nil
+    /// Optional status beside the title (e.g. "StockSteps+" as PREMIUM, Phase 5C); nil keeps existing rows unchanged.
+    var badge: String? = nil
+    var badgeKind: StockBadgeKind = .premium
     let action: () -> Void
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
@@ -467,7 +470,13 @@ struct StockNavigationRow: View {
                         .frame(width: CGFloat(dims.icon)).accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                    Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+                    if let badge {
+                        StockTitleWithBadge {
+                            Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+                        } badge: { StockStatusBadge(text: badge, kind: badgeKind, size: .compact) }
+                    } else {
+                        Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+                    }
                     if let detail {
                         Text(detail).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
                             .foregroundStyle(detailColor ?? colors.textSupporting).multilineTextAlignment(.leading)

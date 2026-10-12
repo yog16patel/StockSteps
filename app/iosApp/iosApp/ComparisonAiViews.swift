@@ -4,25 +4,6 @@ import SwiftUI
 private let space = StockStepsTheme.spacing
 private let type = StockStepsTheme.typography
 
-/// Compare-screen entry point for Company Comparison Phase 5 (one card; it says it's StockSteps+).
-struct ComparisonAiEntryCard: View {
-    let onOpen: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            HStack {
-                Text("Ask StockSteps AI").font(.headline).accessibilityAddTraits(.isHeader)
-                Spacer()
-                Text("StockSteps+").font(.caption2.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(Color.secondary.opacity(0.15)))
-            }
-            Text("Understand the financial differences between these companies. Answers use only the verified figures on this screen, with every number linked to its data.")
-                .font(.subheadline)
-            Button("Ask StockSteps AI", action: onOpen).buttonStyle(.bordered).frame(maxWidth: .infinity, minHeight: 48)
-        }
-        .stockCard()
-    }
-}
-
 /// Company Comparison Phase 5: AI Comparison Assistant (mirrors Android's `ComparisonAiScreen`). Focused on the
 /// selected companies: suggested questions, a bounded conversation, cited evidence that opens the source metric,
 /// data freshness and limits, and the remaining allowance. The server decides StockSteps+ and checks every answer.
@@ -165,7 +146,7 @@ struct ComparisonAiView: View {
                 Button { presenter?.suggest(suggestion: s) } label: {
                     Text(s.text).font(.subheadline).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.stockSecondary)
                 .accessibilityLabel("Ask: \(s.text)")
                 .disabled(state.busy)
             }
@@ -202,7 +183,7 @@ struct ComparisonAiView: View {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 Text(error).font(.subheadline)
                 HStack {
-                    if turn.retryable { Button("Try again") { presenter?.retry(turnId: turn.id) }.buttonStyle(.bordered) }
+                    if turn.retryable { Button("Try again") { presenter?.retry(turnId: turn.id) }.buttonStyle(.stockSecondary) }
                     if turn.errorCode == "PLUS_REQUIRED" { Button("Learn about StockSteps+") { presenter?.showUpsell() } }
                     Button("Dismiss") { presenter?.remove(turnId: turn.id) }
                 }

@@ -1,7 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief** on `main` (pushed).
-Previous commit: **Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS** on `main` (pushed).
+Previous commit: **Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief** (pushed).
+Before it: **Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS** (pushed).
 Before it: **Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff** (docs only, pushed).
 Before it: **Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS** (pushed).
 Before it: **"Refine Watchlist with compact quote rows, full-name list selector, clear empty and unavailable states and grouped alert actions (Global UI Refinement Phase 5A) on Android and iOS"** (pushed); before it **"Polish Company Details: natural loss wording, chart error states, dated change label, responsive actions and range selector (Global UI Refinement Phases 4C.2 and 4C.3)"** (pushed); before it **"Refine Company Details for beginners with chart scroll fix and accessible price summary (Global UI Refinement Phases 4C and 4C.1)"** (pushed); before it **"Refine Markets to the final reference: compact US market status, US-only indices and sector methodology sheet (Global UI Refinement Phase 4B.1)"** (pushed); before it **"Redesign Markets data-first with status, index rows and research tools (Global UI Refinement Phase 4B) on Android and iOS"** (pushed); before it **"Redesign Home with a market overview and portfolio summary (Global UI Refinement Phase 4A) on Android and iOS"** (pushed); before it **"Polish the Portfolio reference screen (Global UI Refinement Phase 3.1) on Android and iOS"** (pushed); before it **"Redesign Portfolio as the Global UI Refinement Phase 3 reference screen on Android and iOS"** (pushed); before it **"Add Global UI Refinement Phase 2: badges, pill selectors, banners, search field and component baseline"** (pushed), **"Add Global UI Refinement Phase 1A: accessible buttons, wrapping metrics, states and form controls"** and **"Add Global UI Refinement Phase 1: shared design-system tokens for Android and iOS"** (pushed).
@@ -55,7 +56,17 @@ file when a feature, architecture decision, or important limitation changes.
 
 
 
-## Global UI Refinement Phase 5B closure verification (current commit)
+## Global UI Refinement Phase 5C — Company Comparison (current commit)
+
+- **Completed** (`docs/GLOBAL_UI_REFINEMENT_PHASE5C.md`): shared `StockComparisonLayout` (columns only while every value/word fits, else one line per
+  company), core `ComparisonDisplay` ("No data" + reason control, spoken company/metric/period), optional `StockNavigationRow` badge; Compare reworked on
+  Android and iOS (selection ⋮, section cards, sticky header only around metrics, chart-only error, More tools); history table uses the same rule.
+- **Validation**: core 461/0 (JVM, iOS), shared Android 111/0, shared iOS 107/0, `assembleDebug` OK, iOS `xcodebuild` OK; 29 before/after captures
+  in `docs/design/phase5c/` (local MOCK only).
+- **Limits**: TalkBack, VoiceOver, iPhone SE, Android dark, chart-error/partial/unlocked states NOT RUN. No data, gating or request changes.
+- **Next**: Phase 5D (Earnings audit recommended) only after approval.
+
+## Global UI Refinement Phase 5B closure verification (previous commit)
 
 - **Completed** (`docs/GLOBAL_UI_REFINEMENT_PHASE5B_CLOSURE.md`): code/regression/accessibility audit of Discover Stocks on Android and iOS; fixes for
   filter-input thousands separators (shared `ScreenerDisplay.parseInput`), inverted ranges blocked before search (`ScreenerDisplay.invalidRange`), iOS

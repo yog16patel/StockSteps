@@ -1,6 +1,6 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-11 against the repository (`main`, HEAD "Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief", in sync with `origin/main`). Verify with
+Last reviewed: 2026-10-11 against the repository (`main`, HEAD "Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS", in sync with `origin/main`). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
@@ -12,7 +12,9 @@ shared iOS 106/0, `assembleDebug` OK, iOS `xcodebuild` OK; device screenshots, l
 CONDITIONS. **Closure pass (committed and pushed as "Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief")**: `docs/GLOBAL_UI_REFINEMENT_PHASE5B_CLOSURE.md` — five small fixes (filter-input
 thousands separators, inverted ranges, iOS Show results on every editor page, iOS title measurement, Android chip a11y), core 456/0 (JVM, iOS), shared
 Android 110/0, shared iOS 106/0, both builds OK; devices and screen readers NOT RUN; verdict PASS WITH CONDITIONS; Phase 5C brief
-`docs/GLOBAL_UI_REFINEMENT_PHASE5C_BRIEF.md`. **Next: device checks if approved → Phase 5C — Company Comparison, only after approval.** Earlier summary: Start from
+`docs/GLOBAL_UI_REFINEMENT_PHASE5C_BRIEF.md`. **Phase 5C — Company Comparison committed and pushed** as "Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS" (`docs/GLOBAL_UI_REFINEMENT_PHASE5C.md`): shared `StockComparisonLayout` + `ComparisonDisplay`;
+core 461/0 (JVM, iOS), shared Android 111/0, shared iOS 107/0, both builds OK; device before/after captured on local MOCK; screen readers, SE, Android
+dark NOT RUN; PASS WITH CONDITIONS. **Next: Phase 5D (Earnings audit recommended) after approval.** Earlier: **Next: device checks if approved → Phase 5C — Company Comparison, only after approval.** Earlier summary: Start from
 `docs/PROJECT_HANDOFF.md` §NEXT (decisions, risks, exact steps). Latest verified: core 441/0 (JVM, iOS), shared Android 109/0, shared iOS 105/0,
 `assembleDebug` and iOS `xcodebuild` OK. Not verified: screen-reader speech, iOS signed-in Watchlist, iPhone SE XXXL for 5A.1, full `:server:test`.
 

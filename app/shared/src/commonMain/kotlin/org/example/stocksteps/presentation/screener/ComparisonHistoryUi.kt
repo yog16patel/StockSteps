@@ -40,8 +40,12 @@ internal fun HistoricalComparisonCard(state: ComparisonUiState, actions: History
     val typography = StockStepsTheme.typography
     var why by remember { mutableStateOf<Pair<String, String>?>(null) }
     var allInsights by rememberSaveable { mutableStateOf(false) }
-    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        Text("Historical comparison", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val accessibilityText = density.fontScale >= StockStepsTheme.dimensions.largeFontScale * 1.15f
+    StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        StockTitleWithBadge(title = { Text("Historical comparison", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle) },
+            badge = { if (!state.historyPlus) StockStatusBadge("1Y free", org.example.stocksteps.theme.StockBadgeKind.INFO, size = StockBadgeSize.COMPACT) })
         Text("How each company's reported results changed over time. ${state.historyRange.description}; " +
             (if (state.historyRange.granularity == HistoryGranularity.QUARTERLY) "quarterly" else "annual") + " figures, as reported.",
             style = typography.caption, color = colors.textSecondary)
@@ -75,7 +79,16 @@ internal fun HistoricalComparisonCard(state: ComparisonUiState, actions: History
                     reference = view.reference, referenceLabel = view.referenceLabel, seriesLabel = first.label,
                     additional = view.series.drop(1).map { it.label to it.values })
             }
-            HistoryTable(view) { title, text -> why = title to text }
+            // Same shared rule as the metric rows: columns only while every value and period word fits.
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val width = maxWidth.value
+                val sideBySide = remember(view, width, density.fontScale) {
+                    val tokens = ComparisonDisplay.historyLayoutTexts(view).flatMap(org.example.stocksteps.theme.StockComparisonLayout::tokens) + view.symbols
+                    val widest = with(density) { tokens.distinct().maxOfOrNull { measurer.measure(it, typography.numberLabel).size.width.toDp().value } ?: 0f }
+                    org.example.stocksteps.theme.StockComparisonLayout.sideBySide(widest, view.symbols.size, width, spacing.xs.value, accessibilityText)
+                }
+                HistoryTable(view, sideBySide) { title, text -> why = title to text }
+            }
             val insights = history.insights + view.insights
             if (insights.isNotEmpty()) {
                 Text("What does this mean?", Modifier.semantics { heading() }, style = typography.label, color = colors.textSecondary)
@@ -88,19 +101,48 @@ internal fun HistoricalComparisonCard(state: ComparisonUiState, actions: History
             (view.notes + history.notes).distinct().forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
             history.access.message?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
         }
-        if (!state.historyPlus) Text("3Y and 5Y history, growth, margins, EPS growth and the revenue index are part of StockSteps+.", style = typography.tiny, color = colors.textTertiary)
+        // Locked state: one PREMIUM label and the existing preview flow (tapping a "· Plus" option); nothing is requested to draw it.
+        if (!state.historyPlus && state.history?.access?.message == null) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            StockStatusBadge("StockSteps+", org.example.stocksteps.theme.StockBadgeKind.PREMIUM, size = StockBadgeSize.COMPACT)
+            Text("3Y and 5Y history, growth, margins, EPS growth and the revenue index.", Modifier.weight(1f), style = typography.caption, color = colors.textSupporting)
+        }
     }
     why?.let { (title, text) -> AlertDialog(onDismissRequest = { why = null }, title = { Text(title) }, text = { Text(text) }, confirmButton = { TextButton(onClick = { why = null }) { Text("OK") } }) }
     state.historyUpsell?.let { HistoryUpsellDialog(it, actions) }
 }
 
-/** Newest first; each cell shows the company's own fiscal label and period end. Columns stay equal width (no horizontal scroll). */
+/**
+ * Newest first; each cell shows the company's own fiscal label and period end. Equal columns when they fit ([sideBySide]); otherwise each
+ * period lists one line per company (Phase 5C), so values and periods are never cut. Missing values read "No data" with a reason.
+ */
 @Composable
-private fun HistoryTable(view: HistoryView, onWhy: (String, String) -> Unit) {
+private fun HistoryTable(view: HistoryView, sideBySide: Boolean, onWhy: (String, String) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+    if (!sideBySide) Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+        view.rows.forEach { row ->
+            HorizontalDivider(color = colors.borderSubtle)
+            Text(row.title, Modifier.semantics { heading() }, style = typography.label, color = colors.textSecondary)
+            view.symbols.zip(row.cells).forEach { (symbol, cell) ->
+                val explanation = cell.explanation
+                Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
+                    .then(if (explanation != null) Modifier.clickable(onClickLabel = "Why $symbol has no value") { onWhy("$symbol · ${cell.period ?: row.title}", explanation) } else Modifier)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "$symbol, ${row.title}, " + if (cell.available) listOfNotNull(cell.text, cell.period).joinToString(", ") else "unavailable, $explanation"
+                    }, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    Text(symbol, style = typography.label, color = colors.primaryText)
+                    Column(Modifier.weight(1f), horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                        Text(if (cell.available) cell.text else ComparisonDisplay.NO_DATA, style = typography.numberLabel,
+                            color = if (cell.available) colors.textValue else colors.textTertiary)
+                        cell.period?.let { Text(it, style = typography.tiny, color = colors.textSupporting, textAlign = androidx.compose.ui.text.style.TextAlign.End) }
+                    }
+                }
+            }
+            row.note?.let { Text(it, style = typography.tiny, color = colors.cautionText) }
+        }
+    }
+    else Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
         Row(Modifier.fillMaxWidth().semantics { heading() }, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             view.symbols.forEach { Text(it, Modifier.weight(1f), style = typography.label, color = colors.primaryText, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
@@ -115,9 +157,9 @@ private fun HistoryTable(view: HistoryView, onWhy: (String, String) -> Unit) {
                     val explanation = cell.explanation
                     Column(Modifier.weight(1f).heightIn(min = StockStepsTheme.dimensions.touchTarget)
                         .then(if (explanation != null) Modifier.clickable(onClickLabel = "Why $symbol has no value") { onWhy("$symbol · ${cell.period ?: row.title}", explanation) } else Modifier)) {
-                        Text(cell.text + if (cell.explanation != null) " ⓘ" else "", style = typography.numberLabel, maxLines = 1,
-                            color = if (cell.explanation != null) colors.textTertiary else colors.textPrimary)
-                        cell.period?.let { Text(it, style = typography.tiny, color = colors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                        Text(if (cell.available) cell.text else ComparisonDisplay.NO_DATA, style = typography.numberLabel,
+                            color = if (cell.available) colors.textValue else colors.textTertiary)
+                        cell.period?.let { Text(it, style = typography.tiny, color = colors.textSecondary) }
                     }
                 }
             }

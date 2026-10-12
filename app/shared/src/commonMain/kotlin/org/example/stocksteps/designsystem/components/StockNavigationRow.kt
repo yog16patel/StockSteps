@@ -28,7 +28,10 @@ internal fun StockNavigationRow(
     detailColor: Color = StockStepsTheme.colors.textSupporting,
     /** A second muted line (e.g. watchlist counts) under [detail]. */
     secondaryDetail: String? = null,
-    actionLabel: String? = null
+    actionLabel: String? = null,
+    /** Optional status beside the title (e.g. "StockSteps+" as PREMIUM, Phase 5C); default none, so existing rows are unchanged. */
+    badge: String? = null,
+    badgeKind: org.example.stocksteps.theme.StockBadgeKind = org.example.stocksteps.theme.StockBadgeKind.PREMIUM
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -40,7 +43,9 @@ internal fun StockNavigationRow(
     ) {
         if (icon != null) Icon(icon, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.icon))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Text(title, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
+            if (badge == null) Text(title, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
+            else StockTitleWithBadge(title = { Text(title, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle) },
+                badge = { StockStatusBadge(badge, badgeKind, size = StockBadgeSize.COMPACT) })
             if (detail != null) Text(detail, style = StockStepsTheme.typography.caption, color = detailColor)
             if (secondaryDetail != null) Text(secondaryDetail, style = StockStepsTheme.typography.caption, color = colors.textSupporting)
         }

@@ -109,7 +109,7 @@ struct ComparisonResearchView: View {
                         Text("Advanced research · StockSteps+").font(.headline).accessibilityAddTraits(.isHeader)
                         ForEach(state.advancedPreview, id: \.id) { Text("• \($0.title): \($0.description_)").font(.subheadline) }
                         Text("StockSteps+ also adds research snapshots, a detailed summary and a PDF report.").font(.caption).foregroundStyle(colors.textSecondary)
-                        Button("Learn about StockSteps+") { presenter?.showUpsell() }.buttonStyle(.bordered).frame(minHeight: 48)
+                        Button("Learn about StockSteps+") { presenter?.showUpsell() }.buttonStyle(.stockSecondary).frame(minHeight: 48)
                     }
                     .stockCard()
                 }
@@ -176,10 +176,10 @@ struct ComparisonResearchView: View {
                 .accessibilityLabel("\(progress.reviewed) of \(progress.total) questions reviewed")
             Text("\(progress.reviewed) of \(progress.total) reviewed · \(progress.needsMore) need more research · \(progress.notReviewed) not reviewed").font(.subheadline)
             HStack(spacing: 8) {
-                Button("Summary") { _ = presenter?.loadSummary() }.buttonStyle(.bordered)
+                Button("Summary") { _ = presenter?.loadSummary() }.buttonStyle(.stockSecondary)
                 if open.plus {
-                    Button("Snapshot") { _ = presenter?.createSnapshot(label: nil) }.buttonStyle(.bordered)
-                    Button("Export PDF") { _ = presenter?.export() }.buttonStyle(.bordered)
+                    Button("Snapshot") { _ = presenter?.createSnapshot(label: nil) }.buttonStyle(.stockSecondary)
+                    Button("Export PDF") { _ = presenter?.export() }.buttonStyle(.stockSecondary)
                 }
             }
             .frame(minHeight: 48)

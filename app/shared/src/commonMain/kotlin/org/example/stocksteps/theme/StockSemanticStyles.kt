@@ -109,3 +109,21 @@ object StockCardGridLayout {
     /** The words a title can break between (spaces and slashes, as text layout does). */
     fun words(title: String): List<String> = title.split(' ', '/', ' ').filter { it.isNotBlank() }
 }
+
+/**
+ * Company Comparison values (Phase 5C), shared by both platforms: companies sit side by side in equal columns only while the widest piece
+ * of text that must stay on one line — a whole value ("US$1.23T", "−12.3%") or one word of a text value or period ("Semiconductors") —
+ * fits one column. Otherwise (four companies on a narrow phone, large text, long industry names) every metric is stacked: one line per
+ * company, in selection order, with the company beside its value. Always stacked at accessibility text sizes; an unmeasured width stacks
+ * too, so nothing is ever cut or broken mid-word while the layout is still unknown.
+ */
+object StockComparisonLayout {
+    fun sideBySide(widestToken: Float, companies: Int, availableWidth: Float, gap: Float, accessibilityText: Boolean): Boolean {
+        if (accessibilityText || availableWidth <= 0f || companies <= 0) return false
+        val column = (availableWidth - gap * (companies - 1)) / companies
+        return widestToken <= column
+    }
+
+    /** The pieces that may not break: text splits only at spaces, so each whitespace-separated token must fit. */
+    fun tokens(text: String): List<String> = text.split(' ', ' ', '\n').filter { it.isNotBlank() }
+}
