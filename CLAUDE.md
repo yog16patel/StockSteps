@@ -13,11 +13,10 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-12)
 
-HEAD: "Close Company Comparison Phase 5C.1 with section-based sticky header and spacing fixes, and add the Portfolio UI audit and Phase P-A display rules" (pushed).
-Global UI Refinement steps 1–5 (through Comparison 5C.1) are committed. **This commit adds** the Phase 5C.1 closure
-(`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1_CLOSURE.md`, shared `ComparisonDisplay.companyHeaderSection`; PASS WITH CONDITIONS), the Portfolio UI audit
-(`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`) and **Portfolio P-A** (`docs/PORTFOLIO_REFINEMENT_PHASE_PA.md`: baseline + shared rules R1–R8,
-`PortfolioDisplayRules`). Next: **Portfolio P-B (Overview Card) only after approval** — read `docs/PROJECT_HANDOFF.md` §CLOSURE-5C1-PA first.
+HEAD: "Polish Company Comparison with shared chart legend styles, concise What-the-numbers-show insights, a quieter sample strip and large-text fixes on Android and iOS" (pushed), on top of `92a6d6a` (5C.1 closure + Portfolio audit and P-A). Global UI Refinement steps 1–5 including the Comparison final polish
+(`docs/GLOBAL_UI_REFINEMENT_PHASE5C_FINAL_POLISH.md`) are committed. Next: **Portfolio P-B (Overview Card) or Phase 5D — only after approval**; read
+`docs/PROJECT_HANDOFF.md` §FINAL-POLISH-5C first. Multi-series charts use `StockChartSeriesStyle` (shared colours + dashes, drawn legend swatches);
+the MOCK strip uses `StockSemanticStyles.sampleStrip`; Compare insights go through `ComparisonObservationsDisplay` (presentation only).
 Portfolio rules for P-B: history loads on demand only; no UI-computed overall-return %; donut only when `allocationDonutAllowed`; missing stays missing.
 iOS device checks: build with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (default build bakes the LAN host from git-ignored
 `app/iosApp/Configuration/Local.xcconfig`); a fresh simulator install defaults to REAL (`localhost:8080`) — set MOCK in Settings or

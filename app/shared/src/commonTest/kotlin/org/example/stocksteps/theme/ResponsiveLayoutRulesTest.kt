@@ -91,4 +91,19 @@ class ResponsiveLayoutRulesTest {
         assertEquals(listOf("Auto", "-", "Manufacturers"), StockComparisonLayout.tokens("Auto - Manufacturers"))
         assertEquals(listOf("FY", "ended", "Sep", "2025"), StockComparisonLayout.tokens("FY ended Sep 2025"))
     }
+
+    @Test
+    fun chartSeriesDifferByColourAndDashAndNeverMatchTheReference() {
+        for (palette in listOf(org.example.stocksteps.theme.ThemeColors.light, org.example.stocksteps.theme.ThemeColors.dark)) {
+            val lines = (0..3).map { StockChartSeriesStyle.series(it, palette) }
+            assertEquals(4, lines.map { it.color }.distinct().size, "four companies get four colours")
+            assertEquals(4, lines.map { it.dash }.distinct().size, "and four line patterns (colour is never the only cue)")
+            assertTrue(lines[0].dash.isEmpty(), "main series is solid")
+            val reference = StockChartSeriesStyle.reference(palette)
+            assertTrue(lines.none { it.color == reference.color && it.dash == reference.dash }, "Start (100) never looks like a company")
+            assertEquals(lines[1], StockChartSeriesStyle.series(5, palette), "repeats after four")
+            val strip = StockSemanticStyles.sampleStrip(palette)
+            assertEquals(palette.warningContainer, strip.container, "the MOCK strip keeps the SAMPLE fill")
+        }
+    }
 }

@@ -171,6 +171,8 @@ struct CompareStocksScreen: View {
     @State private var toggled: Set<String> = []
     /// Sections whose "What to keep in mind" notes are open (final polish).
     @State private var openNotes: Set<String> = []
+    /// "View all insights" in What the numbers show.
+    @State private var showAllObservations = false
     private var display: ComparisonDisplay { ComparisonDisplay.shared }
     private func isOpen(_ title: String) -> Bool { display.expandedByDefault(title: title) != toggled.contains(title) }
     private func toggle(_ title: String) { if toggled.contains(title) { toggled.remove(title) } else { toggled.insert(title) } }
@@ -266,20 +268,7 @@ struct CompareStocksScreen: View {
                                          expanded: isOpen(display.HISTORY_TITLE), onToggle: { toggle(display.HISTORY_TITLE) })
             }
             if state.historyEnabled && !state.columns.isEmpty { tools(colors) }
-            if !state.observations.isEmpty {
-                VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                    Text("What the numbers show").font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader)
-                    ForEach(state.observations, id: \.text) { o in
-                        Text("• \(o.text)").font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
-                        if let caveat = o.caveat {
-                            Text(caveat).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting).padding(.leading, CGFloat(space.sm))
-                        }
-                    }
-                    Text("These describe reported figures. They aren't rankings or recommendations.").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .stockCard(bordered: false)
-            }
+            if !state.observations.isEmpty { observationsCard(ComparisonObservationsDisplay.shared.view(observations: state.observations, columns: state.columns), colors) }
             if !state.columns.isEmpty {
                 VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                     Text("Sources and notes").font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary).accessibilityAddTraits(.isHeader)
@@ -291,6 +280,47 @@ struct CompareStocksScreen: View {
                 }
             }
         }
+    }
+
+    /// "What the numbers show" (Comparison polish): up to three distinct insights (heading + concise text, metric caveat only when needed),
+    /// "View all N insights" for the rest and one shared note — same shared `ComparisonObservationsDisplay` as Compose.
+    private func observationsCard(_ view: ObservationsView, _ colors: StockColors) -> some View {
+        let shared = ComparisonObservationsDisplay.shared
+        let items = showAllObservations ? view.top + view.more : view.top
+        return VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                Text(shared.TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader)
+                Text(view.subtitle).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
+            }
+            ForEach(Array(items.enumerated()), id: \.element.metric) { index, item in
+                if index > 0 { StockDivider() }
+                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                    Text(item.heading).font(StockStepsTheme.font(type.bodySemiBold, relativeTo: .subheadline)).foregroundStyle(colors.textTitle)
+                    Text(item.text).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
+                    if let caveat = item.caveat {
+                        Text(caveat).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(item.spoken)
+            }
+            if let label = shared.toggle(total: Int32(view.total), open: showAllObservations) {
+                Button { showAllObservations.toggle() } label: {
+                    HStack(spacing: CGFloat(space.xs)) {
+                        Text(label)
+                        Image(systemName: showAllObservations ? "chevron.up" : "chevron.down").accessibilityHidden(true)
+                    }
+                    .font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
+                    .frame(minHeight: CGFloat(dims.touchTarget)).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(showAllObservations ? "Expanded" : "Collapsed")
+            }
+            Text(view.note).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .stockCard(bordered: false)
     }
 
     /// Metric sections in display order: the main sections, the "More metrics" button (nil), then the extra sections while shown.
@@ -305,9 +335,16 @@ struct CompareStocksScreen: View {
             if let section = item {
                 sectionView(section, state, columns, colors)
             } else {
-                Button(state.showMore ? "Hide extra metrics" : "More metrics (\(state.advancedCount))") { client.comparison.toggleMore() }
-                    .buttonStyle(.stockSecondary).frame(maxWidth: .infinity)
-                    .accessibilityValue(state.showMore ? "Expanded" : "Collapsed")
+                // Final polish: one caption says the extra sections are optional; label, live count and toggle unchanged.
+                VStack(spacing: CGFloat(space.xs)) {
+                    Button(display.moreMetricsLabel(count: state.advancedCount, showing: state.showMore)) { client.comparison.toggleMore() }
+                        .buttonStyle(.stockSecondary).frame(maxWidth: .infinity)
+                        .accessibilityValue(state.showMore ? "Expanded" : "Collapsed")
+                    if !state.showMore {
+                        Text(display.MORE_METRICS_NOTE).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
+                            .multilineTextAlignment(.center).frame(maxWidth: .infinity)
+                    }
+                }
             }
         }
     }
@@ -315,7 +352,9 @@ struct CompareStocksScreen: View {
     /// The chosen companies: logo, ticker, two-line name and listing; ⋮ holds Replace and Remove (44 pt target at any text size).
     private func selection(_ state: ComparisonUiState, _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: CGFloat(space.sm)) {
+            // Final polish: at accessibility sizes "Add a company" goes under the title, so "Companies (2 of 4)" never breaks mid-word.
+            let header = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0)) : AnyLayout(HStackLayout(spacing: CGFloat(space.sm)))
+            header {
                 Text("Companies (\(state.selected.count) of \(client.maxCompanies()))").font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline))
                     .foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader).frame(maxWidth: .infinity, alignment: .leading)
                 if state.canAdd {
@@ -411,10 +450,21 @@ struct CompareStocksScreen: View {
         let notesShown = openNotes.contains(section.title)
         return VStack(alignment: .leading, spacing: 0) {
             Button { toggle(section.title) } label: {
+                // Final polish: the shared period sits under the title inside the header (no row of its own); at accessibility sizes the metric
+                // count moves under the title instead of squeezing it to one word per line.
+                let stackSummary = typeSize.isAccessibilitySize
                 HStack(spacing: CGFloat(space.sm)) {
-                    Text(section.title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if !open { Text(display.sectionSummary(section: section)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta) }
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        Text(section.title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle)
+                        if open, let shared {
+                            Text(display.shortPeriod(text: shared)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                        }
+                        if !open && stackSummary {
+                            Text(display.sectionSummary(section: section)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if !open && !stackSummary { Text(display.sectionSummary(section: section)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta) }
                     Image(systemName: open ? "chevron.up" : "chevron.down").font(StockStepsTheme.font(type.caption, relativeTo: .caption1).weight(.semibold))
                         .foregroundStyle(colors.iconSecondary)
                 }
@@ -423,13 +473,12 @@ struct CompareStocksScreen: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(section.title), \(display.sectionSummary(section: section))")
+            .accessibilityLabel(display.sectionLabel(section: section, open: open))
             .accessibilityValue(open ? "Expanded" : "Collapsed")
             .accessibilityHint(open ? "Collapses the section" : "Expands the section")
             .accessibilityAddTraits([.isHeader, .isButton])
             if open {
                 VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                    if let shared { Text(display.shortPeriod(text: shared)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta) }
                     // Final polish: the section's notes sit behind one "What to keep in mind" control instead of always-visible paragraphs.
                     let notes = display.sectionNotes(section: section)
                     if !notes.isEmpty {
@@ -453,7 +502,7 @@ struct CompareStocksScreen: View {
                 // 5C.1 closure: only expanded notes get a gap below them; the first metric follows the header or notes control directly.
                 .padding(.bottom, notesShown && !display.sectionNotes(section: section).isEmpty ? CGFloat(space.sm) : 0)
                 ForEach(Array(section.rows.enumerated()), id: \.element.id) { index, row in
-                    metricRow(row, state, columns, showPeriod: shared == nil, first: index == 0, colors)
+                    metricRow(row, state, columns, showPeriod: shared == nil, colors)
                     if index < section.rows.count - 1 { StockDivider() }
                 }
             }
@@ -469,7 +518,7 @@ struct CompareStocksScreen: View {
 
     /// One metric: name and period, Explain / ⓘ, then the values — in equal columns or one line per company with its logo and ticker. A missing
     /// value reads "No data" with a real info control ("Market cap unavailable for TSLA. Explain why."), never "N/A ⓘ".
-    private func metricRow(_ row: ComparisonRow, _ state: ComparisonUiState, _ columns: Bool, showPeriod: Bool, first: Bool = false, _ colors: StockColors) -> some View {
+    private func metricRow(_ row: ComparisonRow, _ state: ComparisonUiState, _ columns: Bool, showPeriod: Bool, _ colors: StockColors) -> some View {
         let bars = display.bars(row: row)
         let guide = state.guide(id: row.id)
         let expanded = state.isExpanded(id: row.id)
@@ -553,7 +602,8 @@ struct CompareStocksScreen: View {
                     .padding(.bottom, CGFloat(space.xxs))
             }
         }
-        .padding(.top, first ? CGFloat(space.xxs) : CGFloat(space.xs)).padding(.bottom, CGFloat(space.xs))
+        // Final polish: a hairline gap above every row (the 44 pt title row already gives room) and `xs` below, before the divider.
+        .padding(.top, CGFloat(space.xxs)).padding(.bottom, CGFloat(space.xs))
     }
 
     /// Compact comparison bars (Phase 5C.1, percentage metrics only; same shared `ComparisonDisplay.bars` as Android): ticker, a bar scaled to the
@@ -646,14 +696,19 @@ struct CompareStocksScreen: View {
                 }
                 if points.isEmpty { Text("Price history isn't available for this period.").font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody) }
                 else {
+                    // Final polish: each company keeps the shared StockChartSeriesStyle colour and dash (same as Compose and the legend below).
+                    let symbols = drawable.map(\.symbol)
+                    let reference = StockStepsTheme.chartReference(scheme)
                     Chart {
-                        RuleMark(y: .value("Start", 100)).foregroundStyle(colors.textTertiary).lineStyle(StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                        RuleMark(y: .value("Start", 100)).foregroundStyle(StockStepsTheme.color(reference.color)).lineStyle(StockStepsTheme.strokeStyle(reference))
                         ForEach(points) { point in
+                            let line = StockStepsTheme.chartLine(symbols.firstIndex(of: point.symbol) ?? 0, scheme)
                             LineMark(x: .value("Day", point.index), y: .value("Growth of 100", point.value), series: .value("Company", point.symbol))
-                                .foregroundStyle(by: .value("Company", point.symbol))
-                                .lineStyle(by: .value("Company", point.symbol))
+                                .foregroundStyle(StockStepsTheme.color(line.color))
+                                .lineStyle(StockStepsTheme.strokeStyle(line))
                         }
                     }
+                    .chartLegend(.hidden)
                     .chartXAxis(.hidden)
                     .chartYScale(domain: .automatic(includesZero: false))
                     .frame(height: 180)
@@ -662,13 +717,24 @@ struct CompareStocksScreen: View {
                         "\(s.symbol) " + (s.change.map { v in let d = v.doubleValue; return (d > 0 ? "up " : d < 0 ? "down " : "") + MetricFormatter.shared.decimals(value: abs(d), places: 1) + "%" } ?? "unavailable")
                     }.joined(separator: "; "))
                     if let first = chart.dates.first, let last = chart.dates.last {
-                        HStack { Text(first); Spacer(); Text(last) }.font(StockStepsTheme.font(type.tiny, relativeTo: .footnote)).foregroundStyle(colors.textTertiary)
+                        // Start and end dates side by side; stacked when both don't fit (accessibility sizes broke "2025-10-0 / 7").
+                        ViewThatFits(in: .horizontal) {
+                            HStack { Text(verbatim: first).fixedSize(); Spacer(); Text(verbatim: last).fixedSize() }
+                            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { Text(verbatim: "From \(first)"); Text(verbatim: "To \(last)") }
+                        }
+                        .font(StockStepsTheme.font(type.tiny, relativeTo: .footnote)).foregroundStyle(colors.textTertiary)
                     }
-                    // Per-company change as whole "AAPL +22.40%" pairs (same shared formatter as Android); they move to the next line, never split.
+                    // Legend: swatch + ticker + change as whole items (same shared formatter and line styles as Android), then the reference line;
+                    // they move to the next line, never split.
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: CGFloat(space.md)) { legend(drawable, colors) }
-                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { legend(drawable, colors) }
+                        VStack(alignment: .leading, spacing: CGFloat(space.xs)) { legend(drawable, colors) }
                     }
+                    HStack(spacing: CGFloat(space.xs)) {
+                        StockChartSwatch(line: reference)
+                        Text("Start (100)").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
+                    }
+                    .accessibilityElement(children: .combine)
                     ForEach(drawable.filter { $0.note != nil }, id: \.symbol) { s in
                         Text("\(s.symbol): \(s.note ?? "")").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
                     }
@@ -684,9 +750,10 @@ struct CompareStocksScreen: View {
     }
 
     @ViewBuilder private func legend(_ series: [PerformanceSeries], _ colors: StockColors) -> some View {
-        ForEach(series, id: \.symbol) { s in
+        ForEach(Array(series.enumerated()), id: \.element.symbol) { index, s in
             let cell = s.change.map { MetricFormatter.shared.change(percent: $0) }
-            HStack(spacing: CGFloat(space.xxs)) {
+            HStack(spacing: CGFloat(space.xs)) {
+                StockChartSwatch(line: StockStepsTheme.chartLine(index, scheme))
                 Text(s.symbol).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textTitle)
                 Text(verbatim: cell?.text ?? ComparisonDisplay.shared.NO_DATA).font(StockStepsTheme.font(type.numberLabel, relativeTo: .footnote))
                     .foregroundStyle(cell.map { toneColor($0, colors) } ?? colors.textTertiary)

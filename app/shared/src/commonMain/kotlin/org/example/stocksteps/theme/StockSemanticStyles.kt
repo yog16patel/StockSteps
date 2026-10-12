@@ -39,6 +39,12 @@ object StockSemanticStyles {
     /** Fill/text of a selected chip, pill or range option: the accessible action blue with white text (as primary buttons). */
     fun selectedFill(p: ThemePalette): Pair<Int, Int> = p.primaryAction to p.onPrimary
 
+    /**
+     * The app-wide MOCK strip ("Sample data · mock backend"): SAMPLE fill with a hairline [StockToneColors.border] on top and quieter
+     * `textSecondary` text (≥ 7:1 on the fill in both themes), so it stays visible without competing with the screen (Comparison final polish).
+     */
+    fun sampleStrip(p: ThemePalette): StockToneColors = StockToneColors(p.warningContainer, p.textSecondary, p.warningBorder, p.cautionText)
+
     /** Text on an education container (eyebrows, labels): `educationAccent` is 2.75:1 there in light mode, so text uses `cautionText`. */
     fun educationText(p: ThemePalette): Int = p.cautionText
 }
@@ -126,4 +132,24 @@ object StockComparisonLayout {
 
     /** The pieces that may not break: text splits only at spaces, so each whitespace-separated token must fit. */
     fun tokens(text: String): List<String> = text.split(' ', ' ', '\n').filter { it.isNotBlank() }
+}
+
+/**
+ * Line styles for multi-series charts (Comparison final polish), shared by Compose `StockTrendChart` and Swift Charts so a company keeps the same
+ * colour **and** dash pattern on both platforms and in the legend. Colour is never the only cue: each series also differs in dash pattern and the
+ * legend names it. Dash lengths are dp / pt (on, off, …); empty = solid.
+ */
+object StockChartSeriesStyle {
+    data class Line(val color: Int, val dash: List<Float>, val width: Float = 2f)
+
+    /** 0 = the main series (brand blue, solid); 1–3 = slate dashed, orange dotted, indigo dash-dot; repeats after 4. */
+    fun series(index: Int, p: ThemePalette): Line = when (index.mod(4)) {
+        0 -> Line(p.primary, emptyList())
+        1 -> Line(p.textSecondary, listOf(6f, 4f))
+        2 -> Line(p.caution, listOf(1f, 4f))
+        else -> Line(p.learnAccent, listOf(8f, 3f, 2f, 3f))
+    }
+
+    /** Reference line (e.g. "Start (100)", an average or zero): thin, muted, long dashes — never one of the series styles. */
+    fun reference(p: ThemePalette): Line = Line(p.textTertiary, listOf(10f, 5f), width = 1f)
 }

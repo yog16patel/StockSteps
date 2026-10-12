@@ -104,16 +104,22 @@ private struct SampleDataInset: ViewModifier {
 
 struct SampleDataBanner: View {
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
     /// True at the bottom of the root (fills the home-indicator strip); false above the tab bar.
     var fillsBottomSafeArea = true
     var body: some View {
-        let colors = StockStepsTheme.colors(scheme)
+        // Comparison final polish: quieter treatment shared with Compose (`StockSemanticStyles.sampleStrip`): SAMPLE fill, hairline top border,
+        // `textSecondary` caption (≥ 7:1). Placement (above the tab bar or filling the home-indicator strip) is unchanged.
+        let strip = StockSemanticStyles.shared.sampleStrip(p: StockStepsTheme.palette(scheme))
         Text("Sample data · mock backend")
-            .font(StockStepsTheme.font(StockStepsTheme.typography.label, relativeTo: .footnote))
-            .foregroundStyle(colors.textBody)
+            // Persistent chrome (like the tab bar below it): scales with Dynamic Type up to the first accessibility size, so at AX5 it stays a
+            // one-line disclosure instead of a two-line block over the content; resolved from `typeSize`, so it also updates live.
+            .font(Font(StockStepsTheme.uiFont(StockStepsTheme.typography.caption, typeSize: min(typeSize, .accessibility1))))
+            .foregroundStyle(StockStepsTheme.color(strip.content))
             .frame(maxWidth: .infinity)
             .padding(.vertical, CGFloat(StockStepsTheme.spacing.xxs))
+            .overlay(alignment: .top) { Rectangle().fill(StockStepsTheme.color(strip.border)).frame(height: 1) }
             // Fills the home-indicator strip below the text (container safe area only, so it never paints behind the keyboard).
-            .background(colors.warningContainer.ignoresSafeArea(.container, edges: fillsBottomSafeArea ? .bottom : []))
+            .background(StockStepsTheme.color(strip.container).ignoresSafeArea(.container, edges: fillsBottomSafeArea ? .bottom : []))
     }
 }

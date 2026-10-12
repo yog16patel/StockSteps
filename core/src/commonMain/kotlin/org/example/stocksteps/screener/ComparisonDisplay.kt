@@ -114,6 +114,15 @@ object ComparisonDisplay {
     fun sectionNotes(section: ComparisonSection): List<String> = listOfNotNull(section.note, BAR_NOTE.takeIf { sectionHasBars(section) })
 
     const val NOTES_LABEL = "What to keep in mind"
+
+    /** "More metrics (26)" / "Hide extra metrics" — the count is the live number of extra metrics. */
+    fun moreMetricsLabel(count: Int, showing: Boolean): String = if (showing) "Hide extra metrics" else "More metrics ($count)"
+    /** One line under the button so beginners know the extra sections are optional (final polish). */
+    const val MORE_METRICS_NOTE = "Optional, more advanced measures. The sections above cover the basics."
+
+    /** Accessibility label of a section header (state is announced separately): title, metric count and — when open with one shared period — that period in full. */
+    fun sectionLabel(section: ComparisonSection, open: Boolean): String =
+        listOfNotNull(section.title, sectionSummary(section), sharedPeriod(section)?.takeIf { open }).joinToString(", ")
     fun notesSpoken(section: ComparisonSection, open: Boolean): String = "$NOTES_LABEL about ${section.title}, ${if (open) "expanded" else "collapsed"}"
 
     /** Insights shown before "Show all": the first one; the rest and the footer appear on demand. */
@@ -135,3 +144,74 @@ object ComparisonDisplay {
 
 /** One company's bar: [fraction] of the longest bar in the row (0–1), [negative] = the value is below zero (labelled, not only coloured). */
 data class ComparisonBar(val fraction: Float, val negative: Boolean)
+
+/** One "What the numbers show" item: short heading + concise text; [caveat] only when it is specific to this metric and not shown above. */
+data class ObservationItem(val metric: String, val heading: String, val text: String, val caveat: String?) {
+    val spoken: String get() = listOfNotNull(heading, text, caveat).joinToString(". ")
+}
+
+/** The card: [top] (up to [ComparisonObservationsDisplay.TOP]) shown by default, [more] behind "View all", one shared [note]. */
+data class ObservationsView(val subtitle: String, val top: List<ObservationItem>, val more: List<ObservationItem>, val note: String) {
+    val total: Int get() = top.size + more.size
+}
+
+/**
+ * "What the numbers show" (Comparison polish): presentation only over the server's deterministic `ComparisonObservation`s — no value is computed,
+ * re-ranked or invented. Picks up to three items from distinct topics (growth, profitability, valuation, financial health, dividends; first available
+ * metric per topic, in that order), gives each a short heading, shortens company names to tickers, condenses the engine's "Among these N companies, …
+ * ranges from …" sentence (adding "N of M companies report it" when some have no value), moves the repeated "Reporting periods end on different
+ * dates (…)" caveat into one shared note and shows each remaining caveat sentence only once. Text in an unexpected shape is kept unchanged.
+ */
+object ComparisonObservationsDisplay {
+    const val TITLE = "What the numbers show"
+    const val TOP = 3
+    private const val PERIODS_PREFIX = "Reporting periods end on different dates"
+    private const val NOT_ADVICE = "These describe reported figures. They aren't rankings or recommendations."
+    private const val PERIODS_NOTE = "Reporting periods can differ by company."
+
+    private val topics = listOf(
+        listOf("revenueGrowth", "quarterRevenueGrowth"), listOf("netMargin", "operatingMargin"), listOf("pe"),
+        listOf("debtEquity", "freeCashFlow"), listOf("dividendYield"))
+    private val headings = mapOf(
+        "revenueGrowth" to "Revenue growth", "quarterRevenueGrowth" to "Quarterly revenue growth", "netMargin" to "Net margin",
+        "operatingMargin" to "Operating margin", "pe" to "Trailing P/E", "debtEquity" to "Debt / equity", "dividendYield" to "Dividend yield",
+        "freeCashFlow" to "Free cash flow")
+    private val RANGE = Regex("""^Among these (\d+) companies, .+? (ranges from .+)$""")
+
+    fun subtitle(companies: Int): String = "Based on the $companies companies selected"
+    fun toggle(total: Int, open: Boolean): String? = if (total <= TOP) null else if (open) "Show fewer insights" else "View all $total insights"
+
+    fun view(observations: List<ComparisonObservation>, columns: List<CompanyColumn>): ObservationsView {
+        val topicOf = { metric: String -> topics.indexOfFirst { metric in it }.let { if (it < 0) topics.size else it } }
+        // Top: the first observation of each topic in topic order; then everything else in the engine's order.
+        val firsts = observations.groupBy { topicOf(it.metric) }.filterKeys { it < topics.size }.entries.sortedBy { it.key }.map { (_, group) ->
+            group.minBy { o -> topics[topicOf(o.metric)].indexOf(o.metric) }
+        }
+        val top = firsts.take(TOP)
+        val more = observations.filter { it !in top }
+        val shown = mutableSetOf<String>()
+        var periodsDiffer = false
+        fun item(o: ComparisonObservation): ObservationItem {
+            var caveat = o.caveat?.trim().orEmpty()
+            if (caveat.startsWith(PERIODS_PREFIX)) {
+                periodsDiffer = true
+                caveat = caveat.substringAfter(").", "").trim()
+            }
+            val sentences = caveat.split(Regex("""(?<=\.)\s+""")).map { it.trim() }.filter { it.isNotEmpty() && shown.add(it) }
+            return ObservationItem(o.metric, headings[o.metric] ?: ScreenerDefinitions.metric(o.metric)?.label ?: o.metric,
+                concise(o.text, columns), sentences.joinToString(" ").ifEmpty { null })
+        }
+        val topItems = top.map(::item)
+        val moreItems = more.map(::item)
+        return ObservationsView(subtitle(columns.size), topItems, moreItems, if (periodsDiffer) "$PERIODS_NOTE $NOT_ADVICE" else NOT_ADVICE)
+    }
+
+    /** Tickers instead of company names; the range sentence without its repeated lead-in, plus how many companies report the metric. */
+    fun concise(text: String, columns: List<CompanyColumn>): String {
+        val short = columns.sortedByDescending { it.name.length }.fold(text) { t, c -> if (c.name.isBlank()) t else t.replace(c.name, c.symbol) }
+        val match = RANGE.matchEntire(short) ?: return short
+        val reporting = match.groupValues[1].toIntOrNull()
+        val range = match.groupValues[2].replaceFirstChar { it.uppercase() }
+        return if (reporting != null && reporting < columns.size) "${range.removeSuffix(".")} · $reporting of ${columns.size} companies report it." else range
+    }
+}

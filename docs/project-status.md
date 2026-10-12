@@ -6,6 +6,10 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**Newest (2026-10-12)**: Company Comparison final polish committed and pushed as "Polish Company Comparison with shared chart legend styles, concise What-the-numbers-show insights, a quieter sample strip and large-text fixes on Android and iOS"
+(`docs/GLOBAL_UI_REFINEMENT_PHASE5C_FINAL_POLISH.md`; core 468/0, shared 114/0 and 110/0, both builds OK, device checks on local MOCK). Next: Portfolio
+P-B or Phase 5D after approval.
+
 **Latest (2026-10-12, committed and pushed as "Close Company Comparison Phase 5C.1 with section-based sticky header and spacing fixes, and add the Portfolio UI audit and Phase P-A display rules")**: Phase 5C.1 closure (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1_CLOSURE.md`, PASS WITH CONDITIONS), Portfolio audit
 (`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`) and Portfolio P-A baseline + shared display rules (`docs/PORTFOLIO_REFINEMENT_PHASE_PA.md`) are committed on
 top of `42c749d`. Tests: core 466/0 (JVM, iOS), shared 113/0 (Android) and 109/0 (iOS), both builds OK. **Next: Portfolio P-B

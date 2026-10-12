@@ -1,11 +1,27 @@
-# StockSteps — session handoff (2026-10-12: Phase 5C.1 closed; Portfolio audit + P-A done; next Portfolio P-B after approval)
+# StockSteps — session handoff (2026-10-12: Company Comparison final polish committed; next Portfolio P-B or Phase 5D after approval)
 
-Read order for a new session: `CLAUDE.md` → **§CLOSURE-5C1-PA below** → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§FINAL-POLISH-5C below** → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## CLOSURE-5C1-PA. Phase 5C.1 closure + Portfolio audit and P-A (2026-10-11/12, committed and pushed — start here)
+## FINAL-POLISH-5C. Company Comparison final polish (2026-10-12, committed and pushed — start here)
+
+- Repository: `main`. Current commit: "Polish Company Comparison with shared chart legend styles, concise What-the-numbers-show insights, a quieter sample strip and large-text fixes on Android and iOS" (pushed), on top of `92a6d6a` "Close Company Comparison Phase 5C.1 with section-based sticky header and
+  spacing fixes, and add the Portfolio UI audit and Phase P-A display rules".
+- Done (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_FINAL_POLISH.md`): shared `StockChartSeriesStyle` (colour + dash per series, reference line) for Compose
+  `StockTrendChart` and Swift Charts with drawn legend swatches; quieter sample strip (`StockSemanticStyles.sampleStrip`, iOS strip capped at the
+  first accessibility size and following live text-size changes); section period inside the header and count stacked at large text; tighter metric
+  spacing; More-metrics note; "What the numbers show" = 3 distinct insights + "View all N insights" via `ComparisonObservationsDisplay` (presentation
+  only); AX5 fixes for chart dates and the selection title (also Android 2.0×).
+- Validation: core JVM 468/0, core iOS 468/0, shared Android 114/0, shared iOS 110/0, `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED; device
+  checks on local MOCK (Android 360 dp dark 1.0×/1.3×/2.0×, light 2 companies; iPhone 16 light/dark/AX5; iPhone SE) — captures
+  `docs/design/phase5c_final/` (25).
+- Limits: TalkBack/VoiceOver/physical devices NOT TESTED; Swift Charts y-axis labels very large at AX5; live Dynamic Type changes need the screen
+  rebuilt; Android tab labels truncate at 2.0×; iOS history chart keeps automatic colours.
+- Next: owner's choice — Portfolio P-B (Overview Card, scope in `docs/PORTFOLIO_REFINEMENT_PHASE_PA.md` §5) or Phase 5D, each only after approval.
+
+## CLOSURE-5C1-PA. Phase 5C.1 closure + Portfolio audit and P-A (2026-10-11/12, committed and pushed)
 
 - Repository: `main`. Current commit: "Close Company Comparison Phase 5C.1 with section-based sticky header and spacing fixes, and add the Portfolio UI audit and Phase P-A display rules" (pushed), on top of `42c749d` "Add end-of-session handoff after Global UI Refinement Phase 5C.1 and
   point to the Phase 5D Earnings audit" (pushed with it). Everything below is in that commit.

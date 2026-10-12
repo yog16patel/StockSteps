@@ -499,3 +499,33 @@ struct StockNavigationRow: View {
         .accessibilityHint(hint ?? "")
     }
 }
+
+// MARK: - Chart series styles (Comparison final polish; same `StockChartSeriesStyle` as Compose)
+
+extension StockStepsTheme {
+    /// Colour and dash pattern of chart series `index` (0 = main, solid brand blue).
+    static func chartLine(_ index: Int, _ scheme: ColorScheme) -> StockChartSeriesStyle.Line {
+        StockChartSeriesStyle.shared.series(index: Int32(index), p: palette(scheme))
+    }
+
+    static func chartReference(_ scheme: ColorScheme) -> StockChartSeriesStyle.Line { StockChartSeriesStyle.shared.reference(p: palette(scheme)) }
+
+    static func strokeStyle(_ line: StockChartSeriesStyle.Line, minWidth: CGFloat = 0) -> StrokeStyle {
+        StrokeStyle(lineWidth: max(CGFloat(line.width), minWidth), lineCap: .round, lineJoin: .round, dash: line.dash.map { CGFloat($0.floatValue) })
+    }
+}
+
+/// A short sample of a chart line (colour + dash pattern) for legends, so a series is never identified by colour alone. Decorative.
+struct StockChartSwatch: View {
+    let line: StockChartSeriesStyle.Line
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            path.move(to: CGPoint(x: 1, y: size.height / 2))
+            path.addLine(to: CGPoint(x: size.width - 1, y: size.height / 2))
+            context.stroke(path, with: .color(StockStepsTheme.color(line.color)), style: StockStepsTheme.strokeStyle(line, minWidth: 1.5))
+        }
+        .frame(width: 20, height: 8)
+        .accessibilityHidden(true)
+    }
+}

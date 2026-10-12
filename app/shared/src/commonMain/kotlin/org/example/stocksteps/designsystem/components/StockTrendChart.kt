@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
+import org.example.stocksteps.theme.StockChartSeriesStyle
 
 /**
  * Line chart for a series with gaps (one slot per period; null = no valid value). Segments are
@@ -65,17 +66,21 @@ internal fun StockTrendChart(
     val span = (high - low).takeIf { it > 0 } ?: 1.0
     Column(modifier.semantics(mergeDescendants = true) { contentDescription = description }) {
         Text(details.getOrNull(focus).orEmpty(), Modifier.clearAndSetSemantics {}, style = typography.label, color = colors.textPrimary)
-        val extraColors = listOf(colors.textSecondary, colors.caution, colors.educationAccent)
-        val extraDashes = listOf("- -", "· ·", "-·-")
+        // Shared line styles (StockChartSeriesStyle): the legend draws each line's real colour and dash pattern as a swatch; labels use readable
+        // text colours (the orange series colour is too light for caption text). Series 0 = [values], then [comparison], then [additional].
+        val palette = colors.palette
+        val extraOffset = if (comparison != null) 2 else 1
+        val referenceLine = StockChartSeriesStyle.reference(palette)
         if (seriesLabel != null && (comparison != null && comparisonLabel != null || additional.isNotEmpty())) {
-            androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = spacing.xxs).clearAndSetSemantics {}, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
-                Text("— $seriesLabel", style = typography.caption, color = colors.primary)
-                if (comparison != null && comparisonLabel != null) Text("- - $comparisonLabel", style = typography.caption, color = colors.textSecondary)
-                additional.forEachIndexed { i, (label, _) -> Text("${extraDashes[i % 3]} $label", style = typography.caption, color = extraColors[i % 3]) }
+            androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = spacing.xxs).clearAndSetSemantics {}, horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                StockChartLegendItem(StockChartSeriesStyle.series(0, palette), seriesLabel)
+                if (comparison != null && comparisonLabel != null) StockChartLegendItem(StockChartSeriesStyle.series(1, palette), comparisonLabel)
+                additional.forEachIndexed { i, (label, _) -> StockChartLegendItem(StockChartSeriesStyle.series(i + extraOffset, palette), label) }
             }
         }
         if (reference != null && referenceLabel != null) {
-            Text("- - $referenceLabel", Modifier.padding(top = spacing.xxs).clearAndSetSemantics {}, style = typography.caption, color = colors.textSecondary)
+            StockChartLegendItem(referenceLine, referenceLabel, Modifier.padding(top = spacing.xxs).clearAndSetSemantics {})
         }
         Row(Modifier.fillMaxWidth().padding(top = spacing.sm).height(height)) {
             Canvas(
@@ -93,8 +98,8 @@ internal fun StockTrendChart(
                 val step = if (values.size > 1) size.width / values.lastIndex else 0f
                 fun y(v: Double) = (inset + (size.height - inset * 2) * (1 - (v - low) / span)).toFloat()
                 reference?.let {
-                    drawLine(colors.textTertiary, Offset(0f, y(it)), Offset(size.width, y(it)), strokeWidth = 1.5.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())))
+                    drawLine(colors.rgb(referenceLine.color), Offset(0f, y(it)), Offset(size.width, y(it)), strokeWidth = referenceLine.width.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(referenceLine.dash.map { d -> d.dp.toPx() }.toFloatArray()))
                 }
                 // Draw each run of consecutive values separately so gaps stay visible.
                 fun series(points: List<Double?>, color: androidx.compose.ui.graphics.Color, dashed: Boolean, pattern: FloatArray? = null) {
@@ -113,11 +118,12 @@ internal fun StockTrendChart(
                     }
                     path?.let { drawPath(it, color, style = stroke) }
                 }
-                comparison?.let { series(it, colors.textSecondary, dashed = true) }
-                additional.forEachIndexed { i, (_, points) ->
-                    val pattern = when (i % 3) { 0 -> floatArrayOf(6.dp.toPx(), 4.dp.toPx()); 1 -> floatArrayOf(1.dp.toPx(), 4.dp.toPx()); else -> floatArrayOf(8.dp.toPx(), 3.dp.toPx(), 2.dp.toPx(), 3.dp.toPx()) }
-                    series(points, extraColors[i % 3], dashed = true, pattern = pattern)
+                fun styled(points: List<Double?>, index: Int) {
+                    val line = StockChartSeriesStyle.series(index, palette)
+                    series(points, colors.rgb(line.color), dashed = line.dash.isNotEmpty(), pattern = line.dash.takeIf { it.isNotEmpty() }?.map { d -> d.dp.toPx() }?.toFloatArray())
                 }
+                comparison?.let { styled(it, 1) }
+                additional.forEachIndexed { i, (_, points) -> styled(points, i + extraOffset) }
                 markers.filter { it in values.indices }.forEach { i ->
                     drawLine(colors.caution, Offset(i * step, 0f), Offset(i * step, size.height), strokeWidth = 1.5.dp.toPx(),
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx())))
@@ -144,3 +150,22 @@ internal fun StockTrendChart(
 }
 
 private val CHART_HEIGHT = 150.dp
+
+/** A short sample of a chart line (its colour and dash pattern), so a legend never relies on colour or a text glyph alone. Decorative. */
+@Composable
+internal fun StockChartSwatch(line: StockChartSeriesStyle.Line, modifier: Modifier = Modifier) {
+    val color = StockStepsTheme.colors.rgb(line.color)
+    Canvas(modifier.size(width = 20.dp, height = 8.dp).clearAndSetSemantics {}) {
+        drawLine(color, Offset(0f, size.height / 2), Offset(size.width, size.height / 2), strokeWidth = maxOf(line.width, 1.5f).dp.toPx(), cap = StrokeCap.Round,
+            pathEffect = line.dash.takeIf { it.isNotEmpty() }?.let { d -> PathEffect.dashPathEffect(d.map { it.dp.toPx() }.toFloatArray()) })
+    }
+}
+
+/** Swatch + label (caption, `textSecondary`), kept together when a legend wraps. */
+@Composable
+internal fun StockChartLegendItem(line: StockChartSeriesStyle.Line, label: String, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        StockChartSwatch(line)
+        Text(label, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary)
+    }
+}

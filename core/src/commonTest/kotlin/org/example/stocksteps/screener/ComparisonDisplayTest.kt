@@ -137,4 +137,51 @@ class ComparisonDisplayTest {
         assertNull(ComparisonDisplay.companyHeaderSection(listOf(columns), sideBySide = false), "stacked lines name each company")
         assertNull(ComparisonDisplay.companyHeaderSection(emptyList(), sideBySide = true), "every section collapsed")
     }
+
+    @Test fun moreMetricsAndSectionLabelsUseLiveValues() {
+        assertEquals("More metrics (26)", ComparisonDisplay.moreMetricsLabel(26, showing = false))
+        assertEquals("Hide extra metrics", ComparisonDisplay.moreMetricsLabel(26, showing = true))
+        val section = ComparisonSection("Valuation", listOf(ComparisonRow("pe", "P/E", "Trailing twelve months", emptyList()),
+            ComparisonRow("ps", "P/S", "Trailing twelve months", emptyList())))
+        assertEquals("Valuation, 2 metrics, Trailing twelve months", ComparisonDisplay.sectionLabel(section, open = true))
+        assertEquals("Valuation, 2 metrics", ComparisonDisplay.sectionLabel(section, open = false))
+    }
+
+    @Test fun observationsShowThreeDistinctTopicsWithOneSharedNote() {
+        val nvda = column("NVDA", "NVIDIA Corporation"); val msft = column("MSFT", "Microsoft Corporation")
+        val columns = listOf(apple, msft, nvda, tesla)
+        val dates = "Reporting periods end on different dates (AAPL 2025-09-30, MSFT 2025-06-30, NVDA 2026-01-31, TSLA 2025-12-31)."
+        val observations = listOf(
+            ComparisonObservation("operatingMargin", "Among these 4 companies, operating margin ranges from 7.2% (Tesla, Inc.) to 60.0% (NVIDIA Corporation).", dates),
+            ComparisonObservation("netMargin", "Among these 4 companies, net margin ranges from 7.3% (Tesla, Inc.) to 53.0% (NVIDIA Corporation).", dates),
+            ComparisonObservation("quarterRevenueGrowth", "Among these 4 companies, latest-quarter revenue growth ranges from 0.9% (Tesla, Inc.) to 43.4% (NVIDIA Corporation).",
+                "Each company's latest quarter can cover different months. Past growth doesn't indicate future growth."),
+            ComparisonObservation("revenueGrowth", "Among these 4 companies, revenue growth ranges from 0.9% (Tesla, Inc.) to 43.4% (NVIDIA Corporation).",
+                "$dates Past growth doesn't indicate future growth."),
+            ComparisonObservation("pe", "Among these 4 companies, trailing P/E ranges from 27.8× (Apple Inc.) to 185.2× (Tesla, Inc.).", "A lower P/E isn't proof that a stock is undervalued."),
+            ComparisonObservation("dividendYield", "Among these 3 companies, dividend yield ranges from 0.2% (NVIDIA Corporation) to 0.7% (Microsoft Corporation).", "Dividends can change and aren't guaranteed."),
+            ComparisonObservation("freeCashFlow", "All 4 companies report positive free cash flow."))
+        val view = ComparisonObservationsDisplay.view(observations, columns)
+        assertEquals("Based on the 4 companies selected", view.subtitle)
+        assertEquals(listOf("Revenue growth", "Net margin", "Trailing P/E"), view.top.map { it.heading }, "one per topic: growth, profitability, valuation")
+        assertEquals("Ranges from 0.9% (TSLA) to 43.4% (NVDA).", view.top[0].text, "tickers, no repeated lead-in")
+        assertEquals("Past growth doesn't indicate future growth.", view.top[0].caveat, "dates moved to the shared note; metric caveat kept")
+        assertEquals(7, view.total, "nothing is dropped")
+        val quarter = view.more.first { it.metric == "quarterRevenueGrowth" }
+        assertEquals("Each company's latest quarter can cover different months.", quarter.caveat, "a caveat sentence is shown once")
+        assertEquals("Ranges from 0.2% (NVDA) to 0.7% (MSFT) · 3 of 4 companies report it.", view.more.first { it.metric == "dividendYield" }.text)
+        assertEquals("All 4 companies report positive free cash flow.", view.more.first { it.metric == "freeCashFlow" }.text)
+        assertTrue(view.note.startsWith("Reporting periods can differ by company."))
+        assertTrue(view.all().none { it.text.contains("2025-") || (it.caveat ?: "").contains("2025-") }, "no repeated reporting dates")
+        assertEquals("View all 7 insights", ComparisonObservationsDisplay.toggle(view.total, open = false))
+        assertEquals("Show fewer insights", ComparisonObservationsDisplay.toggle(view.total, open = true))
+        assertNull(ComparisonObservationsDisplay.toggle(3, open = false))
+        // Unknown shapes are kept (names still shortened); two-company sentences keep both values.
+        assertEquals("NVDA has a higher net margin than AAPL (53.0% vs 32.0%).",
+            ComparisonObservationsDisplay.concise("NVIDIA Corporation has a higher net margin than Apple Inc. (53.0% vs 32.0%).", columns))
+        assertEquals(NOT_ADVICE_ONLY, ComparisonObservationsDisplay.view(observations.takeLast(1), columns).note)
+    }
+
+    private val NOT_ADVICE_ONLY = "These describe reported figures. They aren't rankings or recommendations."
+    private fun ObservationsView.all() = top + more
 }

@@ -12,6 +12,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.rememberTextMeasurer
+import org.example.stocksteps.theme.StockChartSeriesStyle
 import org.example.stocksteps.theme.StockComparisonLayout
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -118,7 +119,7 @@ internal fun ComparisonScreen(
                                 badge = { if (state.sampleData) StockStatusBadge("Sample", org.example.stocksteps.theme.StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT) })
                             Text(ComparisonDisplay.SUBTITLE, style = typography.small, color = colors.textSupporting)
                         }
-                        ComparisonEntry.Selection -> SelectionCard(state, gap, onAdd = { picking = "" }, onReplace = { picking = it }, onRemove = onRemove)
+                        ComparisonEntry.Selection -> SelectionCard(state, gap, onAdd = { picking = "" }, onReplace = { picking = it }, onRemove = onRemove, stackHeader = accessibilityText)
                         ComparisonEntry.Examples -> ExamplesCard(state, gap, onExample, onDiscover)
                         ComparisonEntry.Loading -> StockLoadingState(gap) {
                             StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xxs)) { repeat(3) { StockRowSkeleton() } }
@@ -127,15 +128,20 @@ internal fun ComparisonScreen(
                             StockErrorState(state.error.orEmpty(), onRetry, title = ComparisonDisplay.ERROR_TITLE, icon = StockIcons.Warning)
                         }
                         ComparisonEntry.Summary -> Box(gap) { ComparisonLearningSummary(state.insights, guidance.onRelated) }
-                        is ComparisonEntry.SectionTitle -> SectionHeader(entry.section, entry.open, gap) { toggle(entry.section.title) }
+                        is ComparisonEntry.SectionTitle -> SectionHeader(entry.section, entry.open, gap, stackSummary = accessibilityText) { toggle(entry.section.title) }
                         is ComparisonEntry.Metric -> Column(Modifier.fillMaxWidth()
                             .clip(if (entry.last) RoundedCornerShape(bottomStart = cardRadius, bottomEnd = cardRadius) else RoundedCornerShape(0.dp))
                             .background(colors.surface).padding(horizontal = spacing.cardPadding).padding(bottom = if (entry.last) spacing.xs else 0.dp)) {
                             MetricRowView(entry.row, state.columns, sideBySide, state.guide(entry.row.id), state.isExpanded(entry.row.id), state.isDeeper(entry.row.id),
-                                first = entry.first, last = entry.last, showPeriod = ComparisonDisplay.sharedPeriod(entry.section) == null, onInfo = { onInfo(entry.row) }, guidance = guidance)
+                                last = entry.last, showPeriod = ComparisonDisplay.sharedPeriod(entry.section) == null, onInfo = { onInfo(entry.row) }, guidance = guidance)
                         }
-                        ComparisonEntry.More -> StockButton(if (state.showMore) "Hide extra metrics" else "More metrics (${state.advancedCount})", onClick = guidance.onToggleMore,
-                            variant = StockButtonVariant.SECONDARY, modifier = gap.fillMaxWidth().semantics { stateDescription = if (state.showMore) "Expanded" else "Collapsed" })
+                        // Final polish: one caption says the extra sections are optional; label, live count and toggle unchanged.
+                        ComparisonEntry.More -> Column(gap, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                            StockButton(ComparisonDisplay.moreMetricsLabel(state.advancedCount, state.showMore), onClick = guidance.onToggleMore,
+                                variant = StockButtonVariant.SECONDARY, modifier = Modifier.fillMaxWidth().semantics { stateDescription = if (state.showMore) "Expanded" else "Collapsed" })
+                            if (!state.showMore) Text(ComparisonDisplay.MORE_METRICS_NOTE, Modifier.fillMaxWidth(), style = typography.caption, color = colors.textSupporting,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        }
                         ComparisonEntry.Chart -> Box(gap) { PerformanceCard(state, onPeriod, onRetry) }
                         ComparisonEntry.History -> Box(gap) { HistoricalComparisonCard(state, history, expanded = isOpen(ComparisonDisplay.HISTORY_TITLE)) { toggle(ComparisonDisplay.HISTORY_TITLE) } }
                         ComparisonEntry.Tools -> Column(gap, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
@@ -150,14 +156,7 @@ internal fun ComparisonScreen(
                                 StockNavigationRow("Discover Stocks", onDiscover, icon = StockIcons.Search, detail = "Find more companies to compare")
                             }
                         }
-                        ComparisonEntry.Observations -> StockCard(gap, bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                            Text("What the numbers show", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
-                            state.observations.forEach { o ->
-                                Text("• ${o.text}", style = typography.small, color = colors.textBody)
-                                o.caveat?.let { Text(it, Modifier.padding(start = spacing.sm), style = typography.caption, color = colors.textSupporting) }
-                            }
-                            Text("These describe reported figures. They aren't rankings or recommendations.", style = typography.caption, color = colors.textTertiary)
-                        }
+                        ComparisonEntry.Observations -> Box(gap) { ObservationsCard(ComparisonObservationsDisplay.view(state.observations, state.columns)) }
                         ComparisonEntry.Notes -> Column(gap, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                             Text("Sources and notes", Modifier.semantics { heading() }, style = typography.label, color = colors.textSecondary)
                             state.notes.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
@@ -184,13 +183,20 @@ private val cardRadius = org.example.stocksteps.theme.ThemeCorners.card.dp
 
 /** The chosen companies: logo, ticker, two-line name and listing; ⋮ holds Replace and Remove (48 dp target at any text size). */
 @Composable
-private fun SelectionCard(state: ComparisonUiState, modifier: Modifier, onAdd: () -> Unit, onReplace: (String) -> Unit, onRemove: (String) -> Unit) {
+private fun SelectionCard(state: ComparisonUiState, modifier: Modifier, onAdd: () -> Unit, onReplace: (String) -> Unit, onRemove: (String) -> Unit,
+                          stackHeader: Boolean = false) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     StockCard(modifier, bordered = false, contentPadding = PaddingValues(start = spacing.cardPadding, end = spacing.xs, top = spacing.xs, bottom = spacing.sm)) {
-        Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget), verticalAlignment = Alignment.CenterVertically) {
-            Text("Companies (${state.selected.size} of $MAX_COMPARED_COMPANIES)", Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
+        // Final polish: at accessibility text sizes "Add a company" goes under the title, so the title never breaks mid-word.
+        val title = "Companies (${state.selected.size} of $MAX_COMPARED_COMPANIES)"
+        if (stackHeader) Column(Modifier.fillMaxWidth()) {
+            Text(title, Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget).wrapContentHeight().semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
+            if (state.canAdd) TextButton(onClick = onAdd, contentPadding = PaddingValues(0.dp)) { Text("Add a company", style = typography.label, color = colors.primaryText) }
+        }
+        else Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
             if (state.canAdd) TextButton(onClick = onAdd) { Text("Add a company", style = typography.label, color = colors.primaryText) }
         }
         state.selected.forEachIndexed { index, company ->
@@ -269,6 +275,42 @@ private fun CompanyHeader(columns: List<CompanyColumn>, onOpen: (String) -> Unit
     }
 }
 
+/**
+ * "What the numbers show" (Comparison polish): up to three distinct insights (heading + concise text, metric caveat only when needed), "View all N
+ * insights" for the rest and one shared note. Copy and selection come from the shared [ComparisonObservationsDisplay]; values are the server's.
+ */
+@Composable
+private fun ObservationsCard(view: ObservationsView) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    var all by rememberSaveable { mutableStateOf(false) }
+    StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Text(ComparisonObservationsDisplay.TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
+            Text(view.subtitle, style = typography.caption, color = colors.textSupporting)
+        }
+        (if (all) view.top + view.more else view.top).forEachIndexed { i, item ->
+            if (i > 0) StockDivider()
+            Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = item.spoken }, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text(item.heading, style = typography.bodySemiBold, color = colors.textTitle)
+                Text(item.text, style = typography.small, color = colors.textBody)
+                item.caveat?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
+            }
+        }
+        ComparisonObservationsDisplay.toggle(view.total, all)?.let { label ->
+            Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(role = androidx.compose.ui.semantics.Role.Button) { all = !all }
+                .semantics { stateDescription = if (all) "Expanded" else "Collapsed" },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text(label, style = typography.label, color = colors.primaryText)
+                Icon(StockIcons.ChevronDown, null, tint = colors.primaryText,
+                    modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall).graphicsLayer { rotationZ = if (all) 180f else 0f })
+            }
+        }
+        Text(view.note, style = typography.caption, color = colors.textTertiary)
+    }
+}
+
 /** Phase 2 actions (explanations, related metrics, "More metrics"); defaults keep previews and older call sites working. */
 internal data class GuidanceActions(
     val onExplain: (String) -> Unit = {},
@@ -289,8 +331,8 @@ internal sealed class ComparisonEntry(val key: String) {
     data object Companies : ComparisonEntry("companies")
     /** [open] = rows shown (Phase 5C.1 collapsible sections). */
     class SectionTitle(val section: ComparisonSection, val open: Boolean) : ComparisonEntry("section-${section.title}")
-    /** [first] = directly under the section header (no extra top gap); [last] = the section's final row (closes its card). */
-    class Metric(val section: ComparisonSection, val row: ComparisonRow, val last: Boolean, val first: Boolean = false) : ComparisonEntry("row-${section.title}-${row.id}")
+    /** [last] = the section's final row (closes its card). */
+    class Metric(val section: ComparisonSection, val row: ComparisonRow, val last: Boolean) : ComparisonEntry("row-${section.title}-${row.id}")
     data object More : ComparisonEntry("more")
     /** Ends the pinned company header after the metric sections. */
     data object CompaniesEnd : ComparisonEntry("companies-end")
@@ -316,7 +358,7 @@ internal fun comparisonEntries(state: ComparisonUiState, isOpen: (String) -> Boo
             val open = isOpen(s.title)
             if (s.title == pinFrom) add(ComparisonEntry.Companies)
             add(ComparisonEntry.SectionTitle(s, open))
-            if (open) s.rows.forEach { add(ComparisonEntry.Metric(s, it, it == s.rows.last(), it == s.rows.first())) }
+            if (open) s.rows.forEach { add(ComparisonEntry.Metric(s, it, it == s.rows.last())) }
         }
         state.sections.filterNot { it.advanced }.forEach(::section)
         if (state.advancedCount > 0) add(ComparisonEntry.More)
@@ -337,15 +379,15 @@ internal fun comparisonEntries(state: ComparisonUiState, isOpen: (String) -> Boo
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, sideBySide: Boolean, guide: MetricInterpretation?, expanded: Boolean, deeper: Boolean,
-                          first: Boolean, last: Boolean, showPeriod: Boolean, onInfo: () -> Unit, guidance: GuidanceActions) {
+                          last: Boolean, showPeriod: Boolean, onInfo: () -> Unit, guidance: GuidanceActions) {
     val bars = remember(row) { ComparisonDisplay.bars(row) }
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
     var why by remember { mutableStateOf<Pair<String, String>?>(null) }
     fun valueColor(cell: MetricCell) = when { !cell.available -> colors.textTertiary; cell.tone == Tone.POSITIVE -> colors.positiveText; cell.tone == Tone.NEGATIVE -> colors.negativeText; else -> colors.textValue }
-    // The first row needs only a hairline gap under the section header / notes control: their own 48 dp targets already give it room.
-    Column(Modifier.fillMaxWidth().padding(top = if (first) spacing.xxs else spacing.xs, bottom = spacing.xs)) {
+    // Final polish: a hairline gap above every row (the 48 dp title row / header targets already give room) and `xs` below, before the divider.
+    Column(Modifier.fillMaxWidth().padding(top = spacing.xxs, bottom = spacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(row.label, style = typography.bodySemiBold, color = colors.textTitle)
@@ -406,7 +448,7 @@ private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, side
  * follow, plus [ComparisonDisplay.BAR_NOTE] when the section has bars. A closed section is a complete card on its own.
  */
 @Composable
-private fun SectionHeader(section: ComparisonSection, open: Boolean, modifier: Modifier, onToggle: () -> Unit) {
+private fun SectionHeader(section: ComparisonSection, open: Boolean, modifier: Modifier, stackSummary: Boolean = false, onToggle: () -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -417,13 +459,18 @@ private fun SectionHeader(section: ComparisonSection, open: Boolean, modifier: M
             .semantics(mergeDescendants = true) { heading(); stateDescription = if (open) "Expanded" else "Collapsed" }
             .padding(start = spacing.cardPadding, end = spacing.md, top = spacing.sm, bottom = spacing.sm),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Text(section.title, Modifier.weight(1f), style = typography.cardTitle, color = colors.textTitle)
-            if (!open) Text(ComparisonDisplay.sectionSummary(section), style = typography.caption, color = colors.textMeta)
+            // Final polish: the shared period sits under the title inside the header (no row of its own); at accessibility text sizes the metric
+            // count moves under the title instead of squeezing it.
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text(section.title, style = typography.cardTitle, color = colors.textTitle)
+                if (open) ComparisonDisplay.sharedPeriod(section)?.let { Text(ComparisonDisplay.shortPeriod(it), style = typography.caption, color = colors.textMeta) }
+                if (!open && stackSummary) Text(ComparisonDisplay.sectionSummary(section), style = typography.caption, color = colors.textMeta)
+            }
+            if (!open && !stackSummary) Text(ComparisonDisplay.sectionSummary(section), style = typography.caption, color = colors.textMeta)
             Icon(StockIcons.ChevronDown, null, tint = colors.iconSecondary,
                 modifier = Modifier.size(StockStepsTheme.dimensions.icon).graphicsLayer { rotationZ = if (open) 180f else 0f })
         }
         if (open) Column(Modifier.padding(horizontal = spacing.cardPadding)) {
-            ComparisonDisplay.sharedPeriod(section)?.let { Text(ComparisonDisplay.shortPeriod(it), style = typography.caption, color = colors.textMeta) }
             // Final polish: the section's notes sit behind one "What to keep in mind" control instead of always-visible paragraphs.
             val notes = ComparisonDisplay.sectionNotes(section)
             if (notes.isNotEmpty()) {
@@ -515,20 +562,24 @@ private fun PerformanceCard(state: ComparisonUiState, onPeriod: (PerformancePeri
                         xLabels = listOf(chart.dates.first(), chart.dates.last()), yLabels = emptyList(),
                         description = "Price change from 100 over ${chart.period.label}: " + drawable.joinToString("; ") { s ->
                             "${s.symbol} ${s.change?.let { (if (it > 0) "up " else if (it < 0) "down " else "") + MetricFormatter.decimals(kotlin.math.abs(it), 1) + "%" } ?: "unavailable"}" },
-                        reference = 100.0, referenceLabel = "Start (100)", seriesLabel = first.symbol,
+                        // The chart's own legend is off: the legend below pairs each line's swatch with its ticker and change.
+                        reference = 100.0,
                         additional = drawable.drop(1).map { it.symbol to it.values }
                     )
-                    // Per-company change: wraps as whole "AAPL +22.4%" pairs, never split.
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                        drawable.forEach { s ->
+                    // Legend (final polish): line swatch (same colour and dash as the chart, StockChartSeriesStyle) + ticker + change, kept together as
+                    // whole "▬ AAPL +22.4%" items; then the "Start (100)" reference line. Missing changes read "No data".
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        drawable.forEachIndexed { index, s ->
                             val cell = s.change?.let(MetricFormatter::change)
-                            Row(Modifier.semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                            Row(Modifier.semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                                StockChartSwatch(StockChartSeriesStyle.series(index, colors.palette))
                                 Text(s.symbol, style = typography.label, color = colors.textTitle)
                                 Text(cell?.text ?: ComparisonDisplay.NO_DATA, style = typography.numberLabel,
                                     color = when (cell?.tone) { Tone.POSITIVE -> colors.positiveText; Tone.NEGATIVE -> colors.negativeText; null -> colors.textTertiary; else -> colors.textValue })
                             }
                         }
                     }
+                    StockChartLegendItem(StockChartSeriesStyle.reference(colors.palette), "Start (100)")
                     drawable.mapNotNull { s -> s.note?.let { "${s.symbol}: $it" } }.forEach { Text(it, style = typography.caption, color = colors.textSupporting) }
                 }
                 chart.series.filter { it.error != null }.forEach { Text("${it.symbol}: ${it.error}", style = typography.caption, color = colors.cautionText) }
