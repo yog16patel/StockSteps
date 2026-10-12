@@ -1,7 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS** on `main` (pushed).
-Previous commit: **Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief** (pushed).
+Last updated: 2026-10-10 (America/Toronto). Current commit: **Polish Company Comparison with collapsible sections, short periods, comparison bars, concise notes and one info action (Global UI Refinement Phase 5C.1) on Android and iOS** on `main` (pushed).
+Previous commit: **Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS** (pushed).
+Before it: **Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief** (pushed).
 Before it: **Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS** (pushed).
 Before it: **Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff** (docs only, pushed).
 Before it: **Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS** (pushed).
@@ -56,7 +57,17 @@ file when a feature, architecture decision, or important limitation changes.
 
 
 
-## Global UI Refinement Phase 5C — Company Comparison (current commit)
+## Global UI Refinement Phase 5C.1 — Company Comparison polish (current commit)
+
+- **Completed** (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1.md`): collapsible sections (Growth/Profitability open), short periods, percentage-only comparison
+  bars (missing = no bar, negatives labelled), notes behind "What to keep in mind", one ⓘ action per metric, insights preview, compact selection and
+  collapsed cards, iOS XXXL value/period size fix; shared `ComparisonDisplay` helpers + `MetricCell.value`.
+- **Validation**: core 465/0 (JVM, iOS), shared Android 111/0, shared iOS 107/0, `assembleDebug` OK, iOS `xcodebuild` OK; screenshots in
+  `docs/design/phase5c_1/` (local MOCK).
+- **Limits**: TalkBack, VoiceOver, iPhone SE, Android dark NOT RUN. MOCK earnings fixtures make quarterly = annual revenue growth (fixture artifact).
+- **Next**: Phase 5D (Earnings audit recommended) only after approval.
+
+## Global UI Refinement Phase 5C — Company Comparison (previous commit)
 
 - **Completed** (`docs/GLOBAL_UI_REFINEMENT_PHASE5C.md`): shared `StockComparisonLayout` (columns only while every value/word fits, else one line per
   company), core `ComparisonDisplay` ("No data" + reason control, spoken company/metric/period), optional `StockNavigationRow` badge; Compare reworked on

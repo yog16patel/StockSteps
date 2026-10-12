@@ -15,6 +15,9 @@ struct HistoricalComparisonView: View {
     let client: IosScreenerClient
     let onUpgrade: () -> Void
     let onSignIn: () -> Void
+    /// Phase 5C.1: collapsible card (the data loads the same way either way); nil `onToggle` keeps it always open.
+    var expanded = true
+    var onToggle: (() -> Void)? = nil
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var why: (String, String)?
@@ -24,9 +27,24 @@ struct HistoricalComparisonView: View {
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            StockTitleWithBadge {
-                Text("Historical comparison").font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader)
-            } badge: { if !state.historyPlus { StockStatusBadge(text: "1Y free", kind: .info, size: .compact) } }
+            Button { onToggle?() } label: {
+                HStack(spacing: CGFloat(space.sm)) {
+                    Text(ComparisonDisplay.shared.HISTORY_TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if !state.historyPlus { StockStatusBadge(text: "1Y free", kind: .info, size: .compact) }
+                    if onToggle != nil {
+                        Image(systemName: expanded ? "chevron.up" : "chevron.down").font(StockStepsTheme.font(type.caption, relativeTo: .caption1).weight(.semibold))
+                            .foregroundStyle(colors.iconSecondary)
+                    }
+                }
+                .frame(minHeight: CGFloat(dims.touchTarget))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(onToggle == nil)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityValue(onToggle == nil ? "" : expanded ? "Expanded" : "Collapsed")
+            if expanded {
             Text("How each company's reported results changed over time. \(state.historyRange.description_); \(state.historyRange.granularity == .quarterly ? "quarterly" : "annual") figures, as reported.")
                 .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
             // Shared chips (accessible selected fill, full-size text); locked options keep the existing preview flow.
@@ -46,7 +64,7 @@ struct HistoricalComparisonView: View {
                 let caption = StockStepsTheme.font(type.caption, relativeTo: .caption1)
                 Text(view.title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader)
                 Text(view.definition).font(caption).foregroundStyle(colors.textSupporting)
-                Text(view.unitNote).font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)
+                Text(view.unitNote).font(StockStepsTheme.font(type.tiny, relativeTo: .footnote)).foregroundStyle(colors.textTertiary)
                 if view.empty { Text("No values to show for this metric and period.").font(StockStepsTheme.font(type.small, relativeTo: .subheadline)) } else { chart(view, colors) }
                 table(view, colors)
                 let insights = history.insights + view.insights
@@ -61,11 +79,12 @@ struct HistoricalComparisonView: View {
                             .frame(minHeight: CGFloat(dims.touchTarget)).accessibilityValue(allInsights ? "Expanded" : "Collapsed")
                     }
                     Text("These describe reported figures. They don't explain why results changed and aren't predictions or advice.")
-                        .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)
+                        .font(StockStepsTheme.font(type.tiny, relativeTo: .footnote)).foregroundStyle(colors.textTertiary)
                 }
                 Text("Source: \(history.source)").font(caption).foregroundStyle(colors.textSecondary)
                 ForEach(Array(Set(view.notes + history.notes)).sorted(), id: \.self) { Text($0).font(caption).foregroundStyle(colors.textSecondary) }
                 if let message = history.access.message { Text(message).font(caption).foregroundStyle(colors.textSecondary) }
+            }
             }
             // Locked state: one PREMIUM label (unless the server's own access note already says it); nothing is requested to draw it.
             if !state.historyPlus && state.history?.access.message == nil {
@@ -160,10 +179,10 @@ struct HistoricalComparisonView: View {
                         HStack(spacing: CGFloat(space.sm)) {
                             Text(symbol).font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
                             VStack(alignment: .trailing, spacing: CGFloat(space.xxs)) {
-                                Text(verbatim: cell.explanation == nil ? cell.text : ComparisonDisplay.shared.NO_DATA).font(StockStepsTheme.font(type.numberLabel))
+                                Text(verbatim: cell.explanation == nil ? cell.text : ComparisonDisplay.shared.NO_DATA).font(StockStepsTheme.font(type.numberLabel, relativeTo: .footnote))
                                     .foregroundStyle(cell.explanation == nil ? colors.textValue : colors.textTertiary)
                                 if let period = cell.period {
-                                    Text(verbatim: period).font(StockStepsTheme.font(type.tiny)).foregroundStyle(colors.textSupporting).multilineTextAlignment(.trailing)
+                                    Text(verbatim: period).font(StockStepsTheme.font(type.tiny, relativeTo: .footnote)).foregroundStyle(colors.textSupporting).multilineTextAlignment(.trailing)
                                 }
                             }
                             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -174,7 +193,7 @@ struct HistoricalComparisonView: View {
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("\(symbol), \(row.title), " + (cell.explanation == nil ? [cell.text, cell.period].compactMap { $0 }.joined(separator: ", ") : "unavailable, \(cell.explanation ?? "")"))
                     }
-                    if let note = row.note { Text(note).font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.cautionText) }
+                    if let note = row.note { Text(note).font(StockStepsTheme.font(type.tiny, relativeTo: .footnote)).foregroundStyle(colors.cautionText) }
                 }
             }
         } else {
@@ -188,9 +207,9 @@ struct HistoricalComparisonView: View {
                     ForEach(Array(zip(view.symbols, row.cells).enumerated()), id: \.offset) { _, pair in
                         let (symbol, cell) = pair
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(verbatim: cell.explanation == nil ? cell.text : ComparisonDisplay.shared.NO_DATA).font(StockStepsTheme.font(type.numberLabel))
+                            Text(verbatim: cell.explanation == nil ? cell.text : ComparisonDisplay.shared.NO_DATA).font(StockStepsTheme.font(type.numberLabel, relativeTo: .footnote))
                                 .foregroundStyle(cell.explanation != nil ? colors.textTertiary : colors.textValue)
-                            if let period = cell.period { Text(verbatim: period).font(StockStepsTheme.font(type.tiny)).foregroundStyle(colors.textSecondary) }
+                            if let period = cell.period { Text(verbatim: period).font(StockStepsTheme.font(type.tiny, relativeTo: .footnote)).foregroundStyle(colors.textSecondary) }
                         }
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .topLeading)
                         .contentShape(Rectangle())

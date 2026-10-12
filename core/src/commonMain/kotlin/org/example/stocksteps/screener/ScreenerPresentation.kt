@@ -106,7 +106,9 @@ data class MetricCell(
     /** Why the value isn't shown (tap target); null when it is available. */
     val explanation: String? = null,
     /** Small second line: the company's own reporting period or a converted amount (e.g. "FY ended Sep 2025"). */
-    val detail: String? = null
+    val detail: String? = null,
+    /** The number behind [text] when the formatter produced it (Phase 5C.1 comparison bars); null for hand-built cells such as money amounts. */
+    val value: Double? = null
 ) {
     val available: Boolean get() = explanation == null
     val accessibility: String get() = text + (detail?.let { ", $it" } ?: "")
@@ -129,7 +131,7 @@ object MetricFormatter {
             MetricUnit.COUNT -> compact(v)
         }
         val tone = if (growth) (if (v > 0) Tone.POSITIVE else if (v < 0) Tone.NEGATIVE else Tone.NEUTRAL) else Tone.NEUTRAL
-        return MetricCell(text, tone)
+        return MetricCell(text, tone, value = v.takeIf { unit == MetricUnit.PERCENT })
     }
 
     /**

@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
@@ -11,6 +13,7 @@ import org.example.stocksteps.designsystem.components.StockCard
 import org.example.stocksteps.designsystem.components.StockChip
 import org.example.stocksteps.designsystem.components.StockTag
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
+import org.example.stocksteps.screener.ComparisonDisplay
 import org.example.stocksteps.screener.ComparisonInsight
 import org.example.stocksteps.screener.MetricInterpretation
 
@@ -96,7 +99,9 @@ internal fun ComparisonLearningSummary(insights: List<ComparisonInsight>, onOpen
                 modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
             Text("What can we learn from this comparison?", Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
         }
-        insights.forEach { insight ->
+        // Final polish: the first insight, then "Show all N insights" for the rest and the footer.
+        var all by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+        (if (all) insights else insights.take(ComparisonDisplay.INSIGHTS_PREVIEW)).forEach { insight ->
             Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
                 Text(insight.category.title, style = typography.tiny, color = colors.textTertiary)
                 Text(insight.text, style = typography.small, color = colors.textBody)
@@ -105,7 +110,11 @@ internal fun ComparisonLearningSummary(insights: List<ComparisonInsight>, onOpen
                 }
             }
         }
-        Text("Tap Explain on any metric to learn what it measures, what to keep in mind and what to look at next. Free for everyone.",
+        ComparisonDisplay.insightsToggle(insights.size, all)?.let { label ->
+            TextButton(onClick = { all = !all }, modifier = Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
+                .semantics { stateDescription = if (all) "Expanded" else "Collapsed" }) { Text(label) }
+        }
+        if (all || insights.size <= ComparisonDisplay.INSIGHTS_PREVIEW) Text("Tap ⓘ on any metric to learn what it measures, what to keep in mind and what to look at next. Free for everyone.",
             style = typography.caption, color = colors.textSecondary)
     }
 }

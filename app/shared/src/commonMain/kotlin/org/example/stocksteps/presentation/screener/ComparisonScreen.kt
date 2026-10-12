@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.rememberTextMeasurer
 import org.example.stocksteps.theme.StockComparisonLayout
@@ -61,14 +62,18 @@ internal fun ComparisonScreen(
     var picking by rememberSaveable { mutableStateOf<String?>(null) }
     var info by remember { mutableStateOf<MetricInfo?>(null) }
     val list = rememberLazyListState()
-    val entries = remember(state) { comparisonEntries(state) }
+    // Phase 5C.1: sections the user opened or closed (relative to the shared defaults), kept across recompositions and configuration changes.
+    var toggled by rememberSaveable { mutableStateOf(listOf<String>()) }
+    val isOpen: (String) -> Boolean = { title -> ComparisonDisplay.expandedByDefault(title) != (title in toggled) }
+    val toggle: (String) -> Unit = { title -> toggled = if (title in toggled) toggled - title else toggled + title }
+    val entries = remember(state, toggled) { comparisonEntries(state, isOpen) }
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     var headerHeight by remember { mutableStateOf(0) }
     val onInfo: (ComparisonRow) -> Unit = { row -> info = MetricFormatter.education(row.id, ScreenerDefinitions.metric(row.id)).let { if (row.id == "marketCap") it.copy(title = "Market cap") else it } }
     BoxWithConstraints(modifier.background(colors.appBackground)) {
         // Shared rule: measure every value/period word (and the symbols) once per comparison, then pick columns or stacked lines.
-        val shownRows = state.sections.filter { !it.advanced || state.showMore }.flatMap { it.rows }
+        val shownRows = state.sections.filter { (!it.advanced || state.showMore) && isOpen(it.title) }.flatMap { it.rows }
         val rowWidth = maxWidth.value - (spacing.screen.value + spacing.cardPadding.value) * 2
         val iconSmall = StockStepsTheme.dimensions.iconSmall.value
         val accessibilityText = density.fontScale >= StockStepsTheme.dimensions.largeFontScale * 1.15f
@@ -82,6 +87,8 @@ internal fun ComparisonScreen(
         // "Explore next" / "Explain this": scroll to the metric's row, below the pinned company header only when it is shown.
         LaunchedEffect(state.focus, entries, sideBySide) {
             val focus = state.focus ?: return@LaunchedEffect
+            // A related metric in a collapsed section: open the section first; this effect runs again with the new entries.
+            ComparisonDisplay.sectionOf(state.sections, focus)?.takeIf { !isOpen(it.title) && (!it.advanced || state.showMore) }?.let { toggle(it.title); return@LaunchedEffect }
             val index = entries.indexOfFirst { it is ComparisonEntry.Metric && it.row.id == focus }
             if (index >= 0) list.animateScrollToItem(index, if (sideBySide) -headerHeight else 0)
             guidance.onFocusHandled()
@@ -116,22 +123,17 @@ internal fun ComparisonScreen(
                             StockErrorState(state.error.orEmpty(), onRetry, title = ComparisonDisplay.ERROR_TITLE, icon = StockIcons.Warning)
                         }
                         ComparisonEntry.Summary -> Box(gap) { ComparisonLearningSummary(state.insights, guidance.onRelated) }
-                        is ComparisonEntry.SectionTitle -> Column(gap.fillMaxWidth().clip(RoundedCornerShape(topStart = cardRadius, topEnd = cardRadius)).background(colors.surface)
-                            .padding(start = spacing.cardPadding, end = spacing.cardPadding, top = spacing.cardPadding, bottom = spacing.xs),
-                            verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                            Text(entry.section.title, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textTitle)
-                            entry.section.note?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
-                        }
+                        is ComparisonEntry.SectionTitle -> SectionHeader(entry.section, entry.open, gap) { toggle(entry.section.title) }
                         is ComparisonEntry.Metric -> Column(Modifier.fillMaxWidth()
                             .clip(if (entry.last) RoundedCornerShape(bottomStart = cardRadius, bottomEnd = cardRadius) else RoundedCornerShape(0.dp))
                             .background(colors.surface).padding(horizontal = spacing.cardPadding).padding(bottom = if (entry.last) spacing.xs else 0.dp)) {
                             MetricRowView(entry.row, state.columns, sideBySide, state.guide(entry.row.id), state.isExpanded(entry.row.id), state.isDeeper(entry.row.id),
-                                last = entry.last, onInfo = { onInfo(entry.row) }, guidance = guidance)
+                                last = entry.last, showPeriod = ComparisonDisplay.sharedPeriod(entry.section) == null, onInfo = { onInfo(entry.row) }, guidance = guidance)
                         }
                         ComparisonEntry.More -> StockButton(if (state.showMore) "Hide extra metrics" else "More metrics (${state.advancedCount})", onClick = guidance.onToggleMore,
                             variant = StockButtonVariant.SECONDARY, modifier = gap.fillMaxWidth().semantics { stateDescription = if (state.showMore) "Expanded" else "Collapsed" })
                         ComparisonEntry.Chart -> Box(gap) { PerformanceCard(state, onPeriod, onRetry) }
-                        ComparisonEntry.History -> Box(gap) { HistoricalComparisonCard(state, history) }
+                        ComparisonEntry.History -> Box(gap) { HistoricalComparisonCard(state, history, expanded = isOpen(ComparisonDisplay.HISTORY_TITLE)) { toggle(ComparisonDisplay.HISTORY_TITLE) } }
                         ComparisonEntry.Tools -> Column(gap, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                             StockSectionHeader("More tools")
                             StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
@@ -191,13 +193,13 @@ private fun SelectionCard(state: ComparisonUiState, modifier: Modifier, onAdd: (
             val column = state.columns.firstOrNull { it.symbol.equals(company.symbol, ignoreCase = true) }
             var menu by remember(company.symbol) { mutableStateOf(false) }
             if (index > 0) StockDivider(startIndent = StockStepsTheme.dimensions.logoCompact + spacing.sm)
-            Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.rowCompactMinHeight).padding(vertical = spacing.xs), verticalAlignment = Alignment.CenterVertically) {
+            // Compact (Phase 5C.1): ticker and name only; the listing is in the spoken label and in Overview → Listing.
+            Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).padding(vertical = spacing.xxs), verticalAlignment = Alignment.CenterVertically) {
                 StockTickerAvatar(symbol = company.symbol, logoUrl = column?.logoUrl, size = StockStepsTheme.dimensions.logoCompact)
                 Column(Modifier.weight(1f).padding(start = spacing.sm).clearAndSetSemantics { contentDescription = ComparisonDisplay.selectionSpoken(company, column) },
                     verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                     Text(company.symbol, style = typography.bodySemiBold, color = colors.textTitle)
                     Text(column?.name ?: company.name, style = typography.caption, color = colors.textSupporting, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    column?.listing?.ifBlank { null }?.let { Text(it, style = typography.tiny, color = colors.textMeta) }
                     if (column?.error != null) StockStatusBadge(ComparisonDisplay.PARTIAL, org.example.stocksteps.theme.StockBadgeKind.WARNING, size = StockBadgeSize.COMPACT)
                 }
                 Box {
@@ -280,7 +282,8 @@ internal sealed class ComparisonEntry(val key: String) {
     data object Error : ComparisonEntry("error")
     data object Summary : ComparisonEntry("summary")
     data object Companies : ComparisonEntry("companies")
-    class SectionTitle(val section: ComparisonSection) : ComparisonEntry("section-${section.title}")
+    /** [open] = rows shown (Phase 5C.1 collapsible sections). */
+    class SectionTitle(val section: ComparisonSection, val open: Boolean) : ComparisonEntry("section-${section.title}")
     /** [last] = the section's final row (closes its card). */
     class Metric(val section: ComparisonSection, val row: ComparisonRow, val last: Boolean) : ComparisonEntry("row-${section.title}-${row.id}")
     data object More : ComparisonEntry("more")
@@ -294,7 +297,7 @@ internal sealed class ComparisonEntry(val key: String) {
     data object Notes : ComparisonEntry("notes")
 }
 
-internal fun comparisonEntries(state: ComparisonUiState): List<ComparisonEntry> = buildList {
+internal fun comparisonEntries(state: ComparisonUiState, isOpen: (String) -> Boolean = { true }): List<ComparisonEntry> = buildList {
     add(ComparisonEntry.Header); add(ComparisonEntry.Selection)
     if (state.needsMore) { add(ComparisonEntry.Examples); return@buildList }
     if (state.loading) add(ComparisonEntry.Loading)
@@ -302,7 +305,12 @@ internal fun comparisonEntries(state: ComparisonUiState): List<ComparisonEntry> 
     if (state.columns.isNotEmpty()) {
         if (state.insights.isNotEmpty()) add(ComparisonEntry.Summary)
         add(ComparisonEntry.Companies)
-        fun section(s: ComparisonSection) { if (s.rows.isEmpty()) return; add(ComparisonEntry.SectionTitle(s)); s.rows.forEach { add(ComparisonEntry.Metric(s, it, it == s.rows.last())) } }
+        fun section(s: ComparisonSection) {
+            if (s.rows.isEmpty()) return
+            val open = isOpen(s.title)
+            add(ComparisonEntry.SectionTitle(s, open))
+            if (open) s.rows.forEach { add(ComparisonEntry.Metric(s, it, it == s.rows.last())) }
+        }
         state.sections.filterNot { it.advanced }.forEach(::section)
         if (state.advancedCount > 0) add(ComparisonEntry.More)
         if (state.showMore) state.sections.filter { it.advanced }.forEach(::section)
@@ -322,7 +330,8 @@ internal fun comparisonEntries(state: ComparisonUiState): List<ComparisonEntry> 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, sideBySide: Boolean, guide: MetricInterpretation?, expanded: Boolean, deeper: Boolean,
-                          last: Boolean, onInfo: () -> Unit, guidance: GuidanceActions) {
+                          last: Boolean, showPeriod: Boolean, onInfo: () -> Unit, guidance: GuidanceActions) {
+    val bars = remember(row) { ComparisonDisplay.bars(row) }
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
@@ -332,16 +341,17 @@ private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, side
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(row.label, style = typography.bodySemiBold, color = colors.textTitle)
-                row.period?.let { Text(it, style = typography.caption, color = colors.textMeta) }
+                row.period?.takeIf { showPeriod }?.let { Text(ComparisonDisplay.shortPeriod(it), style = typography.caption, color = colors.textMeta) }
             }
-            if (guide != null) TextButton(onClick = { guidance.onExplain(row.id) }, modifier = Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
-                .semantics { contentDescription = (if (expanded) "Hide explanation of " else "Explain ") + row.label; stateDescription = if (expanded) "Expanded" else "Collapsed" }) {
-                Icon(StockIcons.Info, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
-                Text(if (expanded) " Hide" else " Explain", style = typography.caption, color = colors.primaryText)
+            // One info action per metric (final polish): guided metrics toggle the inline explanation, others open the info sheet. 48 dp target.
+            IconButton(onClick = { if (guide != null) guidance.onExplain(row.id) else onInfo() },
+                modifier = Modifier.semantics { if (guide != null) stateDescription = if (expanded) "Expanded" else "Collapsed" }) {
+                Icon(StockIcons.Info, ComparisonDisplay.infoLabel(row, guide != null, expanded), tint = if (expanded) colors.primaryAction else colors.primaryText,
+                    modifier = Modifier.size(StockStepsTheme.dimensions.icon))
             }
-            else IconButton(onClick = onInfo) { Icon(StockIcons.Info, contentDescription = "About ${row.label}", tint = colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall)) }
         }
-        if (sideBySide) Row(Modifier.fillMaxWidth().padding(top = spacing.xxs).semantics(mergeDescendants = true) { contentDescription = ComparisonDisplay.rowSpoken(row, columns) },
+        if (bars != null) BarLines(row, columns, bars) { title, text -> why = title to text }
+        else if (sideBySide) Row(Modifier.fillMaxWidth().padding(top = spacing.xxs).semantics(mergeDescendants = true) { contentDescription = ComparisonDisplay.rowSpoken(row, columns) },
             horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             columns.zip(row.cells).forEach { (column, cell) ->
                 val explanation = cell.explanation
@@ -351,7 +361,7 @@ private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, side
                         Text(ComparisonDisplay.cellText(cell), style = typography.numberLabel, color = valueColor(cell))
                         if (explanation != null) Icon(StockIcons.Info, null, tint = colors.iconSecondary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
                     }
-                    cell.detail?.let { Text(it, style = typography.tiny, color = colors.textSupporting) }
+                    cell.detail?.let { Text(ComparisonDisplay.shortPeriod(it), style = typography.tiny, color = colors.textSupporting) }
                 }
             }
         }
@@ -359,7 +369,7 @@ private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, side
             columns.zip(row.cells).forEach { (column, cell) ->
                 val explanation = cell.explanation
                 // Compact lines; only a line with an info control needs the 48 dp target height.
-                Row(Modifier.fillMaxWidth().heightIn(min = if (explanation != null) StockStepsTheme.dimensions.touchTarget else 0.dp).padding(vertical = spacing.xs),
+                Row(Modifier.fillMaxWidth().heightIn(min = if (explanation != null) StockStepsTheme.dimensions.touchTarget else 0.dp).padding(vertical = spacing.xxs),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     Row(Modifier.weight(1f).clearAndSetSemantics { contentDescription = ComparisonDisplay.cellSpoken(column, row, cell) },
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
@@ -367,7 +377,7 @@ private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, side
                         Text(column.symbol, style = typography.label, color = colors.textTitle)
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                             Text(ComparisonDisplay.cellText(cell), style = typography.numberLabel, color = valueColor(cell), textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                            cell.detail?.let { Text(it, style = typography.tiny, color = colors.textSupporting, textAlign = androidx.compose.ui.text.style.TextAlign.End) }
+                            cell.detail?.let { Text(ComparisonDisplay.shortPeriod(it), style = typography.tiny, color = colors.textSupporting, textAlign = androidx.compose.ui.text.style.TextAlign.End) }
                         }
                     }
                     if (explanation != null) IconButton(onClick = { why = "${row.label} · ${column.symbol}" to explanation }) {
@@ -381,6 +391,91 @@ private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, side
         onClose = { guidance.onExplain(row.id) }, modifier = Modifier.padding(bottom = StockStepsTheme.spacing.xs))
     if (!last) StockDivider()
     why?.let { (title, text) -> AlertDialog(onDismissRequest = { why = null }, title = { Text(title) }, text = { Text(text) }, confirmButton = { TextButton(onClick = { why = null }) { Text("OK") } }) }
+}
+
+/**
+ * Section header (Phase 5C.1): one 48 dp button with title, metric count and chevron; when open, the shared period (once) and the section note
+ * follow, plus [ComparisonDisplay.BAR_NOTE] when the section has bars. A closed section is a complete card on its own.
+ */
+@Composable
+private fun SectionHeader(section: ComparisonSection, open: Boolean, modifier: Modifier, onToggle: () -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    val shape = if (open) RoundedCornerShape(topStart = cardRadius, topEnd = cardRadius) else RoundedCornerShape(cardRadius)
+    Column(modifier.fillMaxWidth().clip(shape).background(colors.surface).padding(bottom = if (open) spacing.xs else 0.dp)) {
+        Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = if (open) "Collapse" else "Expand", onClick = onToggle)
+            .semantics(mergeDescendants = true) { heading(); stateDescription = if (open) "Expanded" else "Collapsed" }
+            .padding(start = spacing.cardPadding, end = spacing.md, top = spacing.sm, bottom = spacing.sm),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Text(section.title, Modifier.weight(1f), style = typography.cardTitle, color = colors.textTitle)
+            if (!open) Text(ComparisonDisplay.sectionSummary(section), style = typography.caption, color = colors.textMeta)
+            Icon(StockIcons.ChevronDown, null, tint = colors.iconSecondary,
+                modifier = Modifier.size(StockStepsTheme.dimensions.icon).graphicsLayer { rotationZ = if (open) 180f else 0f })
+        }
+        if (open) Column(Modifier.padding(horizontal = spacing.cardPadding)) {
+            ComparisonDisplay.sharedPeriod(section)?.let { Text(ComparisonDisplay.shortPeriod(it), style = typography.caption, color = colors.textMeta) }
+            // Final polish: the section's notes sit behind one "What to keep in mind" control instead of always-visible paragraphs.
+            val notes = ComparisonDisplay.sectionNotes(section)
+            if (notes.isNotEmpty()) {
+                var showNotes by rememberSaveable(section.title) { mutableStateOf(false) }
+                Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
+                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { showNotes = !showNotes }
+                    .clearAndSetSemantics { contentDescription = ComparisonDisplay.notesSpoken(section, showNotes); role = androidx.compose.ui.semantics.Role.Button
+                        onClick { showNotes = !showNotes; true } },
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    Icon(StockIcons.Lightbulb, null, tint = colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+                    Text(ComparisonDisplay.NOTES_LABEL, style = typography.label, color = colors.primaryText)
+                    Icon(StockIcons.ChevronDown, null, tint = colors.primaryText,
+                        modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall).graphicsLayer { rotationZ = if (showNotes) 180f else 0f })
+                }
+                if (showNotes) Column(Modifier.padding(bottom = spacing.xs), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    notes.forEach { Text(it, style = typography.caption, color = colors.textSupporting) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Compact comparison bars (Phase 5C.1, percentage metrics only): ticker, a bar scaled to the longest value in the row, then the value and short
+ * period. Negative values use the negative colour and keep their minus sign; a missing value shows "No data" and its reason control, never a bar.
+ */
+@Composable
+private fun BarLines(row: ComparisonRow, columns: List<CompanyColumn>, bars: List<ComparisonBar?>, onWhy: (String, String) -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    Column(Modifier.padding(top = spacing.xxs), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+        columns.zip(row.cells).forEachIndexed { i, (column, cell) ->
+            val bar = bars.getOrNull(i)
+            val explanation = cell.explanation
+            Row(Modifier.fillMaxWidth().heightIn(min = if (explanation != null) StockStepsTheme.dimensions.touchTarget else 0.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                // Final polish: ticker and short period on the left, value on the right, then a full-width bar — nothing competes for width,
+                // so 4 companies at 1.3× / XXXL never squeeze the bar or overlap the value.
+                Column(Modifier.weight(1f).clearAndSetSemantics { contentDescription = ComparisonDisplay.cellSpoken(column, row, cell) }.padding(vertical = spacing.xxs),
+                    verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        Column(Modifier.weight(1f)) {
+                            Text(column.symbol, style = typography.label, color = colors.textTitle)
+                            cell.detail?.let { Text(ComparisonDisplay.shortPeriod(it), style = typography.tiny, color = colors.textMeta) }
+                        }
+                        Text(ComparisonDisplay.cellText(cell), style = typography.numberLabelStrong,
+                            color = when { !cell.available -> colors.textTertiary; cell.tone == Tone.POSITIVE -> colors.positiveText; cell.tone == Tone.NEGATIVE -> colors.negativeText; else -> colors.textValue })
+                    }
+                    Box(Modifier.fillMaxWidth().height(spacing.xs).clip(RoundedCornerShape(spacing.xxs)).background(colors.surfaceSecondary)) {
+                        if (bar != null && bar.fraction > 0f) Box(Modifier.fillMaxWidth(bar.fraction).fillMaxHeight()
+                            .background(if (bar.negative) colors.negativeText else colors.primaryText))
+                    }
+                }
+                if (explanation != null) IconButton(onClick = { onWhy("${row.label} · ${column.symbol}", explanation) }) {
+                    Icon(StockIcons.Info, ComparisonDisplay.missingAction(row, column), tint = colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)

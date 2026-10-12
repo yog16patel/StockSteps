@@ -1,11 +1,19 @@
 # StockSteps — session handoff (2026-10-11: Phase 5A.1 closed; Phase 5B Screener committed and pushed; next Phase 5C Comparison after approval)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE5C below** → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE5C1 below** → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## PHASE5C. Global UI Refinement Phase 5C — Company Comparison (committed and pushed) — read first
+## PHASE5C1. Phase 5C.1 — Company Comparison polish (committed and pushed) — read first
+
+- Repository: `main`. Current commit: "Polish Company Comparison with collapsible sections, short periods, comparison bars, concise notes and one info action (Global UI Refinement Phase 5C.1) on Android and iOS" (pushed), on top of `ab004df` (5C).
+- Done (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1.md`): collapsible sections, short periods, percentage-only bars, notes behind one control, one ⓘ per metric,
+  insights preview, compact selection, iOS XXXL value/period fix. Results: core 465/0 (JVM, iOS), shared 111/0 and 107/0, both builds OK.
+- NOT RUN: TalkBack, VoiceOver, iPhone SE, Android dark. Quarterly = annual revenue growth in MOCK is a fixture artifact (values unchanged).
+- Next: Phase 5D (Earnings audit recommended) only after approval.
+
+## PHASE5C. Global UI Refinement Phase 5C — Company Comparison (committed and pushed)
 
 - Repository: `main`. Current commit: "Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS" (pushed), on top of `9e764fe` (5B closure).
 - Done (`docs/GLOBAL_UI_REFINEMENT_PHASE5C.md`): shared `StockComparisonLayout` (columns only while every value/word fits; else one line per company),

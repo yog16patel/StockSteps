@@ -10,6 +10,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextOverflow
 import org.example.stocksteps.designsystem.components.*
@@ -34,7 +35,7 @@ internal data class HistoryActions(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun HistoricalComparisonCard(state: ComparisonUiState, actions: HistoryActions) {
+internal fun HistoricalComparisonCard(state: ComparisonUiState, actions: HistoryActions, expanded: Boolean = true, onToggle: (() -> Unit)? = null) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -44,8 +45,17 @@ internal fun HistoricalComparisonCard(state: ComparisonUiState, actions: History
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
     val accessibilityText = density.fontScale >= StockStepsTheme.dimensions.largeFontScale * 1.15f
     StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        StockTitleWithBadge(title = { Text("Historical comparison", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle) },
-            badge = { if (!state.historyPlus) StockStatusBadge("1Y free", org.example.stocksteps.theme.StockBadgeKind.INFO, size = StockBadgeSize.COMPACT) })
+        // Phase 5C.1: a collapsible header when [onToggle] is given (the data is loaded the same way either way).
+        Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
+            .then(if (onToggle != null) Modifier.clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = if (expanded) "Collapse" else "Expand", onClick = onToggle) else Modifier)
+            .semantics(mergeDescendants = true) { heading(); if (onToggle != null) stateDescription = if (expanded) "Expanded" else "Collapsed" },
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Text(ComparisonDisplay.HISTORY_TITLE, Modifier.weight(1f), style = typography.cardTitle, color = colors.textTitle)
+            if (!state.historyPlus) StockStatusBadge("1Y free", org.example.stocksteps.theme.StockBadgeKind.INFO, size = StockBadgeSize.COMPACT)
+            if (onToggle != null) androidx.compose.material3.Icon(org.example.stocksteps.designsystem.icons.StockIcons.ChevronDown, null, tint = colors.iconSecondary,
+                modifier = Modifier.size(StockStepsTheme.dimensions.icon).graphicsLayer { rotationZ = if (expanded) 180f else 0f })
+        }
+        if (expanded) {
         Text("How each company's reported results changed over time. ${state.historyRange.description}; " +
             (if (state.historyRange.granularity == HistoryGranularity.QUARTERLY) "quarterly" else "annual") + " figures, as reported.",
             style = typography.caption, color = colors.textSecondary)
@@ -100,6 +110,7 @@ internal fun HistoricalComparisonCard(state: ComparisonUiState, actions: History
             Text("Source: ${history.source}", style = typography.caption, color = colors.textSecondary)
             (view.notes + history.notes).distinct().forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
             history.access.message?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+        }
         }
         // Locked state: one PREMIUM label and the existing preview flow (tapping a "· Plus" option); nothing is requested to draw it.
         if (!state.historyPlus && state.history?.access?.message == null) Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
