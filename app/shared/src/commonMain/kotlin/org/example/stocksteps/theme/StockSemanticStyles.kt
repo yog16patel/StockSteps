@@ -43,6 +43,20 @@ object StockSemanticStyles {
      * The app-wide MOCK strip ("Sample data · mock backend"): SAMPLE fill with a hairline [StockToneColors.border] on top and quieter
      * `textSecondary` text (≥ 7:1 on the fill in both themes), so it stays visible without competing with the screen (Comparison final polish).
      */
+    /**
+     * Accent of an insight category icon ("What the numbers show"): identifies the category only — growth green, profitability brand blue,
+     * valuation indigo, operating margin orange, debt coral, dividends amber, cash flow green — never good or bad. Same roles on both platforms.
+     */
+    fun insightAccent(icon: org.example.stocksteps.screener.ObservationIcon, p: ThemePalette): Int = when (icon) {
+        org.example.stocksteps.screener.ObservationIcon.GROWTH, org.example.stocksteps.screener.ObservationIcon.CASH -> p.positive
+        org.example.stocksteps.screener.ObservationIcon.PROFITABILITY -> p.primary
+        org.example.stocksteps.screener.ObservationIcon.VALUATION -> p.learnAccent
+        org.example.stocksteps.screener.ObservationIcon.OPERATING -> p.caution
+        org.example.stocksteps.screener.ObservationIcon.DEBT -> p.negative
+        org.example.stocksteps.screener.ObservationIcon.DIVIDEND -> p.warning
+        org.example.stocksteps.screener.ObservationIcon.GENERAL -> p.iconSecondary
+    }
+
     fun sampleStrip(p: ThemePalette): StockToneColors = StockToneColors(p.warningContainer, p.textSecondary, p.warningBorder, p.cautionText)
 
     /** Text on an education container (eyebrows, labels): `educationAccent` is 2.75:1 there in light mode, so text uses `cautionText`. */
@@ -152,4 +166,23 @@ object StockChartSeriesStyle {
 
     /** Reference line (e.g. "Start (100)", an average or zero): thin, muted, long dashes — never one of the series styles. */
     fun reference(p: ThemePalette): Line = Line(p.textTertiary, listOf(10f, 5f), width = 1f)
+}
+
+/**
+ * Bottom tab bar labels at large text (accessibility closure). Five single-word labels can't wrap, so at Android 2.0× on 360 dp they were cut to
+ * "Mark…", "Portf…". Rule (same trade-off as the iOS system tab bar, whose labels don't scale): labels use the user's font scale while the widest one
+ * fits its tab; above that they stop growing at the largest scale where all fit — never below the standard size (1.0); if even the standard size
+ * can't fit (very narrow window), labels are hidden and the tabs show icons only, each still named for screen readers. Never an ellipsis.
+ */
+object StockNavigationLayout {
+    /** [widestAtStandard] = widest label width at font scale 1.0; [labelWidth] = space per tab for its label (same unit). null = icons only. */
+    fun labelScale(widestAtStandard: Float, labelWidth: Float, fontScale: Float): Float? {
+        if (widestAtStandard <= 0f) return fontScale
+        val fits = labelWidth / widestAtStandard * 0.98f   // small margin: measured text and layout round differently
+        return when {
+            fits >= fontScale -> fontScale
+            fits >= 1f -> fits
+            else -> null
+        }
+    }
 }

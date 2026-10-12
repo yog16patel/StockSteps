@@ -1,5 +1,7 @@
 package org.example.stocksteps.screener
 
+import org.example.stocksteps.format.ReadableDates
+
 /**
  * Global UI Refinement Phase 5C: display text for Compare Companies shared by Compose and SwiftUI (copy, compact missing-value wording and
  * spoken labels that name the company for every value). Formatting only: values, periods, FX notes and explanations come unchanged from
@@ -145,73 +147,155 @@ object ComparisonDisplay {
 /** One company's bar: [fraction] of the longest bar in the row (0–1), [negative] = the value is below zero (labelled, not only coloured). */
 data class ComparisonBar(val fraction: Float, val negative: Boolean)
 
-/** One "What the numbers show" item: short heading + concise text; [caveat] only when it is specific to this metric and not shown above. */
-data class ObservationItem(val metric: String, val heading: String, val text: String, val caveat: String?) {
+/** Category of an insight, for its icon and accent colour (mapped per platform; colour identifies the category, never good or bad). */
+enum class ObservationIcon { GROWTH, PROFITABILITY, VALUATION, OPERATING, DEBT, DIVIDEND, CASH, GENERAL }
+
+/** One "What the numbers show" item: short title + concise text; [caveat] only when it is specific to this metric and not shown above. */
+data class ObservationItem(val metric: String, val heading: String, val text: String, val caveat: String?, val icon: ObservationIcon = ObservationIcon.GENERAL) {
     val spoken: String get() = listOfNotNull(heading, text, caveat).joinToString(". ")
 }
 
-/** The card: [top] (up to [ComparisonObservationsDisplay.TOP]) shown by default, [more] behind "View all", one shared [note]. */
+/** The card: [top] (up to [ComparisonObservationsDisplay.TOP], primary) shown by default, [more] (the "Additional observations" panel) behind
+ * "View all", one shared [note]. */
 data class ObservationsView(val subtitle: String, val top: List<ObservationItem>, val more: List<ObservationItem>, val note: String) {
     val total: Int get() = top.size + more.size
 }
 
 /**
- * "What the numbers show" (Comparison polish): presentation only over the server's deterministic `ComparisonObservation`s — no value is computed,
- * re-ranked or invented. Picks up to three items from distinct topics (growth, profitability, valuation, financial health, dividends; first available
- * metric per topic, in that order), gives each a short heading, shortens company names to tickers, condenses the engine's "Among these N companies, …
- * ranges from …" sentence (adding "N of M companies report it" when some have no value), moves the repeated "Reporting periods end on different
- * dates (…)" caveat into one shared note and shows each remaining caveat sentence only once. Text in an unexpected shape is kept unchanged.
+ * "What the numbers show": presentation only over the server's deterministic `ComparisonObservation`s — no value is computed, re-ranked or
+ * invented. Primary insights: up to three from distinct topics (growth, profitability, valuation, financial health, dividends & cash flow; first
+ * available metric per topic, in that order), titled by their category ("Revenue growth", "Profitability", "Valuation") with the metric named in the
+ * text. The rest form "Additional observations", titled by metric, in topic order. Company names become tickers, the engine's "Among these N
+ * companies, … ranges from …" sentence is condensed ("N of M companies report it" when some have no value), the repeated "Reporting periods end on
+ * different dates (…)" caveat becomes the shared footer and each remaining caveat sentence is shown once. Unexpected text is kept unchanged.
+ * Categories come from the observation's metric id, never from display text.
  */
 object ComparisonObservationsDisplay {
     const val TITLE = "What the numbers show"
+    const val MORE_TITLE = "Additional observations"
     const val TOP = 3
     private const val PERIODS_PREFIX = "Reporting periods end on different dates"
-    private const val NOT_ADVICE = "These describe reported figures. They aren't rankings or recommendations."
-    private const val PERIODS_NOTE = "Reporting periods can differ by company."
+    const val NOT_ADVICE = "These observations aren't investment recommendations."
+    const val PERIODS_NOTE = "Reporting periods may differ."
 
     private val topics = listOf(
         listOf("revenueGrowth", "quarterRevenueGrowth"), listOf("netMargin", "operatingMargin"), listOf("pe"),
-        listOf("debtEquity", "freeCashFlow"), listOf("dividendYield"))
+        listOf("debtEquity"), listOf("dividendYield", "freeCashFlow"))
+    /** Primary-insight titles per topic; null = use the metric's own heading (growth names its metric already). */
+    private val topicTitles = listOf(null, "Profitability", "Valuation", "Financial health", "Dividends & cash flow")
     private val headings = mapOf(
         "revenueGrowth" to "Revenue growth", "quarterRevenueGrowth" to "Quarterly revenue growth", "netMargin" to "Net margin",
         "operatingMargin" to "Operating margin", "pe" to "Trailing P/E", "debtEquity" to "Debt / equity", "dividendYield" to "Dividend yield",
         "freeCashFlow" to "Free cash flow")
-    private val RANGE = Regex("""^Among these (\d+) companies, .+? (ranges from .+)$""")
+    private val icons = mapOf(
+        "revenueGrowth" to ObservationIcon.GROWTH, "quarterRevenueGrowth" to ObservationIcon.GROWTH, "netMargin" to ObservationIcon.PROFITABILITY,
+        "operatingMargin" to ObservationIcon.OPERATING, "pe" to ObservationIcon.VALUATION, "debtEquity" to ObservationIcon.DEBT,
+        "dividendYield" to ObservationIcon.DIVIDEND, "freeCashFlow" to ObservationIcon.CASH)
+    private val RANGE = Regex("""^Among these (\d+) companies, (.+?) (ranges from .+)$""")
 
     fun subtitle(companies: Int): String = "Based on the $companies companies selected"
     fun toggle(total: Int, open: Boolean): String? = if (total <= TOP) null else if (open) "Show fewer insights" else "View all $total insights"
 
     fun view(observations: List<ComparisonObservation>, columns: List<CompanyColumn>): ObservationsView {
         val topicOf = { metric: String -> topics.indexOfFirst { metric in it }.let { if (it < 0) topics.size else it } }
-        // Top: the first observation of each topic in topic order; then everything else in the engine's order.
+        // Primary: the first observation of each topic in topic order; then everything else in topic order (stable within a topic).
         val firsts = observations.groupBy { topicOf(it.metric) }.filterKeys { it < topics.size }.entries.sortedBy { it.key }.map { (_, group) ->
             group.minBy { o -> topics[topicOf(o.metric)].indexOf(o.metric) }
         }
         val top = firsts.take(TOP)
-        val more = observations.filter { it !in top }
+        val more = observations.filter { it !in top }.sortedBy { topicOf(it.metric) }
         val shown = mutableSetOf<String>()
         var periodsDiffer = false
-        fun item(o: ComparisonObservation): ObservationItem {
+        fun item(o: ComparisonObservation, primary: Boolean): ObservationItem {
             var caveat = o.caveat?.trim().orEmpty()
             if (caveat.startsWith(PERIODS_PREFIX)) {
                 periodsDiffer = true
                 caveat = caveat.substringAfter(").", "").trim()
             }
             val sentences = caveat.split(Regex("""(?<=\.)\s+""")).map { it.trim() }.filter { it.isNotEmpty() && shown.add(it) }
-            return ObservationItem(o.metric, headings[o.metric] ?: ScreenerDefinitions.metric(o.metric)?.label ?: o.metric,
-                concise(o.text, columns), sentences.joinToString(" ").ifEmpty { null })
+            val metricHeading = headings[o.metric] ?: ScreenerDefinitions.metric(o.metric)?.label ?: o.metric
+            val categoryTitle = if (primary) topicTitles.getOrNull(topicOf(o.metric)) else null
+            return ObservationItem(o.metric, categoryTitle ?: metricHeading, concise(o.text, columns, namesMetric = categoryTitle != null),
+                sentences.joinToString(" ").ifEmpty { null }, icons[o.metric] ?: ObservationIcon.GENERAL)
         }
-        val topItems = top.map(::item)
-        val moreItems = more.map(::item)
+        // Built in display order, so a repeated caveat sentence stays on the first item that shows it (a primary item first).
+        val topItems = top.map { item(it, primary = true) }
+        val moreItems = more.map { item(it, primary = false) }
         return ObservationsView(subtitle(columns.size), topItems, moreItems, if (periodsDiffer) "$PERIODS_NOTE $NOT_ADVICE" else NOT_ADVICE)
     }
 
-    /** Tickers instead of company names; the range sentence without its repeated lead-in, plus how many companies report the metric. */
-    fun concise(text: String, columns: List<CompanyColumn>): String {
+    /**
+     * Tickers instead of company names; the range sentence without its repeated lead-in, plus how many companies report the metric. With
+     * [namesMetric] (a category title such as "Profitability" above it) the sentence keeps the metric: "Net margin ranges from …".
+     */
+    fun concise(text: String, columns: List<CompanyColumn>, namesMetric: Boolean = false): String {
         val short = columns.sortedByDescending { it.name.length }.fold(text) { t, c -> if (c.name.isBlank()) t else t.replace(c.name, c.symbol) }
         val match = RANGE.matchEntire(short) ?: return short
         val reporting = match.groupValues[1].toIntOrNull()
-        val range = match.groupValues[2].replaceFirstChar { it.uppercase() }
+        val range = if (namesMetric) "${match.groupValues[2].replaceFirstChar { it.uppercase() }} ${match.groupValues[3]}" else match.groupValues[3].replaceFirstChar { it.uppercase() }
         return if (reporting != null && reporting < columns.size) "${range.removeSuffix(".")} · $reporting of ${columns.size} companies report it." else range
+    }
+}
+
+/** A titled group of short notes (chart help, sources & methodology). */
+data class NoteGroup(val title: String, val lines: List<String>)
+
+/**
+ * Accessibility closure: the share-price chart's explanations and the comparison's sources move behind two collapsed controls. The server's notes are
+ * fixed sentences from this repository; they are sorted into the subsections below by their known openings, and any note that isn't recognised is
+ * kept verbatim in the last group — nothing is dropped, reworded beyond the date format, or invented.
+ */
+object ComparisonNotesDisplay {
+    const val CHART_SUBTITLE = "Compare price movements from the same starting point (100). Dividends are not included."
+    const val CHART_HELP = "How to read this chart"
+    const val SOURCES_TITLE = "Sources & methodology"
+    const val DISCLAIMER = "Education, not investment advice. Past results don't indicate future returns."
+
+    private val START = Regex("""^Price change only: every line starts at 100 on (.+?)\. (Dividends.+)$""")
+    private val RETRIEVED = Regex("""^Financial statements retrieved: (.+)\.$""")
+    private val SYMBOL_DATE = Regex("""^(\S+) (\d{4}-\d{2}-\d{2})$""")
+
+    /** "How to read this chart": how it works, what's excluded, limitations, data methodology (empty groups are left out). */
+    fun chartGroups(notes: List<String>): List<NoteGroup> {
+        val works = mutableListOf<String>(); val excluded = mutableListOf<String>(); val limits = mutableListOf<String>(); val method = mutableListOf<String>()
+        for (raw in notes) {
+            val note = raw.trim()
+            val start = START.matchEntire(note)
+            when {
+                start != null -> { works += "Each line starts at 100 on ${ReadableDates.date(start.groupValues[1])}."; excluded += start.groupValues[2] }
+                note.startsWith("Price change only") -> works += note
+                note.startsWith("This shows how share prices moved") -> limits += note
+                else -> method += note   // split adjustment, market holidays, sample prices, anything new
+            }
+        }
+        works += "The chart shows relative price movement, not actual share prices."
+        return listOf(NoteGroup("How the comparison works", works), NoteGroup("What is excluded", excluded),
+            NoteGroup("Important limitations", limits), NoteGroup("Data methodology", method)).filter { it.lines.isNotEmpty() }
+    }
+
+    /** "Sources & methodology": reporting periods, metric definitions, data sources (readable retrieval dates), sample data. */
+    fun sourceGroups(notes: List<String>, asOf: String?): List<NoteGroup> {
+        val periods = mutableListOf<String>(); val definitions = mutableListOf<String>(); val sources = mutableListOf<String>(); val sample = mutableListOf<String>()
+        for (raw in notes) {
+            val note = raw.trim()
+            when {
+                note.startsWith("Fiscal years end in different months") -> periods += note
+                note.startsWith("Trailing (TTM) and estimated forward P/E") || note.startsWith("Amounts are in each company's own currency") -> definitions += note
+                note.startsWith("Sample fixture data") -> sample += note
+                RETRIEVED.matchEntire(note) != null -> sources += retrieved(RETRIEVED.matchEntire(note)!!.groupValues[1]) ?: listOf(note)
+                else -> sources += note   // provider names, stale-data notes, anything new
+            }
+        }
+        asOf?.let { sources += "Comparison prepared ${ReadableDates.dateTime(it)}." }
+        return listOf(NoteGroup("Reporting periods", periods), NoteGroup("Metric definitions", definitions), NoteGroup("Data sources", sources),
+            NoteGroup("Sample data", sample)).filter { it.lines.isNotEmpty() }
+    }
+
+    /** "AAPL 2026-10-07, MSFT 2026-10-07" → one line when every date is the same, else one line per company; null when the shape is unknown. */
+    private fun retrieved(list: String): List<String>? {
+        val pairs = list.split(", ").map { SYMBOL_DATE.matchEntire(it.trim()) ?: return null }.map { it.groupValues[1] to it.groupValues[2] }
+        val dates = pairs.map { it.second }.distinct()
+        return if (dates.size == 1) listOf("Financial statements retrieved ${ReadableDates.date(dates.single())} for ${if (pairs.size == 1) pairs.single().first else "all ${pairs.size} companies"}.")
+        else listOf("Financial statements retrieved:") + pairs.map { (symbol, date) -> "$symbol · ${ReadableDates.date(date)}" }
     }
 }

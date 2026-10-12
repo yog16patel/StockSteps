@@ -106,4 +106,15 @@ class ResponsiveLayoutRulesTest {
             assertEquals(palette.warningContainer, strip.container, "the MOCK strip keeps the SAMPLE fill")
         }
     }
+
+    @Test
+    fun tabLabelsGrowWithTextUntilTheyStopFittingButNeverEllipsizeOrShrinkBelowStandard() {
+        // 360 dp / 5 tabs ≈ 72 dp, minus padding ≈ 64 dp for a label; "Watchlist" ≈ 56 dp at 12 sp, 1.0×.
+        assertEquals(1f, StockNavigationLayout.labelScale(widestAtStandard = 56f, labelWidth = 64f, fontScale = 1f))
+        assertEquals(1.1f, StockNavigationLayout.labelScale(56f, 64f, 1.1f), "fits: the user's scale")
+        val capped = StockNavigationLayout.labelScale(56f, 64f, 2.0f)!!
+        assertTrue(capped in 1f..2f && capped * 56f <= 64f, "2.0×: stops growing where every label still fits")
+        assertEquals(null, StockNavigationLayout.labelScale(80f, 64f, 1.3f), "can't fit even at standard size: icons only")
+        assertEquals(1.5f, StockNavigationLayout.labelScale(0f, 64f, 1.5f), "nothing measured yet: no change")
+    }
 }

@@ -50,8 +50,12 @@ internal fun HistoricalComparisonCard(state: ComparisonUiState, actions: History
             .then(if (onToggle != null) Modifier.clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = if (expanded) "Collapse" else "Expand", onClick = onToggle) else Modifier)
             .semantics(mergeDescendants = true) { heading(); if (onToggle != null) stateDescription = if (expanded) "Expanded" else "Collapsed" },
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Text(ComparisonDisplay.HISTORY_TITLE, Modifier.weight(1f), style = typography.cardTitle, color = colors.textTitle)
-            if (!state.historyPlus) StockStatusBadge("1Y free", org.example.stocksteps.theme.StockBadgeKind.INFO, size = StockBadgeSize.COMPACT)
+            // Accessibility closure: at accessibility text sizes the "1Y free" badge goes under the title, so the title never breaks mid-word.
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text(ComparisonDisplay.HISTORY_TITLE, style = typography.cardTitle, color = colors.textTitle)
+                if (!state.historyPlus && accessibilityText) StockStatusBadge("1Y free", org.example.stocksteps.theme.StockBadgeKind.INFO, size = StockBadgeSize.COMPACT)
+            }
+            if (!state.historyPlus && !accessibilityText) StockStatusBadge("1Y free", org.example.stocksteps.theme.StockBadgeKind.INFO, size = StockBadgeSize.COMPACT)
             if (onToggle != null) androidx.compose.material3.Icon(org.example.stocksteps.designsystem.icons.StockIcons.ChevronDown, null, tint = colors.iconSecondary,
                 modifier = Modifier.size(StockStepsTheme.dimensions.icon).graphicsLayer { rotationZ = if (expanded) 180f else 0f })
         }

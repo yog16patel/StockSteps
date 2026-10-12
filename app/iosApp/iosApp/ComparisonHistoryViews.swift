@@ -29,9 +29,13 @@ struct HistoricalComparisonView: View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             Button { onToggle?() } label: {
                 HStack(spacing: CGFloat(space.sm)) {
-                    Text(ComparisonDisplay.shared.HISTORY_TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if !state.historyPlus { StockStatusBadge(text: "1Y free", kind: .info, size: .compact) }
+                    // Accessibility closure: at accessibility sizes the "1Y free" badge goes under the title, so it never breaks mid-word.
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        Text(ComparisonDisplay.shared.HISTORY_TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle)
+                        if !state.historyPlus && typeSize.isAccessibilitySize { StockStatusBadge(text: "1Y free", kind: .info, size: .compact) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if !state.historyPlus && !typeSize.isAccessibilitySize { StockStatusBadge(text: "1Y free", kind: .info, size: .compact) }
                     if onToggle != nil {
                         Image(systemName: expanded ? "chevron.up" : "chevron.down").font(StockStepsTheme.font(type.caption, relativeTo: .caption1).weight(.semibold))
                             .foregroundStyle(colors.iconSecondary)
@@ -135,7 +139,8 @@ struct HistoricalComparisonView: View {
         }
         Chart {
             if let reference = view.reference {
-                RuleMark(y: .value(view.referenceLabel ?? "Reference", reference.doubleValue)).foregroundStyle(colors.textTertiary).lineStyle(StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                RuleMark(y: .value(view.referenceLabel ?? "Reference", reference.doubleValue))
+                    .foregroundStyle(StockStepsTheme.color(StockStepsTheme.chartReference(scheme).color)).lineStyle(StockStepsTheme.strokeStyle(StockStepsTheme.chartReference(scheme)))
             }
             ForEach(points) { point in
                 LineMark(x: .value("Period", point.index), y: .value(view.title, point.value), series: .value("Segment", point.segment))
@@ -146,6 +151,9 @@ struct HistoricalComparisonView: View {
                     .symbol(by: .value("Company", point.symbol))
             }
         }
+        // Accessibility closure: same StockChartSeriesStyle colours and dash patterns as Compare's share-price chart and Compose (legend follows).
+        .chartForegroundStyleScale(domain: view.series.map(\.label), range: view.series.indices.map { StockStepsTheme.color(StockStepsTheme.chartLine($0, scheme).color) })
+        .chartLineStyleScale(domain: view.series.map(\.label), range: view.series.indices.map { StockStepsTheme.strokeStyle(StockStepsTheme.chartLine($0, scheme)) })
         .chartXAxis(.hidden)
         // Compact labels ("150B"): the default axis printed revenue as "1.5E11" (Phase 5C.1).
         .chartYAxis { AxisMarks { AxisGridLine(); AxisValueLabel(format: FloatingPointFormatStyle<Double>.number.notation(.compactName)) } }

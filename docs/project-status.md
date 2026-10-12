@@ -6,7 +6,10 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**Newest (2026-10-12)**: Company Comparison final polish committed and pushed as "Polish Company Comparison with shared chart legend styles, concise What-the-numbers-show insights, a quieter sample strip and large-text fixes on Android and iOS"
+**Newest (2026-10-12)**: Company Comparison accessibility closure + insights card committed and pushed as "Close Company Comparison accessibility pass with an icon-led insights card, collapsible chart help and sources, readable tab labels at large text and live Dynamic Type fixes on Android and iOS"
+(`docs/GLOBAL_UI_REFINEMENT_PHASE5C_ACCESSIBILITY_CLOSURE.md`; core 470/0, shared 116/0 and 112/0, both builds OK, 14 captures; PASS WITH CONDITIONS).
+
+**Earlier (2026-10-12)**: Company Comparison final polish committed and pushed as "Polish Company Comparison with shared chart legend styles, concise What-the-numbers-show insights, a quieter sample strip and large-text fixes on Android and iOS"
 (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_FINAL_POLISH.md`; core 468/0, shared 114/0 and 110/0, both builds OK, device checks on local MOCK). Next: Portfolio
 P-B or Phase 5D after approval.
 

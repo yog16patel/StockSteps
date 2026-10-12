@@ -26,7 +26,10 @@ enum StockStepsTheme {
         default: .regular
         }
         let base = UIFont.systemFont(ofSize: CGFloat(token.size), weight: weight)
-        let font = Font(UIFontMetrics(forTextStyle: style ?? dynamicTypeStyle(for: token)).scaledFont(for: base))
+        // Accessibility closure: scale against the app's current content-size category explicitly. Without traits, UIFontMetrics uses
+        // `UITraitCollection.current`, which can still hold the previous size while SwiftUI re-renders after a live Dynamic Type change.
+        let traits = UITraitCollection(preferredContentSizeCategory: UIApplication.shared.preferredContentSizeCategory)
+        let font = Font(UIFontMetrics(forTextStyle: style ?? dynamicTypeStyle(for: token)).scaledFont(for: base, compatibleWith: traits))
         return token.tabular ? font.monospacedDigit() : font
     }
 

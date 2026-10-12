@@ -1,13 +1,26 @@
-# StockSteps — session handoff (2026-10-12: Company Comparison final polish committed; next Portfolio P-B or Phase 5D after approval)
+# StockSteps — session handoff (2026-10-12: Company Comparison accessibility closure committed; PASS WITH CONDITIONS)
 
-Read order for a new session: `CLAUDE.md` → **§FINAL-POLISH-5C below** → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§A11Y-CLOSURE-5C below** → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## FINAL-POLISH-5C. Company Comparison final polish (2026-10-12, committed and pushed — start here)
+## A11Y-CLOSURE-5C. Company Comparison accessibility closure + insights card (2026-10-12, committed and pushed — start here)
 
-- Repository: `main`. Current commit: "Polish Company Comparison with shared chart legend styles, concise What-the-numbers-show insights, a quieter sample strip and large-text fixes on Android and iOS" (pushed), on top of `92a6d6a` "Close Company Comparison Phase 5C.1 with section-based sticky header and
+- Repository: `main`. Current commit: "Close Company Comparison accessibility pass with an icon-led insights card, collapsible chart help and sources, readable tab labels at large text and live Dynamic Type fixes on Android and iOS" (pushed), on top of `53c0044` (Comparison final polish).
+- Done (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_ACCESSIBILITY_CLOSURE.md`): Android tab labels via shared `StockNavigationLayout.labelScale` (no ellipsis;
+  icons-only fallback with spoken names); insights card with category icons (`ObservationIcon`, `StockSemanticStyles.insightAccent`), three primary
+  insights + compact "Additional observations"; `ComparisonNotesDisplay` (chart help and "Sources & methodology", collapsed); iOS y-axis capped at AX
+  sizes, live Dynamic Type (`StockStepsTheme.font` traits + `dynamicTypeSize` dependencies), history chart on shared series styles; AX5 header fixes.
+- Validation: core JVM 470/0, core iOS 470/0, shared Android 116/0, shared iOS 112/0, `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED; 14 device
+  captures `docs/design/phase5c_a11y/` (Android 360 dp light + 2.0×, iPhone 16 dark + AX5 live change).
+- Verdict: PASS WITH CONDITIONS (provisional) — remaining: Android dark/1.3×/two companies, iPhone SE, iOS light captures; TalkBack/VoiceOver/physical
+  devices NOT TESTED; owner sign-off against the insights reference.
+- Next: owner's choice — finish the remaining Comparison checks, Portfolio P-B, or Phase 5D (each only after approval).
+
+## FINAL-POLISH-5C. Company Comparison final polish (2026-10-12, committed and pushed)
+
+- Repository: `main`. Commit: "Polish Company Comparison with shared chart legend styles, concise What-the-numbers-show insights, a quieter sample strip and large-text fixes on Android and iOS" (pushed), on top of `92a6d6a` "Close Company Comparison Phase 5C.1 with section-based sticky header and
   spacing fixes, and add the Portfolio UI audit and Phase P-A display rules".
 - Done (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_FINAL_POLISH.md`): shared `StockChartSeriesStyle` (colour + dash per series, reference line) for Compose
   `StockTrendChart` and Swift Charts with drawn legend swatches; quieter sample strip (`StockSemanticStyles.sampleStrip`, iOS strip capped at the

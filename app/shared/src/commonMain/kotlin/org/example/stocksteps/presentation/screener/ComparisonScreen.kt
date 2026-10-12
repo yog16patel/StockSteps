@@ -157,11 +157,12 @@ internal fun ComparisonScreen(
                             }
                         }
                         ComparisonEntry.Observations -> Box(gap) { ObservationsCard(ComparisonObservationsDisplay.view(state.observations, state.columns)) }
-                        ComparisonEntry.Notes -> Column(gap, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                            Text("Sources and notes", Modifier.semantics { heading() }, style = typography.label, color = colors.textSecondary)
-                            state.notes.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
-                            state.asOf?.let { Text("Comparison prepared ${it.take(10)} ${it.drop(11).take(5)} UTC.", style = typography.caption, color = colors.textSecondary) }
-                            Text("Education, not investment advice. Past results don't indicate future returns.", style = typography.caption, color = colors.textTertiary)
+                        // Accessibility closure: sources and methodology behind one collapsed card; the education line stays visible.
+                        ComparisonEntry.Notes -> Column(gap, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                            StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.cardPadding, vertical = spacing.xxs)) {
+                                CollapsibleNoteGroups(ComparisonNotesDisplay.SOURCES_TITLE, ComparisonNotesDisplay.sourceGroups(state.notes, state.asOf), heading = true)
+                            }
+                            Text(ComparisonNotesDisplay.DISCLAIMER, style = typography.caption, color = colors.textTertiary)
                         }
                         ComparisonEntry.Companies, ComparisonEntry.CompaniesEnd -> Unit
                     }
@@ -276,8 +277,9 @@ private fun CompanyHeader(columns: List<CompanyColumn>, onOpen: (String) -> Unit
 }
 
 /**
- * "What the numbers show" (Comparison polish): up to three distinct insights (heading + concise text, metric caveat only when needed), "View all N
- * insights" for the rest and one shared note. Copy and selection come from the shared [ComparisonObservationsDisplay]; values are the server's.
+ * "What the numbers show" (insights visual refinement): header with a lightbulb, three primary insights (category icon, title, text, caveat), "View
+ * all N insights", then — when open — the compact "Additional observations" panel and the shared footer. Content and categories come from the
+ * shared [ComparisonObservationsDisplay]; values are the server's. Icons are decorative (each row is read as one "title. text. caveat" label).
  */
 @Composable
 private fun ObservationsCard(view: ObservationsView) {
@@ -285,17 +287,18 @@ private fun ObservationsCard(view: ObservationsView) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     var all by rememberSaveable { mutableStateOf(false) }
-    StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Text(ComparisonObservationsDisplay.TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
-            Text(view.subtitle, style = typography.caption, color = colors.textSupporting)
+    StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text(ComparisonObservationsDisplay.TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
+                Text(view.subtitle, style = typography.caption, color = colors.textSupporting)
+            }
+            Icon(StockIcons.Lightbulb, null, tint = colors.rgb(colors.palette.warning), modifier = Modifier.size(StockStepsTheme.dimensions.icon))
         }
-        (if (all) view.top + view.more else view.top).forEachIndexed { i, item ->
-            if (i > 0) StockDivider()
-            Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = item.spoken }, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                Text(item.heading, style = typography.bodySemiBold, color = colors.textTitle)
-                Text(item.text, style = typography.small, color = colors.textBody)
-                item.caveat?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
+        Column {
+            view.top.forEachIndexed { i, item ->
+                if (i > 0) StockDivider(Modifier.padding(vertical = spacing.sm), startIndent = StockStepsTheme.dimensions.icon + spacing.md)
+                InsightRow(item, primary = true)
             }
         }
         ComparisonObservationsDisplay.toggle(view.total, all)?.let { label ->
@@ -307,7 +310,74 @@ private fun ObservationsCard(view: ObservationsView) {
                     modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall).graphicsLayer { rotationZ = if (all) 180f else 0f })
             }
         }
+        if (all && view.more.isNotEmpty()) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(cardRadius)).background(colors.surfaceSecondary)
+            .padding(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+            Text(ComparisonObservationsDisplay.MORE_TITLE, Modifier.semantics { heading() }, style = typography.bodySemiBold, color = colors.textTitle)
+            view.more.forEach { InsightRow(it, primary = false) }
+        }
         Text(view.note, style = typography.caption, color = colors.textTertiary)
+    }
+}
+
+/** One insight: category icon (decorative, coloured by category) aligned to the title, then title, text and the metric's caveat. */
+@Composable
+private fun InsightRow(item: ObservationItem, primary: Boolean) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    val iconSize = if (primary) StockStepsTheme.dimensions.icon else StockStepsTheme.dimensions.iconSmall
+    Row(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = item.spoken }, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+        Box(Modifier.width(StockStepsTheme.dimensions.icon).padding(top = spacing.xxs), contentAlignment = Alignment.TopCenter) {
+            Icon(insightIcon(item.icon), null, tint = colors.rgb(org.example.stocksteps.theme.StockSemanticStyles.insightAccent(item.icon, colors.palette)),
+                modifier = Modifier.size(iconSize))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Text(item.heading, style = if (primary) typography.bodySemiBold else typography.label, color = colors.textTitle)
+            Text(item.text, style = if (primary) typography.small else typography.caption, color = if (primary) colors.textBody else colors.textSupporting)
+            item.caveat?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
+        }
+    }
+}
+
+private fun insightIcon(icon: ObservationIcon) = when (icon) {
+    ObservationIcon.GROWTH -> StockIcons.TrendingUp
+    ObservationIcon.PROFITABILITY -> StockIcons.BarChart
+    ObservationIcon.VALUATION -> StockIcons.Tag
+    ObservationIcon.OPERATING -> StockIcons.Speed
+    ObservationIcon.DEBT -> StockIcons.Layers
+    ObservationIcon.DIVIDEND -> StockIcons.Percent
+    ObservationIcon.CASH -> StockIcons.Coin
+    ObservationIcon.GENERAL -> StockIcons.Info
+}
+
+/**
+ * A collapsed-by-default control (48 dp, Expanded/Collapsed state) that reveals titled groups of short notes — "How to read this chart" in the
+ * chart card and "Sources & methodology" (accessibility closure). Every line stays in the list when open; nothing is truncated.
+ */
+@Composable
+private fun CollapsibleNoteGroups(title: String, groups: List<NoteGroup>, heading: Boolean = false) {
+    if (groups.isEmpty()) return
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    var open by rememberSaveable(title) { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(role = androidx.compose.ui.semantics.Role.Button) { open = !open }
+            .semantics(mergeDescendants = true) { if (heading) heading(); stateDescription = if (open) "Expanded" else "Collapsed" },
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            Text(title, Modifier.weight(1f, fill = heading), style = if (heading) typography.bodySemiBold else typography.label,
+                color = if (heading) colors.textTitle else colors.primaryText)
+            Icon(StockIcons.ChevronDown, null, tint = if (heading) colors.iconSecondary else colors.primaryText,
+                modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall).graphicsLayer { rotationZ = if (open) 180f else 0f })
+        }
+        if (open) Column(Modifier.padding(bottom = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            groups.forEach { group ->
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    Text(group.title, Modifier.semantics { heading() }, style = typography.label, color = colors.textTitle)
+                    group.lines.forEach { Text(it, style = typography.caption, color = colors.textSupporting) }
+                }
+            }
+        }
     }
 }
 
@@ -541,8 +611,8 @@ private fun PerformanceCard(state: ComparisonUiState, onPeriod: (PerformancePeri
     val spacing = StockStepsTheme.spacing
     StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         Text("Share price change", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
-        Text("Each line starts at 100 on the same day, so you compare percentage moves, not share prices. This is price only (no dividends) and says nothing about how the businesses performed.",
-            style = typography.caption, color = colors.textSupporting)
+        // Accessibility closure: one short line; the longer explanations sit behind "How to read this chart" (collapsed).
+        Text(ComparisonNotesDisplay.CHART_SUBTITLE, style = typography.caption, color = colors.textSupporting)
         StockPillSelector(PerformancePeriod.entries, state.period, { it.label }, onPeriod)
         when {
             state.chartLoading -> StockLoadingState { StockSkeleton(Modifier.fillMaxWidth().height(spacing.xxxl * 4)) }
@@ -583,7 +653,7 @@ private fun PerformanceCard(state: ComparisonUiState, onPeriod: (PerformancePeri
                     drawable.mapNotNull { s -> s.note?.let { "${s.symbol}: $it" } }.forEach { Text(it, style = typography.caption, color = colors.textSupporting) }
                 }
                 chart.series.filter { it.error != null }.forEach { Text("${it.symbol}: ${it.error}", style = typography.caption, color = colors.cautionText) }
-                chart.notes.forEach { Text(it, style = typography.caption, color = colors.textSupporting) }
+                CollapsibleNoteGroups(ComparisonNotesDisplay.CHART_HELP, ComparisonNotesDisplay.chartGroups(chart.notes))
             }
         }
     }

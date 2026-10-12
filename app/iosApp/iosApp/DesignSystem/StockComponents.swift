@@ -40,7 +40,10 @@ struct StockSectionHeader<Trailing: View>: View {
     var actionTitle: String?
     var action: (() -> Void)?
     @ViewBuilder var trailing: () -> Trailing
+    /// Re-render on live Dynamic Type changes (Comparison accessibility closure; `StockStepsTheme.font` resolves when the body runs).
+    @Environment(\.dynamicTypeSize) private var liveTypeSize
     var body: some View {
+        let _ = liveTypeSize
         HStack(spacing: CGFloat(space.sm)) {
             Text(title)
                 .font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline))
@@ -461,7 +464,10 @@ struct StockNavigationRow: View {
     var badge: String? = nil
     var badgeKind: StockBadgeKind = .premium
     let action: () -> Void
+    /// Re-render on live Dynamic Type changes (Comparison accessibility closure; `StockStepsTheme.font` resolves when the body runs).
+    @Environment(\.dynamicTypeSize) private var liveTypeSize
     var body: some View {
+        let _ = liveTypeSize
         let colors = StockStepsTheme.colors(scheme)
         Button(action: action) {
             HStack(spacing: CGFloat(space.md)) {

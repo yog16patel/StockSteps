@@ -211,7 +211,7 @@ internal fun AppNavigation(
                     )
                 }
                 if (showTabs) {
-                    StockBottomNavigation {
+                    StockBottomNavigation(labels = MainDestination.entries.map { stringResource(it.labelResource()) }) {
                         MainDestination.entries.forEach { tab ->
                             val selected = when (tab) {
                                 MainDestination.HOME -> isHome
