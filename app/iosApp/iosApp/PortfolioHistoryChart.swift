@@ -107,6 +107,10 @@ struct PortfolioHistorySection: View {
         return Chart {
             ForEach(points) { point in
                 if let value = point.value {
+                    // Phase C (as Compose `areaFill`): a subtle fill under each run of values; gaps stay gaps (separate series per run).
+                    AreaMark(x: .value("Date", point.id), yStart: .value("Base", yDomain.lowerBound), yEnd: .value("Value", value),
+                             series: .value("Segment", point.segment))
+                        .foregroundStyle(LinearGradient(colors: [colors.primary.opacity(0.18), colors.primary.opacity(0)], startPoint: .top, endPoint: .bottom))
                     LineMark(x: .value("Date", point.id), y: .value("Value", value), series: .value("Segment", point.segment))
                         .foregroundStyle(colors.primary)
                         .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))

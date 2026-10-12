@@ -1,4 +1,4 @@
-# Portfolio UI Refinement — implementation roadmap (P-A, Phase A, Phase B and B.1 committed; Phase C awaiting approval)
+# Portfolio UI Refinement — implementation roadmap (P-A, Phase A, B, B.1 and C committed; Phase D awaiting approval)
 
 Status: **plan only** (revised 2026-10-12). Findings: `docs/PORTFOLIO_UI_AUDIT.md` (IDs **A-F1…A-F20**, risks **D-R1…D-R10**, questions **Q1–Q7**).
 This revision replaces the 2026-10-11 plan, which was committed in `92a6d6a` and is still in git history. Its issues **#1–#16**, components
@@ -114,6 +114,8 @@ Goal: rules R1/R2 — one overview card with NUMBER → CONTEXT, honest chart na
 - **Excluded:** holdings, allocation, sort, skeletons, empty-state v2, account chip, Home.
 
 ## Phase C — Holdings, allocation, holding details (and the Insights screen pass)
+
+**Implemented 2026-10-12, committed as "Refine Portfolio holdings, allocation donut, holding details and insights with borderless sections and matching selector icons (Portfolio Phase C) on Android and iOS" (verification partial)**: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C.md`. Decisions applied: D3 sort = optional menu, default presenter order; Q6 By currency = collapsed second legend group.
 
 | Item | Findings | Change |
 |---|---|---|

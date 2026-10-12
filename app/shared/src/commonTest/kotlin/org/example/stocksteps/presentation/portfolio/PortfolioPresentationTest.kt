@@ -49,7 +49,7 @@ class PortfolioPresentationTest {
 
     @Test
     fun holdingRowsDescribeEverythingOnce() {
-        assertEquals("MSFT · NASDAQ · 3 shares", PortfolioPresentation.holdingSubtitle(msft))
+        assertEquals("MSFT · NASDAQ · 3\u00A0shares", PortfolioPresentation.holdingSubtitle(msft))
         assertEquals("USD 1,589.28", PortfolioPresentation.holdingValue(msft))
         val spoken = PortfolioPresentation.holdingDescription(msft)
         assertTrue(spoken.startsWith("Microsoft Corporation, MSFT · NASDAQ · 3 shares, value USD 1,589.28, unrealized gain 1,577.28 (+13,144.00%)"), spoken)
@@ -58,7 +58,7 @@ class PortfolioPresentationTest {
         assertEquals("+1,577.28" to null, PortfolioPresentation.holdingChangeLines(msft.copy(gainPercent = null)))
         assertNull(PortfolioPresentation.holdingChangeLines(missing))
         assertEquals("USD —", PortfolioPresentation.holdingValue(missing))
-        assertEquals("MSFT · 1 share", PortfolioPresentation.holdingSubtitle(missing))
+        assertEquals("MSFT · 1\u00A0share", PortfolioPresentation.holdingSubtitle(missing))
         assertTrue(PortfolioPresentation.holdingDescription(missing).contains("unrealized gain unavailable"))
         assertTrue(PortfolioPresentation.holdingDescription(missing).contains("stale"))
     }
@@ -67,10 +67,10 @@ class PortfolioPresentationTest {
     fun transactionsAndFreshness() {
         val buy = PortfolioTransaction("t", "a", TransactionType.OPENING_POSITION, "2026-10-09", PortfolioCurrency.USD,
             InstrumentRef("MSFT", "Microsoft Corporation", "NASDAQ", "USD"), quantity = "3", netAmount = "12")
-        assertEquals("MSFT · 3 shares", PortfolioPresentation.transactionDetail(buy))
-        assertEquals("USD 4.00 per share", PortfolioPresentation.transactionAmount(buy.copy(unitPrice = "4")))
-        assertEquals("USD 12.00", PortfolioPresentation.transactionAmount(buy))
-        assertEquals("CAD 500.00", PortfolioPresentation.transactionAmount(buy.copy(type = TransactionType.CASH_DEPOSIT, currency = PortfolioCurrency.CAD,
+        assertEquals("MSFT · 3\u00A0shares", PortfolioPresentation.transactionDetail(buy))
+        assertEquals("USD\u00A04.00 per share", PortfolioPresentation.transactionAmount(buy.copy(unitPrice = "4")))
+        assertEquals("USD\u00A012.00", PortfolioPresentation.transactionAmount(buy))
+        assertEquals("CAD\u00A0500.00", PortfolioPresentation.transactionAmount(buy.copy(type = TransactionType.CASH_DEPOSIT, currency = PortfolioCurrency.CAD,
             instrument = null, unitPrice = "1", netAmount = "500")))
         assertNull(PortfolioPresentation.transactionDetail(buy.copy(instrument = null)))
         assertEquals("MSFT", PortfolioPresentation.transactionDetail(buy.copy(quantity = "0")))

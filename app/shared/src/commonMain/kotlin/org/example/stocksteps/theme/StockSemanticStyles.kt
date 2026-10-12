@@ -212,3 +212,35 @@ object StockChartLayout {
     const val MAX_HEIGHT = 200f
     fun height(availableWidth: Float): Float = (availableWidth * 0.45f).coerceIn(MIN_HEIGHT, MAX_HEIGHT)
 }
+
+/**
+ * Allocation donut geometry (Portfolio Phase C), shared by Compose and SwiftUI so both draw the same ring. Fractions are drawing values only
+ * (the legend shows the reported percentages). Slices start at 12 o'clock and run clockwise in legend order; with more than one slice a small
+ * gap separates them; a slice too small to see keeps a minimum sweep so it isn't lost (its legend row still carries the real value).
+ */
+object StockAllocationLayout {
+    const val START_DEGREES = -90f
+    const val GAP_DEGREES = 2f
+    const val MIN_SWEEP_DEGREES = 2f
+    /** Ring thickness as a share of the donut's diameter. */
+    const val RING_FRACTION = 0.18f
+    /** Donut diameter: about a third of the available width, between 96 and 160 dp/pt; the legend sits beside it when it fits, else below. */
+    fun diameter(availableWidth: Float): Float = (availableWidth * 0.34f).coerceIn(96f, 160f)
+
+    /** Legend beside the donut only when the remaining width can hold the widest legend line; at large text it goes below. */
+    fun legendBeside(availableWidth: Float, widestLegendLine: Float, gap: Float = 16f): Boolean =
+        availableWidth > 0f && diameter(availableWidth) + gap + widestLegendLine <= availableWidth
+
+    /** (start, sweep) in degrees per slice. Fractions must already be valid (0…1, sum ≤ 1 — `allocationDonutAllowed`). */
+    fun slices(fractions: List<Float>): List<Pair<Float, Float>> {
+        if (fractions.isEmpty()) return emptyList()
+        val gap = if (fractions.count { it > 0f } > 1) GAP_DEGREES else 0f
+        var start = START_DEGREES
+        return fractions.map { f ->
+            val sweep = if (f <= 0f) 0f else maxOf(f * 360f - gap, MIN_SWEEP_DEGREES)
+            val slice = start to sweep
+            start += f * 360f
+            slice
+        }
+    }
+}

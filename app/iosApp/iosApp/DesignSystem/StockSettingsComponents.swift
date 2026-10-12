@@ -52,6 +52,8 @@ struct StockSegmentedControl: View {
     let segments: [(String, String)]
     let selected: Int
     let onSelect: (Int) -> Void
+    /// Portfolio Phase C: a small fixed-size icon beside the label at every text size (the label wraps) instead of a large icon stacked above.
+    var compactIcons = false
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         let shape = RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.button))
@@ -60,13 +62,13 @@ struct StockSegmentedControl: View {
                 let isSelected = index == selected
                 Button { onSelect(index) } label: {
                     let label = Group {
-                        Image(systemName: segment.1).font(.footnote).accessibilityHidden(true)
+                        Image(systemName: segment.1).font(compactIcons ? .system(size: CGFloat(dims.icon) * 0.85) : .footnote).accessibilityHidden(true)
                         // Wraps (up to two lines) instead of shrinking; selected is also semibold, not only blue (Phase 2).
                         Text(segment.0).font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(isSelected ? .semibold : .regular))
                             .lineLimit(2).multilineTextAlignment(.center)
                     }
                     Group {
-                        if typeSize.isAccessibilitySize { VStack(spacing: CGFloat(space.xxs)) { label } }
+                        if typeSize.isAccessibilitySize && !compactIcons { VStack(spacing: CGFloat(space.xxs)) { label } }
                         else { HStack(spacing: CGFloat(space.xs)) { label } }
                     }
                     .foregroundStyle(isSelected ? colors.primaryText : colors.textSecondary)

@@ -98,7 +98,8 @@ object PortfolioPresentation {
 
     /** "MSFT · NASDAQ · 3 shares" (exchange only when provided). */
     fun holdingSubtitle(row: PortfolioHoldingRow): String =
-        listOfNotNull(row.symbol, row.exchange?.takeIf { it.isNotBlank() }, "${row.quantity} ${if (row.quantity == "1") "share" else "shares"}").joinToString(" · ")
+        // Non-breaking space (Phase C): "10 shares" never splits as "10 / shares" at large text.
+        listOfNotNull(row.symbol, row.exchange?.takeIf { it.isNotBlank() }, "${row.quantity}\u00A0${if (row.quantity == "1") "share" else "shares"}").joinToString(" · ")
 
     /** "USD 1,589.28" or "USD —" when the market value is unavailable. */
     fun holdingValue(row: PortfolioHoldingRow): String = "${row.currency} ${PortfolioFormat.amount(row.value)}"
@@ -129,14 +130,14 @@ object PortfolioPresentation {
             PriceDirection.UNAVAILABLE -> "unrealized gain unavailable"
         }
         return listOfNotNull(row.name, holdingSubtitle(row), "value ${holdingValue(row)}", gain, if (row.stale) "last available quote, delayed or stale" else null)
-            .joinToString(", ")
+            .joinToString(", ").replace('\u00A0', ' ')
     }
 
     /** "MSFT · 3 shares" (or just the ticker / nothing for cash transactions). */
     fun transactionDetail(transaction: PortfolioTransaction): String? {
         val symbol = transaction.instrument?.symbol ?: return null
         val quantity = transaction.quantity.takeIf { runCatching { Decimal.parse(it) != Decimal.parse("0") }.getOrDefault(false) }
-        return listOfNotNull(symbol, quantity?.let { "$it ${if (it == "1") "share" else "shares"}" }).joinToString(" · ")
+        return listOfNotNull(symbol, quantity?.let { "$it\u00A0${if (it == "1") "share" else "shares"}" }).joinToString(" · ")
     }
 
     /**
@@ -145,8 +146,9 @@ object PortfolioPresentation {
      */
     fun transactionAmount(transaction: PortfolioTransaction): String {
         val price = transaction.unitPrice.takeIf { transaction.type in PRICED_TRADES && runCatching { Decimal.parse(it) != Decimal.parse("0") }.getOrDefault(false) }
-        return if (price != null) "${transaction.currency.name} ${PortfolioFormat.amount(price)} per share"
-        else "${transaction.currency.name} ${PortfolioFormat.amount(transaction.netAmount)}"
+        // Non-breaking space (Phase C): the currency code stays with its amount ("CAD 75.00", not "CAD / 75.00") at large text.
+        return if (price != null) "${transaction.currency.name}\u00A0${PortfolioFormat.amount(price)} per share"
+        else "${transaction.currency.name}\u00A0${PortfolioFormat.amount(transaction.netAmount)}"
     }
 
     private val PRICED_TRADES = setOf(TransactionType.BUY, TransactionType.SELL, TransactionType.OPENING_POSITION,

@@ -20,6 +20,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.graphics.graphicsLayer
+import org.example.stocksteps.theme.StockAllocationLayout
 import org.example.stocksteps.companydetail.PriceDirection
 import org.example.stocksteps.designsystem.components.*
 import org.example.stocksteps.designsystem.icons.StockIcons
@@ -70,6 +73,9 @@ internal fun PortfolioScreen(
     var requestedPeriod by rememberSaveable { mutableStateOf<String?>(null) }
     var sampleDetails by rememberSaveable { mutableStateOf(false) }
     var choosingScenario by remember { mutableStateOf(false) }
+    // Phase C: display-only holdings order (null = the presenter's order); not persisted.
+    var holdingSort by rememberSaveable { mutableStateOf<String?>(null) }
+    val sort = holdingSort?.let { name -> PortfolioHoldingSort.entries.firstOrNull { it.name == name } }
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -98,9 +104,11 @@ internal fun PortfolioScreen(
         }
         if (listMode && onPractice != null) item {
             StockSegmentedControl(
-                options = listOf(StockSegment(PortfolioMode.MINE, "My Portfolio"), StockSegment(PortfolioMode.PRACTICE, "Practice")),
+                options = listOf(StockSegment(PortfolioMode.MINE, "My Portfolio", StockIcons.Briefcase),
+                    StockSegment(PortfolioMode.PRACTICE, "Practice", StockIcons.School)),
                 selected = PortfolioMode.MINE,
-                onSelect = { if (it == PortfolioMode.PRACTICE) onPractice() }
+                onSelect = { if (it == PortfolioMode.PRACTICE) onPractice() },
+                compactIcons = true
             )
         }
         // Status: sample, loading, sync errors, offline and sign-in — compact, above the numbers they qualify. The sample scenario is chosen in
@@ -148,36 +156,47 @@ internal fun PortfolioScreen(
                     }
                 }
             }
-            val rows = state.holdings.filter { holdingSymbol == null || it.symbol == holdingSymbol }
-            item { PortfolioSectionTitle(if (listMode && rows.isNotEmpty()) "Holdings (${rows.size})" else "Holdings") }
-            if (rows.isEmpty()) item {
-                StockCard { Text(PortfolioDisplay.HOLDINGS_EMPTY, style = typography.small, color = colors.textSupporting) }
+            val items = PortfolioHoldingsDisplay.items(state, if (listMode) sort else null).filter { holdingSymbol == null || it.symbol == holdingSymbol }
+            item {
+                // Phase C: the sort menu sits beside the title (display order only) instead of a toolbar.
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Box(Modifier.weight(1f)) { PortfolioSectionTitle(if (listMode && items.isNotEmpty()) "Holdings (${items.size})" else "Holdings") }
+                    if (listMode && items.size > 1) PortfolioHoldingSortMenu(sort) { holdingSort = it?.name }
+                }
+            }
+            if (items.isEmpty()) item {
+                StockCard(bordered = false) { Text(PortfolioDisplay.HOLDINGS_EMPTY, style = typography.small, color = colors.textSupporting) }
             } else item {
-                StockCard(contentPadding = PaddingValues(vertical = spacing.xs)) {
-                    rows.forEachIndexed { index, row ->
-                        if (index > 0) StockDivider()
-                        PortfolioHoldingRowView(row, onClick = if (listMode) ({ onHolding(row.symbol) }) else null)
+                StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xs)) {
+                    items.forEachIndexed { index, item ->
+                        if (index > 0) StockDivider(Modifier.padding(horizontal = spacing.cardPadding))
+                        PortfolioHoldingRowView(item, onClick = if (listMode) ({ onHolding(item.symbol) }) else null)
                     }
                 }
             }
-            if (!listMode) rows.firstOrNull()?.let { row -> item {
-                StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                    StockMetricGrid(listOf(
-                        StockMetricItem("Price", "${row.currency} ${PortfolioFormat.amount(row.price)}"),
-                        StockMetricItem("Cost", "${row.currency} ${PortfolioFormat.amount(row.basis)}"),
-                        StockMetricItem("Realized", PortfolioPresentation.holdingRealized(row), direction = PortfolioPresentation.direction(row.realized)),
-                        StockMetricItem("Dividends", PortfolioPresentation.holdingDividends(row))
-                    ), maxColumns = 2)
-                    StockButton("Company details", { onCompany(row.symbol) }, variant = StockButtonVariant.TEXT)
-                    StockButton("Price alerts", { onAlerts(row.symbol) }, variant = StockButtonVariant.TEXT)
-                    StockButton("Add to watchlist", { onWatchlist(row.symbol) }, variant = StockButtonVariant.TEXT)
+            // Holding details (Phase C): every holding metric with its currency in a responsive grid, then the actions as navigation rows.
+            if (!listMode) state.holdings.firstOrNull { it.symbol == holdingSymbol }?.let { row -> item {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                    StockCard(bordered = false) {
+                        StockMetricGrid(PortfolioHoldingsDisplay.detailMetrics(row).map { StockMetricItem(it.label, it.value, direction = it.direction) },
+                            maxColumns = 2, rowsWhenNarrow = true)
+                    }
+                    PortfolioSectionTitle(PortfolioHoldingsDisplay.DETAILS_ACTIONS)
+                    StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xxs)) {
+                        StockNavigationRow(PortfolioHoldingsDisplay.COMPANY_DETAILS, { onCompany(row.symbol) }, icon = StockIcons.Document)
+                        StockDivider(Modifier.padding(horizontal = spacing.cardPadding))
+                        StockNavigationRow(PortfolioHoldingsDisplay.PRICE_ALERTS, { onAlerts(row.symbol) }, icon = StockIcons.Bell)
+                        StockDivider(Modifier.padding(horizontal = spacing.cardPadding))
+                        StockNavigationRow(PortfolioHoldingsDisplay.ADD_TO_WATCHLIST, { onWatchlist(row.symbol) }, icon = StockIcons.StarOutline)
+                    }
                 }
             } }
             if (listMode) item { PortfolioAllocationCard(state) }
-            // Cash and dividends share one card: each is a labelled line, so empty values cost one row, not a whole section.
-            item {
+            // Cash and dividends share one card: each is a labelled line, so empty values cost one row, not a whole section. Account-wide, so
+            // not on Holding details (Phase C: it isn't this holding's cash).
+            if (listMode) item {
                 PortfolioSectionTitle("Cash and dividends")
-                StockCard(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     PortfolioValueLines("Cash", state.cash, "None recorded")
                     StockDivider()
                     PortfolioValueLines("Dividends received", state.dividends, "None recorded")
@@ -186,7 +205,7 @@ internal fun PortfolioScreen(
             val transactions = state.transactions.filter { holdingSymbol == null || it.instrument?.symbol == holdingSymbol }
             item { PortfolioSectionTitle(if (transactions.isEmpty()) "Transactions" else "Transactions (${transactions.size})") }
             item {
-                StockCard(contentPadding = PaddingValues(vertical = spacing.xs)) {
+                StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xs)) {
                     if (transactions.isEmpty()) {
                         Text(PortfolioDisplay.TRANSACTIONS_EMPTY, Modifier.padding(horizontal = spacing.cardPadding, vertical = spacing.sm), style = typography.small, color = colors.textSupporting)
                     }
@@ -202,7 +221,7 @@ internal fun PortfolioScreen(
                 }
             }
             if (listMode) item {
-                StockCard(onClick = onInsights, onClickLabel = PortfolioDisplay.INSIGHTS_OPEN) {
+                StockCard(onClick = onInsights, onClickLabel = PortfolioDisplay.INSIGHTS_OPEN, bordered = false) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
                         StockIconTile(StockIcons.TrendingUp, colors.primaryContainer, colors.primaryText)
                         Column(Modifier.weight(1f)) {
@@ -337,7 +356,8 @@ private fun PortfolioOverviewCard(state: PortfolioUiState, accountCount: Int, re
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
     val overview = PortfolioOverviewDisplay.of(state, accountCount)
-    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    // Phase C: borderless — the surface colour against the page background and whitespace separate it (no shadow added).
+    StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         account()
         // One spoken summary (total, today's change in words, all accounts) when there is no "Why?" action to reach; otherwise the total alone.
         val summary = if (overview.today != null) Modifier.clearAndSetSemantics { contentDescription = overview.spoken } else Modifier
@@ -378,47 +398,66 @@ private fun PortfolioOverviewCard(state: PortfolioUiState, accountCount: Int, re
 }
 
 /**
- * Compact holding row: logo · name / ticker · shares — value / unrealized change; one spoken description. At large font scale the
- * values move under the name so long company names never break mid-word.
+ * Holding row (Phase C): avatar · name / "AAPL · NASDAQ · 10 shares" / optional weight — market value (strong) over the signed change (arrow +
+ * sign + colour, percentage when known). One spoken description. Narrow rows and large text put the values under the name (shared
+ * `PortfolioLayout.stackedRowWidth`), so names wrap on whole words and values are never squeezed or cut.
  */
 @Composable
-private fun PortfolioHoldingRowView(row: PortfolioHoldingRow, onClick: (() -> Unit)?) {
+private fun PortfolioHoldingRowView(item: PortfolioHoldingItem, onClick: (() -> Unit)?) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
-    val description = PortfolioPresentation.holdingDescription(row)
     val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
     val values: @Composable (Alignment.Horizontal) -> Unit = { alignment ->
         Column(Modifier.clearAndSetSemantics {}, horizontalAlignment = alignment, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Text(PortfolioPresentation.holdingValue(row), style = typography.numberLabelStrong, color = colors.textValue, maxLines = 1)
-            val direction = PortfolioPresentation.direction(row.gain)
-            PortfolioPresentation.holdingChangeLines(row)?.let { (first, second) ->
-                StockPriceChange(first, direction)
-                second?.let { Text(it, style = typography.numberLabel, color = if (direction == PriceDirection.DOWN) colors.negativeText else if (direction == PriceDirection.UP) colors.positiveText else colors.textSupporting) }
-            } ?: Text("Gain unavailable", style = typography.caption, color = colors.textMeta)
+            Text(item.value, style = typography.numberLabelStrong, color = colors.textValue)
+            item.change?.let { StockPriceChange(it, item.direction, maxLines = 2) }
+                ?: Text(PortfolioHoldingsDisplay.GAIN_UNAVAILABLE, style = typography.caption, color = colors.textMeta)
         }
     }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-    // Narrow rows (small phones, split screen) and large text put the values under the name, so neither is squeezed.
     val stacked = largeText || maxWidth < PortfolioLayout.stackedRowWidth.dp
     Row(
         Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.rowMinHeight)
             .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClickLabel = "Open holding", onClick = onClick) else Modifier)
-            .semantics { contentDescription = description }
+            .semantics { contentDescription = item.spoken }
             .padding(horizontal = spacing.cardPadding, vertical = spacing.sm),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)
     ) {
         Row(Modifier.weight(1f).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
-            StockTickerAvatar(symbol = row.symbol, logoUrl = row.logoUrl)
+            StockTickerAvatar(symbol = item.symbol, logoUrl = item.logoUrl)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                Text(row.name, style = typography.bodySemiBold, color = colors.textTitle, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(PortfolioPresentation.holdingSubtitle(row), style = typography.small, color = colors.textSupporting)
-                if (row.stale) Text("Last available quote · delayed or stale", style = typography.caption, color = colors.textMeta)
+                Text(item.name, style = typography.bodySemiBold, color = colors.textTitle)
+                Text(item.subtitle, style = typography.small, color = colors.textSupporting)
+                item.weight?.let { Text(it, style = typography.caption, color = colors.textMeta) }
+                if (item.stale) Text(PortfolioHoldingsDisplay.STALE, style = typography.caption, color = colors.textMeta)
                 if (stacked) values(Alignment.Start)
             }
         }
         if (!stacked) values(Alignment.End)
     }
+    }
+}
+
+/** "Sort: Value ▾" — Default / Value / Name / Change %; display order only, nothing saved. */
+@Composable
+private fun PortfolioHoldingSortMenu(sort: PortfolioHoldingSort?, onSort: (PortfolioHoldingSort?) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val colors = StockStepsTheme.colors
+    Box {
+        Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget).clip(StockStepsTheme.shapes.chip)
+            .clickable(role = Role.DropdownList, onClickLabel = PortfolioHoldingsDisplay.SORT_TITLE) { open = true }
+            .padding(horizontal = StockStepsTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+            Text(PortfolioHoldingsDisplay.sortLabel(sort), style = StockStepsTheme.typography.label, color = colors.primaryText)
+            Icon(StockIcons.ChevronDown, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            (listOf<PortfolioHoldingSort?>(null) + PortfolioHoldingSort.entries).forEach { option ->
+                DropdownMenuItem(text = { Text(option?.label ?: PortfolioHoldingsDisplay.DEFAULT_ORDER) }, onClick = { open = false; onSort(option) },
+                    trailingIcon = if (option == sort) ({ Icon(StockIcons.Check, contentDescription = "Selected", tint = colors.primaryText) }) else null)
+            }
+        }
     }
 }
 
@@ -445,37 +484,84 @@ private fun PortfolioTransactionRow(transaction: PortfolioTransaction, onEdit: (
     }
 }
 
-/** Allocation by holding and by currency as labelled bars; one line when there is nothing to allocate (no empty chart area). */
+/**
+ * Allocation (Phase C): by holding as a donut + legend when every slice is valid (`PortfolioAllocationDisplay` / `allocationDonutAllowed`), else
+ * the labelled bars; by currency as a second legend group, collapsed by default. Percentages and amounts are the server's, never recomputed.
+ */
 @Composable
 private fun PortfolioAllocationCard(state: PortfolioUiState) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
-    PortfolioSectionTitle("Allocation")
-    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        if (state.allocations.isEmpty() && state.currencyAllocations.isEmpty()) {
-            Text("Allocation appears once you have holdings.", style = typography.small, color = colors.textSupporting)
+    val view = PortfolioAllocationDisplay.of(state)
+    var byCurrency by rememberSaveable { mutableStateOf(false) }
+    PortfolioSectionTitle(PortfolioAllocationDisplay.TITLE)
+    StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        if (view.holdings.isEmpty() && view.currencies.isEmpty()) {
+            Text(PortfolioAllocationDisplay.EMPTY, style = typography.small, color = colors.textSupporting)
         }
-        if (state.allocations.isNotEmpty()) Text("By holding", style = typography.label, color = colors.textSupporting)
-        state.allocations.forEach { AllocationBar("${it.symbol} · ${it.currency.name}", it.percent, it.reportingValue?.let { v -> "${state.currency} ${PortfolioFormat.amount(v)}" }) }
-        if (state.currencyAllocations.isNotEmpty()) Text("By currency", Modifier.padding(top = spacing.xs), style = typography.label, color = colors.textSupporting)
-        state.currencyAllocations.forEach { AllocationBar(it.currency.name, it.percent, "${state.currency} ${PortfolioFormat.amount(it.reportingValue)}") }
+        if (view.holdings.isNotEmpty()) {
+            Text(PortfolioAllocationDisplay.BY_HOLDING, style = typography.label, color = colors.textSupporting)
+            if (view.donut) {
+                val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val widest = view.holdings.maxOf { e ->
+                    measurer.measure(e.label, typography.small).size.width + measurer.measure(e.percent, typography.numberLabelStrong).size.width
+                }.let { with(density) { it.toDp().value } } + 40f
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val diameter = StockAllocationLayout.diameter(maxWidth.value).dp
+                    val legend: @Composable (Modifier) -> Unit = { m ->
+                        Column(m, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                            view.holdings.forEach { StockAllocationLegendRow(it.colorIndex, it.label, it.percent, it.amount, it.spoken) }
+                        }
+                    }
+                    val donut: @Composable () -> Unit = {
+                        StockAllocationDonut(view.holdings.map { it.fraction }, view.holdings.map { it.colorIndex }, diameter)
+                    }
+                    if (StockAllocationLayout.legendBeside(maxWidth.value, widest, spacing.md.value)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                            donut(); legend(Modifier.weight(1f))
+                        }
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                            donut(); legend(Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            } else {
+                view.holdings.forEach { AllocationBar(it.label, it.percent, it.amount, it.fraction, it.spoken) }
+            }
+        }
+        if (view.currencies.isNotEmpty()) {
+            if (view.holdings.isNotEmpty()) StockDivider()
+            Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
+                .clickable(role = Role.Button, onClickLabel = if (byCurrency) PortfolioAllocationDisplay.HIDE_CURRENCY else PortfolioAllocationDisplay.SHOW_CURRENCY) {
+                    byCurrency = !byCurrency
+                }.semantics { stateDescription = if (byCurrency) "Expanded" else "Collapsed" },
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("${PortfolioAllocationDisplay.BY_CURRENCY} (${view.currencies.size})", Modifier.weight(1f).semantics { heading() },
+                    style = typography.label, color = colors.textSupporting)
+                Icon(StockIcons.ChevronDown, contentDescription = null, tint = colors.iconSecondary,
+                    modifier = Modifier.size(StockStepsTheme.dimensions.icon).graphicsLayer { rotationZ = if (byCurrency) 180f else 0f })
+            }
+            if (byCurrency) view.currencies.forEach { StockAllocationLegendRow(it.colorIndex, it.label, it.percent, it.amount, it.spoken) }
+        }
     }
 }
 
+/** Fallback bar when the donut isn't allowed (borrowed cash can exceed 100 %): label · reported % · amount, bar clamped to 0…1. */
 @Composable
-private fun AllocationBar(label: String, percent: String?, detail: String?) {
+private fun AllocationBar(label: String, percent: String, detail: String?, fraction: Float, spoken: String) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    val text = percent?.let { "${PortfolioFormat.amount(it)}%" } ?: "—"
-    Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+    Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
         Row(horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
             Text(label, Modifier.weight(1f), style = typography.small, color = colors.textBody)
-            Text(text, style = typography.numberLabelStrong, color = colors.textValue)
+            Text(percent, style = typography.numberLabelStrong, color = colors.textValue)
             detail?.let { Text(it, style = typography.numberLabel, color = colors.textSupporting) }
         }
         Box(Modifier.fillMaxWidth().height(StockStepsTheme.dimensions.rangeBar).clip(StockStepsTheme.shapes.pill).background(colors.surfaceSecondary)) {
-            Box(Modifier.fillMaxWidth(PortfolioPresentation.allocationFraction(percent)).fillMaxHeight().clip(StockStepsTheme.shapes.pill).background(colors.primary))
+            Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().clip(StockStepsTheme.shapes.pill).background(colors.primary))
         }
     }
 }

@@ -44,7 +44,9 @@ internal fun StockChip(
     text: String,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Portfolio Phase C: an option that can't be chosen yet (e.g. a period without enough history); default true keeps every caller unchanged. */
+    enabled: Boolean = true
 ) {
     val colors = StockStepsTheme.colors
     val shape = StockStepsTheme.shapes.pill
@@ -55,14 +57,14 @@ internal fun StockChip(
             .clip(shape)
             // Selected = the accessible action blue with white text (4.86:1), like primary buttons (Phase 2; was primaryDark).
             .background(if (selected) colors.primaryAction else colors.surfaceSecondary)
-            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .selectable(selected = selected, enabled = enabled, role = Role.Tab, onClick = onClick)
             .padding(horizontal = StockStepsTheme.spacing.lg),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             style = if (selected) StockStepsTheme.typography.label.copy(fontWeight = FontWeight.SemiBold) else StockStepsTheme.typography.label,
-            color = if (selected) colors.onPrimary else colors.textSecondary,
+            color = if (selected) colors.onPrimary else if (!enabled) colors.textDisabled else colors.textSecondary,
             maxLines = 1,
             softWrap = false
         )

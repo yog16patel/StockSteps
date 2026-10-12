@@ -122,3 +122,26 @@ object PortfolioScenarioGroups {
             listOf(PortfolioScenarioGroup("Other", ids.filter { it !in listed && it != PortfolioDisplay.SAVED_ACCOUNTS })).filter { it.ids.isNotEmpty() }
     }
 }
+
+/**
+ * Category icon and label for the engine's insight cards in Portfolio insights (Phase C, the Comparison insights pattern). Display only: the
+ * insight text itself is the engine's, unchanged. Icon keys map to `StockIcons` on Android and SF Symbols on iOS.
+ */
+object PortfolioInsightIcons {
+    enum class Icon { LAYERS, PIE, TREND, BAR, SPEED, COIN, GLOBE, INFO }
+
+    fun icon(category: org.example.stocksteps.portfolio.analytics.InsightCategory): Icon = when (category) {
+        org.example.stocksteps.portfolio.analytics.InsightCategory.CONCENTRATION -> Icon.LAYERS
+        org.example.stocksteps.portfolio.analytics.InsightCategory.SECTOR -> Icon.PIE
+        org.example.stocksteps.portfolio.analytics.InsightCategory.PERFORMANCE -> Icon.TREND
+        org.example.stocksteps.portfolio.analytics.InsightCategory.BENCHMARK -> Icon.BAR
+        org.example.stocksteps.portfolio.analytics.InsightCategory.CONTRIBUTOR -> Icon.SPEED
+        org.example.stocksteps.portfolio.analytics.InsightCategory.DIVIDENDS -> Icon.COIN
+        org.example.stocksteps.portfolio.analytics.InsightCategory.CURRENCY -> Icon.GLOBE
+        org.example.stocksteps.portfolio.analytics.InsightCategory.DATA -> Icon.INFO
+    }
+
+    /** "Concentration", "Sector", … — readable, never the enum name. */
+    fun label(category: org.example.stocksteps.portfolio.analytics.InsightCategory): String =
+        org.example.stocksteps.designsystem.StockLabels.humanize(category.name)
+}

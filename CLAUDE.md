@@ -13,10 +13,10 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-12, end of session)
 
-HEAD: "Polish the Portfolio overview with a short sample banner, a grouped scenario sheet, account labels without repeated currency and AX5 fixes (Portfolio Phase B.1) on Android and iOS" (pushed), on top of `6041e8f` (Phase B; `docs/PORTFOLIO_UI_REFINEMENT_PHASE_B1.md`), which sits on `37d74cd` (Phase A).
+HEAD: "Refine Portfolio holdings, allocation donut, holding details and insights with borderless sections and matching selector icons (Portfolio Phase C) on Android and iOS" (pushed; `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C.md`), on top of `6c1d76b` (Phase B.1), `6041e8f` (Phase B) and `37d74cd` (Phase A).
 Phase B (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md`): overview card built from shared `PortfolioOverviewDisplay` (history stays on demand; the chart is
 "Account value", never performance; currency code on every metric); metric rows stack via `StockLayout.metricRowStacked`. Next: **Phase C** after approval.
-Read `docs/PROJECT_HANDOFF.md` §PORTFOLIO-PB1-2026-10-12 first. Sample scenarios are chosen in a grouped sheet (`PortfolioScenarioGroups`); iOS badges never wrap, so keep badge text short. Before it: the Portfolio UI audit (`docs/PORTFOLIO_UI_AUDIT.md`), the Phase A–E plan
+Read `docs/PROJECT_HANDOFF.md` §PORTFOLIO-PC-2026-10-12 first. Portfolio sections are borderless (`bordered = false` per call site); allocation donut only via `PortfolioAllocationDisplay`/`allocationDonutAllowed` with `StockAllocationLayout` geometry. Next: **Phase D** (forms, Transactions) after approval. Sample scenarios are chosen in a grouped sheet (`PortfolioScenarioGroups`); iOS badges never wrap, so keep badge text short. Before it: the Portfolio UI audit (`docs/PORTFOLIO_UI_AUDIT.md`), the Phase A–E plan
 (`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`), the P0 fix (Android form chose the account by name; now by id) and Phase A (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md`).
 iOS overview with data needs a signed-in simulator (MOCK sample scenarios aren't offered to guests); the Firebase CLI for the Auth emulator isn't installed.
 Portfolio forms: accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions`/`resolveAccountId`), field visibility/labels come from

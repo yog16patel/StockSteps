@@ -77,7 +77,7 @@ internal fun PortfolioHistorySection(state: PortfolioUiState, requested: String?
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                     StockTrendChart(values, state.history.map(PortfolioOverviewDisplay::pointDetail), PortfolioOverviewDisplay.xLabels(state.history),
                         PortfolioOverviewDisplay.yLabels(state.history), description = PortfolioOverviewDisplay.chartDescription(state),
-                        height = StockChartLayout.height(maxWidth.value).dp)
+                        height = StockChartLayout.height(maxWidth.value).dp, areaFill = true)
                 }
                 if (PortfolioOverviewDisplay.hasGaps(state.history)) Text(PortfolioOverviewDisplay.GAPS_NOTE, style = typography.caption, color = colors.textMeta)
             }

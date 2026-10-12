@@ -1,6 +1,17 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-12 (America/Toronto). Current commit: **Polish the Portfolio overview with a short sample banner, a grouped scenario sheet, account labels without repeated currency and AX5 fixes (Portfolio Phase B.1) on Android and iOS** on `main` (pushed):
+Last updated: 2026-10-12 (America/Toronto). Current commit: **Refine Portfolio holdings, allocation donut, holding details and insights with borderless sections and matching selector icons (Portfolio Phase C) on Android and iOS** on `main` (pushed):
+- Portfolio Phase C (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C.md`):
+  - borderless Portfolio sections; Android selector icons;
+  - holdings with server weight and display-only sort;
+  - `StockAllocationDonut` + legend (bars fallback, By currency collapsed);
+  - Holding details grid and actions; chart area fill;
+  - Portfolio insights design-system pass.
+- Validation: core 471/0 (JVM, iOS), shared 166/0 (Android) and 162/0 (iOS), both builds OK; Android 360 dp and iPhone 16 device checks.
+- NOT RUN: iPhone SE, TalkBack, VoiceOver.
+- Next: Phase D after approval.
+
+Previous commit: **Polish the Portfolio overview with a short sample banner, a grouped scenario sheet, account labels without repeated currency and AX5 fixes (Portfolio Phase B.1) on Android and iOS** on `main` (pushed):
 - Portfolio Phase B.1 (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B1.md`):
   - short sample banner with Details; grouped scenario sheet;
   - account labels without the repeated currency; "Selected account total" vs "All accounts total";

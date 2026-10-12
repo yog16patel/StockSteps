@@ -9,6 +9,6 @@ class StockIconsTest {
     @Test
     fun insightCategoryIconsBuild() {
         listOf(StockIcons.TrendingUp, StockIcons.BarChart, StockIcons.Tag, StockIcons.Speed, StockIcons.Layers, StockIcons.Percent, StockIcons.Coin,
-            StockIcons.Lightbulb).forEach { icon -> assertTrue(icon.root.iterator().hasNext(), icon.name) }
+            StockIcons.Lightbulb, StockIcons.Briefcase, StockIcons.School).forEach { icon -> assertTrue(icon.root.iterator().hasNext(), icon.name) }
     }
 }

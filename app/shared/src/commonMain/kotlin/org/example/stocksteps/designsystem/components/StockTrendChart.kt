@@ -50,7 +50,9 @@ internal fun StockTrendChart(
     highlights: List<Int> = emptyList(),
     height: androidx.compose.ui.unit.Dp = CHART_HEIGHT,
     /** Optional replacement for the one-line [details] above the chart (receives the focused slot); decorative for screen readers. */
-    selectionContent: (@Composable (Int) -> Unit)? = null
+    selectionContent: (@Composable (Int) -> Unit)? = null,
+    /** Portfolio Phase C: a subtle brand-blue fill under the main line (each run of values separately, so gaps stay gaps). Off by default. */
+    areaFill: Boolean = false
 ) {
     val valid = values.filterNotNull() + comparison.orEmpty().filterNotNull() + additional.flatMap { it.second.filterNotNull() }
     if (valid.isEmpty()) return
@@ -130,6 +132,28 @@ internal fun StockTrendChart(
                 markers.filter { it in values.indices }.forEach { i ->
                     drawLine(colors.caution, Offset(i * step, 0f), Offset(i * step, size.height), strokeWidth = 1.5.dp.toPx(),
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx())))
+                }
+                if (areaFill) {
+                    // Fill under each run of consecutive values (never across a missing value), fading from 18 % to transparent.
+                    val brush = androidx.compose.ui.graphics.Brush.verticalGradient(listOf(colors.primary.copy(alpha = 0.18f), colors.primary.copy(alpha = 0f)))
+                    var runStart = -1
+                    fun fillRun(from: Int, to: Int) {
+                        if (to <= from) return
+                        val area = Path().apply {
+                            moveTo(from * step, size.height)
+                            for (i in from..to) lineTo(i * step, y(values[i]!!))
+                            lineTo(to * step, size.height)
+                            close()
+                        }
+                        drawPath(area, brush)
+                    }
+                    values.forEachIndexed { i, v ->
+                        if (v != null && runStart < 0) runStart = i
+                        if ((v == null || i == values.lastIndex) && runStart >= 0) {
+                            fillRun(runStart, if (v == null) i - 1 else i)
+                            runStart = -1
+                        }
+                    }
                 }
                 series(values, colors.primary, dashed = false)
                 highlights.forEach { i -> values.getOrNull(i)?.let { v ->

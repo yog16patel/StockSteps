@@ -1,9 +1,30 @@
-# StockSteps — session handoff (2026-10-12: Portfolio Phase B.1 polish committed and pushed on top of Phase B `6041e8f`; next = Phase C after approval)
+# StockSteps — session handoff (2026-10-12: Portfolio Phase C committed and pushed on top of B.1 `6c1d76b`; verification partial; next = Phase D after approval)
 
-Read order for a new session: `CLAUDE.md` → **§PORTFOLIO-PB1-2026-10-12 below** → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PORTFOLIO-PC-2026-10-12 below** → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PORTFOLIO-PC-2026-10-12. Portfolio Phase C — START HERE (committed and pushed; VERIFICATION PARTIAL)
+
+- Repository: `main`. Current commit: **"Refine Portfolio holdings, allocation donut, holding details and insights with borderless sections and matching selector icons (Portfolio Phase C) on Android and iOS"** (pushed), on top of `6c1d76b` (B.1). Working tree clean after it.
+- Done (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C.md`):
+  - borderless Portfolio sections (per call site);
+  - Android briefcase/graduation-cap selector icons (`StockSegmentedControl(compactIcons)` on both platforms);
+  - holdings via shared `PortfolioHoldingsDisplay`: server weight "of account value", display-only sort menu;
+  - `StockAllocationDonut` + legend (shared `StockAllocationLayout`), only when `allocationDonutAllowed`, bars otherwise; By currency collapsed;
+  - Holding details: metric grid + `StockNavigationRow` actions, no account-wide cash;
+  - chart `areaFill` (opt-in);
+  - Insights pass: `StockChip(enabled)`, icons, colours, readable dates/scenarios;
+  - NBSP wrapping fixes.
+- Validation:
+  - core 471/0 (JVM, iOS), shared 166/0 (Android) and 162/0 (iOS);
+  - `assembleDebug` OK;
+  - iOS `xcodebuild` OK;
+  - Android 360 dp (light/dark, 1.0/1.3/2.0×) and iPhone 16 (light Large, dark AX5): 36 captures in `docs/design/portfolio_pc/`.
+- **NOT RUN:** iPhone SE, TalkBack, VoiceOver, physical devices.
+- Known: the cached iOS test account's Insights fails to load (offline session token; pre-existing, not Phase C).
+- Next: Phase D (forms and Transactions) after approval; commit only on request.
 
 ## PORTFOLIO-PB1-2026-10-12. Portfolio Phase B.1 polish — START HERE (committed and pushed)
 

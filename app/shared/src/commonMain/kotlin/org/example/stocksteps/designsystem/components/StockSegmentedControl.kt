@@ -35,12 +35,14 @@ internal fun <T> StockSegmentedControl(
     options: List<StockSegment<T>>,
     selected: T,
     onSelect: (T) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Portfolio Phase C: keep a small icon beside the label at every text size (the label wraps) instead of stacking it above. */
+    compactIcons: Boolean = false
 ) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     val shape = StockStepsTheme.shapes.button
-    val stacked = LocalDensity.current.fontScale > StockStepsTheme.dimensions.largeFontScale
+    val stacked = !compactIcons && LocalDensity.current.fontScale > StockStepsTheme.dimensions.largeFontScale
     Row(
         modifier = modifier.fillMaxWidth().selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm)
@@ -49,7 +51,7 @@ internal fun <T> StockSegmentedControl(
             val isSelected = segment.value == selected
             val content = if (isSelected) colors.primaryText else colors.textSecondary
             val body: @Composable () -> Unit = {
-                segment.icon?.let { Icon(it, contentDescription = null, tint = content, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall)) }
+                segment.icon?.let { Icon(it, contentDescription = null, tint = content, modifier = Modifier.size(if (compactIcons) StockStepsTheme.dimensions.icon else StockStepsTheme.dimensions.iconSmall)) }
                 Text(segment.label, style = if (isSelected) StockStepsTheme.typography.label.copy(fontWeight = FontWeight.SemiBold) else StockStepsTheme.typography.label,
                     color = content, textAlign = TextAlign.Center)
             }
