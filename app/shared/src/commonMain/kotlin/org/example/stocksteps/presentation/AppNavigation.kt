@@ -165,9 +165,9 @@ internal fun AppNavigation(
             StockStepsTopBar(
                 configuration = AppBarConfiguration(
                     title = when {
-                        destination?.hasRoute<PortfolioEntryRoute>() == true -> "Add transaction"
-                        destination?.hasRoute<HoldingDetailsRoute>() == true -> "Holding details"
-                        destination?.hasRoute<PortfolioInsightsRoute>() == true -> "Insights"
+                        destination?.hasRoute<PortfolioEntryRoute>() == true -> PortfolioDisplay.FORM_ADD_TITLE
+                        destination?.hasRoute<HoldingDetailsRoute>() == true -> PortfolioDisplay.HOLDING_DETAILS_TITLE
+                        destination?.hasRoute<PortfolioInsightsRoute>() == true -> PortfolioDisplay.INSIGHTS_TITLE
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true -> "Discover"
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true -> "Compare"
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonResearchRoute>() == true -> "Research"

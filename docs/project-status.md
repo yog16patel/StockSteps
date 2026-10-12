@@ -6,6 +6,19 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**Current (2026-10-12, committed and pushed as "Fix Portfolio account selection by id and add Phase A shared form rules, readable labels, formatted holding amounts and consistent copy on Android and iOS", on top of `f55fd90`)**: the Portfolio UI audit (`docs/PORTFOLIO_UI_AUDIT.md`), the revised plan
+(`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`, Phases A–E), the **P0 fix A-F1** (Android form chose the account by name; now by id, with tests) and
+**Phase A** (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md`) are done:
+- readable transaction and category labels;
+- formatted holding-detail amounts;
+- design-system buttons, errors and decimal keyboards;
+- shared `PortfolioDisplay` copy and `PortfolioFormRules`;
+- readable Insights timestamps and "Portfolio insights" naming;
+- the chart titled "Account value".
+
+Verified: core 471/0 (JVM, iOS), shared 138/0 (Android) and 134/0 (iOS), `assembleDebug` OK, iOS `xcodebuild` OK. **Not verified**: device captures,
+TalkBack, VoiceOver, `:server:test` (no server change). **Phase B is not started**; it needs approval and decisions Q1–Q7 / D1–D3.
+
 **Current (2026-10-12, end of session)**: `main` at "Finish Company Comparison QA with a two-column chart selection summary, scannable chart limitations, heading fit at large text and live Dynamic Type for buttons on Android and iOS" (pushed, on top of `85e24a0`): Company Comparison final polish & QA closure
 (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_QA_CLOSURE.md` — chart selected-date grid, split chart limitations, spoken-label fix, iOS live type for buttons,
 `StockHeadingFit`; 18 captures `docs/design/phase5c_qa/`). Verified: core 471/0 (JVM, iOS), shared 117/0 (Android) and 113/0 (iOS), `assembleDebug` OK,
@@ -172,6 +185,7 @@ Scheduler (OIDC or the new per-job secrets); push verification; per-IP limits on
 
 | Feature | Commit (title) | Doc | Notes |
 |---|---|---|---|
+| Portfolio UI audit + P0 account-by-id fix + Phase A (labels, formatted holding amounts, design-system form controls, `PortfolioDisplay`, `PortfolioFormRules`) | "Fix Portfolio account selection by id and add Phase A shared form rules, readable labels, formatted holding amounts and consistent copy on Android and iOS" | `docs/PORTFOLIO_UI_AUDIT.md`, `docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md` | Tests: shared 138/0 (Android), 134/0 (iOS); no device checks. |
 | Financial API Phase 3 implementation (screener re-warm fix, 150-company universe, selective statements, market-/earnings-aware freshness, stale fallback) | `517a46b` "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback" | `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md` | Verified in "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage" (benchmark A–H); per-instance only; no REAL calls. |
 | Financial API Phase 3 audit (selective loading, screener warm-up, freshness, earnings invalidation, budgets) + `Phase3AuditBenchmarkTest` | `e4ba2be` "Add financial API Phase 3 audit (selective loading, screener warm-up, freshness) with request benchmark" | `docs/FINANCIAL_API_PHASE3_*.md` | Read-only; found the screener re-warm bug (fixed in `517a46b`). |
 | Financial API Phase 1 audit + Phase 2 shared provider cache (failure-safe single flight, duplicate-path removal, local market status, search cache, `ProviderCalls` metering, narration budget) | `75760ab` "Add financial API cost audit and Phase 2 shared provider cache with request reuse" | `docs/FINANCIAL_API_*.md`, `docs/FINANCIAL_API_CACHE_IMPLEMENTATION.md` | Server only; measured 26→20, 74→72, 15→14, 30→1 upstream requests (MockEngine). |

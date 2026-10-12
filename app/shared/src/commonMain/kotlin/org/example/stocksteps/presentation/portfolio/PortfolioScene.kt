@@ -2,7 +2,6 @@ package org.example.stocksteps.presentation.portfolio
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -15,6 +14,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.example.stocksteps.WindowHinge
+import org.example.stocksteps.designsystem.components.StockButton
+import org.example.stocksteps.designsystem.components.StockButtonVariant
+import org.example.stocksteps.designsystem.icons.StockIcons
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.di.AccountDependencies
 import org.example.stocksteps.model.InstrumentRef
@@ -130,11 +132,11 @@ internal fun PortfolioEntryScene(
     }
     Column(Modifier.fillMaxSize().imePadding()) {
         if (state.accounts.none { !it.archived }) {
-            Button(onClick = { createAccount = true }, enabled = state.signedIn && !state.busy) {
-                Text("Create an account first")
-            }
+            StockButton(PortfolioDisplay.CREATE_ACCOUNT_FIRST, { createAccount = true },
+                Modifier.padding(horizontal = StockStepsTheme.spacing.screen).fillMaxWidth(), enabled = state.signedIn && !state.busy)
         }
-        TextButton(onClick = onSearch) { Text("Search and select a security") }
+        StockButton(PortfolioDisplay.SEARCH_SECURITY, onSearch, Modifier.padding(horizontal = StockStepsTheme.spacing.sm),
+            variant = StockButtonVariant.TEXT, icon = StockIcons.Search)
         PortfolioTransactionForm(
             state = state,
             modifier = Modifier.weight(1f),

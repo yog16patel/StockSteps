@@ -29,7 +29,7 @@ object PortfolioChartRules {
 internal val PORTFOLIO_RANGES = listOf("1D", "1W", "1M", "3M", "1Y", "ALL")
 
 /**
- * Portfolio performance card (Phase 3): period pills, the dated account-value chart (cash included, missing observations drawn as
+ * Account value card (Phase 3; titled "Account value" since Portfolio Phase A — it plots value incl. cash and deposits, not a return): period pills, the dated account-value chart (cash included, missing observations drawn as
  * gaps — never interpolated) or a compact empty state. History loads only when a period is chosen, so no pill looks selected until
  * dated values are loading or shown; the disclosure stays one line.
  */
@@ -40,22 +40,23 @@ internal fun PortfolioPerformanceCard(state: PortfolioUiState, onRange: (String)
     val spacing = StockStepsTheme.spacing
     val active = state.history.isNotEmpty() || state.historyLoading
     StockCard(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        Text("Portfolio performance", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
+        Text(PortfolioDisplay.CHART_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
+        Text(PortfolioDisplay.CHART_NOTE, style = typography.caption, color = colors.textSupporting)
         StockPillSelector(PORTFOLIO_RANGES, selected = if (active) state.historyRange else "", label = { it }, onSelect = onRange)
         if (state.historyLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (state.history.isEmpty()) {
             if (!state.historyLoading) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
                 StockIconTile(StockIcons.TrendingUp, colors.surfaceSecondary, colors.iconSecondary)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                    Text("No performance history shown", style = typography.bodySemiBold, color = colors.textTitle)
-                    Text("Choose a period to load dated values.", style = typography.small, color = colors.textSupporting)
+                    Text(PortfolioDisplay.CHART_EMPTY_TITLE, style = typography.bodySemiBold, color = colors.textTitle)
+                    Text(PortfolioDisplay.CHART_EMPTY_MESSAGE, style = typography.small, color = colors.textSupporting)
                 }
             }
         } else if (PortfolioChartRules.drawable(state.history.map { it.totalValue })) {
             val values = state.history.map { it.totalValue?.toDoubleOrNull() }
             val details = state.history.map { "${PortfolioDates.date(it.date)} · ${it.currency.name} ${it.totalValue?.let(PortfolioFormat::amount) ?: "Unavailable"}" }
             StockTrendChart(values, details, listOf(PortfolioDates.shortDate(state.history.first().date), PortfolioDates.shortDate(state.history.last().date)), emptyList(),
-                description = "Portfolio value in ${state.currency}. ${details.first()}. ${details.last()}. Missing observations are gaps.")
+                description = PortfolioDisplay.chartDescription(state.currency, details.first(), details.last()))
         } else {
             // Fewer than two dated values: a line chart would be an almost empty box, so state the one value instead.
             val latest = state.history.lastOrNull { it.totalValue != null }

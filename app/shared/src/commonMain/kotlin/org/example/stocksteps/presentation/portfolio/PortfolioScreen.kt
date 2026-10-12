@@ -77,11 +77,11 @@ internal fun PortfolioScreen(
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (listMode) "Portfolio" else "Holding details", Modifier.weight(1f).semantics { heading() },
+                Text(if (listMode) PortfolioDisplay.TITLE else PortfolioDisplay.HOLDING_DETAILS_TITLE, Modifier.weight(1f).semantics { heading() },
                     style = typography.screenTitle, color = colors.textTitle)
                 if (listMode) {
                     IconButton(onClick = { showAbout = true }) {
-                        Icon(StockIcons.Info, contentDescription = "About these numbers", tint = colors.iconSecondary)
+                        Icon(StockIcons.Info, contentDescription = PortfolioDisplay.ABOUT_TITLE, tint = colors.iconSecondary)
                     }
                     PortfolioOverflowMenu(
                         account = selectedAccount, busy = state.busy, onRefresh = onRefresh,
@@ -99,9 +99,9 @@ internal fun PortfolioScreen(
         // Status: sample scenario, loading, sync errors, offline and sign-in — compact, above the numbers they qualify.
         if (state.mockAvailable) item {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                StockSelectField(label = "Sample scenario", options = listOf(SAVED_ACCOUNTS) + PortfolioFixtureCatalog.ids,
+                StockSelectField(label = PortfolioDisplay.SAMPLE_SCENARIO, options = listOf(SAVED_ACCOUNTS) + PortfolioFixtureCatalog.ids,
                     selected = state.mockScenario ?: SAVED_ACCOUNTS, optionLabel = { it }, onSelect = { onScenario(it.takeUnless { it == SAVED_ACCOUNTS }) })
-                if (state.mockScenario != null) StockBanner(StockBannerKind.SAMPLE, "Read-only sample. Switch to My saved accounts to make changes.")
+                if (state.mockScenario != null) StockBanner(StockBannerKind.SAMPLE, PortfolioDisplay.SAMPLE_BANNER)
             }
         }
         if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
@@ -109,19 +109,19 @@ internal fun PortfolioScreen(
         if (state.error != null || state.offline) item {
             StockBanner(
                 kind = if (state.error != null) StockBannerKind.ERROR else StockBannerKind.WARNING,
-                title = if (state.offline) "Offline · last saved portfolio" else "Couldn't refresh your portfolio",
-                message = state.error ?: "Values may be out of date.",
+                title = if (state.offline) PortfolioDisplay.OFFLINE_TITLE else PortfolioDisplay.REFRESH_FAILED_TITLE,
+                message = state.error ?: PortfolioDisplay.OUT_OF_DATE,
                 actionText = if (state.error != null) "Retry" else null, onAction = onRefresh)
         }
         if (!state.signedIn && state.mockScenario == null) item {
-            StockBanner(StockBannerKind.INFO, "Sign in to save your portfolio securely.", actionText = "Sign in", onAction = onSignIn)
+            StockBanner(StockBannerKind.INFO, PortfolioDisplay.SIGN_IN_PROMPT, actionText = "Sign in", onAction = onSignIn)
         }
         if (activeAccounts.isEmpty()) {
             item {
                 StockEmptyState(
-                    message = "Create an account, then add an existing investment or record a trade. Saving a stock to a watchlist does not buy it.",
-                    title = "Start tracking what you own", icon = StockIcons.PieChart,
-                    actionText = if (state.signedIn && !state.busy) "Create portfolio" else null,
+                    message = PortfolioDisplay.EMPTY_MESSAGE,
+                    title = PortfolioDisplay.EMPTY_TITLE, icon = StockIcons.PieChart,
+                    actionText = if (state.signedIn && !state.busy) PortfolioDisplay.EMPTY_ACTION else null,
                     onAction = { editingAccount = null; accountEditor = true })
             }
         } else {
@@ -139,7 +139,7 @@ internal fun PortfolioScreen(
             val rows = state.holdings.filter { holdingSymbol == null || it.symbol == holdingSymbol }
             item { PortfolioSectionTitle(if (listMode && rows.isNotEmpty()) "Holdings (${rows.size})" else "Holdings") }
             if (rows.isEmpty()) item {
-                StockCard { Text("No holdings yet. Add an existing investment with its effective date, or record a buy.", style = typography.small, color = colors.textSupporting) }
+                StockCard { Text(PortfolioDisplay.HOLDINGS_EMPTY, style = typography.small, color = colors.textSupporting) }
             } else item {
                 StockCard(contentPadding = PaddingValues(vertical = spacing.xs)) {
                     rows.forEachIndexed { index, row ->
@@ -153,8 +153,8 @@ internal fun PortfolioScreen(
                     StockMetricGrid(listOf(
                         StockMetricItem("Price", "${row.currency} ${PortfolioFormat.amount(row.price)}"),
                         StockMetricItem("Cost", "${row.currency} ${PortfolioFormat.amount(row.basis)}"),
-                        StockMetricItem("Realized", row.realized),
-                        StockMetricItem("Dividends", row.dividends)
+                        StockMetricItem("Realized", PortfolioPresentation.holdingRealized(row), direction = PortfolioPresentation.direction(row.realized)),
+                        StockMetricItem("Dividends", PortfolioPresentation.holdingDividends(row))
                     ), maxColumns = 2)
                     StockButton("Company details", { onCompany(row.symbol) }, variant = StockButtonVariant.TEXT)
                     StockButton("Price alerts", { onAlerts(row.symbol) }, variant = StockButtonVariant.TEXT)
@@ -176,7 +176,7 @@ internal fun PortfolioScreen(
             item {
                 StockCard(contentPadding = PaddingValues(vertical = spacing.xs)) {
                     if (transactions.isEmpty()) {
-                        Text("No transactions yet", Modifier.padding(horizontal = spacing.cardPadding, vertical = spacing.sm), style = typography.small, color = colors.textSupporting)
+                        Text(PortfolioDisplay.TRANSACTIONS_EMPTY, Modifier.padding(horizontal = spacing.cardPadding, vertical = spacing.sm), style = typography.small, color = colors.textSupporting)
                     }
                     val shown = if (allTransactions) transactions else transactions.take(RECENT_TRANSACTIONS)
                     shown.forEachIndexed { index, transaction ->
@@ -190,12 +190,12 @@ internal fun PortfolioScreen(
                 }
             }
             if (listMode) item {
-                StockCard(onClick = onInsights, onClickLabel = "Open portfolio insights") {
+                StockCard(onClick = onInsights, onClickLabel = PortfolioDisplay.INSIGHTS_OPEN) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
                         StockIconTile(StockIcons.TrendingUp, colors.primaryContainer, colors.primaryText)
                         Column(Modifier.weight(1f)) {
-                            Text("Portfolio insights", style = typography.bodySemiBold, color = colors.textTitle)
-                            Text("Performance, allocation and concentration", style = typography.small, color = colors.textSupporting)
+                            Text(PortfolioDisplay.INSIGHTS_TITLE, style = typography.bodySemiBold, color = colors.textTitle)
+                            Text(PortfolioDisplay.INSIGHTS_SUBTITLE, style = typography.small, color = colors.textSupporting)
                         }
                         Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.iconSecondary)
                     }
@@ -206,16 +206,16 @@ internal fun PortfolioScreen(
     if (showAbout) PortfolioAboutDialog(state) { showAbout = false }
     if (accountEditor) PortfolioAccountDialog(editingAccount, onDismiss = { accountEditor = false }, onSave = { onSaveAccount(it); accountEditor = false })
     deletingAccount?.let { account ->
-        AlertDialog(onDismissRequest = { deletingAccount = null }, title = { Text("Delete ${account.name}?") },
-            text = { Text("This deletes this account and its transactions. Watchlists and alerts stay saved.") },
-            confirmButton = { TextButton(onClick = { onDeleteAccount(account.id); deletingAccount = null }) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = { deletingAccount = null }) { Text("Cancel") } })
+        AlertDialog(onDismissRequest = { deletingAccount = null }, title = { Text(PortfolioDisplay.deleteAccountTitle(account.name)) },
+            text = { Text(PortfolioDisplay.DELETE_ACCOUNT_MESSAGE) },
+            confirmButton = { TextButton(onClick = { onDeleteAccount(account.id); deletingAccount = null }) { Text(PortfolioDisplay.DELETE, color = StockStepsTheme.colors.negativeText) } },
+            dismissButton = { TextButton(onClick = { deletingAccount = null }) { Text(PortfolioDisplay.FORM_CANCEL) } })
     }
     deletingTransaction?.let { transaction ->
-        AlertDialog(onDismissRequest = { deletingTransaction = null }, title = { Text("Delete transaction?") },
-            text = { Text("Balances will be recalculated. Deletion is rejected if a later sale would exceed your shares.") },
-            confirmButton = { TextButton(onClick = { onDeleteTransaction(transaction.id); deletingTransaction = null }) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = { deletingTransaction = null }) { Text("Cancel") } })
+        AlertDialog(onDismissRequest = { deletingTransaction = null }, title = { Text(PortfolioDisplay.DELETE_TRANSACTION_TITLE) },
+            text = { Text(PortfolioDisplay.DELETE_TRANSACTION_MESSAGE) },
+            confirmButton = { TextButton(onClick = { onDeleteTransaction(transaction.id); deletingTransaction = null }) { Text(PortfolioDisplay.DELETE, color = StockStepsTheme.colors.negativeText) } },
+            dismissButton = { TextButton(onClick = { deletingTransaction = null }) { Text(PortfolioDisplay.FORM_CANCEL) } })
     }
     editingTransaction?.let { transaction ->
         AlertDialog(onDismissRequest = { editingTransaction = null }, confirmButton = {}, text = {
@@ -226,7 +226,7 @@ internal fun PortfolioScreen(
 }
 
 private const val RECENT_TRANSACTIONS = 5
-private const val SAVED_ACCOUNTS = "My saved accounts"
+private const val SAVED_ACCOUNTS = PortfolioDisplay.SAVED_ACCOUNTS
 
 /** "Cash      CAD 1,200.00" — label left, one value per line right; [empty] when there is none (never an invented 0.00). */
 @Composable
@@ -447,15 +447,15 @@ private fun AllocationBar(label: String, percent: String?, detail: String?) {
 @Composable
 private fun PortfolioAboutDialog(state: PortfolioUiState, onDismiss: () -> Unit) {
     AlertDialog(onDismissRequest = onDismiss, confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
-        title = { Text("About these numbers") },
+        title = { Text(PortfolioDisplay.ABOUT_TITLE) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
                 listOfNotNull(
                     state.dailyNotice.takeIf { it.isNotBlank() },
                     state.notice,
                     state.historyNotice,
-                    "Cash is included in account value. A negative cash balance represents unfunded or borrowed cash; record deposits separately from existing investments.",
-                    "Borrowed cash can make a holding exceed 100%. Sector and ETF look-through allocations are not estimated."
+                    PortfolioDisplay.ABOUT_CASH,
+                    PortfolioDisplay.ABOUT_ALLOCATION
                 ).forEach { Text(it, style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textBody) }
             }
         })

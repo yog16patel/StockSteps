@@ -2,7 +2,7 @@ import SwiftUI
 import Charts
 import Shared
 
-/// Portfolio performance card (Phase 3): period pills, the dated account-value chart (cash included, missing observations are gaps —
+/// Account value card (Phase 3; titled "Account value" since Portfolio Phase A — value incl. cash and deposits, not a return): period pills, the dated account-value chart (cash included, missing observations are gaps —
 /// never interpolated) or a compact empty state. History loads only when a period is chosen, so no pill looks selected until dated
 /// values are loading or shown. Same rules as the Compose `PortfolioPerformanceCard` (`PortfolioChartRules`).
 struct PortfolioHistoryChart: View {
@@ -12,6 +12,15 @@ struct PortfolioHistoryChart: View {
     @Environment(\.colorScheme) private var scheme
     private let type = StockStepsTheme.typography
     private let space = StockStepsTheme.spacing
+    private let display = PortfolioDisplay.shared
+    /// Same spoken summary as Compose: first and last dated values ("Sep 1, 2026 · CAD 1,850.00").
+    private var chartDescription: String {
+        func point(_ value: PortfolioValuation?) -> String {
+            guard let value else { return "" }
+            return "\(PortfolioDates.shared.date(value: value.date)) · \(value.currency.name) \(value.totalValue.map { PortfolioFormat.shared.amount(value: $0) } ?? "Unavailable")"
+        }
+        return display.chartDescription(currency: state.currency, first: point(state.history.first), last: point(state.history.last))
+    }
     private var selection: PortfolioValuation? { state.history.first { $0.date == selected } ?? state.history.last }
     private struct Point: Identifiable {
         let id: String
@@ -37,7 +46,8 @@ struct PortfolioHistoryChart: View {
         let colors = StockStepsTheme.colors(scheme)
         let active = !state.history.isEmpty || state.historyLoading
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-            Text("Portfolio performance").font(StockStepsTheme.font(type.cardTitle)).foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader)
+            Text(display.CHART_TITLE).font(StockStepsTheme.font(type.cardTitle)).foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader)
+            Text(display.CHART_NOTE).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textSupporting)
             StockPillSelector(options: ["1D", "1W", "1M", "3M", "1Y", "ALL"], selected: active ? state.historyRange : "", label: { $0 }, onSelect: onHistory)
             if state.historyLoading { ProgressView().frame(maxWidth: .infinity).accessibilityLabel("Loading dated values") }
             if state.history.isEmpty {
@@ -45,8 +55,8 @@ struct PortfolioHistoryChart: View {
                     HStack(spacing: CGFloat(space.md)) {
                         StockIconTile(systemName: "chart.line.uptrend.xyaxis", container: colors.surfaceSecondary, content: colors.iconSecondary)
                         VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                            Text("No performance history shown").font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
-                            Text("Choose a period to load dated values.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                            Text(display.CHART_EMPTY_TITLE).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+                            Text(display.CHART_EMPTY_MESSAGE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                         }
                     }
                     .accessibilityElement(children: .combine)
@@ -75,7 +85,7 @@ struct PortfolioHistoryChart: View {
                         }
                     }
                     .chartXSelection(value: $selected)
-                    .accessibilityLabel("Portfolio value in \(state.currency), from \(state.history.first?.date ?? "") to \(state.history.last?.date ?? ""). Missing values are gaps.")
+                    .accessibilityLabel(chartDescription)
             } else {
                 // Fewer than two dated values: a line chart would be an almost empty box, so state the one value instead.
                 let latest = state.history.last { $0.totalValue != nil }

@@ -13,9 +13,12 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-12, end of session)
 
-HEAD: "Finish Company Comparison QA with a two-column chart selection summary, scannable chart limitations, heading fit at large text and live Dynamic Type for buttons on Android and iOS" (pushed), on top of `85e24a0`. It holds the Company Comparison final polish & QA closure
-(`docs/GLOBAL_UI_REFINEMENT_PHASE5C_QA_CLOSURE.md`; PASS WITH CONDITIONS — TalkBack navigation/VoiceOver NOT VERIFIED). Next: **Portfolio P-B** (Overview Card, `docs/PORTFOLIO_REFINEMENT_PHASE_PA.md` §5) or **Phase 5D**, each only after approval. Read
-`docs/PROJECT_HANDOFF.md` §HANDOFF-2026-10-12 first.
+HEAD: "Fix Portfolio account selection by id and add Phase A shared form rules, readable labels, formatted holding amounts and consistent copy on Android and iOS" (pushed), on top of `f55fd90` (Company Comparison QA closure).
+It holds the Portfolio UI audit (`docs/PORTFOLIO_UI_AUDIT.md`), the Phase A–E plan (`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`), the P0 fix (Android form chose the
+account by name; now by id) and Phase A (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md`; shared `PortfolioDisplay` copy and `PortfolioFormRules`). Next: **Portfolio
+Phase B** (overview card, plan §Phase B) or **Phase 5D**, each only after approval. Read `docs/PROJECT_HANDOFF.md` §PORTFOLIO-PA-2026-10-12 first.
+Portfolio forms: accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions`/`resolveAccountId`), field visibility/labels come from
+`PortfolioFormRules`, and screen copy from `PortfolioDisplay`; never show raw enum names.
 Portfolio rules for P-B: history loads on demand only; no UI-computed overall-return %; donut only when `allocationDonutAllowed`; missing stays missing.
 iOS device checks: build with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (default build bakes the LAN host from git-ignored
 `app/iosApp/Configuration/Local.xcconfig`); a fresh simulator install defaults to REAL (`localhost:8080`) — set MOCK in Settings or

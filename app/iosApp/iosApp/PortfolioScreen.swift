@@ -37,7 +37,8 @@ struct PortfolioScreen: View {
     private let space = StockStepsTheme.spacing
     private let type = StockStepsTheme.typography
     private let present = PortfolioPresentation.shared
-    private static let savedAccounts = "My saved accounts"
+    private let display = PortfolioDisplay.shared
+    private static let savedAccounts = PortfolioDisplay.shared.SAVED_ACCOUNTS
     private static let recentTransactions = 5
 
     var body: some View {
@@ -56,38 +57,38 @@ struct PortfolioScreen: View {
                     status(state)
                     let active = state.accounts.filter { !$0.archived }
                     if active.isEmpty {
-                        StockStateMessage(title: "Start tracking what you own",
-                                          message: "Create an account, then add existing investments or record trades. Your watchlist stays separate.",
+                        StockStateMessage(title: display.EMPTY_TITLE,
+                                          message: display.EMPTY_MESSAGE,
                                           systemImage: "chart.pie",
-                                          actionTitle: state.signedIn && !state.busy ? "Create portfolio" : nil, action: onAddAccount)
+                                          actionTitle: state.signedIn && !state.busy ? display.EMPTY_ACTION : nil, action: onAddAccount)
                     } else {
                         content(state, active: active, colors: colors)
                     }
-                } else { ProgressView("Restoring portfolio").frame(maxWidth: .infinity) }
+                } else { ProgressView(display.RESTORING).frame(maxWidth: .infinity) }
             }.frame(maxWidth: CGFloat(StockStepsTheme.dimensions.contentMaxWidth))
                 .padding(CGFloat(space.screen)).frame(maxWidth: .infinity)
         }
         .background(colors.appBackground.ignoresSafeArea())
         .refreshable { onRefresh() }
         .sheet(isPresented: $showAbout) { if let state { aboutSheet(state) } }
-        .confirmationDialog("Delete account and its transactions?", isPresented: Binding(get: { deleteAccount != nil }, set: { if !$0 { deleteAccount = nil } })) {
-            Button("Delete", role: .destructive) { if let account = deleteAccount { onDeleteAccount(account.id) }; deleteAccount = nil }
-        } message: { Text("Watchlists and alerts stay saved.") }
-        .confirmationDialog("Delete transaction and recalculate balances?", isPresented: Binding(get: { deleteTransaction != nil }, set: { if !$0 { deleteTransaction = nil } })) {
-            Button("Delete", role: .destructive) { if let transaction = deleteTransaction { onDeleteTransaction(transaction.id) }; deleteTransaction = nil }
-        }
+        .confirmationDialog(deleteAccount.map { display.deleteAccountTitle(name: $0.name) } ?? display.DELETE, isPresented: Binding(get: { deleteAccount != nil }, set: { if !$0 { deleteAccount = nil } }), titleVisibility: .visible) {
+            Button(display.DELETE, role: .destructive) { if let account = deleteAccount { onDeleteAccount(account.id) }; deleteAccount = nil }
+        } message: { Text(display.DELETE_ACCOUNT_MESSAGE) }
+        .confirmationDialog(display.DELETE_TRANSACTION_TITLE, isPresented: Binding(get: { deleteTransaction != nil }, set: { if !$0 { deleteTransaction = nil } }), titleVisibility: .visible) {
+            Button(display.DELETE, role: .destructive) { if let transaction = deleteTransaction { onDeleteTransaction(transaction.id) }; deleteTransaction = nil }
+        } message: { Text(display.DELETE_TRANSACTION_MESSAGE) }
     }
 
     @ViewBuilder private func header(_ colors: StockColors) -> some View {
         HStack(spacing: CGFloat(space.xs)) {
-            Text(holdingSymbol == nil ? "Portfolio" : "Holding details")
+            Text(holdingSymbol == nil ? display.TITLE : display.HOLDING_DETAILS_TITLE)
                 .font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).foregroundStyle(colors.textTitle)
                 .accessibilityAddTraits(.isHeader)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if holdingSymbol == nil, let state {
                 Button { showAbout = true } label: {
                     Image(systemName: "info.circle").foregroundStyle(colors.iconSecondary).frame(width: 44, height: 44)
-                }.accessibilityLabel("About these numbers")
+                }.accessibilityLabel(display.ABOUT_TITLE)
                 let account = state.accounts.first { $0.id == state.selectedAccountId && !$0.archived }
                 Menu {
                     Button("Refresh portfolio", systemImage: "arrow.clockwise", action: onRefresh).disabled(state.busy)
@@ -105,21 +106,21 @@ struct PortfolioScreen: View {
     /// Sample scenario, loading, sync errors, offline and sign-in — compact, above the numbers they qualify.
     @ViewBuilder private func status(_ state: PortfolioUiState) -> some View {
         if state.mockAvailable {
-            StockSelectField(label: "Sample scenario", options: [Self.savedAccounts] + PortfolioFixtureCatalog.shared.ids,
+            StockSelectField(label: display.SAMPLE_SCENARIO, options: [Self.savedAccounts] + PortfolioFixtureCatalog.shared.ids,
                              selection: Binding(get: { state.mockScenario ?? Self.savedAccounts },
                                                 set: { value in onScenario(value == Self.savedAccounts ? nil : value) }),
                              optionLabel: { $0 })
-            if state.mockScenario != nil { StockBanner(kind: .sample, message: "Read-only sample; saved accounts and watchlists stay unchanged.") }
+            if state.mockScenario != nil { StockBanner(kind: .sample, message: display.SAMPLE_BANNER) }
         }
-        if state.loading { ProgressView("Loading portfolio").frame(maxWidth: .infinity) }
+        if state.loading { ProgressView(display.LOADING).frame(maxWidth: .infinity) }
         // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
         if state.error != nil || state.offline {
-            StockBanner(kind: state.error != nil ? .error : .warning, message: state.error ?? "Values may be out of date.",
-                        title: state.offline ? "Offline · last saved portfolio" : "Couldn't refresh your portfolio",
+            StockBanner(kind: state.error != nil ? .error : .warning, message: state.error ?? display.OUT_OF_DATE,
+                        title: state.offline ? display.OFFLINE_TITLE : display.REFRESH_FAILED_TITLE,
                         actionTitle: state.error != nil ? "Retry" : nil, action: state.error != nil ? onRefresh : nil)
         }
         if !state.signedIn && state.mockScenario == nil {
-            StockBanner(kind: .info, message: "Sign in to save your portfolio securely.", actionTitle: "Sign in", action: onSignIn)
+            StockBanner(kind: .info, message: display.SIGN_IN_PROMPT, actionTitle: "Sign in", action: onSignIn)
         }
     }
 
@@ -133,7 +134,7 @@ struct PortfolioScreen: View {
         let rows = state.holdings.filter { holdingSymbol == nil || $0.symbol == holdingSymbol }
         sectionTitle(holdingSymbol == nil && !rows.isEmpty ? "Holdings (\(rows.count))" : "Holdings", colors)
         if rows.isEmpty {
-            Text("No holdings yet. Add an investment with its effective date.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting).stockCard()
+            Text(display.HOLDINGS_EMPTY).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting).stockCard()
         } else {
             VStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.symbol) { index, row in
@@ -148,8 +149,8 @@ struct PortfolioScreen: View {
                 StockMetricGrid(items: [
                     StockMetricItem(label: "Price", value: "\(row.currency) \(PortfolioFormat.shared.amount(value: row.price))"),
                     StockMetricItem(label: "Cost", value: "\(row.currency) \(PortfolioFormat.shared.amount(value: row.basis))"),
-                    StockMetricItem(label: "Realized", value: row.realized),
-                    StockMetricItem(label: "Dividends", value: row.dividends)
+                    StockMetricItem(label: "Realized", value: present.holdingRealized(row: row), direction: present.direction(amount: row.realized)),
+                    StockMetricItem(label: "Dividends", value: present.holdingDividends(row: row))
                 ], maxColumns: 2)
                 Button("Company details") { onCompany(row.symbol) }.frame(minHeight: 44)
                 Button("Price alerts") { onAlerts(row.symbol) }.frame(minHeight: 44)
@@ -168,7 +169,7 @@ struct PortfolioScreen: View {
         sectionTitle(transactions.isEmpty ? "Transactions" : "Transactions (\(transactions.count))", colors)
         VStack(alignment: .leading, spacing: 0) {
             if transactions.isEmpty {
-                Text("No transactions yet").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                Text(display.TRANSACTIONS_EMPTY).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                     .padding(CGFloat(space.cardPadding)).frame(maxWidth: .infinity, alignment: .leading)
             }
             let shown = allTransactions ? transactions : Array(transactions.prefix(Self.recentTransactions))
@@ -186,12 +187,12 @@ struct PortfolioScreen: View {
                 HStack(spacing: CGFloat(space.md)) {
                     StockIconTile(systemName: "chart.line.uptrend.xyaxis", container: colors.primaryContainer, content: colors.primaryText)
                     VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                        Text("Portfolio insights").font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
-                        Text("Performance, allocation and concentration").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                        Text(display.INSIGHTS_TITLE).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+                        Text(display.INSIGHTS_SUBTITLE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     Image(systemName: "chevron.right").foregroundStyle(colors.iconSecondary).accessibilityHidden(true)
                 }.stockCard().contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityElement(children: .combine)
+            }.buttonStyle(.plain).accessibilityElement(children: .combine).accessibilityHint(display.INSIGHTS_OPEN)
         }
     }
 
@@ -381,12 +382,11 @@ struct PortfolioScreen: View {
         NavigationStack {
             List {
                 ForEach([state.dailyNotice.isEmpty ? nil : state.dailyNotice, state.notice, state.historyNotice,
-                         "Cash is included in account value. A negative cash balance represents unfunded or borrowed cash; record deposits separately from existing investments.",
-                         "Borrowed cash can make a holding exceed 100%. Sector and ETF look-through allocations are not estimated."].compactMap { $0 }, id: \.self) {
+                         display.ABOUT_CASH, display.ABOUT_ALLOCATION].compactMap { $0 }, id: \.self) {
                     Text($0).font(StockStepsTheme.font(type.small))
                 }
             }
-            .navigationTitle("About these numbers").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(display.ABOUT_TITLE).navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showAbout = false } } }
         }
         .presentationDetents([.medium, .large])

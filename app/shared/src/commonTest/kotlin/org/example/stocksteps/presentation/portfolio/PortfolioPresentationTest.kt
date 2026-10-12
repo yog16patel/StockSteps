@@ -128,4 +128,41 @@ class PortfolioPresentationTest {
         assertEquals(rows.toSet(), PortfolioDisplayRules.sortHoldings(rows, PortfolioHoldingSort.VALUE).toSet(), "no row is dropped or changed")
         assertEquals(rows, PortfolioDisplayRules.sortHoldings(rows, PortfolioHoldingSort.VALUE), "no reporting values: original order")
     }
+
+    @Test
+    fun holdingDetailsAmountsAreFormattedWithCurrency() {
+        // Finding A-F3: Realized and Dividends were raw ledger strings ("3.5", "12.50000000").
+        val row = msft.copy(realized = "3.5", dividends = "12.50000000")
+        assertEquals("+USD 3.50", PortfolioPresentation.holdingRealized(row))
+        assertEquals("USD 12.50", PortfolioPresentation.holdingDividends(row))
+        assertEquals("-USD 1,200.25", PortfolioPresentation.holdingRealized(row.copy(realized = "-1200.25")))
+        assertEquals("USD 0.00", PortfolioPresentation.holdingRealized(row.copy(realized = "0")))
+        assertEquals("CAD 0.00", PortfolioPresentation.holdingDividends(row.copy(currency = "CAD", dividends = "0")))
+        // Unparsable never becomes zero.
+        assertEquals("USD —", PortfolioPresentation.holdingRealized(row.copy(realized = "n/a")))
+        assertEquals("USD —", PortfolioPresentation.signedMoney("USD", null))
+    }
+
+    @Test
+    fun sharedCopyKeepsDisclosuresAndAvoidsAdvice() {
+        // Sample copy says it's read-only and that saved data is untouched; the chart copy says it isn't a return (A-F6, A-F18).
+        assertTrue("Read-only" in PortfolioDisplay.SAMPLE_BANNER && "stay unchanged" in PortfolioDisplay.SAMPLE_BANNER)
+        assertTrue("deposits" in PortfolioDisplay.CHART_NOTE && "StockSteps+" in PortfolioDisplay.CHART_NOTE)
+        assertEquals("Account value", PortfolioDisplay.CHART_TITLE)
+        assertEquals("Portfolio insights", PortfolioDisplay.INSIGHTS_TITLE)
+        assertEquals("Delete TFSA?", PortfolioDisplay.deleteAccountTitle("TFSA"))
+        val all = listOf(PortfolioDisplay.SAMPLE_BANNER, PortfolioDisplay.EMPTY_MESSAGE, PortfolioDisplay.HOLDINGS_EMPTY, PortfolioDisplay.CHART_NOTE,
+            PortfolioDisplay.FORM_INTRO, PortfolioDisplay.ACCOUNT_NOTE, PortfolioDisplay.ABOUT_CASH, PortfolioDisplay.ABOUT_ALLOCATION)
+        all.forEach { text -> listOf("should", "consider", "recommend", "guideline").forEach { assertFalse(it in text.lowercase(), "$it in $text") } }
+        assertEquals("Account value in CAD, including cash. Sep 1, 2026 · CAD 1,850.00. Oct 8, 2026 · CAD 1,850.00. Missing observations are gaps.",
+            PortfolioDisplay.chartDescription("CAD", "Sep 1, 2026 · CAD 1,850.00", "Oct 8, 2026 · CAD 1,850.00"))
+    }
+
+    @Test
+    fun insightsAsOfIsReadableAndStaysUtc() {
+        // Finding A-F14: was "As of 2026-10-08 21:15 UTC" from a string cut.
+        assertEquals("As of Oct 8, 2026, 9:15 PM UTC", PortfolioDisplay.asOf("2026-10-08T21:15:00Z"))
+        assertEquals("As of Oct 8, 2026, 12:00 AM UTC", PortfolioDisplay.asOf("2026-10-08T00:00:00Z"))
+        assertEquals("As of 2026-10-08 21:15", PortfolioDisplay.asOf("2026-10-08 21:15"))
+    }
 }

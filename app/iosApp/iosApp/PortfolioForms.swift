@@ -5,24 +5,36 @@ struct PortfolioAccountForm: View {
     let existing: PortfolioAccount?
     let onSave: (String, String, String, String, Bool) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
     @State private var name = ""
     @State private var category = "PERSONAL"
     @State private var currency = "CAD"
     @State private var archived = false
+    private let display = PortfolioDisplay.shared
+    private let rules = PortfolioFormRules.shared
+    private let present = PortfolioPresentation.shared
     var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
         NavigationStack {
             Form {
-                TextField("Account name", text: $name)
-                Picker("Category", selection: $category) {
-                    ForEach(["TFSA", "RRSP", "FHSA", "NON_REGISTERED", "PERSONAL", "OTHER"], id: \.self) { Text($0.replacingOccurrences(of: "_", with: " ")).tag($0) }
+                TextField(display.ACCOUNT_NAME, text: $name)
+                // Readable category labels; the tag stays the enum name the bridge expects (A-F2).
+                Picker(display.ACCOUNT_CATEGORY, selection: $category) {
+                    ForEach(rules.categoryOptions, id: \.name) { Text(present.categoryLabel(category: $0)).tag($0.name) }
                 }
-                Picker("Reporting currency", selection: $currency) { Text("CAD").tag("CAD"); Text("USD").tag("USD") }
-                if existing != nil { Toggle("Archive account", isOn: $archived) }
-                Text("Categories organize investments. Moving-average cost is not a legal tax-basis calculation.").font(.caption)
-                Button("Save account") { onSave(existing?.id ?? UUID().uuidString, name, category, currency, archived) }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || name.count > 40)
-            }.navigationTitle(existing == nil ? "Create account" : "Account settings")
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+                Picker(display.ACCOUNT_CURRENCY, selection: $currency) {
+                    ForEach(rules.currencyOptions, id: \.name) { Text(verbatim: $0.name).tag($0.name) }
+                }
+                if existing != nil { Toggle(display.ACCOUNT_ARCHIVE, isOn: $archived) }
+                Text(display.ACCOUNT_NOTE).font(StockStepsTheme.font(StockStepsTheme.typography.caption, relativeTo: .footnote)).foregroundStyle(colors.textMeta)
+                Button { onSave(existing?.id ?? UUID().uuidString, name, category, currency, archived) } label: {
+                    Text(display.ACCOUNT_SAVE).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.stockPrimary)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || name.count > 40)
+                .listRowBackground(Color.clear)
+            }.navigationTitle(existing == nil ? display.ACCOUNT_CREATE_TITLE : display.ACCOUNT_SETTINGS_TITLE)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button(display.FORM_CANCEL) { dismiss() } } }
         }.onAppear {
             if let existing { name = existing.name; category = existing.category.name; currency = existing.reportingCurrency.name; archived = existing.archived }
         }
@@ -52,40 +64,78 @@ struct PortfolioTransactionForm: View {
     @State private var fxRate = ""
     @State private var settlementDate = ""
     @State private var securityCurrency = "USD"
-    private var shareType: Bool { ["BUY", "SELL", "OPENING_POSITION", "DIVIDEND_REINVESTMENT", "STOCK_SPLIT"].contains(type) }
+    @Environment(\.colorScheme) private var scheme
+    private let display = PortfolioDisplay.shared
+    private let rules = PortfolioFormRules.shared
+    private let present = PortfolioPresentation.shared
+    private var transactionType: TransactionType { rules.type(name: type) ?? .openingPosition }
+
+    private func label(_ field: PortfolioFormField) -> String {
+        rules.label(field: field, type: transactionType, currency: currency, cashCurrency: cashCurrency)
+    }
+
+    /// One form row per shared field; pickers show readable labels and keep enum names / account ids as tags (A-F1, A-F2).
+    @ViewBuilder private func fieldView(_ field: PortfolioFormField) -> some View {
+        let keyboard: UIKeyboardType = rules.decimal(field: field) ? .decimalPad : .default
+        if field == .account {
+            Picker(label(field), selection: $account) {
+                ForEach(rules.accountOptions(accounts: state?.accounts ?? [], currentId: account), id: \.id) { Text($0.label).tag($0.id) }
+            }
+        } else if field == .transactionType {
+            Picker(label(field), selection: $type) {
+                ForEach(rules.typeOptions, id: \.name) { Text(present.transactionLabel(type: $0)).tag($0.name) }
+            }
+        } else if field == .tradeCurrency {
+            Picker(label(field), selection: $currency) { ForEach(rules.currencyOptions, id: \.name) { Text(verbatim: $0.name).tag($0.name) } }
+        } else if field == .cashCurrency {
+            Picker(label(field), selection: $cashCurrency) { ForEach(rules.currencyOptions, id: \.name) { Text(verbatim: $0.name).tag($0.name) } }
+        } else if field == .symbol {
+            TextField(label(field), text: $symbol).textInputAutocapitalization(.characters).autocorrectionDisabled()
+        } else if field == .companyName {
+            TextField(label(field), text: $name)
+        } else if field == .exchange {
+            TextField(label(field), text: $exchange)
+        } else if field == .shares {
+            TextField(label(field), text: $quantity).keyboardType(keyboard)
+        } else if field == .price {
+            TextField(label(field), text: $price).keyboardType(keyboard)
+        } else if field == .amount {
+            TextField(label(field), text: $amount).keyboardType(keyboard)
+        } else if field == .fees {
+            TextField(label(field), text: $fees).keyboardType(keyboard)
+        } else if field == .fxRate {
+            TextField(label(field), text: $fxRate).keyboardType(keyboard)
+        } else if field == .date {
+            TextField(label(field), text: $date)
+        } else if field == .settlement {
+            TextField(label(field), text: $settlementDate)
+        } else if field == .notes {
+            TextField(label(field), text: $notes, axis: .vertical)
+        }
+    }
+
     var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
         NavigationStack {
             Form {
                 Section {
-                    Text("Existing investments begin on the effective date you enter. No earlier returns are invented.")
-                    Picker("Account", selection: $account) {
-                        ForEach(state?.accounts.filter { !$0.archived } ?? [], id: \.id) { Text($0.name).tag($0.id) }
+                    Text(display.FORM_INTRO)
+                    // Same fields, order and labels as Compose (PortfolioFormRules); the typed number text is sent as entered.
+                    ForEach(rules.visibleFields(type: transactionType, symbol: symbol, cashDiffers: cashCurrency != currency), id: \.name) { field in
+                        fieldView(field)
                     }
-                    Picker("Transaction", selection: $type) {
-                        ForEach(["OPENING_POSITION", "BUY", "SELL", "CASH_DEPOSIT", "CASH_WITHDRAWAL", "DIVIDEND", "DIVIDEND_REINVESTMENT", "FEE", "CASH_ADJUSTMENT", "TRANSFER_IN", "TRANSFER_OUT", "STOCK_SPLIT"], id: \.self) { Text($0.replacingOccurrences(of: "_", with: " ")).tag($0) }
-                    }
-                    Picker("Trade / cash currency", selection: $currency) { Text("CAD").tag("CAD"); Text("USD").tag("USD") }
-                    TextField("Security symbol (optional for cash)", text: $symbol).textInputAutocapitalization(.characters).autocorrectionDisabled()
-                    if shareType || !symbol.isEmpty {
-                        TextField("Company name", text: $name)
-                        TextField("Exchange", text: $exchange)
-                        TextField(type == "STOCK_SPLIT" ? "New / old split ratio" : "Shares", text: $quantity).keyboardType(.decimalPad)
-                        TextField(type == "OPENING_POSITION" ? "Average price per share" : "Price per share", text: $price).keyboardType(.decimalPad)
-                    }
-                    if !shareType { TextField("Amount", text: $amount).keyboardType(.decimalPad) }
-                    TextField("Fees", text: $fees).keyboardType(.decimalPad)
-                    TextField("Effective / trade date · YYYY-MM-DD", text: $date)
-                    Picker("Cash currency", selection: $cashCurrency) { Text("CAD").tag("CAD"); Text("USD").tag("USD") }
-                    if cashCurrency != currency { TextField("Trade-date FX: one \(currency) in \(cashCurrency)", text: $fxRate).keyboardType(.decimalPad) }
-                    TextField("Settlement date (optional) · YYYY-MM-DD", text: $settlementDate)
-                    TextField("Notes", text: $notes, axis: .vertical)
                 }
-                if let error = state?.error { Text(error).foregroundStyle(.red) }
-                Button(state?.busy == true ? "Saving…" : "Save transaction") {
+                if let error = state?.error { Text(error).foregroundStyle(colors.negativeText) }
+                Button {
                     onSave(id, account, type, date, currency, symbol.uppercased().trimmingCharacters(in: .whitespaces), name, exchange, quantity, price, amount, fees, notes, cashCurrency, fxRate, settlementDate, securityCurrency)
-                }.disabled(account.isEmpty || state?.busy == true)
-            }.navigationTitle(existing == nil ? "Add investment" : "Edit transaction")
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+                } label: {
+                    Text(state?.busy == true ? display.FORM_SAVING : display.FORM_SAVE).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.stockPrimary)
+                .disabled(account.isEmpty || state?.busy == true)
+                .listRowBackground(Color.clear)
+            }.navigationTitle(existing == nil ? display.FORM_ADD_TITLE : display.FORM_EDIT_TITLE)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button(display.FORM_CANCEL) { dismiss() } } }
         }.onChange(of: state?.selectedAccountId) { _, value in if account.isEmpty { account = value ?? "" } }
         .onAppear {
             account = existing?.accountId ?? state?.selectedAccountId ?? ""

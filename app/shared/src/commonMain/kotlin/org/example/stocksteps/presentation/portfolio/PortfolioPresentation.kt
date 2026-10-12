@@ -96,6 +96,23 @@ object PortfolioPresentation {
     /** "USD 1,589.28" or "USD —" when the market value is unavailable. */
     fun holdingValue(row: PortfolioHoldingRow): String = "${row.currency} ${PortfolioFormat.amount(row.value)}"
 
+    /**
+     * Signed amount with its currency, the sign before the code: "+USD 3.00", "-USD 12.50", "USD 0.00"; "USD —" when missing or unparsable
+     * (never 0.00). Formatting only — the ledger string is the value.
+     */
+    fun signedMoney(currency: String, amount: String?): String {
+        val text = PortfolioFormat.amount(amount)
+        if (text == "—") return "$currency —"
+        val sign = when (direction(amount)) { PriceDirection.UP -> "+"; PriceDirection.DOWN -> "-"; else -> "" }
+        return "$sign$currency ${text.removePrefix("-")}"
+    }
+
+    /** Holding details "Realized": the holding's realized gain/loss in its trading currency (finding A-F3 — was the raw ledger string). */
+    fun holdingRealized(row: PortfolioHoldingRow): String = signedMoney(row.currency, row.realized)
+
+    /** Holding details "Dividends": dividends received for the holding, in its trading currency ("USD 12.50"). */
+    fun holdingDividends(row: PortfolioHoldingRow): String = "${row.currency} ${PortfolioFormat.amount(row.dividends)}"
+
     /** One spoken description for a holding row (TalkBack / VoiceOver). */
     fun holdingDescription(row: PortfolioHoldingRow): String {
         val gain = when (direction(row.gain)) {

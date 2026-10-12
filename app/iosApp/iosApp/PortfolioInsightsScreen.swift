@@ -2,7 +2,7 @@ import SwiftUI
 import Charts
 import Shared
 
-/// Portfolio Intelligence, rendered from the shared `InsightsUiState` (same sections and text as
+/// Portfolio insights (named "Portfolio Intelligence" before Portfolio Phase A), rendered from the shared `InsightsUiState` (same sections and text as
 /// Android). NUMBER → CONTEXT → EXPLANATION → EDUCATION; locked/unavailable sections say why.
 struct PortfolioInsightsScreen: View {
     let state: InsightsUiState?
@@ -47,7 +47,7 @@ struct PortfolioInsightsScreen: View {
 
     @ViewBuilder private func header(_ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            Text("Portfolio Intelligence").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
+            Text(PortfolioDisplay.shared.INSIGHTS_TITLE).font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
             if let state {
                 Text([state.accountName.isEmpty ? nil : state.accountName, state.view.map { "Amounts in \($0.currency)" }, state.plus ? "StockSteps+" : nil]
                     .compactMap { $0 }.joined(separator: " · "))
@@ -151,7 +151,7 @@ struct PortfolioInsightsScreen: View {
         }
         if !view.insights.isEmpty {
             VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-                Text("Insights").font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).accessibilityAddTraits(.isHeader)
+                Text(PortfolioDisplay.shared.INSIGHTS_LIST_TITLE).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).accessibilityAddTraits(.isHeader)
                 ForEach(view.insights, id: \.id) { insight in
                     StockInsightCard(title: insight.title, message: insight.explanation)
                 }
@@ -167,7 +167,7 @@ struct PortfolioInsightsScreen: View {
             ForEach(view.notes + ["Not investment advice. Past performance doesn't indicate future results."], id: \.self) {
                 Text($0).font(.caption).foregroundStyle(colors.textSecondary)
             }
-            Text("As of \(String(view.asOf.prefix(16)).replacingOccurrences(of: "T", with: " ")) UTC").font(.caption2).foregroundStyle(colors.textTertiary)
+            Text(PortfolioDisplay.shared.asOf(instant: view.asOf)).font(.caption2).foregroundStyle(colors.textTertiary)
             Button("Refresh insights", action: onRefresh).frame(minHeight: 44)
         }
     }

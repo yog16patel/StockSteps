@@ -20,7 +20,7 @@ import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.portfolio.analytics.*
 
 /**
- * Portfolio Intelligence. Order follows NUMBER → CONTEXT → EXPLANATION → EDUCATION: each section
+ * Portfolio insights (named "Portfolio Intelligence" before Portfolio Phase A). Order follows NUMBER → CONTEXT → EXPLANATION → EDUCATION: each section
  * leads with its figures, then what they're measured against, then a plain-language note, and the
  * Learn section explains every method. Locked and unavailable sections say why instead of showing 0.
  */
@@ -44,7 +44,7 @@ internal fun PortfolioInsightsScreen(
     LazyColumn(modifier, contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sectionGap)) {
         item(key = "header") {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Text("Portfolio Intelligence", style = typography.screenTitle, modifier = Modifier.semantics { heading() })
+                Text(PortfolioDisplay.INSIGHTS_TITLE, style = typography.screenTitle, modifier = Modifier.semantics { heading() })
                 Text(listOfNotNull(state.accountName.takeIf { it.isNotBlank() }, view?.let { "Amounts in ${it.currency}" }, if (state.plus) "StockSteps+" else null).joinToString(" · "),
                     style = typography.small, color = colors.textSecondary)
                 if (state.scenario == null && state.accounts.size > 1) {
@@ -168,7 +168,7 @@ internal fun PortfolioInsightsScreen(
         // 7 · Insights (deterministic, from the numbers above).
         if (view.insights.isNotEmpty()) item(key = "insights") {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                StockSectionHeader("Insights")
+                StockSectionHeader(PortfolioDisplay.INSIGHTS_LIST_TITLE)
                 view.insights.forEach { insight ->
                     StockInsightCard(insight.title, insight.explanation,
                         eyebrow = listOfNotNull(insight.category.name.lowercase().replaceFirstChar(Char::uppercase), insight.period?.label, if (insight.completeness != Availability.AVAILABLE) "Partial data" else null).joinToString(" · "))
@@ -185,7 +185,7 @@ internal fun PortfolioInsightsScreen(
         item(key = "notes") {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 (view.notes + "Not investment advice. Past performance doesn't indicate future results.").forEach { Note(it) }
-                Text("As of ${view.asOf.take(16).replace('T', ' ')} UTC", style = typography.caption, color = colors.textTertiary)
+                Text(PortfolioDisplay.asOf(view.asOf), style = typography.caption, color = colors.textTertiary)
                 TextButton(onClick = onRefresh, modifier = Modifier.heightIn(min = 48.dp)) { Text("Refresh insights") }
             }
         }

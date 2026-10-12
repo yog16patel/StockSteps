@@ -1,9 +1,42 @@
-# StockSteps — session handoff (2026-10-12 end of session: Company Comparison QA pass committed; next = Portfolio P-B or Phase 5D after approval)
+# StockSteps — session handoff (2026-10-12: Portfolio audit + Stage 1 P0 fix + Phase A committed and pushed; next = Phase B after approval)
 
-Read order for a new session: `CLAUDE.md` → **§HANDOFF-2026-10-12 below** → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PORTFOLIO-PA-2026-10-12 below** → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PORTFOLIO-PA-2026-10-12. Portfolio audit, P0 account fix and Phase A — START HERE (committed and pushed)
+
+- Repository: `main`. Current commit: **"Fix Portfolio account selection by id and add Phase A shared form rules, readable labels, formatted holding amounts and consistent copy on Android and iOS"** (pushed), on top of `f55fd90` (Company Comparison QA closure). It contains everything below;
+  the working tree is clean after it.
+- Audit pass (docs only): `docs/PORTFOLIO_UI_AUDIT.md` (new: inventory, A-F1…A-F20, D-R1…D-R10, Q1–Q7, comparison with the owner's new reference
+  sheet, which isn't in the repo yet, see Q1) and `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md` (rewritten as Phases A–E; the old version is in `92a6d6a`).
+- **Stage 1, P0 A-F1 fixed**: the Android transaction form chose the account by display name, so the second of two same-named accounts saved into the first.
+  It now uses id-keyed `StockSelectField` options from `PortfolioFormRules.accountOptions` / `resolveAccountId` (a deleted choice is never replaced
+  silently), and the submitted transaction is built by `PortfolioFormRules.transaction`. 11 tests.
+- **Phase A A1–A9 done** (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md`):
+  - readable type and category labels on both platforms;
+  - holding-detail Realized and Dividends formatted with currency;
+  - `StockButton` / `.stockPrimary` and `negativeText` in the forms;
+  - Android `StockTextField` with decimal keyboards;
+  - shared `PortfolioDisplay` copy and shared `PortfolioFormRules` field visibility, order and labels;
+  - readable Insights "As of";
+  - "Portfolio insights" naming everywhere;
+  - also: the chart is titled "Account value", with a deposits note (moved forward from B2; deviation §8.1 of the phase doc).
+- No API, presenter-contract, calculation, ledger, persistence, route, entitlement or fixture change.
+- Validation (sequential, clean outputs):
+  - core JVM **471/0**, core iOS **471/0**, shared Android **138/0**, shared iOS **134/0**;
+  - `assembleDebug` OK;
+  - default iOS `xcodebuild … CODE_SIGNING_ALLOWED=NO build` **BUILD SUCCEEDED**.
+  - **Not run**: `:server:test` (no server change), and all device, emulator and simulator checks, captures, TalkBack and VoiceOver (no approval).
+- Known limits:
+  - the Android edit form is still an `AlertDialog` without Cancel, and dates are still typed;
+  - iOS still validates only on the server (all Phase D);
+  - the new field rows inside the Android edit dialog and the `.stockPrimary` rows inside iOS `Form`s are unverified on device.
+- Next, each only after owner approval:
+  - before/after captures on local MOCK;
+  - **Phase B** (overview card), with decisions Q1–Q7 and D1–D3 from the plan;
+  - commit only on request (update root `PROJECT_HANDOFF.md` in the same commit).
 
 ## HANDOFF-2026-10-12. End-of-session handoff — START HERE
 

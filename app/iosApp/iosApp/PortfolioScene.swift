@@ -75,8 +75,13 @@ struct PortfolioEntryScene: View {
     @State private var searchModel = StockSearchViewModel(service: StockSearchService(baseURL: { BackendSettings.currentURL }))
     var body: some View {
         VStack {
-        if model.state?.accounts.filter({ !$0.archived }).isEmpty == true { Button("Create an account first") { showCreateAccount = true } }
-        Button("Search and select a security", systemImage: "magnifyingglass") { showSearch = true }
+        if model.state?.accounts.filter({ !$0.archived }).isEmpty == true {
+            Button { showCreateAccount = true } label: { Text(PortfolioDisplay.shared.CREATE_ACCOUNT_FIRST).frame(maxWidth: .infinity) }
+                .buttonStyle(.stockPrimary).padding(.horizontal, CGFloat(StockStepsTheme.spacing.screen))
+                .disabled(model.state?.signedIn != true || model.state?.busy == true)
+        }
+        Button(PortfolioDisplay.shared.SEARCH_SECURITY, systemImage: "magnifyingglass") { showSearch = true }
+            .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
         PortfolioTransactionForm(state: model.state, existing: existing, instrument: selectedInstrument ?? initialInstrument) { id, account, type, date, currency, symbol, name, exchange, quantity, price, amount, fees, notes, cashCurrency, fxRate, settlementDate, securityCurrency in
             saving = true
             model.saveTransaction(id: id, account: account, type: type, date: date, currency: currency, symbol: symbol, name: name,
