@@ -100,6 +100,14 @@ object ComparisonDisplay {
 
     fun sectionHasBars(section: ComparisonSection): Boolean = section.rows.any { bars(it) != null }
 
+    /**
+     * Phase 5C.1 closure: the section from which the company header is pinned — the first open section (in display order) with a row whose values
+     * sit in unlabelled columns ([sideBySide] and no bars). Null = no pinned header: bar rows and stacked lines already name every company on
+     * each line, so a header over them would only repeat the tickers.
+     */
+    fun companyHeaderSection(openSections: List<ComparisonSection>, sideBySide: Boolean): String? =
+        if (!sideBySide) null else openSections.firstOrNull { section -> section.rows.any { bars(it) == null } }?.title
+
     // ---------- Final polish: notes behind one control, concise insights, one info action ----------
 
     /** The section's explanatory notes (section note, then the bar note), shown behind one "What to keep in mind" control instead of always. */

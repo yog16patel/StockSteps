@@ -159,3 +159,40 @@ object PortfolioLayout {
     /** Holding rows narrower than this (dp/pt, row width incl. padding) put market value and change under the company name. */
     const val stackedRowWidth = 320
 }
+
+/** Holdings display order (Portfolio P-A rule, used from P-C): presentation only — rows and their values are unchanged. */
+enum class PortfolioHoldingSort(val label: String) { VALUE("Value"), NAME("Name"), CHANGE("Change %") }
+
+/**
+ * Display decisions shared by the Compose and SwiftUI Portfolio screens (Portfolio UI Refinement P-A, `docs/PORTFOLIO_REFINEMENT_PHASE_PA.md`).
+ * They only compare or check exact decimal strings from `PortfolioUiState`; nothing here produces a number that is shown.
+ */
+object PortfolioDisplayRules {
+    /**
+     * A donut may replace the allocation bars only when every slice has a valid percentage, none is negative and together they don't exceed
+     * 100 %. Borrowed or negative cash can push a holding above 100 % — a ring can't show that honestly, so the labelled bars stay.
+     */
+    fun allocationDonutAllowed(percents: List<String?>): Boolean {
+        if (percents.isEmpty()) return false
+        val values = percents.map { p -> p?.let { runCatching { Decimal.parse(it) }.getOrNull() } ?: return false }
+        val zero = Decimal.parse("0")
+        if (values.any { it < zero }) return false
+        return values.fold(zero) { sum, v -> sum + v } <= Decimal.parse("100")
+    }
+
+    /**
+     * Holdings in [sort] order. VALUE uses the reporting-currency value from the allocation list ([reportingValues] by symbol) so USD and CAD
+     * holdings are never ranked by their native amounts; CHANGE uses the unrealized gain %. Rows whose sort value is missing keep their original
+     * order after the others (missing never counts as zero). NAME is alphabetical, case-insensitive. Stable for ties.
+     */
+    fun sortHoldings(rows: List<PortfolioHoldingRow>, sort: PortfolioHoldingSort, reportingValues: Map<String, String?> = emptyMap()): List<PortfolioHoldingRow> {
+        fun decimal(text: String?) = text?.let { runCatching { Decimal.parse(it) }.getOrNull() }
+        return when (sort) {
+            PortfolioHoldingSort.NAME -> rows.sortedBy { it.name.lowercase() }
+            PortfolioHoldingSort.VALUE, PortfolioHoldingSort.CHANGE -> {
+                val keyed = rows.map { it to decimal(if (sort == PortfolioHoldingSort.VALUE) reportingValues[it.symbol] else it.gainPercent) }
+                keyed.filter { it.second != null }.sortedByDescending { it.second!! }.map { it.first } + keyed.filter { it.second == null }.map { it.first }
+            }
+        }
+    }
+}

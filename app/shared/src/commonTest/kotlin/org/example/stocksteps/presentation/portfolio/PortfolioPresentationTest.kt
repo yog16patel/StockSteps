@@ -103,4 +103,29 @@ class PortfolioPresentationTest {
         assertEquals("yesterday", PortfolioDates.dateTime("yesterday"))
         assertEquals("2026-13-01", PortfolioDates.date("2026-13-01"))
     }
+
+    @Test
+    fun donutOnlyForCompleteNonNegativeAllocations() {
+        assertTrue(PortfolioDisplayRules.allocationDonutAllowed(listOf("72.97", "27.03")))
+        assertTrue(PortfolioDisplayRules.allocationDonutAllowed(listOf("60", "30")), "cash or unallocated may leave a gap")
+        assertFalse(PortfolioDisplayRules.allocationDonutAllowed(emptyList()))
+        assertFalse(PortfolioDisplayRules.allocationDonutAllowed(listOf("72.97", null)), "missing slice never becomes zero")
+        assertFalse(PortfolioDisplayRules.allocationDonutAllowed(listOf("135.5", "-35.5")), "borrowed cash: keep bars")
+        assertFalse(PortfolioDisplayRules.allocationDonutAllowed(listOf("60", "40.01")), "over 100 %")
+        assertFalse(PortfolioDisplayRules.allocationDonutAllowed(listOf("n/a")))
+    }
+
+    @Test
+    fun holdingsSortIsDisplayOnlyAndKeepsMissingLast() {
+        val td = msft.copy(symbol = "TD.TO", name = "Toronto-Dominion Bank", currency = "CAD", value = "500", gainPercent = "33.33")
+        val aapl = msft.copy(symbol = "AAPL", name = "apple Inc.", value = "1000", gainPercent = null)
+        val rows = listOf(msft, td, aapl)
+        // Value ranks by the reporting-currency amount (USD 1,000 = CAD 1,350 beats CAD 500), not by native amounts; MSFT has none → last.
+        val reporting = mapOf("AAPL" to "1350", "TD.TO" to "500", "MSFT" to null)
+        assertEquals(listOf("AAPL", "TD.TO", "MSFT"), PortfolioDisplayRules.sortHoldings(rows, PortfolioHoldingSort.VALUE, reporting).map { it.symbol })
+        assertEquals(listOf("MSFT", "TD.TO", "AAPL"), PortfolioDisplayRules.sortHoldings(rows, PortfolioHoldingSort.CHANGE).map { it.symbol })
+        assertEquals(listOf("AAPL", "MSFT", "TD.TO"), PortfolioDisplayRules.sortHoldings(rows, PortfolioHoldingSort.NAME).map { it.symbol })
+        assertEquals(rows.toSet(), PortfolioDisplayRules.sortHoldings(rows, PortfolioHoldingSort.VALUE).toSet(), "no row is dropped or changed")
+        assertEquals(rows, PortfolioDisplayRules.sortHoldings(rows, PortfolioHoldingSort.VALUE), "no reporting values: original order")
+    }
 }

@@ -11,18 +11,20 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-11)
+## Current task (as of 2026-10-12)
 
-HEAD: "Polish Company Comparison with collapsible sections, short periods, comparison bars, concise notes and one info action (Global UI Refinement Phase 5C.1) on Android and iOS" (pushed). **Global UI Refinement Phases 1–3.1, 4A (Home), 4B/4B.1 (Markets), 4C–4C.3
-(Company Details) and 5A/5A.1 (Watchlist; 5A.1 closed with open conditions) are committed.** **Phase 5B (Screener / Discover Stocks) is committed and
-pushed** — `docs/GLOBAL_UI_REFINEMENT_PHASE5B.md` (shared `ScreenerDisplay`, `StockCardGridLayout`; device checks NOT RUN). The 5B closure pass is committed. **Phase 5C (Company Comparison) is committed and pushed** and its 5C.1 polish (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1.md`) (`docs/GLOBAL_UI_REFINEMENT_PHASE5C.md`: shared
-`StockComparisonLayout` + `ComparisonDisplay`; PASS WITH CONDITIONS). Next: **Phase 5D (Earnings audit recommended) only after approval** — read `docs/PROJECT_HANDOFF.md` §NEXT first; phase docs
-`docs/GLOBAL_UI_REFINEMENT_*.md`. Note: the iOS app's MOCK backend URL (Info.plist `StockStepsMockBackendURL`)
-comes from git-ignored `app/iosApp/Configuration/Local.xcconfig` (LAN host); for local-only device checks build with
-`STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` on the xcodebuild command line. Visual direction `docs/design/stocksteps-ui-reference.png`
-(+ `stocksteps-portfolio-reference.png`, Screener `docs/design/phase5b/REFERENCE-screener-discover-stocks.webp`). Still open: approved LAN backend redeploy
-(5C.1 brief wording; `deploy/local/deploy.sh deploy`), screen readers and physical devices. Cloud Run staging remains deferred. The LAN MOCK backend runs on
-the Ubuntu host (address in git-ignored `deploy/local/server.env`).
+HEAD: "Close Company Comparison Phase 5C.1 with section-based sticky header and spacing fixes, and add the Portfolio UI audit and Phase P-A display rules" (pushed).
+Global UI Refinement steps 1–5 (through Comparison 5C.1) are committed. **This commit adds** the Phase 5C.1 closure
+(`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1_CLOSURE.md`, shared `ComparisonDisplay.companyHeaderSection`; PASS WITH CONDITIONS), the Portfolio UI audit
+(`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`) and **Portfolio P-A** (`docs/PORTFOLIO_REFINEMENT_PHASE_PA.md`: baseline + shared rules R1–R8,
+`PortfolioDisplayRules`). Next: **Portfolio P-B (Overview Card) only after approval** — read `docs/PROJECT_HANDOFF.md` §CLOSURE-5C1-PA first.
+Portfolio rules for P-B: history loads on demand only; no UI-computed overall-return %; donut only when `allocationDonutAllowed`; missing stays missing.
+iOS device checks: build with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (default build bakes the LAN host from git-ignored
+`app/iosApp/Configuration/Local.xcconfig`); a fresh simulator install defaults to REAL (`localhost:8080`) — set MOCK in Settings or
+`defaults write org.example.stocksteps stocksteps.backendEnvironment MOCK`. The app needs iOS ≥ 18.2 (the iOS 17.5 SE simulator can't install it).
+Visual direction `docs/design/stocksteps-ui-reference.png` (+ `stocksteps-portfolio-reference.png`). Still open: approved LAN backend redeploy,
+screen readers (TalkBack's first start asks a notification permission the owner must answer; VoiceOver needs a device) and physical devices.
+Cloud Run staging remains deferred. The LAN MOCK backend runs on the Ubuntu host (address in git-ignored `deploy/local/server.env`).
 
 ## Repository layout
 

@@ -126,4 +126,15 @@ class ComparisonDisplayTest {
         assertEquals("Hide explanation of Revenue growth", ComparisonDisplay.infoLabel(row, guided = true, expanded = true))
         assertEquals("About Revenue growth", ComparisonDisplay.infoLabel(row, guided = false, expanded = false))
     }
+
+    @Test fun companyHeaderPinsFromTheFirstSectionWithUnlabelledColumns() {
+        val growth = ScreenerDefinitions.metric("revenueGrowth")
+        fun cell(v: Double) = MetricFormatter.cell(growth, MetricValue(v, FinancialAvailability.AVAILABLE))
+        val bars = ComparisonSection("Growth", listOf(ComparisonRow("revenueGrowth", "Revenue growth", null, listOf(cell(1.0), cell(2.0)))))
+        val columns = ComparisonSection("Valuation", listOf(ComparisonRow("pe", "P/E", null, listOf(MetricCell("20.0"), MetricCell("30.0")))))
+        assertNull(ComparisonDisplay.companyHeaderSection(listOf(bars), sideBySide = true), "bar rows name each company")
+        assertEquals("Valuation", ComparisonDisplay.companyHeaderSection(listOf(bars, columns), sideBySide = true), "not over the bars above it")
+        assertNull(ComparisonDisplay.companyHeaderSection(listOf(columns), sideBySide = false), "stacked lines name each company")
+        assertNull(ComparisonDisplay.companyHeaderSection(emptyList(), sideBySide = true), "every section collapsed")
+    }
 }

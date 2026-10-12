@@ -66,7 +66,6 @@ internal fun ComparisonScreen(
     var toggled by rememberSaveable { mutableStateOf(listOf<String>()) }
     val isOpen: (String) -> Boolean = { title -> ComparisonDisplay.expandedByDefault(title) != (title in toggled) }
     val toggle: (String) -> Unit = { title -> toggled = if (title in toggled) toggled - title else toggled + title }
-    val entries = remember(state, toggled) { comparisonEntries(state, isOpen) }
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     var headerHeight by remember { mutableStateOf(0) }
@@ -84,23 +83,28 @@ internal fun ComparisonScreen(
                 iconSmall + spacing.xxs.value
             StockComparisonLayout.sideBySide(maxOf(widest, noData), state.columns.size, rowWidth, spacing.xs.value, accessibilityText)
         }
+        // 5C.1 closure: pin the company header only from the first open section whose values sit in unlabelled columns (bar rows name each company).
+        val openSections = (state.sections.filterNot { it.advanced } + state.sections.filter { it.advanced && state.showMore }).filter { it.rows.isNotEmpty() && isOpen(it.title) }
+        val pinFrom = ComparisonDisplay.companyHeaderSection(openSections, sideBySide)
+        val pinned = pinFrom != null
+        val entries = remember(state, toggled, pinFrom) { comparisonEntries(state, isOpen, pinFrom) }
         // "Explore next" / "Explain this": scroll to the metric's row, below the pinned company header only when it is shown.
-        LaunchedEffect(state.focus, entries, sideBySide) {
+        LaunchedEffect(state.focus, entries, pinned) {
             val focus = state.focus ?: return@LaunchedEffect
             // A related metric in a collapsed section: open the section first; this effect runs again with the new entries.
             ComparisonDisplay.sectionOf(state.sections, focus)?.takeIf { !isOpen(it.title) && (!it.advanced || state.showMore) }?.let { toggle(it.title); return@LaunchedEffect }
             val index = entries.indexOfFirst { it is ComparisonEntry.Metric && it.row.id == focus }
-            if (index >= 0) list.animateScrollToItem(index, if (sideBySide) -headerHeight else 0)
+            if (index >= 0) list.animateScrollToItem(index, if (pinned && index > entries.indexOf(ComparisonEntry.Companies)) -headerHeight else 0)
             guidance.onFocusHandled()
         }
         LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, top = spacing.md, bottom = spacing.xxl)) {
             entries.forEach { entry ->
                 if (entry is ComparisonEntry.Companies) {
-                    if (sideBySide) stickyHeader(key = entry.key) { CompanyHeader(state.columns, onOpen, Modifier.onSizeChanged { headerHeight = it.height }) }
+                    if (pinned) stickyHeader(key = entry.key) { CompanyHeader(state.columns, onOpen, Modifier.onSizeChanged { headerHeight = it.height }) }
                     else item(key = entry.key) { Spacer(Modifier.height(spacing.sm)) }
                 }
                 // A zero-height pinned item after the metrics replaces the company header, so it doesn't cover the chart, history or tools.
-                else if (entry == ComparisonEntry.CompaniesEnd) { if (sideBySide) stickyHeader(key = entry.key) { Spacer(Modifier.fillMaxWidth()) } }
+                else if (entry == ComparisonEntry.CompaniesEnd) { if (pinned) stickyHeader(key = entry.key) { Spacer(Modifier.fillMaxWidth()) } }
                 else item(key = entry.key) {
                     val gap = Modifier.padding(top = when (entry) {
                         ComparisonEntry.Header -> 0.dp
@@ -128,7 +132,7 @@ internal fun ComparisonScreen(
                             .clip(if (entry.last) RoundedCornerShape(bottomStart = cardRadius, bottomEnd = cardRadius) else RoundedCornerShape(0.dp))
                             .background(colors.surface).padding(horizontal = spacing.cardPadding).padding(bottom = if (entry.last) spacing.xs else 0.dp)) {
                             MetricRowView(entry.row, state.columns, sideBySide, state.guide(entry.row.id), state.isExpanded(entry.row.id), state.isDeeper(entry.row.id),
-                                last = entry.last, showPeriod = ComparisonDisplay.sharedPeriod(entry.section) == null, onInfo = { onInfo(entry.row) }, guidance = guidance)
+                                first = entry.first, last = entry.last, showPeriod = ComparisonDisplay.sharedPeriod(entry.section) == null, onInfo = { onInfo(entry.row) }, guidance = guidance)
                         }
                         ComparisonEntry.More -> StockButton(if (state.showMore) "Hide extra metrics" else "More metrics (${state.advancedCount})", onClick = guidance.onToggleMore,
                             variant = StockButtonVariant.SECONDARY, modifier = gap.fillMaxWidth().semantics { stateDescription = if (state.showMore) "Expanded" else "Collapsed" })
@@ -241,7 +245,8 @@ private fun CompanyHeader(columns: List<CompanyColumn>, onOpen: (String) -> Unit
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
     Column(modifier.fillMaxWidth().background(colors.appBackground)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = spacing.cardPadding, vertical = spacing.xs), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        // Compact (5C.1 closure): each column is exactly one 48 dp target; no extra vertical padding around it.
+        Row(Modifier.fillMaxWidth().padding(horizontal = spacing.cardPadding, vertical = spacing.xxs), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             columns.forEach { column ->
                 Column(Modifier.weight(1f).heightIn(min = StockStepsTheme.dimensions.touchTarget)
                     .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = "Open ${column.name}") { onOpen(column.symbol) }
@@ -250,7 +255,7 @@ private fun CompanyHeader(columns: List<CompanyColumn>, onOpen: (String) -> Unit
                             if (column.error != null) ComparisonDisplay.PARTIAL.lowercase() else null).joinToString(", ")
                         role = androidx.compose.ui.semantics.Role.Button
                         onClick(label = "Open company details") { onOpen(column.symbol); true }
-                    }, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    }, verticalArrangement = Arrangement.spacedBy(0.dp, Alignment.CenterVertically)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
                         StockTickerAvatar(symbol = column.symbol, logoUrl = column.logoUrl, size = StockStepsTheme.dimensions.iconSmall)
                         Text(column.symbol, style = typography.label, color = colors.primaryText, maxLines = 1)
@@ -284,8 +289,8 @@ internal sealed class ComparisonEntry(val key: String) {
     data object Companies : ComparisonEntry("companies")
     /** [open] = rows shown (Phase 5C.1 collapsible sections). */
     class SectionTitle(val section: ComparisonSection, val open: Boolean) : ComparisonEntry("section-${section.title}")
-    /** [last] = the section's final row (closes its card). */
-    class Metric(val section: ComparisonSection, val row: ComparisonRow, val last: Boolean) : ComparisonEntry("row-${section.title}-${row.id}")
+    /** [first] = directly under the section header (no extra top gap); [last] = the section's final row (closes its card). */
+    class Metric(val section: ComparisonSection, val row: ComparisonRow, val last: Boolean, val first: Boolean = false) : ComparisonEntry("row-${section.title}-${row.id}")
     data object More : ComparisonEntry("more")
     /** Ends the pinned company header after the metric sections. */
     data object CompaniesEnd : ComparisonEntry("companies-end")
@@ -297,19 +302,21 @@ internal sealed class ComparisonEntry(val key: String) {
     data object Notes : ComparisonEntry("notes")
 }
 
-internal fun comparisonEntries(state: ComparisonUiState, isOpen: (String) -> Boolean = { true }): List<ComparisonEntry> = buildList {
+/** [pinFrom] = the section the pinned company header starts at ([ComparisonDisplay.companyHeaderSection]); null = before the first section. */
+internal fun comparisonEntries(state: ComparisonUiState, isOpen: (String) -> Boolean = { true }, pinFrom: String? = null): List<ComparisonEntry> = buildList {
     add(ComparisonEntry.Header); add(ComparisonEntry.Selection)
     if (state.needsMore) { add(ComparisonEntry.Examples); return@buildList }
     if (state.loading) add(ComparisonEntry.Loading)
     if (state.error != null) add(ComparisonEntry.Error)
     if (state.columns.isNotEmpty()) {
         if (state.insights.isNotEmpty()) add(ComparisonEntry.Summary)
-        add(ComparisonEntry.Companies)
+        if (pinFrom == null) add(ComparisonEntry.Companies)
         fun section(s: ComparisonSection) {
             if (s.rows.isEmpty()) return
             val open = isOpen(s.title)
+            if (s.title == pinFrom) add(ComparisonEntry.Companies)
             add(ComparisonEntry.SectionTitle(s, open))
-            if (open) s.rows.forEach { add(ComparisonEntry.Metric(s, it, it == s.rows.last())) }
+            if (open) s.rows.forEach { add(ComparisonEntry.Metric(s, it, it == s.rows.last(), it == s.rows.first())) }
         }
         state.sections.filterNot { it.advanced }.forEach(::section)
         if (state.advancedCount > 0) add(ComparisonEntry.More)
@@ -330,14 +337,15 @@ internal fun comparisonEntries(state: ComparisonUiState, isOpen: (String) -> Boo
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MetricRowView(row: ComparisonRow, columns: List<CompanyColumn>, sideBySide: Boolean, guide: MetricInterpretation?, expanded: Boolean, deeper: Boolean,
-                          last: Boolean, showPeriod: Boolean, onInfo: () -> Unit, guidance: GuidanceActions) {
+                          first: Boolean, last: Boolean, showPeriod: Boolean, onInfo: () -> Unit, guidance: GuidanceActions) {
     val bars = remember(row) { ComparisonDisplay.bars(row) }
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
     var why by remember { mutableStateOf<Pair<String, String>?>(null) }
     fun valueColor(cell: MetricCell) = when { !cell.available -> colors.textTertiary; cell.tone == Tone.POSITIVE -> colors.positiveText; cell.tone == Tone.NEGATIVE -> colors.negativeText; else -> colors.textValue }
-    Column(Modifier.fillMaxWidth().padding(vertical = spacing.xs)) {
+    // The first row needs only a hairline gap under the section header / notes control: their own 48 dp targets already give it room.
+    Column(Modifier.fillMaxWidth().padding(top = if (first) spacing.xxs else spacing.xs, bottom = spacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(row.label, style = typography.bodySemiBold, color = colors.textTitle)
@@ -403,7 +411,7 @@ private fun SectionHeader(section: ComparisonSection, open: Boolean, modifier: M
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val shape = if (open) RoundedCornerShape(topStart = cardRadius, topEnd = cardRadius) else RoundedCornerShape(cardRadius)
-    Column(modifier.fillMaxWidth().clip(shape).background(colors.surface).padding(bottom = if (open) spacing.xs else 0.dp)) {
+    Column(modifier.fillMaxWidth().clip(shape).background(colors.surface)) {
         Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
             .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = if (open) "Collapse" else "Expand", onClick = onToggle)
             .semantics(mergeDescendants = true) { heading(); stateDescription = if (open) "Expanded" else "Collapsed" }
@@ -430,7 +438,7 @@ private fun SectionHeader(section: ComparisonSection, open: Boolean, modifier: M
                     Icon(StockIcons.ChevronDown, null, tint = colors.primaryText,
                         modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall).graphicsLayer { rotationZ = if (showNotes) 180f else 0f })
                 }
-                if (showNotes) Column(Modifier.padding(bottom = spacing.xs), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                if (showNotes) Column(Modifier.padding(bottom = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                     notes.forEach { Text(it, style = typography.caption, color = colors.textSupporting) }
                 }
             }

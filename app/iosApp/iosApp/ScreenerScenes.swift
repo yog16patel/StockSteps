@@ -218,8 +218,12 @@ struct CompareStocksScreen: View {
     }
 
     /// Shared `StockComparisonLayout` decision from the measured widest value/period word (and symbols) of the rows on screen.
+    private func visibleRows(_ state: ComparisonUiState) -> [ComparisonRow] {
+        state.sections.filter { (!$0.advanced || state.showMore) && isOpen($0.title) }.flatMap(\.rows)
+    }
+
     private func sideBySide(_ state: ComparisonUiState) -> Bool {
-        let rows = state.sections.filter { (!$0.advanced || state.showMore) && isOpen($0.title) }.flatMap(\.rows)
+        let rows = visibleRows(state)
         let font = StockStepsTheme.uiFont(type.numberLabel, typeSize: typeSize)
         let tokens = display.layoutTexts(rows: rows).flatMap { StockComparisonLayout.shared.tokens(text: $0) } + state.columns.map(\.symbol)
         let widest = Set(tokens).map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
@@ -246,17 +250,14 @@ struct CompareStocksScreen: View {
             if !state.columns.isEmpty {
                 let columns = sideBySide(state)
                 if !state.insights.isEmpty { ComparisonLearningSummaryView(insights: state.insights) { client.comparison.openRelated(id: $0) } }
-                Section {
-                    ForEach(state.sections.filter { !$0.advanced && !$0.rows.isEmpty }, id: \.title) { section in sectionView(section, state, columns, colors) }
-                    if state.advancedCount > 0 {
-                        Button(state.showMore ? "Hide extra metrics" : "More metrics (\(state.advancedCount))") { client.comparison.toggleMore() }
-                            .buttonStyle(.stockSecondary).frame(maxWidth: .infinity)
-                            .accessibilityValue(state.showMore ? "Expanded" : "Collapsed")
-                    }
-                    if state.showMore { ForEach(state.sections.filter { $0.advanced && !$0.rows.isEmpty }, id: \.title) { section in sectionView(section, state, columns, colors) } }
-                } header: {
-                    // Pinned only around the metric sections (a Section header), and only while values sit in columns.
-                    if columns { companyHeader(state, colors) }
+                // Metric sections in display order (nil = the "More metrics" button). The company header is pinned (a Section header) only from
+                // the first open section whose values sit in unlabelled columns (5C.1 closure: bar rows and stacked lines name each company).
+                let items = metricItems(state)
+                let pinFrom = display.companyHeaderSection(openSections: items.compactMap { $0 }.filter { isOpen($0.title) }, sideBySide: columns)
+                let split = pinFrom.flatMap { title in items.firstIndex { $0?.title == title } } ?? items.count
+                Section { metricItemViews(Array(items[..<split]), state, columns, colors) }
+                if split < items.count {
+                    Section { metricItemViews(Array(items[split...]), state, columns, colors) } header: { companyHeader(state, colors) }
                 }
             }
             performance(state, colors)
@@ -288,6 +289,25 @@ struct CompareStocksScreen: View {
                     }
                     Text("Education, not investment advice. Past results don't indicate future returns.").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
                 }
+            }
+        }
+    }
+
+    /// Metric sections in display order: the main sections, the "More metrics" button (nil), then the extra sections while shown.
+    private func metricItems(_ state: ComparisonUiState) -> [ComparisonSection?] {
+        let main: [ComparisonSection?] = state.sections.filter { !$0.advanced && !$0.rows.isEmpty }
+        let extra: [ComparisonSection?] = state.showMore ? state.sections.filter { $0.advanced && !$0.rows.isEmpty } : []
+        return main + (state.advancedCount > 0 ? [nil] : []) + extra
+    }
+
+    @ViewBuilder private func metricItemViews(_ items: [ComparisonSection?], _ state: ComparisonUiState, _ columns: Bool, _ colors: StockColors) -> some View {
+        ForEach(items, id: \.?.title) { item in
+            if let section = item {
+                sectionView(section, state, columns, colors)
+            } else {
+                Button(state.showMore ? "Hide extra metrics" : "More metrics (\(state.advancedCount))") { client.comparison.toggleMore() }
+                    .buttonStyle(.stockSecondary).frame(maxWidth: .infinity)
+                    .accessibilityValue(state.showMore ? "Expanded" : "Collapsed")
             }
         }
     }
@@ -378,7 +398,7 @@ struct CompareStocksScreen: View {
                 .accessibilityHint("Opens company details")
             }
         }
-        .padding(.horizontal, CGFloat(space.cardPadding)).padding(.vertical, CGFloat(space.xs))
+        .padding(.horizontal, CGFloat(space.cardPadding)).padding(.vertical, CGFloat(space.xxs))
         .background(colors.appBackground)
         .overlay(alignment: .bottom) { StockDivider() }
     }
@@ -388,6 +408,7 @@ struct CompareStocksScreen: View {
     private func sectionView(_ section: ComparisonSection, _ state: ComparisonUiState, _ columns: Bool, _ colors: StockColors) -> some View {
         let open = isOpen(section.title)
         let shared = display.sharedPeriod(section: section)
+        let notesShown = openNotes.contains(section.title)
         return VStack(alignment: .leading, spacing: 0) {
             Button { toggle(section.title) } label: {
                 HStack(spacing: CGFloat(space.sm)) {
@@ -412,7 +433,7 @@ struct CompareStocksScreen: View {
                     // Final polish: the section's notes sit behind one "What to keep in mind" control instead of always-visible paragraphs.
                     let notes = display.sectionNotes(section: section)
                     if !notes.isEmpty {
-                        let shown = openNotes.contains(section.title)
+                        let shown = notesShown
                         Button { if shown { openNotes.remove(section.title) } else { openNotes.insert(section.title) } } label: {
                             HStack(spacing: CGFloat(space.xs)) {
                                 Image(systemName: "lightbulb").accessibilityHidden(true)
@@ -429,9 +450,10 @@ struct CompareStocksScreen: View {
                         }
                     }
                 }
-                .padding(.bottom, CGFloat(space.xs))
+                // 5C.1 closure: only expanded notes get a gap below them; the first metric follows the header or notes control directly.
+                .padding(.bottom, notesShown && !display.sectionNotes(section: section).isEmpty ? CGFloat(space.sm) : 0)
                 ForEach(Array(section.rows.enumerated()), id: \.element.id) { index, row in
-                    metricRow(row, state, columns, showPeriod: shared == nil, colors)
+                    metricRow(row, state, columns, showPeriod: shared == nil, first: index == 0, colors)
                     if index < section.rows.count - 1 { StockDivider() }
                 }
             }
@@ -447,13 +469,14 @@ struct CompareStocksScreen: View {
 
     /// One metric: name and period, Explain / ⓘ, then the values — in equal columns or one line per company with its logo and ticker. A missing
     /// value reads "No data" with a real info control ("Market cap unavailable for TSLA. Explain why."), never "N/A ⓘ".
-    private func metricRow(_ row: ComparisonRow, _ state: ComparisonUiState, _ columns: Bool, showPeriod: Bool, _ colors: StockColors) -> some View {
+    private func metricRow(_ row: ComparisonRow, _ state: ComparisonUiState, _ columns: Bool, showPeriod: Bool, first: Bool = false, _ colors: StockColors) -> some View {
         let bars = display.bars(row: row)
         let guide = state.guide(id: row.id)
         let expanded = state.isExpanded(id: row.id)
         let pairs = Array(zip(state.columns, row.cells))
         return VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            HStack(alignment: .top) {
+            // Centred (5C.1 closure, as Compose): the ⓘ's 44 pt frame no longer sits below a one-line title.
+            HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                     Text(row.label).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
                     if showPeriod, let period = row.period {
@@ -530,7 +553,7 @@ struct CompareStocksScreen: View {
                     .padding(.bottom, CGFloat(space.xxs))
             }
         }
-        .padding(.vertical, CGFloat(space.xs))
+        .padding(.top, first ? CGFloat(space.xxs) : CGFloat(space.xs)).padding(.bottom, CGFloat(space.xs))
     }
 
     /// Compact comparison bars (Phase 5C.1, percentage metrics only; same shared `ComparisonDisplay.bars` as Android): ticker, a bar scaled to the

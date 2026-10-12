@@ -6,6 +6,11 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**Latest (2026-10-12, committed and pushed as "Close Company Comparison Phase 5C.1 with section-based sticky header and spacing fixes, and add the Portfolio UI audit and Phase P-A display rules")**: Phase 5C.1 closure (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1_CLOSURE.md`, PASS WITH CONDITIONS), Portfolio audit
+(`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`) and Portfolio P-A baseline + shared display rules (`docs/PORTFOLIO_REFINEMENT_PHASE_PA.md`) are committed on
+top of `42c749d`. Tests: core 466/0 (JVM, iOS), shared 113/0 (Android) and 109/0 (iOS), both builds OK. **Next: Portfolio P-B
+(Overview Card) only after approval.** Phase 5D (Learn/Brief/Earnings) remains queued after the Portfolio work unless the owner reorders.
+
 **State (2026-10-11, end of session)**: `main` at `19c3105` "Polish Company Comparison with collapsible sections, short periods, comparison bars, concise
 notes and one info action (Global UI Refinement Phase 5C.1) on Android and iOS", plus the docs-only handoff commit "Add end-of-session handoff after Global UI Refinement Phase 5C.1 and point to the Phase 5D Earnings audit". Global UI Refinement
 plan step 5 (Watchlist, Screener, Comparison) is complete: 5A/5A.1 Watchlist, 5B + 5B closure Screener ("Discover Stocks"), 5C + 5C.1 Company

@@ -1,9 +1,26 @@
-# StockSteps — session handoff (2026-10-11, end of session: Global UI Refinement step 5 complete through Phase 5C.1; next Phase 5D after approval)
+# StockSteps — session handoff (2026-10-12: Phase 5C.1 closed; Portfolio audit + P-A done; next Portfolio P-B after approval)
 
-Read order for a new session: `CLAUDE.md` → **§HANDOFF-2026-10-11 below** → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§CLOSURE-5C1-PA below** → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## CLOSURE-5C1-PA. Phase 5C.1 closure + Portfolio audit and P-A (2026-10-11/12, committed and pushed — start here)
+
+- Repository: `main`. Current commit: "Close Company Comparison Phase 5C.1 with section-based sticky header and spacing fixes, and add the Portfolio UI audit and Phase P-A display rules" (pushed), on top of `42c749d` "Add end-of-session handoff after Global UI Refinement Phase 5C.1 and
+  point to the Phase 5D Earnings audit" (pushed with it). Everything below is in that commit.
+- **5C.1 closure** (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1_CLOSURE.md`): shared `ComparisonDisplay.companyHeaderSection` (pinned company header
+  only from the first open section with unlabelled columns; none over bar rows), compact header, tighter notes → first-metric spacing, iOS ⓘ
+  centred; device checks on local MOCK (Android 360 dp light/dark 1.0×, dark 1.3×; iPhone 16 light/dark Large + AX5; iPhone SE iOS 27);
+  captures `docs/design/phase5c_1/closure/`. Verdict **PASS WITH CONDITIONS** (TalkBack/VoiceOver/physical devices NOT TESTED).
+- **Portfolio audit** `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md` (16 prioritised issues, components C1–C7, phases P-A…P-E, decisions D1–D3) and
+  **P-A** `docs/PORTFOLIO_REFINEMENT_PHASE_PA.md` (baseline from Phase 3.1 captures — no new Portfolio captures; shared rules R1–R8;
+  `PortfolioDisplayRules.allocationDonutAllowed` / `sortHoldings` + `PortfolioHoldingSort`, unused by screens yet; +2 tests). P-B not started.
+- Tests (actual): core JVM 466/0, core iOS 466/0, shared Android 113/0, shared iOS 109/0, `assembleDebug` OK, default iOS `xcodebuild` BUILD SUCCEEDED.
+- Device state to fix by the owner: emulator-5554 shows the system dialog "Allow Android Accessibility Suite to send you notifications?" (raised
+  when TalkBack was briefly enabled; left unanswered per the rules; TalkBack is off) and the app's in-app Theme is on **Dark** (was Light).
+- Next: owner approval for P-B (Portfolio Overview Card, scope in the P-A doc §5) and for device captures; decisions D2 (overall return %) and D3
+  (sort control).
 
 ## HANDOFF-2026-10-11. End-of-session handoff — start here
 
