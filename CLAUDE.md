@@ -11,13 +11,11 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-12)
+## Current task (as of 2026-10-12, end of session)
 
-HEAD: "Close Company Comparison accessibility pass with an icon-led insights card, collapsible chart help and sources, readable tab labels at large text and live Dynamic Type fixes on Android and iOS" (pushed), on top of `53c0044`. Company Comparison is PASS WITH CONDITIONS (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_ACCESSIBILITY_CLOSURE.md`:
-remaining captures, TalkBack/VoiceOver). Next: owner's choice — remaining Comparison checks, **Portfolio P-B** or **Phase 5D**, each only after approval;
-read `docs/PROJECT_HANDOFF.md` §A11Y-CLOSURE-5C first. Shared rules added: `StockNavigationLayout` (tab labels never ellipsized),
-`StockSemanticStyles.insightAccent`, `ComparisonNotesDisplay`, `ObservationIcon`; multi-series charts use `StockChartSeriesStyle`; iOS
-`StockStepsTheme.font` resolves against the current content-size category (views must depend on `dynamicTypeSize` to refresh live).
+HEAD: "Finish Company Comparison QA with a two-column chart selection summary, scannable chart limitations, heading fit at large text and live Dynamic Type for buttons on Android and iOS" (pushed), on top of `85e24a0`. It holds the Company Comparison final polish & QA closure
+(`docs/GLOBAL_UI_REFINEMENT_PHASE5C_QA_CLOSURE.md`; PASS WITH CONDITIONS — TalkBack navigation/VoiceOver NOT VERIFIED). Next: **Portfolio P-B** (Overview Card, `docs/PORTFOLIO_REFINEMENT_PHASE_PA.md` §5) or **Phase 5D**, each only after approval. Read
+`docs/PROJECT_HANDOFF.md` §HANDOFF-2026-10-12 first.
 Portfolio rules for P-B: history loads on demand only; no UI-computed overall-return %; donut only when `allocationDonutAllowed`; missing stays missing.
 iOS device checks: build with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (default build bakes the LAN host from git-ignored
 `app/iosApp/Configuration/Local.xcconfig`); a fresh simulator install defaults to REAL (`localhost:8080`) — set MOCK in Settings or
@@ -99,6 +97,12 @@ Core feature packages: `brief` (Daily Market Brief), `practice` (Practice Portfo
   `*Display` objects (`ScreenerDisplay`, `ComparisonDisplay`). iOS: a value and its period/caption must scale on the same Dynamic Type curve
   (`relativeTo: .footnote` for both) — small styles like `.caption2` grow faster and would end up larger than the value at XXXL. Scrolling chip/pill rows use `StockFadingScrollRow` on both platforms. New component parameters stay optional with
   unchanged defaults. iOS device checks need a build with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (the default build targets the LAN host).
+- **Comparison/large-text rules (2026-10-12)**: multi-series charts use `StockChartSeriesStyle` (colour + dash per series, drawn legend swatches,
+  never colour alone); tab labels follow `StockNavigationLayout.labelScale` (never ellipsized); a heading may shrink only via `StockHeadingFit.scale` when
+  one of its words can't fit its line (measure font-independent widths — never the heading's own frame, which feeds back); server note sentences are
+  regrouped only by known openings with unknown text kept verbatim (`ComparisonNotesDisplay`, `ComparisonObservationsDisplay`). iOS: `StockStepsTheme.font`
+  resolves the current content-size category, but a view refreshes on a **live** Dynamic Type change only if it depends on `dynamicTypeSize`
+  (read it in `body`; use `.id(typeSize)` for `ForEach` groups whose data doesn't change).
 - **Portfolio display** goes through `presentation/portfolio/PortfolioPresentation` (labels for account types/transaction kinds, signed
   changes, direction, holding text), `PortfolioDates` (readable dates; UTC stays UTC) and `PortfolioChartRules` (chart only with ≥ 2 dated
   values) on both platforms — never raw enums, never `0.00` for missing data; Portfolio is the reference screen for later UI phases.

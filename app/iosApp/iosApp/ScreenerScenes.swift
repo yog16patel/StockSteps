@@ -173,6 +173,12 @@ struct CompareStocksScreen: View {
     @State private var openNotes: Set<String> = []
     /// "View all insights" in What the numbers show.
     @State private var showAllObservations = false
+    /// Share-price chart day selected by touch (nil = latest date).
+    @State private var chartSelection: Int?
+    @State private var chartTouch: Int?
+    /// Section header row and chevron widths (for StockHeadingFit). Neither depends on the title's font, so fitting can't feed back on itself.
+    @State private var headerRowWidth: CGFloat = 0
+    @State private var headerChevronWidth: CGFloat = 0
     /// Open "How to read this chart" / "Sources & methodology" groups (accessibility closure; collapsed by default).
     @State private var openNoteGroups: Set<String> = []
     private var notes: ComparisonNotesDisplay { ComparisonNotesDisplay.shared }
@@ -538,7 +544,11 @@ struct CompareStocksScreen: View {
                 let stackSummary = typeSize.isAccessibilitySize
                 HStack(spacing: CGFloat(space.sm)) {
                     VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                        Text(section.title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle)
+                        // Final QA: the title keeps the user's size unless one of its words can't fit beside the chevron (e.g. "Shareholder" at AX5 on a
+                        // 375-pt phone) — then only this title shrinks just enough (shared StockHeadingFit), never mid-word.
+                        Text(section.title).font(fittedHeadingFont(section.title, type.cardTitle, available: headerRowWidth > 0 ? headerRowWidth - headerChevronWidth - CGFloat(space.sm) - 4
+                                : width - CGFloat(space.cardPadding) * 2 - CGFloat(space.sm) - StockStepsTheme.uiFont(type.caption, typeSize: typeSize).pointSize))
+                            .foregroundStyle(colors.textTitle)
                         if open, let shared {
                             Text(display.shortPeriod(text: shared)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
                         }
@@ -550,8 +560,11 @@ struct CompareStocksScreen: View {
                     if !open && !stackSummary { Text(display.sectionSummary(section: section)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta) }
                     Image(systemName: open ? "chevron.up" : "chevron.down").font(StockStepsTheme.font(type.caption, relativeTo: .caption1).weight(.semibold))
                         .foregroundStyle(colors.iconSecondary)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { headerChevronWidth = max(headerChevronWidth, $0) }
                 }
                 .frame(minHeight: CGFloat(dims.touchTarget))
+                .frame(maxWidth: .infinity)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { headerRowWidth = $0 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -782,8 +795,16 @@ struct CompareStocksScreen: View {
                     // Final polish: each company keeps the shared StockChartSeriesStyle colour and dash (same as Compose and the legend below).
                     let symbols = drawable.map(\.symbol)
                     let reference = StockStepsTheme.chartReference(scheme)
+                    // Final QA: selected date + ticker/indexed value per company (latest date until the chart is touched), same as Compose.
+                    let chartDisplay = ComparisonChartDisplay.shared
+                    let index = chartSelection.flatMap { $0 >= 0 && $0 < chart.dates.count ? $0 : nil } ?? Int(chartDisplay.defaultIndex(chart: chart))
+                    if let selection = chartDisplay.selection(chart: chart, index: Int32(index)) { chartSelectionView(selection, colors) }
                     Chart {
                         RuleMark(y: .value("Start", 100)).foregroundStyle(StockStepsTheme.color(reference.color)).lineStyle(StockStepsTheme.strokeStyle(reference))
+                        // Selected day (as Compose's marker line); the latest day isn't marked until the chart is touched.
+                        if let selected = chartSelection, selected < chart.dates.count {
+                            RuleMark(x: .value("Day", selected)).foregroundStyle(colors.border).lineStyle(StrokeStyle(lineWidth: 1))
+                        }
                         ForEach(points) { point in
                             let line = StockStepsTheme.chartLine(symbols.firstIndex(of: point.symbol) ?? 0, scheme)
                             LineMark(x: .value("Day", point.index), y: .value("Growth of 100", point.value), series: .value("Company", point.symbol))
@@ -792,6 +813,9 @@ struct CompareStocksScreen: View {
                         }
                     }
                     .chartLegend(.hidden)
+                    // Swift Charts clears the selection on release; keep the last selected day, as Compose does.
+                    .chartXSelection(value: $chartTouch)
+                    .onChange(of: chartTouch) { _, day in if let day { chartSelection = day } }
                     .chartXAxis(.hidden)
                     // Accessibility closure: axis ticks stay legible but don't take over the plot at AX sizes (capped at xxxLarge, fewer ticks);
                     // the values remain in the accessibility label and the legend.
@@ -837,6 +861,36 @@ struct CompareStocksScreen: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .stockCard(bordered: false)
+    }
+
+    private func fittedHeadingFont(_ text: String, _ token: ThemeTextStyle, available: CGFloat) -> Font {
+        StockStepsTheme.fittedHeadingFont(text, token, typeSize: typeSize, available: available)
+    }
+
+    /// Selected chart date, then swatch · ticker · indexed value per company — two columns while text is regular, one at accessibility sizes.
+    private func chartSelectionView(_ selection: ChartSelection, _ colors: StockColors) -> some View {
+        let entries = selection.entries
+        let columns = Int(ComparisonChartDisplay.shared.selectionColumns(companies: Int32(entries.count), accessibilityText: typeSize.isAccessibilitySize))
+        return VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Text(verbatim: selection.date).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textTitle)
+            ForEach(Array(stride(from: 0, to: entries.count, by: columns)), id: \.self) { start in
+                HStack(spacing: CGFloat(space.md)) {
+                    ForEach(start..<min(start + columns, entries.count), id: \.self) { i in
+                        let entry = entries[i]
+                        HStack(spacing: CGFloat(space.xs)) {
+                            StockChartSwatch(line: StockStepsTheme.chartLine(Int(entry.seriesIndex), scheme))
+                            Text(verbatim: entry.symbol).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textTitle)
+                            Text(verbatim: entry.value).font(StockStepsTheme.font(type.numberLabel, relativeTo: .footnote))
+                                .foregroundStyle(entry.value == ComparisonDisplay.shared.NO_DATA ? colors.textTertiary : colors.textValue)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if columns > 1 && start + columns > entries.count { Spacer().frame(maxWidth: .infinity) }
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(selection.spoken)
     }
 
     @ViewBuilder private func legend(_ series: [PerformanceSeries], _ colors: StockColors) -> some View {
@@ -933,6 +987,8 @@ struct GuidedMetricExplanationView: View {
 struct ComparisonLearningSummaryView: View {
     let insights: [ComparisonInsight]
     let onOpen: (String) -> Void
+    private static let title = "What can we learn from this comparison?"
+    @State private var titleWidth: CGFloat?
     /// Re-render on live Dynamic Type changes (accessibility closure).
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.colorScheme) private var scheme
@@ -944,7 +1000,11 @@ struct ComparisonLearningSummaryView: View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             HStack(spacing: CGFloat(space.sm)) {
                 Image(systemName: "lightbulb.fill").foregroundStyle(colors.cautionText).accessibilityHidden(true)
-                Text("What can we learn from this comparison?").font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle)
+                // Final QA: scaled down only if a word (e.g. "comparison?") can't fit its line at AX sizes (shared StockHeadingFit).
+                Text(Self.title).font(StockStepsTheme.fittedHeadingFont(Self.title, type.cardTitle, typeSize: typeSize, available: titleWidth ?? .greatestFiniteMagnitude))
+                    .foregroundStyle(colors.textTitle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { titleWidth = $0 }
                     .accessibilityAddTraits(.isHeader)
             }
             // Final polish: the first insight, then "Show all N insights" for the rest and the footer.

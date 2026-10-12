@@ -535,3 +535,14 @@ struct StockChartSwatch: View {
         .accessibilityHidden(true)
     }
 }
+
+extension StockStepsTheme {
+    /// A heading font at the user's Dynamic Type size, scaled down only when its longest word is wider than `available` (shared `StockHeadingFit`),
+    /// so a single long word never breaks mid-word at accessibility sizes while every other heading keeps the user's size.
+    static func fittedHeadingFont(_ text: String, _ token: ThemeTextStyle, typeSize: DynamicTypeSize, available: CGFloat) -> Font {
+        let font = uiFont(token, typeSize: typeSize)
+        let longest = text.split(separator: " ").map { (String($0) as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
+        let scale = CGFloat(StockHeadingFit.shared.scale(longestWord: Float(longest), available: Float(max(available, 1)), minimum: 0.6, margin: 0.92))
+        return Font(scale < 1 ? font.withSize(font.pointSize * scale) : font)
+    }
+}

@@ -634,6 +634,9 @@ private fun PerformanceCard(state: ComparisonUiState, onPeriod: (PerformancePeri
                             "${s.symbol} ${s.change?.let { (if (it > 0) "up " else if (it < 0) "down " else "") + MetricFormatter.decimals(kotlin.math.abs(it), 1) + "%" } ?: "unavailable"}" },
                         // The chart's own legend is off: the legend below pairs each line's swatch with its ticker and change.
                         reference = 100.0,
+                        // Final QA: the selected date on its own line, then ticker + indexed value per company in a two-column grid (one column at
+                        // accessibility text), each with its line swatch. Same values as before (shared ComparisonChartDisplay).
+                        selectionContent = { index -> ComparisonChartDisplay.selection(chart, index)?.let { ChartSelectionView(it) } },
                         additional = drawable.drop(1).map { it.symbol to it.values }
                     )
                     // Legend (final polish): line swatch (same colour and dash as the chart, StockChartSeriesStyle) + ticker + change, kept together as
@@ -654,6 +657,31 @@ private fun PerformanceCard(state: ComparisonUiState, onPeriod: (PerformancePeri
                 }
                 chart.series.filter { it.error != null }.forEach { Text("${it.symbol}: ${it.error}", style = typography.caption, color = colors.cautionText) }
                 CollapsibleNoteGroups(ComparisonNotesDisplay.CHART_HELP, ComparisonNotesDisplay.chartGroups(chart.notes))
+            }
+        }
+    }
+}
+
+/** Selected chart date and each company's indexed value (swatch · ticker · value), two columns while they fit. */
+@Composable
+private fun ChartSelectionView(selection: ChartSelection) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    val accessibilityText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale * 1.15f
+    val columns = ComparisonChartDisplay.selectionColumns(selection.entries.size, accessibilityText)
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Text(selection.date, style = typography.label, color = colors.textTitle)
+        selection.entries.chunked(columns).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                row.forEach { entry ->
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        StockChartSwatch(StockChartSeriesStyle.series(entry.seriesIndex, colors.palette))
+                        Text(entry.symbol, style = typography.label, color = colors.textTitle)
+                        Text(entry.value, style = typography.numberLabel, color = if (entry.value == ComparisonDisplay.NO_DATA) colors.textTertiary else colors.textValue)
+                    }
+                }
+                repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

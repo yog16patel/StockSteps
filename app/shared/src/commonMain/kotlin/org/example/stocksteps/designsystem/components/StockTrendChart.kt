@@ -48,7 +48,9 @@ internal fun StockTrendChart(
     markers: List<Int> = emptyList(),
     /** Slots drawn as hollow rings (e.g. baseline and endpoint observations). */
     highlights: List<Int> = emptyList(),
-    height: androidx.compose.ui.unit.Dp = CHART_HEIGHT
+    height: androidx.compose.ui.unit.Dp = CHART_HEIGHT,
+    /** Optional replacement for the one-line [details] above the chart (receives the focused slot); decorative for screen readers. */
+    selectionContent: (@Composable (Int) -> Unit)? = null
 ) {
     val valid = values.filterNotNull() + comparison.orEmpty().filterNotNull() + additional.flatMap { it.second.filterNotNull() }
     if (valid.isEmpty()) return
@@ -65,7 +67,8 @@ internal fun StockTrendChart(
     val low = if (flat) rawLow - 1.0 else rawLow
     val span = (high - low).takeIf { it > 0 } ?: 1.0
     Column(modifier.semantics(mergeDescendants = true) { contentDescription = description }) {
-        Text(details.getOrNull(focus).orEmpty(), Modifier.clearAndSetSemantics {}, style = typography.label, color = colors.textPrimary)
+        if (selectionContent != null) Box(Modifier.clearAndSetSemantics {}) { selectionContent(focus) }
+        else Text(details.getOrNull(focus).orEmpty(), Modifier.clearAndSetSemantics {}, style = typography.label, color = colors.textPrimary)
         // Shared line styles (StockChartSeriesStyle): the legend draws each line's real colour and dash pattern as a swatch; labels use readable
         // text colours (the orange series colour is too light for caption text). Series 0 = [values], then [comparison], then [additional].
         val palette = colors.palette

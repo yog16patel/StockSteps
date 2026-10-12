@@ -152,7 +152,8 @@ enum class ObservationIcon { GROWTH, PROFITABILITY, VALUATION, OPERATING, DEBT, 
 
 /** One "What the numbers show" item: short title + concise text; [caveat] only when it is specific to this metric and not shown above. */
 data class ObservationItem(val metric: String, val heading: String, val text: String, val caveat: String?, val icon: ObservationIcon = ObservationIcon.GENERAL) {
-    val spoken: String get() = listOfNotNull(heading, text, caveat).joinToString(". ")
+    /** One screen-reader label: "Title. Text. Caveat." — parts already ending in a full stop aren't doubled. */
+    val spoken: String get() = listOfNotNull(heading, text, caveat).joinToString(" ") { part -> part.trimEnd().let { if (it.endsWith(".")) it else "$it." } }
 }
 
 /** The card: [top] (up to [ComparisonObservationsDisplay.TOP], primary) shown by default, [more] (the "Additional observations" panel) behind
@@ -251,6 +252,7 @@ object ComparisonNotesDisplay {
     const val SOURCES_TITLE = "Sources & methodology"
     const val DISCLAIMER = "Education, not investment advice. Past results don't indicate future returns."
 
+    private const val LIMITS_SENTENCE = "This shows how share prices moved, not how the businesses performed, and past moves don't predict future returns."
     private val START = Regex("""^Price change only: every line starts at 100 on (.+?)\. (Dividends.+)$""")
     private val RETRIEVED = Regex("""^Financial statements retrieved: (.+)\.$""")
     private val SYMBOL_DATE = Regex("""^(\S+) (\d{4}-\d{2}-\d{2})$""")
@@ -264,6 +266,8 @@ object ComparisonNotesDisplay {
             when {
                 start != null -> { works += "Each line starts at 100 on ${ReadableDates.date(start.groupValues[1])}."; excluded += start.groupValues[2] }
                 note.startsWith("Price change only") -> works += note
+                // Split into two scannable points when it's the known sentence; otherwise kept verbatim.
+                note == LIMITS_SENTENCE -> limits += listOf("Share price moves aren't the same as business performance.", "Past price moves don't predict future returns.")
                 note.startsWith("This shows how share prices moved") -> limits += note
                 else -> method += note   // split adjustment, market holidays, sample prices, anything new
             }
@@ -298,4 +302,33 @@ object ComparisonNotesDisplay {
         return if (dates.size == 1) listOf("Financial statements retrieved ${ReadableDates.date(dates.single())} for ${if (pairs.size == 1) pairs.single().first else "all ${pairs.size} companies"}.")
         else listOf("Financial statements retrieved:") + pairs.map { (symbol, date) -> "$symbol · ${ReadableDates.date(date)}" }
     }
+}
+
+/** One company's indexed value on the selected chart date; [seriesIndex] = its line style (`StockChartSeriesStyle`), in drawn-series order. */
+data class ChartSelectionEntry(val symbol: String, val value: String, val seriesIndex: Int)
+
+/** The share-price chart's selected date and every drawn company's indexed value on it (final QA: replaces the one-line "date · AAPL … · MSFT …"). */
+data class ChartSelection(val date: String, val entries: List<ChartSelectionEntry>) {
+    val spoken: String get() = "$date: " + entries.joinToString(", ") { "${it.symbol} ${it.value}" }
+}
+
+object ComparisonChartDisplay {
+    /** Two columns while text is at a regular size and more than one company is drawn; one column at accessibility sizes (values never squeezed). */
+    fun selectionColumns(companies: Int, accessibilityText: Boolean): Int = if (accessibilityText || companies < 2) 1 else 2
+
+    /**
+     * The selected [index] of [chart] for the companies that are drawn (no error), in drawing order. Values are the server's indexed values with
+     * one decimal (same formatter as before); a missing value reads "No data" — never 0. Null when [index] is outside the dates.
+     */
+    fun selection(chart: PerformanceComparison, index: Int): ChartSelection? {
+        val date = chart.dates.getOrNull(index) ?: return null
+        val drawn = chart.series.filter { it.error == null }
+        return ChartSelection(ReadableDates.date(date), drawn.mapIndexed { i, s ->
+            ChartSelectionEntry(s.symbol, s.values.getOrNull(index)?.let { MetricFormatter.decimals(it, 1) } ?: ComparisonDisplay.NO_DATA, i)
+        })
+    }
+
+    /** Default selection (nothing touched yet): the last date where any drawn company has a value, as the chart's own focus does. */
+    fun defaultIndex(chart: PerformanceComparison): Int =
+        chart.dates.indices.lastOrNull { i -> chart.series.any { it.error == null && it.values.getOrNull(i) != null } } ?: chart.dates.lastIndex
 }

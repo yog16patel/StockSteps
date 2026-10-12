@@ -40,7 +40,10 @@ private struct StockButtonBody: View {
     @Environment(\.isEnabled) private var isEnabled
     let configuration: ButtonStyleConfiguration
     let prominent: Bool
+    /// Re-render on live Dynamic Type changes (Comparison QA: the label font is resolved when the body runs).
+    @Environment(\.dynamicTypeSize) private var liveTypeSize
     var body: some View {
+        let _ = liveTypeSize
         let colors = StockStepsTheme.colors(scheme)
         let destructive = configuration.role == .destructive
         let (fill, text): (Color, Color) = if !isEnabled {

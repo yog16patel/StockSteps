@@ -171,6 +171,8 @@ class ComparisonDisplayTest {
         assertEquals("Net margin ranges from 7.3% (TSLA) to 53.0% (NVDA).", view.top[1].text, "category title → the text names the metric")
         assertEquals("Trailing P/E ranges from 27.8× (AAPL) to 185.2× (TSLA).", view.top[2].text)
         assertEquals("Past growth doesn't indicate future growth.", view.top[0].caveat, "dates moved to the footer; metric caveat kept")
+        assertEquals("Revenue growth. Ranges from 0.9% (TSLA) to 43.4% (NVDA). Past growth doesn't indicate future growth.", view.top[0].spoken,
+            "one label per insight, no doubled full stops")
         // Additional observations: everything else, titled by metric, in topic order, each once.
         assertEquals(listOf("Quarterly revenue growth", "Operating margin", "Debt / equity", "Dividend yield", "Free cash flow"), view.more.map { it.heading })
         assertEquals(listOf(ObservationIcon.GROWTH, ObservationIcon.OPERATING, ObservationIcon.DEBT, ObservationIcon.DIVIDEND, ObservationIcon.CASH), view.more.map { it.icon })
@@ -209,6 +211,8 @@ class ComparisonDisplayTest {
         assertEquals("Each line starts at 100 on Oct 7, 2025.", chart[0].lines[0])
         assertEquals(listOf("Dividends aren't included, so this isn't total return."), chart[1].lines)
         assertEquals(2, chart[3].lines.size, "split adjustment and the sample note stay")
+        assertEquals(listOf("Share price moves aren't the same as business performance.", "Past price moves don't predict future returns."), chart[2].lines,
+            "the known limitations sentence becomes two points")
         assertEquals(listOf("How the comparison works"), ComparisonNotesDisplay.chartGroups(emptyList()).map { it.title }, "no empty groups")
         val sources = ComparisonNotesDisplay.sourceGroups(listOf(
             "Fiscal years end in different months, so annual figures cover different periods.",
@@ -222,5 +226,21 @@ class ComparisonDisplayTest {
         val mixed = ComparisonNotesDisplay.sourceGroups(listOf("Financial statements retrieved: AAPL 2026-10-07, MSFT 2026-09-30."), null)
         assertEquals(listOf("Financial statements retrieved:", "AAPL · Oct 7, 2026", "MSFT · Sep 30, 2026"), mixed.single().lines)
         assertTrue(ComparisonNotesDisplay.sourceGroups(emptyList(), null).isEmpty())
+    }
+
+    @Test fun chartSelectionListsEveryDrawnCompanyWithItsLineStyle() {
+        val chart = PerformanceComparison(PerformancePeriod.entries.first(), ReturnKind.entries.first(), dates = listOf("2026-10-06", "2026-10-07"),
+            series = listOf(PerformanceSeries("AAPL", values = listOf(100.0, 131.26)), PerformanceSeries("MSFT", values = listOf(100.0, null)),
+                PerformanceSeries("TSLA", error = "Price history isn't available."), PerformanceSeries("NVDA", values = listOf(100.0, 128.31))))
+        val selection = ComparisonChartDisplay.selection(chart, 1)!!
+        assertEquals("Oct 7, 2026", selection.date)
+        assertEquals(listOf(ChartSelectionEntry("AAPL", "131.3", 0), ChartSelectionEntry("MSFT", ComparisonDisplay.NO_DATA, 1), ChartSelectionEntry("NVDA", "128.3", 2)),
+            selection.entries, "drawn order and style index; missing stays 'No data'; failed series left out")
+        assertEquals("Oct 7, 2026: AAPL 131.3, MSFT No data, NVDA 128.3", selection.spoken)
+        assertNull(ComparisonChartDisplay.selection(chart, 5))
+        assertEquals(1, ComparisonChartDisplay.defaultIndex(chart))
+        assertEquals(2, ComparisonChartDisplay.selectionColumns(4, accessibilityText = false))
+        assertEquals(1, ComparisonChartDisplay.selectionColumns(4, accessibilityText = true))
+        assertEquals(1, ComparisonChartDisplay.selectionColumns(1, accessibilityText = false))
     }
 }

@@ -186,3 +186,19 @@ object StockNavigationLayout {
         }
     }
 }
+
+/**
+ * Headings at the largest text sizes (Comparison final QA). Text wraps between words, but a single word wider than its line ("Shareholder" at iOS AX5
+ * on a 375-pt phone) would break mid-word. Then — and only then — the heading is scaled down just enough for its longest word to fit; every other
+ * heading keeps the user's size, so the hierarchy and text scaling stay intact.
+ */
+object StockHeadingFit {
+    /**
+     * 1 when [longestWord] fits [available]; otherwise the factor that makes it fit (never below [minimum]). Same units for both widths. Measured
+     * text runs a few points narrower than rendered text (iOS), so the comparison keeps an 8 % [margin].
+     */
+    fun scale(longestWord: Float, available: Float, minimum: Float = 0.6f, margin: Float = 0.92f): Float {
+        val room = available * margin
+        return if (longestWord <= 0f || longestWord <= room) 1f else (room / longestWord).coerceAtLeast(minimum)
+    }
+}

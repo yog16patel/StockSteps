@@ -1,13 +1,131 @@
-# StockSteps — session handoff (2026-10-12: Company Comparison accessibility closure committed; PASS WITH CONDITIONS)
+# StockSteps — session handoff (2026-10-12 end of session: Company Comparison QA pass committed; next = Portfolio P-B or Phase 5D after approval)
 
-Read order for a new session: `CLAUDE.md` → **§A11Y-CLOSURE-5C below** → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§HANDOFF-2026-10-12 below** → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## A11Y-CLOSURE-5C. Company Comparison accessibility closure + insights card (2026-10-12, committed and pushed — start here)
+## HANDOFF-2026-10-12. End-of-session handoff — START HERE
 
-- Repository: `main`. Current commit: "Close Company Comparison accessibility pass with an icon-led insights card, collapsible chart help and sources, readable tab labels at large text and live Dynamic Type fixes on Android and iOS" (pushed), on top of `53c0044` (Comparison final polish).
+### Repository state (verified with `git status` / `git log` at handoff)
+- Branch `main`. Current commit: **"Finish Company Comparison QA with a two-column chart selection summary, scannable chart limitations, heading fit at large text and live Dynamic Type for buttons on Android and iOS"** (pushed), on top of `85e24a0` "Close Company Comparison accessibility pass with an icon-led insights card,
+  collapsible chart help and sources, readable tab labels at large text and live Dynamic Type fixes on Android and iOS". Working tree clean after it.
+- **That commit contains the "final polish & QA closure" pass:**
+  - modified: `core/.../screener/ComparisonDisplay.kt`, `core/.../screener/ComparisonDisplayTest.kt`,
+    `app/shared/.../designsystem/components/StockTrendChart.kt`, `app/shared/.../presentation/screener/ComparisonScreen.kt`,
+    `app/shared/.../theme/StockSemanticStyles.kt`, `app/shared/.../theme/ResponsiveLayoutRulesTest.kt`,
+    `app/iosApp/iosApp/ScreenerScenes.swift`, `app/iosApp/iosApp/DesignSystem/StockComponents.swift`, `app/iosApp/iosApp/DesignSystem/StockControls.swift`;
+  - new: `docs/GLOBAL_UI_REFINEMENT_PHASE5C_QA_CLOSURE.md`, `docs/design/phase5c_qa/` (18 captures);
+  - plus this handoff, root `PROJECT_HANDOFF.md`, `docs/project-status.md` and `CLAUDE.md`.
+- Commits made this session (all pushed, oldest first): `42c749d` 5C.1 handoff docs · `92a6d6a` 5C.1 closure + Portfolio audit + P-A · `53c0044`
+  Comparison final polish · `85e24a0` accessibility closure + insights card · "Finish Company Comparison QA with a two-column chart selection summary, scannable chart limitations, heading fit at large text and live Dynamic Type for buttons on Android and iOS" (QA closure).
+
+### Current development objective
+Global UI Refinement (`docs/GLOBAL_UI_REFINEMENT_PLAN.md`): screen-by-screen visual/UX/accessibility polish on Android (Compose) and iOS (SwiftUI)
+with shared KMP display/layout rules and **no** data, API, presenter-contract, calculation, entitlement or navigation changes. This session finished
+the **Company Comparison** screen (plan step 5) through several owner briefs; it stands at **PASS WITH CONDITIONS** (screen readers on physical
+devices outstanding). Portfolio UI refinement has an approved-for-review audit + Phase P-A; P-B is not started.
+
+### Exact task at the end of this session
+"Company Comparison — Final Polish & QA Closure" brief: implemented, tested on devices, documented in `docs/GLOBAL_UI_REFINEMENT_PHASE5C_QA_CLOSURE.md`
+(verdict PASS WITH CONDITIONS), committed and pushed on the owner's request. Nothing is half-done in the code.
+
+### Work completed this session (details in each phase doc)
+1. `92a6d6a` — 5C.1 closure (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1_CLOSURE.md`): pinned company header only from the first open section with
+   unlabelled columns (`ComparisonDisplay.companyHeaderSection`), compact header, tighter spacing, iOS ⓘ centred. Portfolio audit
+   (`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`: 16 issues, components C1–C7, phases P-A…P-E, decisions D1–D3) and **P-A**
+   (`docs/PORTFOLIO_REFINEMENT_PHASE_PA.md`: baseline from Phase 3.1 captures, rules R1–R8, `PortfolioDisplayRules.allocationDonutAllowed` /
+   `sortHoldings` + `PortfolioHoldingSort` — not yet used by any screen).
+2. `53c0044` — final polish (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_FINAL_POLISH.md`): `StockChartSeriesStyle` (shared colour + dash per series, drawn
+   legend swatches), quieter MOCK strip (`StockSemanticStyles.sampleStrip`; iOS strip resolved from `dynamicTypeSize`, capped at AX1), section period
+   inside the header, More-metrics note, first "What the numbers show" condensation, AX5 fixes (chart dates, selection title).
+3. `85e24a0` — accessibility closure + insights card (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_ACCESSIBILITY_CLOSURE.md`): icon-led insights card
+   (`ObservationIcon`, `StockSemanticStyles.insightAccent`, three primary insights + compact "Additional observations" panel + footer), collapsible
+   "How to read this chart" and "Sources & methodology" (`ComparisonNotesDisplay`), Android tab labels never ellipsized
+   (`StockNavigationLayout.labelScale`), iOS y-axis capped at AX sizes, `StockStepsTheme.font` resolving the current content-size category, history
+   chart on shared styles, AX5 header fixes; 14 captures `docs/design/phase5c_a11y/`.
+4. "Finish Company Comparison QA with a two-column chart selection summary, scannable chart limitations, heading fit at large text and live Dynamic Type for buttons on Android and iOS" — final polish & QA closure (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_QA_CLOSURE.md`):
+   - chart selected-date summary: date line + two-column grid of swatch · ticker · indexed value (one column at accessibility text; "No data" when
+     missing) — core `ComparisonChartDisplay` (`selection`, `defaultIndex`, `selectionColumns`), Compose `StockTrendChart(selectionContent:)` +
+     `ChartSelectionView`, SwiftUI `chartSelectionView`; iOS gained `chartXSelection` (press-and-drag), keeps the last day after release
+     (`chartTouch` → `chartSelection`) and marks it with a rule line;
+   - "Important limitations" split into two points (exact-sentence match only, else verbatim);
+   - `ObservationItem.spoken` no longer doubles full stops (found via the Android accessibility tree);
+   - iOS shared `StockButtonBody` depends on `dynamicTypeSize` (button labels refresh on live Dynamic Type changes);
+   - new shared rule `StockHeadingFit.scale` (+ test): a heading shrinks only when one word can't fit its line (8 % measuring margin, floor 0.6) —
+     applied to iOS section headers (widths from the header row and chevron, never from the title itself) and the "What can we learn…" heading,
+     via `StockStepsTheme.fittedHeadingFont`.
+
+### Files created or modified this session
+- Core: `screener/ComparisonDisplay.kt` (companyHeaderSection, ObservationIcon/Item/View, ComparisonObservationsDisplay, ComparisonNotesDisplay,
+  ComparisonChartDisplay, More-metrics/section labels), `screener/ComparisonDisplayTest.kt`.
+- Shared app: `theme/StockSemanticStyles.kt` (sampleStrip, insightAccent, StockChartSeriesStyle, StockNavigationLayout, StockHeadingFit),
+  `theme/ResponsiveLayoutRulesTest.kt`, `designsystem/components/StockTrendChart.kt`, `StockSampleDataBanner.kt`, `StockBottomNavigation.kt`,
+  `designsystem/icons/StockIcons.kt` (BarChart, Speed, Layers, Percent), `presentation/AppNavigation.kt` (tab labels),
+  `presentation/screener/ComparisonScreen.kt`, `ComparisonHistoryUi.kt`, `presentation/portfolio/PortfolioPresentation.kt` (P-A rules),
+  tests `presentation/portfolio/PortfolioPresentationTest.kt`, `designsystem/StockIconsTest.kt` (new).
+- iOS: `ScreenerScenes.swift`, `ComparisonHistoryViews.swift`, `ContentView.swift` (MOCK strip), `Theme.swift` (font traits),
+  `DesignSystem/StockComponents.swift` (chart swatch/styles, fittedHeadingFont, live-type deps), `DesignSystem/StockControls.swift`.
+- Docs: `docs/GLOBAL_UI_REFINEMENT_PHASE5C_1_CLOSURE.md`, `…_PHASE5C_FINAL_POLISH.md`, `…_PHASE5C_ACCESSIBILITY_CLOSURE.md`, `…_PHASE5C_QA_CLOSURE.md`,
+  `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`, `docs/PORTFOLIO_REFINEMENT_PHASE_PA.md`; captures `docs/design/phase5c_1/closure/`, `phase5c_final/`,
+  `phase5c_a11y/`, `phase5c_qa/`; handoff/status docs and `CLAUDE.md`.
+
+### Important decisions (and why)
+- **Presentation-only transforms over server text**: insights, chart help and sources are reorganised client-side from the server's fixed sentences
+  (known openings / exact matches; unknown text kept verbatim). No API or `ComparisonEngine` change was allowed; nothing is computed or invented.
+- **No "highest/lowest" winner wording** in insights (engine states ranges by design); valuation icon is a price tag (no balance-scale vector).
+- **Tab labels**: grow with font scale until the widest no longer fits, then stop (never below 1.0, never ellipsized; icons-only with spoken names
+  as last resort) — same trade-off as the iOS system tab bar.
+- **Heading fit, not heading caps**: capping section titles at AX3 inverted the hierarchy; shrinking only the heading whose word can't fit keeps it.
+  Measuring the title's own column caused a feedback loop (titles collapsed to the floor) — measure font-independent widths instead.
+- **History loads on demand** (Portfolio R2), **no UI-computed overall-return %** (R3), donut only when `allocationDonutAllowed` (R4).
+- iOS live Dynamic Type: `StockStepsTheme.font` resolves against `UIApplication.shared.preferredContentSizeCategory`; a view must **depend on
+  `dynamicTypeSize`** to re-render (done for Compare, the shared section header, navigation row and buttons; open `ForEach` groups use `.id(typeSize)`).
+
+### Known bugs, blockers and risks
+- **NOT VERIFIED**: TalkBack live navigation (TalkBack runs on the emulator but injected gestures / Alt+→ don't move its focus; speech isn't logged
+  after TTS init) — only the accessibility tree (labels, order) was checked; **VoiceOver** (not in Simulator); **physical devices**.
+- Android has no heading-fit rule (no mid-word break seen at 360 dp × 2.0×); iOS chart selection is press-and-drag (system), Android also tap.
+- The "What can we learn…" heading measures its own width (no feedback observed; the section-header approach is safer if issues appear).
+- Other screens' custom iOS views built with `StockStepsTheme.font` may not refresh on a live Dynamic Type change until reopened.
+- MOCK fixture artifact (quarterly = annual revenue growth) unchanged by request. LAN backend redeploy still pending approval; Cloud Run deferred.
+- The default `xcodebuild` bakes the LAN MOCK URL; device checks need `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (check Info.plist). A fresh
+  simulator install defaults to REAL (`localhost:8080`): `xcrun simctl spawn <udid> defaults write org.example.stocksteps stocksteps.backendEnvironment MOCK`.
+  The app needs iOS ≥ 18.2 — use the iPhone SE **iOS 27** simulator `4BFB2D70-86EC-4B87-8BB9-CA49C20465B8` (the iOS 17.5 SE can't install it).
+
+### Build and test results
+- **Verified this session (latest run, outputs cleaned, after all uncommitted changes)**: core JVM **471/0**, core iOS **471/0**, shared Android host
+  **117/0**, shared iOS **113/0**, `:app:androidApp:assembleDebug` OK, default iOS `xcodebuild` **BUILD SUCCEEDED** (no warnings in changed files).
+- **Device-verified (local MOCK only)**: Android emulator-5554 at 360 dp light 1.0×/1.3×, dark 2.0× (2 and 4 companies); iPhone 16 (iOS 18.3) light/dark
+  Large and AX5 with live switching; iPhone SE (iOS 27) light/dark Large and AX5 live, 2 and 3 companies. Captures in the four `phase5c*` folders.
+- **Not verified**: TalkBack navigation, VoiceOver, physical devices, `:server:test` (no server change), network-level request counting for
+  expand/collapse (code review only — MOCK server doesn't log per-request).
+
+### Device/environment notes (state at handoff)
+- Emulator restored: size reset (1280×2856), font scale 1.0, night mode yes, TalkBack off, app Theme **Light**, `adb reverse` removed. The owner granted
+  Android Accessibility Suite's notification permission (TalkBack starts without a prompt now).
+- iPhone 16 `A04A9C8B-…` Light/Large (booted); iPhone SE iOS 27 shut down (Light/Large; MOCK backend preference set in its app copy); MOCK stopped.
+- Helper flow used for devices: `./gradlew :server:runMock`, `adb reverse tcp:8081 tcp:8081`, `wm size 1080x2400` for 360 dp; iOS guest flow: sign-in
+  → scroll → "Continue as guest" → Markets → Research tools → Compare Companies → "Apple and Microsoft" → "Add a company".
+
+### Requirements discussed but not implemented
+- Portfolio **P-B** (Overview Card; exact scope in `docs/PORTFOLIO_REFINEMENT_PHASE_PA.md` §5) and later P-C…P-E; decisions D2 (overall return %
+  needs an approved presenter field) and D3 (holdings sort control) are the owner's.
+- Phase 5D (Learn, Daily Brief, Earnings; Earnings read-only audit first) — queued.
+- The separate global educational/investment disclaimer is a **deferred backlog item** (owner said not to implement it yet).
+- Screen-reader passes on physical devices for every refined screen.
+
+### Exact next steps
+1. `git status`, `git log -5 --oneline` (expect "Finish Company Comparison QA with a two-column chart selection summary, scannable chart limitations, heading fit at large text and live Dynamic Type for buttons on Android and iOS" at HEAD, clean tree).
+2. Company Comparison is PASS WITH CONDITIONS; remaining: TalkBack navigation and VoiceOver on physical devices (owner) and owner visual sign-off.
+3. Then the owner's choice (approval required): **Portfolio P-B — Overview Card** (start with approved before-captures, `PortfolioDisplay` copy +
+   tests, `StockOverviewCard` on both platforms per P-A §5) or **Phase 5D** (Earnings read-only audit).
+4. Run sequentially before any commit: clean outputs → `./gradlew :core:jvmTest :core:iosSimulatorArm64Test :app:shared:testAndroidHostTest
+   :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue` → default `xcodebuild … CODE_SIGNING_ALLOWED=NO build`.
+
+## A11Y-CLOSURE-5C. Company Comparison accessibility closure + insights card (2026-10-12, committed and pushed)
+
+- Repository: `main`. Commit: "Close Company Comparison accessibility pass with an icon-led insights card, collapsible chart help and sources, readable tab labels at large text and live Dynamic Type fixes on Android and iOS" (pushed), on top of `53c0044` (Comparison final polish).
 - Done (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_ACCESSIBILITY_CLOSURE.md`): Android tab labels via shared `StockNavigationLayout.labelScale` (no ellipsis;
   icons-only fallback with spoken names); insights card with category icons (`ObservationIcon`, `StockSemanticStyles.insightAccent`), three primary
   insights + compact "Additional observations"; `ComparisonNotesDisplay` (chart help and "Sources & methodology", collapsed); iOS y-axis capped at AX

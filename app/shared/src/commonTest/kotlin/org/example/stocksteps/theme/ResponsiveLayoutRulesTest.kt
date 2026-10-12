@@ -117,4 +117,14 @@ class ResponsiveLayoutRulesTest {
         assertEquals(null, StockNavigationLayout.labelScale(80f, 64f, 1.3f), "can't fit even at standard size: icons only")
         assertEquals(1.5f, StockNavigationLayout.labelScale(0f, 64f, 1.5f), "nothing measured yet: no change")
     }
+
+    @Test
+    fun headingsShrinkOnlyWhenOneWordCannotFitItsLine() {
+        assertEquals(1f, StockHeadingFit.scale(longestWord = 180f, available = 260f), "fits: user's size")
+        val s = StockHeadingFit.scale(longestWord = 320f, available = 260f)
+        assertTrue(s < 1f && s * 320f <= 260f * 0.92f, "the long word fits after scaling, with the safety margin")
+        assertEquals(1f, StockHeadingFit.scale(longestWord = 230f, available = 260f), "within the margin: unchanged")
+        assertEquals(0.6f, StockHeadingFit.scale(longestWord = 1000f, available = 100f), "never below the floor")
+        assertEquals(1f, StockHeadingFit.scale(0f, 260f))
+    }
 }
