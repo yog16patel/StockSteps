@@ -13,20 +13,31 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-12, end of session)
 
-HEAD: "Close Portfolio visual and accessibility pass with group stacking, grouped transaction rows, single headings and large-text insights fixes (Portfolio Phase C.1) on Android and iOS" (pushed; `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md`), on top of `8a86e4e` (Phase C), then `6c1d76b` (Phase B.1), `6041e8f` (Phase B) and `37d74cd` (Phase A).
-Phase B (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md`): overview card built from shared `PortfolioOverviewDisplay` (history stays on demand; the chart is
-"Account value", never performance; currency code on every metric); metric rows stack via `StockLayout.metricRowStacked`. Next: **Phase C** after approval.
-Read `docs/PROJECT_HANDOFF.md` §PORTFOLIO-PC1-2026-10-12 first. Large-text rule: rows in one group stack together (one decision per group), never one by one. Portfolio sections are borderless (`bordered = false` per call site); allocation donut only via `PortfolioAllocationDisplay`/`allocationDonutAllowed` with `StockAllocationLayout` geometry. Next: **Phase D** (forms, Transactions) after approval. Sample scenarios are chosen in a grouped sheet (`PortfolioScenarioGroups`); iOS badges never wrap, so keep badge text short. Before it: the Portfolio UI audit (`docs/PORTFOLIO_UI_AUDIT.md`), the Phase A–E plan
-(`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`), the P0 fix (Android form chose the account by name; now by id) and Phase A (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md`).
-iOS overview with data needs a signed-in simulator (MOCK sample scenarios aren't offered to guests); the Firebase CLI for the Auth emulator isn't installed.
-Portfolio forms: accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions`/`resolveAccountId`), field visibility/labels come from
-`PortfolioFormRules`, and screen copy from `PortfolioDisplay`; never show raw enum names.
-Portfolio rules (P-B onward): history loads on demand only; no UI-computed overall-return %; donut only when `allocationDonutAllowed`; missing stays missing.
-iOS device checks: build with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (default build bakes the LAN host from git-ignored
-`app/iosApp/Configuration/Local.xcconfig`); a fresh simulator install defaults to REAL (`localhost:8080`) — set MOCK in Settings or
+HEAD: "Close Portfolio Phase C.1 verification with pill selectors, inset transaction dividers, vertically scrollable trend charts and large-text chart and selector fixes on Android and iOS" (pushed; C.1 closure, READY TO CLOSE, `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` §8), on top of `6a787a3` (Phase C.1).
+The Portfolio UI refinement is committed through Phase C.1: `37d74cd` (P0 + A) → `6041e8f` (B) → `6c1d76b` (B.1) → `8a86e4e` (C) → `6a787a3` (C.1) → C.1 closure.
+Next: **Portfolio Phase D** (forms and Transactions destination, `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md` §Phase D), only after approval. Read
+`docs/PROJECT_HANDOFF.md` §C1-CLOSURE-2026-10-12 first. Then Phase E (QA, screen readers; iPhone SE excluded by the owner for now), then Phase 5D.
+Portfolio conventions (permanent):
+- **Forms.** Accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions` / `resolveAccountId`). Field visibility, order and labels
+  come from `PortfolioFormRules`; copy from `PortfolioDisplay`; never show raw enum names.
+- **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,
+  `PortfolioAllocationDisplay`). History loads on demand only; the chart is "Account value", never performance. No UI-computed return %. The donut
+  only when `allocationDonutAllowed` (`StockAllocationLayout` geometry). Missing stays missing.
+- **Large text.** Portfolio sections are borderless (`bordered = false` per call site). Rows in one group stack together (one decision per group,
+  `StockLayout.metricRowStacked`), never one by one. Keep iOS badge text short (badges never wrap). Sample scenarios live in the grouped ⋯ sheet
+  (`PortfolioScenarioGroups`).
+
+iOS device checks: build with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (the default build bakes the LAN host from git-ignored
+`app/iosApp/Configuration/Local.xcconfig`). A fresh simulator install defaults to REAL (`localhost:8080`): set MOCK in Settings or
 `defaults write org.example.stocksteps stocksteps.backendEnvironment MOCK`. The app needs iOS ≥ 18.2 (the iOS 17.5 SE simulator can't install it).
-Visual direction `docs/design/stocksteps-ui-reference.png` (+ `stocksteps-portfolio-reference.png`). Still open: approved LAN backend redeploy,
-screen readers (TalkBack's first start asks a notification permission the owner must answer; VoiceOver needs a device) and physical devices.
+iOS sample scenarios need a signed-in session: the iPhone 16 simulator has a cached test session. The Firebase Auth emulator
+(`firebase/node_modules/.bin/firebase`) runs only with owner approval.
+Visual direction: `docs/design/stocksteps-ui-reference.png` (+ `stocksteps-portfolio-reference.png`).
+Still open:
+- approved LAN backend redeploy;
+- screen readers: TalkBack's first start asks a notification permission the owner must answer; VoiceOver needs a device;
+- physical devices.
+
 Cloud Run staging remains deferred. The LAN MOCK backend runs on the Ubuntu host (address in git-ignored `deploy/local/server.env`).
 
 ## Repository layout

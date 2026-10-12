@@ -216,7 +216,7 @@ internal fun PortfolioScreen(
                     }
                     val shown = if (allTransactions) transactions else transactions.take(RECENT_TRANSACTIONS)
                     shown.forEachIndexed { index, transaction ->
-                        if (index > 0) StockDivider()
+                        if (index > 0) StockDivider(Modifier.padding(horizontal = spacing.cardPadding)) // C.1 closure: inset like the holdings rows
                         PortfolioTransactionRow(transaction, onEdit = { editingTransaction = transaction }, onDelete = { deletingTransaction = transaction })
                     }
                     if (transactions.size > RECENT_TRANSACTIONS) {

@@ -1,7 +1,7 @@
 package org.example.stocksteps.designsystem.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
@@ -96,7 +96,9 @@ internal fun StockTrendChart(
                     }
                     .pointerInput(values) {
                         fun index(x: Float) = ((x / size.width) * values.lastIndex).let { kotlin.math.round(it).toInt() }.coerceIn(0, values.lastIndex)
-                        detectDragGestures(onDrag = { change, _ -> selected = index(change.position.x) })
+                        // C.1 closure: horizontal only (as StockLineChart), so a vertical swipe on the chart still scrolls the page — at 2.0× the
+                        // chart filled most of the viewport and the Insights page seemed stuck.
+                        detectHorizontalDragGestures { change, _ -> selected = index(change.position.x) }
                     }
             ) {
                 val inset = 6.dp.toPx()

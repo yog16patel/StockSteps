@@ -12,6 +12,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,7 +48,7 @@ internal fun PortfolioInsightsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 // C.1: the top bar already says "Portfolio insights"; a second large title repeated it.
                 Text(listOfNotNull(state.accountName.takeIf { it.isNotBlank() }, view?.let { "Amounts in ${it.currency}" }, if (state.plus) "StockSteps+" else null).joinToString(" · "),
-                    style = typography.small, color = colors.textSupporting)
+                    Modifier.padding(bottom = spacing.xs), style = typography.small, color = colors.textSupporting) // C.1 closure: it ran into the field label
                 // Phase C: design-system chips (was Material FilterChip); account labels as on the dashboard.
                 if (state.scenario == null && state.accounts.size > 1) {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).semantics { selectableGroup() }, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
@@ -120,7 +121,9 @@ internal fun PortfolioInsightsScreen(
         // 3 · Allocation.
         item(key = "allocation") {
             InsightsSection("Allocation", null) {
-                StockSegmentedControl(view.allocation.map { StockSegment(it.id, it.title) }, allocationTab, { allocationTab = it })
+                // C.1 closure: the pill selector used for the index above (shared StockPillLayout: equal width while every label fits, else a
+                // fading scroll row) — four equal segments broke "Holding/s" and "Currenc/y" mid-word at 1.3×.
+                StockPillSelector(view.allocation.map { it.id }, allocationTab, { id -> view.allocation.first { it.id == id }.title }, { allocationTab = it })
                 val group = view.allocation.firstOrNull { it.id == allocationTab } ?: view.allocation.first()
                 when (group.status) {
                     Availability.LOCKED -> LockedNotice(group.note)
@@ -324,9 +327,14 @@ private fun Modifier.selectableGroupCompat() = semantics { selectableGroup() }
 @Composable
 private fun LearnLine(entry: AnalyticsEducation.Entry) {
     var expanded by rememberSaveable(entry.key) { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().clickable(onClickLabel = if (expanded) "Collapse" else "Expand") { expanded = !expanded }
+    Column(Modifier.fillMaxWidth().clickable(role = Role.Button, onClickLabel = if (expanded) "Collapse" else "Expand") { expanded = !expanded }
         .heightIn(min = StockStepsTheme.dimensions.touchTarget).semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }) {
-        Text(entry.title, style = StockStepsTheme.typography.label, modifier = Modifier.padding(vertical = StockStepsTheme.spacing.xs))
+        // C.1 closure: a disclosure chevron like "By currency" (and the iOS DisclosureGroup) — the rows read as plain text before.
+        Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget), verticalAlignment = Alignment.CenterVertically) {
+            Text(entry.title, Modifier.weight(1f).padding(vertical = StockStepsTheme.spacing.xs), style = StockStepsTheme.typography.label)
+            Icon(StockIcons.ChevronDown, contentDescription = null, tint = StockStepsTheme.colors.iconSecondary,
+                modifier = Modifier.size(StockStepsTheme.dimensions.icon).graphicsLayer { rotationZ = if (expanded) 180f else 0f })
+        }
         if (expanded) Text(entry.body, style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textBody)
     }
 }

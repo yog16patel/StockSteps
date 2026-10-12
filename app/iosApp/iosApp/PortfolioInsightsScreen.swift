@@ -66,9 +66,13 @@ struct PortfolioInsightsScreen: View {
                     }
                 }
                 if state.mockAvailable {
-                    Menu("Sample scenario: \(state.scenario.map { PortfolioDisplay.shared.scenarioLabel(id: $0) } ?? "My accounts")") {
+                    Menu {
                         Button("My accounts") { onScenario(nil) }
                         ForEach(state.scenarios, id: \.self) { id in Button(PortfolioDisplay.shared.scenarioLabel(id: id)) { onScenario(id) } }
+                    } label: {
+                        // C.1 closure: leading-aligned like the rest of the header (the default label centred its wrapped lines at AX5).
+                        Text("Sample scenario: \(state.scenario.map { PortfolioDisplay.shared.scenarioLabel(id: $0) } ?? "My accounts")")
+                            .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
                     }
                     if state.scenario != nil {
                         Text("Read-only sample data. Generated prices and index levels, not real markets.").font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
@@ -101,16 +105,16 @@ struct PortfolioInsightsScreen: View {
         }
         section("Compared with a market index") {
             if view.benchmark.status != .locked {
-                Picker("Benchmark", selection: Binding(get: { state.benchmark.name }, set: { onSelectBenchmark($0) })) {
-                    ForEach(state.benchmarks, id: \.id.name) { info in Text(info.id == .tsx ? "TSX" : info.name).tag(info.id.name) }
-                }.pickerStyle(.segmented)
+                // C.1 closure: the shared pill selector (as on Android) — the system segmented picker cut "NASDAQ Com…" even at Large.
+                StockPillSelector(options: state.benchmarks.map { $0.id.name }, selected: state.benchmark.name,
+                                  label: { name in state.benchmarks.first { $0.id.name == name }.map { $0.id == .tsx ? "TSX" : $0.name } ?? name },
+                                  onSelect: { onSelectBenchmark($0) })
             }
             body(view.benchmark, colors) { ForEach(Array(view.benchmark.rows.enumerated()), id: \.offset) { _, row in metric(row, colors) } }
         }
         section("Allocation") {
-            Picker("Allocation", selection: $allocationTab) {
-                ForEach(Array(view.allocation.enumerated()), id: \.offset) { index, group in Text(group.title).tag(index) }
-            }.pickerStyle(.segmented)
+            // C.1 closure: pill selector (equal width while every label fits, else a fading scroll row) instead of truncating segments.
+            StockPillSelector(options: Array(view.allocation.indices), selected: allocationTab, label: { view.allocation[$0].title }, onSelect: { allocationTab = $0 })
             if let group = view.allocation[safe: allocationTab] {
                 switch group.status {
                 case .locked: locked(group.note, colors)
@@ -325,10 +329,17 @@ struct PortfolioInsightsScreen: View {
                 }
             }
             .chartXAxis(.hidden)
+            // C.1 closure: fewer y marks and room around the plot at accessibility sizes — the AX5 axis labels ran into the legend ("90" over
+            // "S&P/TSX"). Labels keep their full size.
+            .chartYAxis { AxisMarks(values: .automatic(desiredCount: typeSize.isAccessibilitySize ? 3 : 4)) }
             .chartYScale(domain: .automatic(includesZero: false))
             .frame(height: 160)
-            // Phase C: drawn legend swatches (shared StockChartSeriesStyle) instead of "—" / "- -" text.
-            HStack(spacing: CGFloat(space.md)) {
+            .padding(.vertical, typeSize.isAccessibilitySize ? CGFloat(space.md) : 0)
+            // Phase C: drawn legend swatches (shared StockChartSeriesStyle) instead of "—" / "- -" text. C.1 closure: one series per line at
+            // accessibility sizes, so a name wraps between words ("S&P/TSX Composi/te" broke mid-word side by side at AX5).
+            let legend = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: CGFloat(space.xs)))
+                : AnyLayout(HStackLayout(spacing: CGFloat(space.md)))
+            legend {
                 HStack(spacing: CGFloat(space.xs)) { StockChartSwatch(line: StockStepsTheme.chartLine(0, scheme)); Text(chart.portfolioLabel) }
                 if let label = chart.benchmarkLabel { HStack(spacing: CGFloat(space.xs)) { StockChartSwatch(line: StockStepsTheme.chartLine(1, scheme)); Text(label) } }
             }.font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)

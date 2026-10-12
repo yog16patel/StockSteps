@@ -1,9 +1,212 @@
-# StockSteps — session handoff (2026-10-12: Portfolio Phase C.1 closure committed and pushed on top of Phase C `8a86e4e`; next = Phase D after approval)
+# StockSteps — session handoff (2026-10-12: Portfolio C.1 closure verified — READY TO CLOSE, committed and pushed; next = Phase D after approval)
 
-Read order for a new session: `CLAUDE.md` → **§PORTFOLIO-PC1-2026-10-12 below** → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§C1-CLOSURE-2026-10-12 below** → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## C1-CLOSURE-2026-10-12. Portfolio Phase C.1 final verification and closure — START HERE (committed and pushed)
+
+- Repository: `main`. Current commit: **"Close Portfolio Phase C.1 verification with pill selectors, inset transaction dividers, vertically scrollable trend charts and large-text chart and selector fixes on Android and iOS"** (pushed), on top of `6a787a3` (Phase C.1). It contains:
+  - this closure pass: 6 code files, the Portfolio docs and 30 captures in `docs/design/portfolio_pc1v/`;
+  - the earlier end-of-session handoff edits (`CLAUDE.md`, `docs/project-status.md`, §HANDOFF-2026-10-12-END).
+  Working tree clean after it.
+- Result: **READY TO CLOSE** (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` §8).
+  - All reported C.1 issues PASS on Android 360 dp (light 1.0×, light 1.3×, dark 2.0×) and on iPhone 16 (light Large, dark AX5 with live switching).
+  - The iPhone SE was **excluded by the owner**.
+  - TalkBack and VoiceOver are **NOT VERIFIED**.
+- Fixed in this pass, UI only:
+  - F1: Android learn rows get a chevron;
+  - F2/F6: transaction dividers are inset on both platforms;
+  - F3/F4: Insights allocation and index selectors use `StockPillSelector` on both platforms (Android broke words mid-word, iOS cut "NASDAQ Com…");
+  - F5: `StockTrendChart` only takes horizontal drags, so vertical swipes on a chart scroll the page;
+  - F7: spacing under the Insights meta line;
+  - F8: fixed-size iOS "⋯" glyph;
+  - F9: leading-aligned iOS scenario menu;
+  - F10: iOS Insights chart legend and axis at AX sizes;
+  - F11: iOS `StockSegmentedControl` stacks the segments when a label word can't fit (SE AX5 showed "My Portfol…").
+- Validation (sequential, clean outputs):
+  - core 471/0 (JVM and iOS);
+  - shared 169/0 (Android host) and 165/0 (iOS);
+  - `assembleDebug` OK;
+  - default unsigned `xcodebuild` BUILD SUCCEEDED.
+- Known issues and limits (§8.5):
+  - the cached iOS session still shows "Insights couldn't be loaded";
+  - the bottom tab isn't highlighted on Portfolio sub-destinations (app-wide);
+  - engine card text shows raw amounts ("4128.79");
+  - the holding row's spoken gain has no currency;
+  - the sign-in screen breaks words mid-word on SE AX5 (out of scope).
+- Devices restored; MOCK stopped; no Auth emulator, no sign-in.
+- Next:
+  - **Phase D** after approval of its routes (`PortfolioEntryRoute(transactionId)`, the Transactions destination / Q4);
+  - Phase E keeps the screen-reader passes and the SE.
+
+## HANDOFF-2026-10-12-END. End-of-session handoff — START HERE
+
+### Repository state (verified with `git status` / `git log` at handoff)
+- Branch `main`, clean working tree, in sync with `origin/main`.
+- HEAD: **"Close Portfolio visual and accessibility pass with group stacking, grouped transaction rows, single headings and large-text insights fixes (Portfolio Phase C.1) on Android and iOS"** (`6a787a3`, pushed).
+- This session's commits (all pushed, oldest first, on top of `f55fd90` Company Comparison QA):
+
+  | Commit | Phase | Doc |
+  |---|---|---|
+  | `37d74cd` | P0 account-by-id fix + Phase A | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md` (+ `docs/PORTFOLIO_UI_AUDIT.md`, rewritten plan) |
+  | `6041e8f` | Phase B overview card | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md` |
+  | `6c1d76b` | Phase B.1 polish | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_B1.md` |
+  | `8a86e4e` | Phase C holdings/allocation/details/insights | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C.md` |
+  | `6a787a3` | Phase C.1 visual/accessibility closure | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` |
+
+- The handoff edits made at the very end of the session (this section, `docs/project-status.md` §0, `CLAUDE.md` "Current task") were committed later with the C.1 closure (§C1-CLOSURE-2026-10-12).
+
+### Current development objective
+Global UI Refinement of the **Portfolio module** on Android (Compose) and iOS (SwiftUI). This is display-layer work only: shared KMP display/layout
+rules, reused design-system components, accessible large-text layouts, and light/dark parity. It changes **no** presenter contract, API, server,
+ledger, calculation, entitlement, fixture or navigation route. Plan: `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md` (Phases A–E).
+
+### Exact task at the end of this session
+Phase C.1 ("Visual and Accessibility Closure") was implemented, device-checked, documented, committed and pushed on request. Nothing is half-done in
+code. The next phase (**Phase D**) has not started and needs owner approval.
+
+### Work completed this session (details in each phase doc)
+1. **Audit + plan:** `docs/PORTFOLIO_UI_AUDIT.md` (A-F1…A-F20, D-R1…D-R10, Q1–Q7, reference-sheet comparison); `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`
+   rewritten as Phases A–E.
+2. **P0 A-F1:** the Android transaction form chose the account **by name**, so a same-named second account saved into the first. It now chooses by
+   **id** (`PortfolioFormRules.accountOptions` / `resolveAccountId`).
+3. **Phase A:**
+   - readable type and category labels; holding-detail amounts with currency;
+   - `StockButton` / `.stockPrimary` and `negativeText` in the forms; Android decimal keyboards;
+   - shared `PortfolioDisplay` (copy) and `PortfolioFormRules` (fields, order, labels);
+   - readable Insights "As of"; "Portfolio insights" naming.
+4. **Phase B:**
+   - one overview card from the shared `PortfolioOverviewDisplay`: total → today's change / Why? → all accounts → **Account value** history →
+     metrics with currency codes (owner Q5) → notice + freshness;
+   - history states NOT_REQUESTED (Show 1M) / LOADING / LOADED / FLAT / INSUFFICIENT / EMPTY / ERROR, still on demand;
+   - sample scenarios in ⋯; `StockLayout.metricRowStacked`.
+5. **Phase B.1:**
+   - short sample banner + Details; grouped scenario sheet (`PortfolioScenarioGroups`);
+   - account labels without a repeated currency; "Selected account total" vs "All accounts total";
+   - chart note + ⓘ; `StockChartLayout.height(width)`;
+   - disabled Add explained in samples; readable "Unavailable: …" codes;
+   - iOS AX5 fixes; live Dynamic Type for `StockBanner` / `StockStateMessage` / `StockPriceChange`.
+6. **Phase C:**
+   - borderless Portfolio sections (per call site); Android briefcase / graduation-cap selector icons (`StockSegmentedControl(compactIcons)`);
+   - holdings via `PortfolioHoldingsDisplay`: server weight "of account value", display-only sort menu (owner D3: optional, default order);
+   - `StockAllocationDonut` + legend (`StockAllocationLayout`), only when `allocationDonutAllowed`, bars otherwise; By currency collapsed (owner Q6);
+   - Holding details grid + `StockNavigationRow` actions, no account-wide cash;
+   - opt-in `StockTrendChart(areaFill)`;
+   - Insights design-system pass (`StockChip(enabled)`, `PortfolioInsightIcons`).
+7. **Phase C.1:**
+   - one stacking decision per group (metric grid, legends); structured vertical holding rows at large text;
+   - grouped transaction rows (`PortfolioPresentation.transactionText`); one heading on Holding details and Portfolio insights;
+   - Insights rows, contributors and allocation stack at large text; `StockInsightCard` icon above the text at large text, arrow only if tappable;
+   - iOS status-bar backdrop on the Portfolio tab.
+
+### Files created or modified this session (all committed)
+- **Shared Kotlin (new):** `presentation/portfolio/` `PortfolioFormRules.kt`, `PortfolioDisplay.kt`, `PortfolioOverview.kt`,
+  `PortfolioHoldingsDisplay.kt`, `PortfolioAllocationDisplay.kt`; `designsystem/components/StockAllocationDonut.kt`.
+- **Shared Kotlin (modified):**
+  - Portfolio: `PortfolioForms.kt`, `PortfolioScene.kt`, `PortfolioScreen.kt`, `PortfolioHistoryChart.kt`, `PortfolioInsightsScreen.kt`,
+    `PortfolioPresentation.kt`;
+  - navigation and labels: `presentation/AppNavigation.kt` (title strings only), `designsystem/StockLabels.kt` (FX acronym);
+  - theme: `theme/Spacing.kt` (`StockLayout.metricRowStacked`), `theme/StockSemanticStyles.kt` (`StockChartLayout`, `StockAllocationLayout`);
+  - components: `StockMetric.kt`, `StockChip.kt`, `StockSegmentedControl.kt`, `StockTrendChart.kt`, `StockInsightCard.kt`;
+  - icons: `icons/StockIcons.kt` (Briefcase, School).
+- **Tests (new):** `PortfolioFormRulesTest`, `PortfolioOverviewTest`, `PortfolioPhaseB1Test`, `PortfolioPhaseCTest`, `PortfolioPhaseC1Test`.
+- **Tests (modified):** `PortfolioPresentationTest`, `StockIconsTest`, `DesignTokensTest`.
+- **iOS (new):** `DesignSystem/StockAllocationDonut.swift`.
+- **iOS (modified):** `PortfolioForms.swift`, `PortfolioScene.swift`, `PortfolioScreen.swift`, `PortfolioHistoryChart.swift`,
+  `PortfolioInsightsScreen.swift`, `PortfolioInsightsScene.swift`, `DesignSystem/StockComponents.swift`, `StockControls.swift`,
+  `StockStatusViews.swift`, `StockSettingsComponents.swift`.
+- **Docs:** the six Portfolio docs above, this file, `docs/project-status.md`, root `PROJECT_HANDOFF.md`, `CLAUDE.md`.
+- **Captures:** `docs/design/portfolio_pb/`, `portfolio_pb1/`, `portfolio_pc/`, `portfolio_pc1/`.
+
+### Important decisions (and why)
+- **Ids, never names**, for account selection (names aren't unique; P0).
+- **Display only:**
+  - every number is an existing exact-decimal presenter value; missing stays "CAD —";
+  - no total-return % (D2 stays open; it would need an approved presenter field);
+  - holding weight only from a single matching server allocation.
+- **The chart is "Account value"**: it includes deposits, so it's never called performance. History stays **on demand** (D1), to avoid extra
+  requests.
+- **Donut only when `allocationDonutAllowed`**: negative or borrowed cash can exceed 100 %, which a ring can't show honestly; bars are the fallback.
+- **Owner decisions applied:** Q5 currency on every metric; D3 optional sort, default order; Q6 By currency collapsed.
+- **Borderless per call site** (`bordered = false`), not a global `StockCard` change, so other screens can't regress.
+- **Large text:**
+  - layouts stack, wrap or move icons instead of shrinking text;
+  - one stacking decision per group;
+  - non-breaking spaces keep "10 shares" / "CAD 75.00" together;
+  - iOS badges never wrap, so badge text stays short.
+- **Sample scenarios:** live in a grouped sheet behind ⋯; the read-only banner stays visible; new fixture ids land in "Other".
+
+### Known bugs, blockers and risks
+- **NOT VERIFIED anywhere:** TalkBack navigation, VoiceOver, physical devices, iPhone SE (not approved in C / C.1).
+- **iOS Learn-row hyphenation fix (C.1 #15):** in code, not re-captured.
+- **iOS cached test session:**
+  - the iPhone 16 simulator restores an old "Test account" session that is offline against the local MOCK;
+  - its own Insights shows "Insights couldn't be loaded" (token state, not UI);
+  - sample scenarios work. Reported, not fixed.
+- **Shared-component changes reach other screens; only Portfolio was re-captured:**
+  - `StockMetricGrid(rowsWhenNarrow)` group stacking;
+  - `StockInsightCard` large-text layout;
+  - live Dynamic Type in `StockBanner` / `StockStateMessage` / `StockPriceChange`.
+- **iOS legend placement** uses a text-size threshold (Android measures).
+- **Insights Retry** uses the full `refresh()`; no history-only reload exists.
+- **Period change** briefly clears the report (presenter behaviour, unchanged).
+- **Unchanged from earlier:**
+  - LAN backend redeploy pending approval; Cloud Run deferred;
+  - the default `xcodebuild` bakes the LAN MOCK URL.
+
+### Build and test results
+- **Verified (final sequential run after C.1, clean outputs):**
+  - core JVM **471/0**, core iOS **471/0**;
+  - shared Android host **169/0**, shared iOS **165/0**;
+  - `:app:androidApp:assembleDebug` OK;
+  - default `xcodebuild … CODE_SIGNING_ALLOWED=NO build` **BUILD SUCCEEDED**.
+- **Device-verified, local MOCK only:**
+  - Android emulator-5554 at 360 dp: light/dark, 1.0× / 1.3× / 2.0×;
+  - iPhone 16 (iOS 18.3): light Large and dark AX5 with live switching, data-backed through the cached session's sample scenarios.
+- **Not run:**
+  - `:server:test` (no server change);
+  - TalkBack, VoiceOver, iPhone SE, physical devices.
+
+### Device/environment notes (state at handoff)
+- **Android:** emulator restored (size reset, font scale 1.0, app Theme Light, `adb reverse` removed).
+- **iPhone 16 (`A04A9C8B-…`):** Large/light; it has the ad-hoc signed MOCK build installed (launch with `--firebase-emulators`).
+- **MOCK and Auth emulator:** both stopped.
+- **Device-check recipe:**
+  - `./gradlew :server:runMock`; `adb reverse tcp:8081 tcp:8081`; `adb shell wm size 1080x2400` for 360 dp;
+  - iOS: `xcodebuild … CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081 build`;
+  - Portfolio ⋯ → "Sample scenario…" picks fixtures.
+- **Firebase Auth emulator:** available from `firebase/node_modules/.bin/firebase` (installed earlier, no install needed), but only with owner
+  approval.
+
+### Requirements discussed but not implemented
+- **Phase D:** date pickers; search-first form with Advanced; iOS client validation (`PortfolioEngine.validate`) with field-level errors; Android edit
+  as a full-screen form with Cancel (needs a Route argument — approval); a **Transactions destination** inside Portfolio with display filters (owner
+  Q4 — approval); success confirmation after save.
+- **Phase E:** iPhone SE and screen-reader passes; Android chart ⓘ row height; a measured iOS legend placement; re-capture of other screens using the
+  changed shared components.
+- **Open owner decisions:** D1 (auto 1M history), D2 (total-return % presenter field), Q1 (save the new reference sheet in the repo), Q3 (no Portfolio
+  sub-tabs — recommended), Q4 (Transactions destination), Q7 (done in B.1 as display-only dedupe).
+- **Not adopted** (advice or unsupported data): "Consider adding more ETFs", "30% guideline", total-gain %, cash % row, asset-class/sector donut on the
+  free dashboard (StockSteps+ analytics).
+- **Queued after Portfolio:** Phase 5D (Learn, Daily Brief, Earnings — Earnings read-only audit first); the global investment disclaimer stays in
+  the backlog.
+
+### Exact next steps
+1. `git status`, `git log -5 --oneline` (superseded: see §C1-CLOSURE-2026-10-12 for the current HEAD).
+2. Ask the owner to approve **Portfolio Phase D** (scope in `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md` §Phase D), including the new routes
+   (`PortfolioEntryRoute(transactionId)` for Android edit, a Transactions destination) and Q4.
+3. Once approved, in order:
+   - capture the forms "before" on local MOCK (approval needed);
+   - implement on both platforms: the form layout from `PortfolioFormRules.redesignOrder` with Advanced collapsed, then date pickers writing
+     `YYYY-MM-DD`, then iOS client validation, then field-level errors, then Android edit with Cancel, then the Transactions screen with display
+     filters;
+   - tests;
+   - the full sequential suite + both builds;
+   - captures;
+   - `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D.md`.
+4. Keep the rules: ids for accounts, `PortfolioDisplay` for copy, no new validation rules, no calculation or API change.
 
 ## PORTFOLIO-PC1-2026-10-12. Portfolio Phase C.1 closure — START HERE (committed and pushed)
 

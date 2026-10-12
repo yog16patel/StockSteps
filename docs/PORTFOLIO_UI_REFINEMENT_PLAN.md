@@ -1,4 +1,4 @@
-# Portfolio UI Refinement — implementation roadmap (P-A, Phase A, B, B.1, C and C.1 committed; Phase D awaiting approval)
+# Portfolio UI Refinement — implementation roadmap (P-A, Phase A, B, B.1, C and C.1 committed; C.1 closure verified 2026-10-12 — READY TO CLOSE, fixes committed; Phase D awaiting approval)
 
 Status: **plan only** (revised 2026-10-12). Findings: `docs/PORTFOLIO_UI_AUDIT.md` (IDs **A-F1…A-F20**, risks **D-R1…D-R10**, questions **Q1–Q7**).
 This revision replaces the 2026-10-11 plan, which was committed in `92a6d6a` and is still in git history. Its issues **#1–#16**, components
@@ -149,6 +149,10 @@ Goal: rules R1/R2 — one overview card with NUMBER → CONTEXT, honest chart na
   - both platforms' charts look alike;
   - Insights uses theme tokens only.
 - **Excluded:** asset-class / sector donut on the dashboard (Plus analytics), cash % row, logos in MOCK.
+
+**C.1 closure (2026-10-12):** final verification on Android 360 dp (1.0×/1.3×/2.0× dark) and iPhone 16 (Large, AX5 dark) passed after 11
+small UI fixes (F1–F11). The iPhone SE was excluded by the owner, and screen readers are still NOT VERIFIED (Phase E). Details:
+`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` §8.
 
 ## Phase D — Add/Edit and transactions
 

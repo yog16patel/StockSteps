@@ -226,7 +226,7 @@ struct PortfolioScreen: View {
             }
             let shown = allTransactions ? transactions : Array(transactions.prefix(Self.recentTransactions))
             ForEach(Array(shown.enumerated()), id: \.element.id) { index, transaction in
-                if index > 0 { StockDivider() }
+                if index > 0 { StockDivider().padding(.horizontal, CGFloat(space.cardPadding)) } // C.1 closure: inset like the holdings rows
                 transactionRow(transaction, colors: colors)
             }
             if transactions.count > Self.recentTransactions {
@@ -473,7 +473,8 @@ struct PortfolioScreen: View {
                 Button("Edit", systemImage: "pencil") { onEditTransaction(transaction) }
                 Button("Delete…", systemImage: "trash", role: .destructive) { deleteTransaction = transaction }
             } label: {
-                Image(systemName: "ellipsis").foregroundStyle(colors.iconSecondary)
+                // C.1 closure: fixed-size symbol inside its fixed 44 pt target (at AX5 the body-sized glyph overflowed to the card edge).
+                Image(systemName: "ellipsis").font(.system(size: CGFloat(StockStepsTheme.dimensions.icon))).foregroundStyle(colors.iconSecondary)
                     .frame(width: CGFloat(StockStepsTheme.dimensions.touchTarget), height: CGFloat(StockStepsTheme.dimensions.touchTarget))
             }.accessibilityLabel("Actions for \(text.title)\(text.security.map { ", " + $0.replacingOccurrences(of: "\u{00A0}", with: " ") } ?? "")")
         }

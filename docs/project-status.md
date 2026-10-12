@@ -6,6 +6,21 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**End of session (2026-10-12)**: `main` at `6a787a3` (pushed). The Portfolio UI refinement is committed through **Phase C.1**: P0 account-by-id fix,
+Phase A, B, B.1, C and C.1 (docs `docs/PORTFOLIO_UI_REFINEMENT_PHASE_{A,B,B1,C,C1}.md`; audit `docs/PORTFOLIO_UI_AUDIT.md`; plan
+`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`).
+
+Verified:
+- core 471/0 (JVM, iOS), shared 169/0 (Android) and 165/0 (iOS), both builds;
+- device checks on local MOCK: Android 360 dp, iPhone 16 Large/AX5.
+
+NOT VERIFIED: TalkBack, VoiceOver, iPhone SE, physical devices.
+
+**C.1 closure (2026-10-12, committed and pushed as "Close Portfolio Phase C.1 verification with pill selectors, inset transaction dividers, vertically scrollable trend charts and large-text chart and selector fixes on Android and iOS"):** final device verification READY TO CLOSE after 11 UI fixes (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` §8); SE excluded by the owner; screen readers NOT VERIFIED.
+
+**Next: Portfolio Phase D** (forms + Transactions destination), only after owner approval of its new routes. Full handoff: `docs/PROJECT_HANDOFF.md`
+§HANDOFF-2026-10-12-END.
+
 **Current (2026-10-12, committed and pushed as "Close Portfolio visual and accessibility pass with group stacking, grouped transaction rows, single headings and large-text insights fixes (Portfolio Phase C.1) on Android and iOS", on top of `8a86e4e`)**: **Portfolio Phase C.1 visual/accessibility closure** (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md`):
 - group stacking for metrics and legends; structured holding rows; grouped transactions;
 - duplicate headings removed; Insights large-text fixes; iOS status-bar backdrop.

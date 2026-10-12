@@ -54,10 +54,21 @@ struct StockSegmentedControl: View {
     let onSelect: (Int) -> Void
     /// Portfolio Phase C: a small fixed-size icon beside the label at every text size (the label wraps) instead of a large icon stacked above.
     var compactIcons = false
+    @State private var width: CGFloat = 0
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         let shape = RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.button))
-        HStack(spacing: CGFloat(space.sm)) {
+        // C.1 closure: equal-width segments only while every label's longest word (+ compact icon) fits its share (shared StockPillLayout rule);
+        // otherwise one full-width row per segment — iPhone SE at AX5 cut "My Portfolio" to "My Portfol…".
+        let font = StockStepsTheme.uiFont(type.label, weight: .semibold, typeSize: typeSize)
+        let iconExtra = compactIcons ? CGFloat(dims.icon) * 0.85 + CGFloat(space.xs) : 0
+        let widths = segments.map { segment in
+            KotlinFloat(value: Float((segment.0.split(separator: " ").map { (String($0) as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0) + iconExtra))
+        }
+        let sideBySide = width == 0 || StockPillLayout.shared.fitsEqualWidth(labelWidths: widths,
+            availableWidth: Float(width - CGFloat(space.sm) * CGFloat(max(segments.count - 1, 0))), horizontalPadding: Float(space.xs))
+        let layout = sideBySide ? AnyLayout(HStackLayout(spacing: CGFloat(space.sm))) : AnyLayout(VStackLayout(spacing: CGFloat(space.sm)))
+        layout {
             ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
                 let isSelected = index == selected
                 Button { onSelect(index) } label: {
@@ -81,6 +92,7 @@ struct StockSegmentedControl: View {
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
     }
 }
 
