@@ -92,8 +92,10 @@ Core feature packages: `brief` (Daily Market Brief), `practice` (Practice Portfo
   Status labels use `StockStatusBadge` with a `StockBadgeKind` (MOCK/simulated = SAMPLE), title + badge rows use `StockTitleWithBadge`, banners
   `StockBanner`; badge/banner colours only via the shared `StockSemanticStyles`.
 - **Responsive layout decisions** (Global UI Refinement 4C.3–5A.1) live in shared objects in `app/shared/.../theme/StockSemanticStyles.kt`
-  (`StockPillLayout`, `StockActionLayout`, `StockBadgeLayout`, `StockQuoteRowLayout`) with tests in `ResponsiveLayoutRulesTest`; Compose and SwiftUI only
-  measure text and call them. Scrolling chip/pill rows use `StockFadingScrollRow` on both platforms. New component parameters stay optional with
+  (`StockPillLayout`, `StockActionLayout`, `StockBadgeLayout`, `StockQuoteRowLayout`, `StockCardGridLayout`, `StockComparisonLayout`) with tests in
+  `ResponsiveLayoutRulesTest`; Compose and SwiftUI only measure text and call them. Screen copy and spoken labels shared by both platforms live in core
+  `*Display` objects (`ScreenerDisplay`, `ComparisonDisplay`). iOS: a value and its period/caption must scale on the same Dynamic Type curve
+  (`relativeTo: .footnote` for both) — small styles like `.caption2` grow faster and would end up larger than the value at XXXL. Scrolling chip/pill rows use `StockFadingScrollRow` on both platforms. New component parameters stay optional with
   unchanged defaults. iOS device checks need a build with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (the default build targets the LAN host).
 - **Portfolio display** goes through `presentation/portfolio/PortfolioPresentation` (labels for account types/transaction kinds, signed
   changes, direction, holding text), `PortfolioDates` (readable dates; UTC stays UTC) and `PortfolioChartRules` (chart only with ≥ 2 dated

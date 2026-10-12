@@ -6,18 +6,20 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**State (2026-10-11)**: Global UI Refinement steps 1–4 and step 5 part A (Watchlist, 5A + 5A.1; 5A.1 closed with conditions in `f08350c`) are committed.
-**Phase 5B — Screener ("Discover Stocks") is committed and pushed** as "Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS" (`docs/GLOBAL_UI_REFINEMENT_PHASE5B.md`): core 454/0 (JVM, iOS), shared Android 110/0,
-shared iOS 106/0, `assembleDebug` OK, iOS `xcodebuild` OK; device screenshots, large text and screen readers NOT RUN (approval pending); verdict PASS WITH
-CONDITIONS. **Closure pass (committed and pushed as "Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief")**: `docs/GLOBAL_UI_REFINEMENT_PHASE5B_CLOSURE.md` — five small fixes (filter-input
-thousands separators, inverted ranges, iOS Show results on every editor page, iOS title measurement, Android chip a11y), core 456/0 (JVM, iOS), shared
-Android 110/0, shared iOS 106/0, both builds OK; devices and screen readers NOT RUN; verdict PASS WITH CONDITIONS; Phase 5C brief
-`docs/GLOBAL_UI_REFINEMENT_PHASE5C_BRIEF.md`. **Phase 5C.1 — Comparison polish committed and pushed** as "Polish Company Comparison with collapsible sections, short periods, comparison bars, concise notes and one info action (Global UI Refinement Phase 5C.1) on Android and iOS" (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1.md`; core 465/0, shared 111/0 and 107/0,
-both builds OK; screen readers, SE, Android dark NOT RUN; PASS WITH CONDITIONS). Earlier: **Phase 5C — Company Comparison committed and pushed** as "Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS" (`docs/GLOBAL_UI_REFINEMENT_PHASE5C.md`): shared `StockComparisonLayout` + `ComparisonDisplay`;
-core 461/0 (JVM, iOS), shared Android 111/0, shared iOS 107/0, both builds OK; device before/after captured on local MOCK; screen readers, SE, Android
-dark NOT RUN; PASS WITH CONDITIONS. **Next: Phase 5D (Earnings audit recommended) after approval.** Earlier: **Next: device checks if approved → Phase 5C — Company Comparison, only after approval.** Earlier summary: Start from
-`docs/PROJECT_HANDOFF.md` §NEXT (decisions, risks, exact steps). Latest verified: core 441/0 (JVM, iOS), shared Android 109/0, shared iOS 105/0,
-`assembleDebug` and iOS `xcodebuild` OK. Not verified: screen-reader speech, iOS signed-in Watchlist, iPhone SE XXXL for 5A.1, full `:server:test`.
+**State (2026-10-11, end of session)**: `main` at `19c3105` "Polish Company Comparison with collapsible sections, short periods, comparison bars, concise
+notes and one info action (Global UI Refinement Phase 5C.1) on Android and iOS", plus the docs-only handoff commit "Add end-of-session handoff after Global UI Refinement Phase 5C.1 and point to the Phase 5D Earnings audit". Global UI Refinement
+plan step 5 (Watchlist, Screener, Comparison) is complete: 5A/5A.1 Watchlist, 5B + 5B closure Screener ("Discover Stocks"), 5C + 5C.1 Company
+Comparison — all committed and pushed, each verdict **PASS WITH CONDITIONS**. **Next: Phase 5D (plan step 6: Learn, Daily Brief, Earnings) — start with a
+read-only Earnings audit, only after the owner approves.** Full handoff: `docs/PROJECT_HANDOFF.md` §HANDOFF-2026-10-11.
+
+Latest verified (clean test outputs, sequential run, this session): core JVM 465/0, core iOS 465/0, shared Android host 111/0, shared iOS 107/0,
+`:app:androidApp:assembleDebug` OK, iOS `xcodebuild` (generic simulator, unsigned) BUILD SUCCEEDED. Device screenshots on the local MOCK server only
+(Android emulator 360 dp 1.0×/1.3×, iPhone 16 Large/XXXL, light and iOS dark) in `docs/design/phase5c/` and `docs/design/phase5c_1/`.
+**Not verified anywhere in Global UI Refinement**: TalkBack and VoiceOver speech, iPhone SE (compact) for 5B/5C/5C.1, Android dark mode (app-level theme
+setting), iOS signed-in Watchlist, Screener device screenshots for 5B, full `:server:test` (no server code changed since Phase 4).
+
+Per-phase docs (newest first): `docs/GLOBAL_UI_REFINEMENT_PHASE5C_1.md`, `…PHASE5C.md`, `…PHASE5C_BRIEF.md`, `…PHASE5B_CLOSURE.md`, `…PHASE5B.md`,
+`…PHASE5A_1.md`, `…PHASE5A.md`, plan `docs/GLOBAL_UI_REFINEMENT_PLAN.md`.
 
 **Global UI Refinement Phase 5A.1 (Watchlist polish) — committed and pushed as "Polish Watchlist header wrapping, two-line names, fading list selector, short empty title and single offline label (Global UI Refinement Phase 5A.1) on Android and iOS" (2026-10-10)**: header wraps between parts, two-line names,
 fading list selector, short empty title, offline label once. Core 441/0 (JVM, iOS), shared Android 109/0, shared iOS 105/0, builds OK; offline and

@@ -1,11 +1,115 @@
-# StockSteps — session handoff (2026-10-11: Phase 5A.1 closed; Phase 5B Screener committed and pushed; next Phase 5C Comparison after approval)
+# StockSteps — session handoff (2026-10-11, end of session: Global UI Refinement step 5 complete through Phase 5C.1; next Phase 5D after approval)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE5C1 below** → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§HANDOFF-2026-10-11 below** → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## PHASE5C1. Phase 5C.1 — Company Comparison polish (committed and pushed) — read first
+## HANDOFF-2026-10-11. End-of-session handoff — start here
+
+### Repository state (verified with `git status` / `git log` at handoff)
+- Branch `main`, HEAD **`19c3105`** "Polish Company Comparison with collapsible sections, short periods, comparison bars, concise notes and one info
+  action (Global UI Refinement Phase 5C.1) on Android and iOS". This handoff is committed on top of it as
+  "Add end-of-session handoff after Global UI Refinement Phase 5C.1 and point to the Phase 5D Earnings audit" (docs only).
+- Commits made this session (all pushed, oldest first): `f08350c` 5A.1 closure (docs) · `b1aa29c` 5B Screener · `9e764fe` 5B closure + 5C brief ·
+  `ab004df` 5C Comparison · `19c3105` 5C.1 Comparison polish.
+
+### Current development objective
+Global UI Refinement (`docs/GLOBAL_UI_REFINEMENT_PLAN.md` §3): screen-by-screen visual/UX polish on Android (Compose) and iOS (SwiftUI) with shared KMP
+display/layout rules and **no** data, API, presenter-contract, entitlement, calculation or navigation changes. Steps 1–5 are done (tokens, components,
+Portfolio, Home, Markets, Company Details, Watchlist, Screener, Comparison). Next is plan step 6 (Learn, Daily Market Brief, Earnings) — "Phase 5D".
+
+### Exact task at the end of this session
+Phase 5C.1 (Company Comparison polish + the owner's "final UI polish" follow-up) was implemented, verified, committed and pushed. Nothing is in progress.
+The owner has **not** yet approved Phase 5D.
+
+### Work completed this session (details in each phase doc)
+1. **5A.1 closure** (`f08350c`, docs only): re-verified Watchlist fixes, re-ran tests without the Gradle cache, wrote the manual screen-reader
+   procedure (`docs/GLOBAL_UI_REFINEMENT_PHASE5A_1.md` §5b).
+2. **5B Screener / Discover Stocks** (`b1aa29c`, `docs/GLOBAL_UI_REFINEMENT_PHASE5B.md`): new core `screener/ScreenerDisplay.kt` (all copy, filter
+   categories, inclusive-range operators, chips, sort labels, spoken text); shared `StockCardGridLayout`; Compose `ScreenerScreen.kt` rewritten + new
+   `ScreenerFilters.kt`; new SwiftUI `DiscoverStocksViews.swift` (old Discover views removed from `ScreenerScenes.swift`); catalog retry.
+3. **5B closure** (`9e764fe`, `docs/GLOBAL_UI_REFINEMENT_PHASE5B_CLOSURE.md`): thousands separators in filter inputs, inverted ranges blocked before search,
+   iOS Show results on every editor page, iOS title measurement, Android chip click semantics; Phase 5C brief `docs/GLOBAL_UI_REFINEMENT_PHASE5C_BRIEF.md`.
+4. **5C Comparison** (`ab004df`, `docs/GLOBAL_UI_REFINEMENT_PHASE5C.md`): shared `StockComparisonLayout` (columns only while every value/word fits, else one
+   line per company); core `screener/ComparisonDisplay.kt`; selection ⋮ (Replace/Remove), section cards, sticky header only around metrics, chart-only
+   error, "More tools" rows; optional `badge` on `StockNavigationRow` (both platforms); 29 before/after captures in `docs/design/phase5c/`.
+5. **5C.1 polish** (`19c3105`, `docs/GLOBAL_UI_REFINEMENT_PHASE5C_1.md`): collapsible sections (Growth/Profitability open), short periods, percentage-only
+   comparison bars (`ComparisonDisplay.bars`, new `MetricCell.value`), notes behind "What to keep in mind", one ⓘ per metric, insights preview, compact
+   selection/collapsed cards, iOS XXXL value-vs-period size fix; captures in `docs/design/phase5c_1/` and `…/final/`.
+
+### Files created or modified this session (all committed)
+- Core: `screener/ScreenerDisplay.kt` (new), `screener/ComparisonDisplay.kt` (new), `screener/ScreenerPresentation.kt` (`MISSING_PRICE`,
+  `ScreenerRowView.priceAvailable`/spoken label, `MetricCell.value`); tests `ScreenerDisplayTest.kt` (new, 15), `ComparisonDisplayTest.kt` (new, 9).
+- Shared app: `theme/StockSemanticStyles.kt` (`StockCardGridLayout`, `StockComparisonLayout`), test `theme/ResponsiveLayoutRulesTest.kt`;
+  `designsystem/components/StockNavigationRow.kt` (optional badge); `presentation/screener/` `ScreenerScreen.kt`, `ScreenerFilters.kt` (new),
+  `ScreenerScene.kt`, `ComparisonScreen.kt`, `ComparisonHistoryUi.kt`, `GuidedMetricExplanation.kt`, `ComparisonResearchUi.kt` / `ComparisonAiUi.kt`
+  (old entry cards removed); `iosMain/IosScreenerClient.kt`.
+- iOS: `DiscoverStocksViews.swift` (new), `ScreenerScenes.swift`, `ComparisonHistoryViews.swift`, `ComparisonAiViews.swift`, `ComparisonResearchViews.swift`,
+  `DesignSystem/StockComponents.swift`.
+- Docs: phase docs above, `docs/design/phase5b/REFERENCE-screener-discover-stocks.webp`, `docs/design/phase5c/`, `docs/design/phase5c_1/`, handoff/status
+  docs, `CLAUDE.md` (current task only).
+
+### Important decisions (and why)
+- **No sixth tab / no Screener tab**: the owner's reference images showed one; CLAUDE.md and the owner's briefs fix five tabs (Home | Markets | Portfolio |
+  Watchlist | Learn). Screener and Compare stay pushed from Markets.
+- **Display text lives in core** (`ScreenerDisplay`, `ComparisonDisplay`) so Compose and SwiftUI show identical copy and spoken labels; **layout decisions**
+  live in `StockSemanticStyles.kt` objects with tests in `ResponsiveLayoutRulesTest`; platforms only measure text and call them.
+- **Screener operators "At least / At most / Between"**, not "Less/Greater than": the engine's ranges are inclusive.
+- **No dollar daily change on Screener rows**: records carry `changePercent` only; nothing is derived.
+- **Comparison bars only for percentage metrics** (formatter sets `MetricCell.value` for `PERCENT` only) — money is never drawn across currencies; missing =
+  no bar + "No data"; a note says bar length isn't "better".
+- **Missing values**: Watchlist/Screener "No data available"; narrow Compare cells "No data" + a labelled reason control (never "N/A ⓘ", never 0).
+- **iOS Dynamic Type**: small token styles scale faster (`.caption2` 11→18.7 pt at XXXL vs `.footnote` 13→17.3 pt, measured) — value and period labels
+  both use the `.footnote` curve so a value is never smaller than its period.
+- **Android system Back** closes the whole Screener filter sheet (no shared `BackHandler`); the draft is kept — documented, not fixed.
+
+### Known bugs, blockers and risks
+- **MOCK fixture artifact**: in `server/src/main/resources/fixtures/earnings/events.json` quarterly revenues were generated from the annual growth rate, so
+  "Revenue growth — latest quarter" equals "— fiscal year" for every MOCK company. Code reads independent fields (verified); values left unchanged.
+  Possible follow-up: regenerate those fixtures (needs owner approval; server fixtures).
+- Android open Compare section leaves ~60 dp before the first metric (48 dp targets); sticky company header remains in column mode even where bar rows name
+  companies. Minor.
+- iOS: tapping while the Markets list is still scrolling can hit a sample news headline and open Safari (happened once during device checks) — be careful
+  with coordinate taps; take two screenshots before tapping.
+- The default `xcodebuild` bakes the **LAN** MOCK URL into the shared DerivedData app; device checks must rebuild with
+  `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` and confirm `StockStepsMockBackendURL` in the built Info.plist before launching.
+- Still open from earlier: approved LAN backend redeploy (5C.1 brief wording, `deploy/local/deploy.sh deploy`), Cloud Run staging deferred.
+
+### Build and test results
+- **Verified this session (latest run, after 5C.1, clean outputs)**: core JVM 465/0, core iOS 465/0, shared Android host 111/0, shared iOS 107/0,
+  `assembleDebug` OK, iOS `xcodebuild` BUILD SUCCEEDED (no warnings in changed files). Device checks on local MOCK: Android emulator-5554 at a 360 dp
+  override (1.0×, 1.3×, light), iPhone 16 iOS 18.3 (Large, XXXL; light and dark).
+- **Not verified**: TalkBack, VoiceOver, iPhone SE for 5B/5C/5C.1, Android dark (app theme setting), 5B Screener device screenshots, chart-error /
+  partial-company / unlocked-premium states on device, iOS signed-in screens, `:server:test` (not needed — no server change).
+
+### Device/environment notes
+- Android emulator default: 1280×2856 (no size override), night mode **on**, font scale 1.0 — restore after checks (`adb shell wm size reset`, etc.).
+- iPhone 16 simulator `A04A9C8B-D9D1-4910-B0C0-BEC042629EDA` default Light / Large. iOS guest flow: sign-in screen → scroll → "Continue as guest";
+  Compare is under Markets → Research tools. No iOS deep links exist (only Google sign-in URL handling).
+- MOCK server: `./gradlew :server:runMock` (health `GET /health`), `./gradlew :server:stopMock`; `adb reverse tcp:8081 tcp:8081` (remove afterwards).
+- Ask the owner before any emulator/simulator use; never use the LAN host; never sign in.
+
+### Requirements discussed but not implemented
+- Phase 5D: Learn, Daily Market Brief, Earnings (plan step 6) and later step 7 (Settings, auth, Practice, Guided Research, search, onboarding).
+- Screen-reader passes on physical devices for every refined screen (manual procedure template in `docs/GLOBAL_UI_REFINEMENT_PHASE5A_1.md` §5b).
+- Optional: regenerate MOCK earnings fixtures with independent quarterly growth; tighten Compare section spacing on Android; Android `BackHandler` for the
+  Screener filter sheet.
+
+### Exact next steps
+1. `git status`, `git log -5 --oneline` (expect "Add end-of-session handoff after Global UI Refinement Phase 5C.1 and point to the Phase 5D Earnings audit" on top of `19c3105`).
+2. Read `CLAUDE.md`, this section, `docs/GLOBAL_UI_REFINEMENT_PLAN.md` (step 6), `docs/EARNINGS.md`, `docs/DAILY_MARKET_BRIEF.md`.
+3. **Wait for the owner's Phase 5D brief/approval.** Then do a read-only audit (recommended first: Earnings — iOS `EarningsScenes.swift`,
+   `EarningsPremiumViews.swift`, `EarningsReminderViews.swift` use system fonts and `.bordered` buttons heavily, and Earnings tables use equal-width
+   columns like Compare did; Android `presentation/earnings/*`), report findings before editing.
+4. Implement with shared rules (`StockComparisonLayout` can be reused for multi-company tables), tests in `ResponsiveLayoutRulesTest` / core display tests.
+5. Run sequentially: clean test outputs → `./gradlew :core:jvmTest :core:iosSimulatorArm64Test :app:shared:testAndroidHostTest
+   :app:shared:iosSimulatorArm64Test :app:androidApp:assembleDebug --continue` → `xcodebuild -project app/iosApp/iosApp.xcodeproj -scheme app.iosApp -sdk
+   iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`.
+6. Device checks only with approval, local MOCK only; write `docs/GLOBAL_UI_REFINEMENT_PHASE5D.md`; commit/push only when asked (update root
+   `PROJECT_HANDOFF.md`, this file, `docs/project-status.md`, `CLAUDE.md` "Current task" in the same commit).
+
+## PHASE5C1. Phase 5C.1 — Company Comparison polish (committed and pushed)
 
 - Repository: `main`. Current commit: "Polish Company Comparison with collapsible sections, short periods, comparison bars, concise notes and one info action (Global UI Refinement Phase 5C.1) on Android and iOS" (pushed), on top of `ab004df` (5C).
 - Done (`docs/GLOBAL_UI_REFINEMENT_PHASE5C_1.md`): collapsible sections, short periods, percentage-only bars, notes behind one control, one ⓘ per metric,

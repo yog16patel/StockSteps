@@ -1,7 +1,8 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-10 (America/Toronto). Current commit: **Polish Company Comparison with collapsible sections, short periods, comparison bars, concise notes and one info action (Global UI Refinement Phase 5C.1) on Android and iOS** on `main` (pushed).
-Previous commit: **Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS** (pushed).
+Last updated: 2026-10-11 (America/Toronto). Current commit: **Add end-of-session handoff after Global UI Refinement Phase 5C.1 and point to the Phase 5D Earnings audit** on `main` (docs only: end-of-session handoff in `docs/PROJECT_HANDOFF.md` §HANDOFF-2026-10-11, `docs/project-status.md` §0, `CLAUDE.md`; no code changes; tests not re-run — last verified results are in that section). Next: Phase 5D (read-only Earnings audit) only after approval.
+Previous commit: **Polish Company Comparison with collapsible sections, short periods, comparison bars, concise notes and one info action (Global UI Refinement Phase 5C.1) on Android and iOS** on `main` (pushed).
+Before it: **Refine Company Comparison with word-safe stacked values, honest missing data, compact selection and grouped tools (Global UI Refinement Phase 5C) on Android and iOS** (pushed).
 Before it: **Close Global UI Refinement Phase 5B with filter-input, range and accessibility fixes and add the Phase 5C Comparison brief** (pushed).
 Before it: **Refine Discover Stocks with word-safe preset cards, a categorised filter editor, grouped result rows and clear empty and error states (Global UI Refinement Phase 5B) on Android and iOS** (pushed).
 Before it: **Close Global UI Refinement Phase 5A.1 with a re-verification pass and Phase 5B handoff** (docs only, pushed).
