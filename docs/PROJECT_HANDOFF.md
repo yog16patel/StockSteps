@@ -1,9 +1,27 @@
-# StockSteps — session handoff (2026-10-12: Portfolio C.1 closure verified — READY TO CLOSE, committed and pushed; next = Phase D after approval)
+# StockSteps — session handoff (2026-10-12: Portfolio C.1 closure + final cleanup — READY TO CLOSE, committed and pushed; next = Phase D after approval)
 
-Read order for a new session: `CLAUDE.md` → **§C1-CLOSURE-2026-10-12 below** → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§C1-CLEANUP-2026-10-12 below** → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## C1-CLEANUP-2026-10-12. Portfolio Phase C.1 final cleanup — START HERE (committed and pushed)
+
+- Repository: `main`. Current commit: **"Finish Portfolio Phase C.1 cleanup with concise insight cards, expandable details, currency on insight amounts and clearer stacked metric spacing on Android and iOS"** (pushed), on top of `0fecddb` (C.1 closure). Working tree clean after it.
+- Contains: this cleanup (5 owner review items, `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` §9) and the pruned/new captures in `docs/design/portfolio_pc1v/` (30 files).
+- Done:
+  - insight cards: finding first, one summary sentence, accessible "Show details" (shared `PortfolioInsightCardDisplay`), icon on the category line at large text, iOS category line;
+  - insight amounts carry the reporting currency from the presenter ("CAD 4,128.79"); the engine is untouched;
+  - stacked metric groups `spacing.md` apart;
+  - allocation selector and MOCK strip verified, no change needed.
+- Validation:
+  - core 471/0 (JVM, iOS), shared 175/0 (Android) and 171/0 (iOS);
+  - `assembleDebug` OK;
+  - default unsigned `xcodebuild` BUILD SUCCEEDED;
+  - devices: Android 360 dp at 1.0×/2.0× dark, iPhone 16 Large/AX5;
+  - SE excluded; screen readers NOT VERIFIED.
+- Devices restored (Android size/font/night/theme Light, `adb reverse` removed; iPhone 16 Large/light); MOCK stopped.
+- Next: Phase D after approval of its routes (`PortfolioEntryRoute(transactionId)`, the Transactions destination / Q4).
 
 ## C1-CLOSURE-2026-10-12. Portfolio Phase C.1 final verification and closure — START HERE (committed and pushed)
 

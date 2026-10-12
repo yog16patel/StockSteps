@@ -176,8 +176,10 @@ internal fun PortfolioInsightsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 StockSectionHeader(PortfolioDisplay.INSIGHTS_LIST_TITLE)
                 view.insights.forEach { insight ->
-                    StockInsightCard(insight.title, insight.explanation,
-                        eyebrow = listOfNotNull(PortfolioInsightIcons.label(insight.category), insight.period?.label, if (insight.completeness != Availability.AVAILABLE) "Partial data" else null).joinToString(" · "),
+                    // C.1 cleanup: finding first, one summary sentence, the rest behind "Show details"; amounts with the reporting currency.
+                    val card = PortfolioInsightCardDisplay.card(insight, view.currency)
+                    StockInsightCard(card.headline, card.summary, eyebrow = card.eyebrow, details = card.details,
+                        showDetailsText = PortfolioInsightCardDisplay.SHOW_DETAILS, hideDetailsText = PortfolioInsightCardDisplay.HIDE_DETAILS,
                         leading = { StockIconTile(insightIcon(insight.category), colors.primaryContainer, colors.primaryText) })
                 }
             }

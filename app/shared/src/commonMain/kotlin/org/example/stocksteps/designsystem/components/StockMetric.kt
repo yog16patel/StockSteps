@@ -97,7 +97,8 @@ internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = 
                 val v = measurer.measure((if (dir) "↑\u00A0" else "") + item.value, rowValueStyle).size.width
                 with(density) { StockLayout.metricRowStacked(w.toDp().value, v.toDp().value, available, gap.value) }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+            // C.1 cleanup: stacked label/value groups get a wider gap than the label→value gap (xxs), so each pair reads as one group at 2.0×.
+            Column(verticalArrangement = Arrangement.spacedBy(if (anyStacked) StockStepsTheme.spacing.md else StockStepsTheme.spacing.sm)) {
                 items.forEach { item ->
                     val hasDirection = item.direction != null && item.direction != PriceDirection.UNAVAILABLE
                     val value: @Composable () -> Unit = {

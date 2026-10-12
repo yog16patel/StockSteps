@@ -1,6 +1,18 @@
 package org.example.stocksteps.designsystem.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import org.example.stocksteps.designsystem.icons.StockIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,7 +46,11 @@ internal fun StockInsightCard(
     eyebrow: String? = null,
     actionText: String? = null,
     onClick: (() -> Unit)? = null,
-    leading: (@Composable () -> Unit)? = null
+    leading: (@Composable () -> Unit)? = null,
+    /** Portfolio C.1 cleanup: the rest of the explanation behind an accessible "Show details" toggle (collapsed by default). */
+    details: String? = null,
+    showDetailsText: String = "Show details",
+    hideDetailsText: String = "Hide details"
 ) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -67,11 +83,23 @@ internal fun StockInsightCard(
                 }
             }
         }
-        val texts: @Composable (Modifier) -> Unit = { m ->
+        val texts: @Composable (Modifier, Boolean) -> Unit = { m, withEyebrow ->
             Column(m, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                if (eyebrow != null) Text(eyebrow, style = typography.label, color = accentText)
+                if (eyebrow != null && withEyebrow) Text(eyebrow, style = typography.label, color = accentText)
                 Text(title, style = if (leading != null) typography.bodySemiBold else typography.cardTitle, color = colors.textTitle)
                 Text(body, style = if (leading != null) typography.caption else typography.small, color = colors.textBody)
+                if (details != null) {
+                    var open by rememberSaveable(title) { mutableStateOf(false) }
+                    if (open) Text(details, style = if (leading != null) typography.caption else typography.small, color = colors.textBody)
+                    Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
+                        .clickable(role = Role.Button, onClickLabel = if (open) hideDetailsText else showDetailsText) { open = !open }
+                        .semantics { stateDescription = if (open) "Expanded" else "Collapsed" },
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                        Text(if (open) hideDetailsText else showDetailsText, style = typography.bodyMedium, color = colors.primaryText)
+                        Icon(StockIcons.ChevronDown, contentDescription = null, tint = colors.primaryText,
+                            modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall).graphicsLayer { rotationZ = if (open) 180f else 0f })
+                    }
+                }
                 if (actionText != null && onClick != null && leading == null) {
                     Text("$actionText →", style = typography.bodyMedium, color = colors.primaryText)
                 }
@@ -83,9 +111,15 @@ internal fun StockInsightCard(
                 Text("→", style = typography.cardTitle, color = colors.textSecondary, modifier = Modifier.clearAndSetSemantics {})
             }
         }
-        if (stackIcon) Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) { iconWell(); texts(Modifier); arrow() }
+        if (stackIcon) Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            // C.1 cleanup: at large text the icon shares a line with the category (eyebrow) instead of taking a row of its own.
+            if (eyebrow != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                iconWell(); Text(eyebrow, Modifier.weight(1f), style = typography.label, color = accentText)
+            } else iconWell()
+            texts(Modifier, false); arrow()
+        }
         else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
-            iconWell(); texts(Modifier.weight(1f)); arrow()
+            iconWell(); texts(Modifier.weight(1f), true); arrow()
         }
     }
 }

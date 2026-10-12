@@ -150,6 +150,8 @@ Goal: rules R1/R2 — one overview card with NUMBER → CONTEXT, honest chart na
   - Insights uses theme tokens only.
 - **Excluded:** asset-class / sector donut on the dashboard (Plus analytics), cash % row, logos in MOCK.
 
+**C.1 final cleanup (2026-10-12, committed):** the 5 owner review items pass (insight cards with "Show details", currency in insight amounts, holding-details spacing, selector and banner verified), see C.1 doc §9.
+
 **C.1 closure (2026-10-12):** final verification on Android 360 dp (1.0×/1.3×/2.0× dark) and iPhone 16 (Large, AX5 dark) passed after 11
 small UI fixes (F1–F11). The iPhone SE was excluded by the owner, and screen readers are still NOT VERIFIED (Phase E). Details:
 `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` §8.

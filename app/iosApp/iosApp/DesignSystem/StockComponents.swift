@@ -351,11 +351,19 @@ struct StockInsightCard: View {
     var systemImage: String?
     /// Nil makes the card plain content (not announced as a button).
     var action: (() -> Void)?
+    /// Portfolio C.1 cleanup (as Compose): category line above the title, and the rest of the explanation behind a "Show details" toggle.
+    var eyebrow: String? = nil
+    var details: String? = nil
+    var showDetailsText = "Show details"
+    var hideDetailsText = "Hide details"
+    @State private var detailsOpen = false
     var body: some View {
         if let action {
             Button(action: action) { card }
                 .buttonStyle(.plain)
                 .accessibilityHint(actionTitle ?? "")
+        } else if details != nil {
+            card // The text and the details toggle are separate elements, so the toggle stays reachable.
         } else {
             card.accessibilityElement(children: .combine)
         }
@@ -375,8 +383,31 @@ struct StockInsightCard: View {
                 .accessibilityHidden(true)
         }
         let text = VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            if let eyebrow, !eyebrow.isEmpty, !(typeSize.isAccessibilitySize && icon != nil) {
+                Text(eyebrow).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(accent)
+            }
             Text(title).font(StockStepsTheme.font(systemImage == nil ? type.cardTitle : type.bodySemiBold, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
             Text(message).font(StockStepsTheme.font(systemImage == nil ? type.small : type.caption, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
+            if let details, detailsOpen {
+                Text(details).font(StockStepsTheme.font(systemImage == nil ? type.small : type.caption, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
+            }
+            }
+            .accessibilityElement(children: .combine)
+            if details != nil {
+                Button { detailsOpen.toggle() } label: {
+                    HStack(spacing: CGFloat(space.xxs)) {
+                        Text(detailsOpen ? hideDetailsText : showDetailsText).font(StockStepsTheme.font(type.bodyMedium, relativeTo: .subheadline))
+                        Image(systemName: "chevron.down").font(.system(size: CGFloat(dims.iconSmall) * 0.7, weight: .semibold))
+                            .rotationEffect(.degrees(detailsOpen ? 180 : 0)).accessibilityHidden(true)
+                    }
+                    .foregroundStyle(colors.primaryText)
+                    .frame(minHeight: CGFloat(dims.touchTarget))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(detailsOpen ? "Expanded" : "Collapsed")
+            }
             if let actionTitle, systemImage == nil {
                 Text("\(actionTitle) →").font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(colors.primaryText)
             }
@@ -386,7 +417,17 @@ struct StockInsightCard: View {
         let arrow = (systemImage != nil && action != nil) ? Image(systemName: "arrow.right").foregroundStyle(colors.textSecondary).accessibilityHidden(true) : nil
         return Group {
             if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: CGFloat(space.sm)) { icon; text; arrow }
+                VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+                    // C.1 cleanup: the icon shares a line with the category (eyebrow) instead of taking a row of its own (as Compose).
+                    if let eyebrow, !eyebrow.isEmpty, icon != nil {
+                        HStack(spacing: CGFloat(space.sm)) {
+                            icon
+                            Text(eyebrow).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(accent)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    } else { icon }
+                    text; arrow
+                }
             } else {
                 HStack(spacing: CGFloat(space.md)) { icon; text; arrow }
             }

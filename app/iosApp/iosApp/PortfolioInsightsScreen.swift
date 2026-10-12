@@ -160,7 +160,11 @@ struct PortfolioInsightsScreen: View {
             VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                 Text(PortfolioDisplay.shared.INSIGHTS_LIST_TITLE).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).accessibilityAddTraits(.isHeader)
                 ForEach(view.insights, id: \.id) { insight in
-                    StockInsightCard(title: insight.title, message: insight.explanation, systemImage: insightSymbol(insight.category))
+                    // C.1 cleanup: finding first, one summary sentence, the rest behind "Show details"; amounts with the reporting currency (shared).
+                    let card = PortfolioInsightCardDisplay.shared.card(insight: insight, reportingCurrency: view.currency)
+                    StockInsightCard(title: card.headline, message: card.summary, systemImage: insightSymbol(insight.category), eyebrow: card.eyebrow,
+                                     details: card.details, showDetailsText: PortfolioInsightCardDisplay.shared.SHOW_DETAILS,
+                                     hideDetailsText: PortfolioInsightCardDisplay.shared.HIDE_DETAILS)
                 }
             }
         }

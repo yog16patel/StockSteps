@@ -1,6 +1,6 @@
 # Portfolio UI Refinement — Phase C.1: visual and accessibility closure
 
-Status: **closure verification done 2026-10-12, verdict READY TO CLOSE** (§8; closure fixes committed and pushed as "Close Portfolio Phase C.1 verification with pill selectors, inset transaction dividers, vertically scrollable trend charts and large-text chart and selector fixes on Android and iOS"). Implementation committed and pushed as "Close Portfolio visual and accessibility pass with group stacking, grouped transaction rows, single headings and large-text insights fixes (Portfolio Phase C.1) on Android and iOS" (2026-10-12), on top of `8a86e4e` (Phase C). **Phase D is not started.**
+Status: **closure verification done 2026-10-12, verdict READY TO CLOSE** (§8, plus the final cleanup in §9, committed and pushed as "Finish Portfolio Phase C.1 cleanup with concise insight cards, expandable details, currency on insight amounts and clearer stacked metric spacing on Android and iOS"; closure fixes committed and pushed as "Close Portfolio Phase C.1 verification with pill selectors, inset transaction dividers, vertically scrollable trend charts and large-text chart and selector fixes on Android and iOS"). Implementation committed and pushed as "Close Portfolio visual and accessibility pass with group stacking, grouped transaction rows, single headings and large-text insights fixes (Portfolio Phase C.1) on Android and iOS" (2026-10-12), on top of `8a86e4e` (Phase C). **Phase D is not started.**
 
 No presenter, API, server, ledger, calculation, entitlement, fixture, route or authentication change. Text scaling isn't limited anywhere; every
 fix changes the layout (stacking, grouping, wrapping) or removes a duplicate.
@@ -214,3 +214,48 @@ Devices restored: Android size reset, font 1.0, night mode off, app Theme Light,
 fixed. All suites and both builds pass. Screen readers are NOT VERIFIED (deferred to Phase E), and the SE was excluded by the owner.
 **Phase D can begin** once the owner approves it (new routes: `PortfolioEntryRoute(transactionId)`, the Transactions destination / Q4), now that
 these closure fixes are committed.
+
+## 9. Final cleanup (2026-10-12, committed)
+
+Owner review of the Android 2.0× dark screens raised 5 items. All fixes are display-only: no presenter contract, API, server, calculation, route,
+navigation or entitlement change. Text scaling is never limited. Captures: `docs/design/portfolio_pc1v/c1c-*`. Section 8 captures that were removed in
+this cleanup (to keep 30 files) are still in git history at commit "Close Portfolio Phase C.1 verification with pill selectors, inset transaction
+dividers, vertically scrollable trend charts and large-text chart and selector fixes on Android and iOS".
+
+| # | Item | Before | After | Result |
+|---|---|---|---|---|
+| 1 | Insights allocation selector | At rest at 2.0×, "Ass…" fades at the edge (`c1c-a-dark2x-alloc-start`) | No code change needed: the shared `StockFadingScrollRow` (F3/F4) scrolls; after a swipe "Asset class" and "Currency" are fully visible and selectable, and the fade disappears at the end (`c1c-a-dark2x-alloc-end`). Selected = filled `primaryAction` pill; each option is a `Role.Tab` and is in the accessibility tree even when scrolled off-screen. The edge fade is the deliberate "more options" cue (`StockPillLayout.fadesEdge`). Touch targets 48 dp (an option half off the viewport measures narrower only while clipped) | PASS (Android 2.0×; iOS AX5 in §8) |
+| 2 | Insight cards | Long engine paragraphs; at large text the icon took a row of its own; iOS had no category line | New shared `PortfolioInsightCardDisplay`. The finding (engine title) comes first, then one summary sentence; the rest of the explanation sits behind an accessible **Show details / Hide details** toggle (collapsed by default; Android `Role.Button` + state "Expanded/Collapsed", 48 dp; iOS button with value, 44 pt). Caution sentences ("Past …", "Future …") always stay visible. At large text the icon shares the category line. iOS now shows the category line too (parity). Engine wording, order, calculations and disclaimers are unchanged; nothing is dropped | PASS (`c1c-a-dark2x-cards-2`, `c1c-a-dark2x-cards-expanded`, `c1c-a-dark1x-cards`, `c1c-i16-large-cards(-expanded)`, `c1c-i16-ax5-cards(-2)`) |
+| 3 | Performance currency | "Your investments earned 4128.79 over 1Y" | The presenter **does** provide the data: `PortfolioInsight.metrics` holds the exact amounts (`investmentGain`, `contribution`, `fxEffect`, `total`, `reinvested`, `netExternalFlows`), and `InsightsView.currency` holds the reporting currency. The engine (core, server-side) writes the plain `abs().display()` value. The display replaces exactly that value with the reporting-currency amount and grouping: "CAD 4,128.79" (non-breaking space, as on the dashboard). Only whole-number matches are replaced; percentages are untouched; a blank currency leaves the text unchanged (never guessed). The engine and calculations are untouched (changing the engine would be a server change) | PASS (also "VFV.TO added CAD 1,240.80", "subtracted CAD 283.94") |
+| 4 | Holding details spacing | Stacked label/value pairs were 8 dp apart, about the same as label→value, so the pairs ran together at 2.0× | `StockMetricGrid(rowsWhenNarrow)`: when the group stacks, the gap between pairs is `spacing.md` (label→value stays `xxs`). Side-by-side rows are unchanged. Responsive, no fixed heights. Shared component, so this affects every `rowsWhenNarrow` caller, and only when it stacks | PASS (`c1c-a-dark2x-details-metrics`, `c1c-a-dark1x-details`, `c1c-i16-ax5-details-metrics`) |
+| 5 | Sample-data strip | — | Verified, no change. Android: it's in the `Scaffold` `bottomBar` above the tabs, so content is padded and never under it; one line at 2.0×; `xxs` vertical padding. iOS: above the tab bar; scales up to accessibility1 so it stays one line at AX5 (as before); fills the home-indicator area only where there's no tab bar. The last item scrolls clear on every screen checked. The text still names the MOCK backend | PASS |
+
+**Verification:**
+- Android 360 dp: dark 2.0× and dark 1.0× (Insights, cards collapsed and expanded, allocation selector scrolled, holding details). A uiautomator audit found 0 clickable nodes under 48 dp; the details toggle measures 48 dp.
+- iPhone 16: light Large (cards collapsed and expanded, banner) and dark AX5 with a live switch (cards, holding details).
+- iPhone SE: excluded (owner).
+- TalkBack / VoiceOver: NOT VERIFIED.
+
+**Tests and builds (sequential, clean outputs):**
+- the full Gradle command: **BUILD SUCCESSFUL** (8 m 33 s);
+- core 471/0 (JVM) and 471/0 (iOS);
+- shared Android host **175/0** (+6 in the new `PortfolioInsightCardDisplayTest`);
+- shared iOS **171/0**;
+- `assembleDebug` OK;
+- default `xcodebuild … CODE_SIGNING_ALLOWED=NO` **BUILD SUCCEEDED**.
+
+**Remaining limitations:**
+- iOS AX5: an extreme value like "(+13,144.00%)" is wider than the line in bold, so iOS forces a break before "%" (cached test account). It isn't fixable without shrinking text.
+- The benchmark card's first sentence is long (engine copy, kept verbatim).
+- Insight-card amounts carry the currency code ("CAD 4,128.79"), while the Insights metric rows keep the existing "$" plus the "Amounts in CAD" header.
+- The holding row's spoken gain amount still has no currency (Phase E).
+- Earlier limits are unchanged (§8.5).
+
+**Changed files (cleanup):**
+- new `app/shared/.../presentation/portfolio/PortfolioInsightCardDisplay.kt` and test `PortfolioInsightCardDisplayTest.kt`;
+- `designsystem/components/StockInsightCard.kt` and `StockMetric.kt`;
+- `presentation/portfolio/PortfolioInsightsScreen.kt`;
+- iOS `DesignSystem/StockComponents.swift`, `DesignSystem/StockControls.swift` and `PortfolioInsightsScreen.swift`;
+- docs: this file, the plan and the handoff.
+
+**Verdict: READY TO CLOSE.** Phase D can start after approval of its routes.

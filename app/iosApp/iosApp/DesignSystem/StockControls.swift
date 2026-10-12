@@ -143,7 +143,8 @@ struct StockMetricGrid: View {
                 let v = (((dir ? "↑\u{00A0}" : "") + item.value) as NSString).size(withAttributes: [.font: rowValueFont]).width
                 return StockLayout.shared.metricRowStacked(longestLabelWord: Float(w), valueWidth: Float(v), availableWidth: Float(width), gap: Float(space.md))
             }
-            VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            // C.1 cleanup: stacked label/value groups get a wider gap than the label→value gap (xxs), as Compose.
+            VStack(alignment: .leading, spacing: CGFloat(anyStacked ? space.md : space.sm)) {
                 ForEach(items) { item in
                     // Stack only when the label's longest word and the value can't share the line (StockLayout.metricRowStacked) — a
                     // squeezed label column broke "Unrealized" mid-word at large sizes. Text widths only, never this row's own frame.
