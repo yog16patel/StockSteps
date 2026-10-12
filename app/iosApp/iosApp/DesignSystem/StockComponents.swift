@@ -75,7 +75,10 @@ struct StockPriceChange: View {
     var style: ThemeTextStyle = StockStepsTheme.typography.numberLabel
     /// 1 in rows; metric layouts pass nil so a long value wraps instead of being cut.
     var lineLimit: Int? = 1
+    /// Re-render on live Dynamic Type changes (Portfolio B.1: today's change stayed small after a switch to AX5).
+    @Environment(\.dynamicTypeSize) private var liveTypeSize
     var body: some View {
+        let _ = liveTypeSize
         let colors = StockStepsTheme.colors(scheme)
         let (arrow, color, spoken): (String, Color, String) = switch direction {
         case .up: ("↑\u{00A0}", colors.positiveText, "up \(percentage)")

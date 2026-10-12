@@ -1,4 +1,4 @@
-# Portfolio UI Refinement — implementation roadmap (P-A, Phase A and Phase B committed; Phase C awaiting approval)
+# Portfolio UI Refinement — implementation roadmap (P-A, Phase A, Phase B and B.1 committed; Phase C awaiting approval)
 
 Status: **plan only** (revised 2026-10-12). Findings: `docs/PORTFOLIO_UI_AUDIT.md` (IDs **A-F1…A-F20**, risks **D-R1…D-R10**, questions **Q1–Q7**).
 This revision replaces the 2026-10-11 plan, which was committed in `92a6d6a` and is still in git history. Its issues **#1–#16**, components

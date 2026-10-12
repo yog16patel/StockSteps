@@ -1,9 +1,19 @@
 package org.example.stocksteps.presentation.portfolio
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import org.example.stocksteps.designsystem.icons.StockIcons
+import org.example.stocksteps.theme.StockChartLayout
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -39,9 +49,16 @@ internal fun PortfolioHistorySection(state: PortfolioUiState, requested: String?
     val spacing = StockStepsTheme.spacing
     val history = PortfolioOverviewDisplay.historyState(state, requested)
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        // B.1: a one-line note; the full cash-flow explanation sits behind the ⓘ action (same text as before, never removed).
+        var info by rememberSaveable { mutableStateOf(false) }
         Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Text(PortfolioDisplay.CHART_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
-            Text(PortfolioDisplay.CHART_NOTE, style = typography.caption, color = colors.textSupporting)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(PortfolioDisplay.CHART_TITLE, Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
+                IconButton(onClick = { info = !info }) {
+                    Icon(StockIcons.Info, contentDescription = PortfolioDisplay.CHART_INFO, tint = if (info) colors.primaryText else colors.iconSecondary)
+                }
+            }
+            Text(if (info) PortfolioDisplay.CHART_NOTE else PortfolioDisplay.CHART_NOTE_SHORT, style = typography.caption, color = colors.textSupporting)
         }
         StockPillSelector(PortfolioOverviewDisplay.PERIODS, selected = PortfolioOverviewDisplay.selectedPeriod(state, requested), label = { it }, onSelect = onPeriod)
         when (history) {
@@ -56,8 +73,12 @@ internal fun PortfolioHistorySection(state: PortfolioUiState, requested: String?
             }
             PortfolioHistoryState.LOADED -> {
                 val values = state.history.map { it.totalValue?.toDoubleOrNull() }
-                StockTrendChart(values, state.history.map(PortfolioOverviewDisplay::pointDetail), PortfolioOverviewDisplay.xLabels(state.history),
-                    PortfolioOverviewDisplay.yLabels(state.history), description = PortfolioOverviewDisplay.chartDescription(state))
+                // Plot height from the width it gets (StockChartLayout): compact on phones, taller on wide screens.
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    StockTrendChart(values, state.history.map(PortfolioOverviewDisplay::pointDetail), PortfolioOverviewDisplay.xLabels(state.history),
+                        PortfolioOverviewDisplay.yLabels(state.history), description = PortfolioOverviewDisplay.chartDescription(state),
+                        height = StockChartLayout.height(maxWidth.value).dp)
+                }
                 if (PortfolioOverviewDisplay.hasGaps(state.history)) Text(PortfolioOverviewDisplay.GAPS_NOTE, style = typography.caption, color = colors.textMeta)
             }
             PortfolioHistoryState.FLAT -> Text(PortfolioOverviewDisplay.flatSummary(state).orEmpty(), style = typography.small, color = colors.textBody)

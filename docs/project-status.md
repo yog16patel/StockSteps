@@ -6,7 +6,17 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**Current (2026-10-12, committed and pushed as "Add the Portfolio overview card with on-demand account value history, currency on every metric and the sample selector in the menu (Portfolio Phase B) on Android and iOS", on top of `37d74cd`)**: **Portfolio Phase B (overview card)** (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md`):
+**Current (2026-10-12, committed and pushed as "Polish the Portfolio overview with a short sample banner, a grouped scenario sheet, account labels without repeated currency and AX5 fixes (Portfolio Phase B.1) on Android and iOS", on top of `6041e8f`)**: **Portfolio Phase B.1 polish** (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B1.md`):
+- short sample banner + Details; grouped scenario sheet;
+- currency not repeated in account labels; selected vs all-accounts totals;
+- chart note + ⓘ, width-based chart height;
+- disabled-Add explanation; readable unavailable notice;
+- iOS AX5 and live Dynamic Type fixes.
+
+Verified: core 471/0, shared 156/0 and 152/0, both builds, Android and iPhone 16 device checks (29 captures). NOT RUN: iPhone SE, TalkBack,
+VoiceOver. Phase C not started.
+
+**Earlier (2026-10-12)**: (committed and pushed as "Add the Portfolio overview card with on-demand account value history, currency on every metric and the sample selector in the menu (Portfolio Phase B) on Android and iOS", on top of `37d74cd`)**: **Portfolio Phase B (overview card)** (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md`):
 - one overview card: total, today's change, Account value history with on-demand Show 1M and honest flat/empty/error states, and metrics with
   currency codes;
 - the sample selector moved into ⋯;
@@ -194,6 +204,7 @@ Scheduler (OIDC or the new per-job secrets); push verification; per-IP limits on
 
 | Feature | Commit (title) | Doc | Notes |
 |---|---|---|---|
+| Portfolio Phase B.1 polish (short sample banner, grouped scenario sheet, currency not repeated in account labels, selected/all-accounts totals, chart note + ⓘ, `StockChartLayout`, readable unavailable notice, iOS AX5 and live Dynamic Type fixes) | "Polish the Portfolio overview with a short sample banner, a grouped scenario sheet, account labels without repeated currency and AX5 fixes (Portfolio Phase B.1) on Android and iOS" | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_B1.md` | Shared 156/0, 152/0; captures `docs/design/portfolio_pb1/`. |
 | Portfolio Phase B overview card (on-demand account value history states, currency on every metric, sample selector in ⋯, `PortfolioOverviewDisplay`, `StockLayout.metricRowStacked`) | "Add the Portfolio overview card with on-demand account value history, currency on every metric and the sample selector in the menu (Portfolio Phase B) on Android and iOS" | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md` | Shared 150/0, 146/0; Android captures `docs/design/portfolio_pb/`; iOS data-backed overview NOT RUN. |
 | Portfolio UI audit + P0 account-by-id fix + Phase A (labels, formatted holding amounts, design-system form controls, `PortfolioDisplay`, `PortfolioFormRules`) | "Fix Portfolio account selection by id and add Phase A shared form rules, readable labels, formatted holding amounts and consistent copy on Android and iOS" | `docs/PORTFOLIO_UI_AUDIT.md`, `docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md` | Tests: shared 138/0 (Android), 134/0 (iOS); no device checks. |
 | Financial API Phase 3 implementation (screener re-warm fix, 150-company universe, selective statements, market-/earnings-aware freshness, stale fallback) | `517a46b` "Implement financial API Phase 3: screener re-warm fix, 150-company universe, selective statements, market- and earnings-aware freshness, stale fallback" | `docs/FINANCIAL_API_PHASE3_IMPLEMENTATION.md` | Verified in "Verify financial API Phase 3 with before/after benchmarks and fix earnings-aware statement coverage" (benchmark A–H); per-instance only; no REAL calls. |

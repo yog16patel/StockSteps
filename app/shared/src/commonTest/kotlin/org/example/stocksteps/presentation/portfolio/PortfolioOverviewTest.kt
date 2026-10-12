@@ -130,9 +130,9 @@ class PortfolioOverviewTest {
     @Test
     fun allAccountsLineOnlyWithSeveralAccounts() {
         assertNull(PortfolioOverviewDisplay.of(base.copy(combinedTotal = "5000"), 1).allAccounts)
-        assertEquals("All accounts · CAD\u00A05,000.00", PortfolioOverviewDisplay.of(base.copy(combinedTotal = "5000"), 2).allAccounts)
+        assertEquals("All accounts total · CAD\u00A05,000.00", PortfolioOverviewDisplay.of(base.copy(combinedTotal = "5000"), 2).allAccounts)
         val missing = PortfolioOverviewDisplay.of(base.copy(combinedTotal = null), 3)
-        assertEquals("All accounts · CAD\u00A0—", missing.allAccounts)
+        assertEquals("All accounts total · CAD\u00A0—", missing.allAccounts)
         assertTrue("All accounts total unavailable" in missing.spoken)
     }
 
@@ -141,8 +141,9 @@ class PortfolioOverviewTest {
     fun sampleScenarioIsLabelledAndItsHistoryIsShown() {
         val sample = base.copy(mockAvailable = true, mockScenario = "mixed-currencies", busy = true, history = rising, historyRange = "ALL")
         val o = PortfolioOverviewDisplay.of(sample, 1)
-        assertEquals("Sample · Mixed currencies", o.sampleBadge)
-        assertTrue(o.spoken.startsWith("Read-only sample."))
+        assertEquals("Sample", o.sampleBadge)
+        assertEquals("Scenario: Mixed currencies", o.sampleScenario)
+        assertTrue(o.spoken.startsWith("Read-only sample. Scenario: Mixed currencies."))
         assertEquals(PortfolioHistoryState.LOADED, PortfolioOverviewDisplay.historyState(sample, requested = null))
         assertEquals("ALL", PortfolioOverviewDisplay.selectedPeriod(sample, requested = null))
         assertNull(PortfolioOverviewDisplay.of(base.copy(mockAvailable = true), 1).sampleBadge)

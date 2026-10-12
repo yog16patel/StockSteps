@@ -12,6 +12,8 @@ struct PortfolioHistorySection: View {
     let onPeriod: (String) -> Void
     let onRetry: () -> Void
     @State private var selected: String?
+    @State private var info = false
+    @State private var chartWidth: CGFloat = 0
     @Environment(\.colorScheme) private var scheme
     // Read in body so a live Dynamic Type change re-renders the section (StockStepsTheme.font resolves the current size).
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -46,10 +48,20 @@ struct PortfolioHistorySection: View {
         let history = overview.historyState(state: state, requested: requested)
         let _ = typeSize
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            // B.1: a one-line note; the full cash-flow explanation sits behind the ⓘ action (same text as before, never removed).
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                Text(display.CHART_TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle)
-                    .accessibilityAddTraits(.isHeader)
-                Text(display.CHART_NOTE).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                HStack {
+                    Text(display.CHART_TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle)
+                        .accessibilityAddTraits(.isHeader)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button { info.toggle() } label: {
+                        Image(systemName: info ? "info.circle.fill" : "info.circle").foregroundStyle(info ? colors.primaryText : colors.iconSecondary)
+                            .frame(width: CGFloat(StockStepsTheme.dimensions.touchTarget), height: CGFloat(StockStepsTheme.dimensions.touchTarget))
+                    }
+                    .accessibilityLabel(display.CHART_INFO)
+                    .accessibilityValue(info ? "Expanded" : "Collapsed")
+                }
+                Text(info ? display.CHART_NOTE : display.CHART_NOTE_SHORT).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
             }
             StockPillSelector(options: overview.PERIODS, selected: overview.selectedPeriod(state: state, requested: requested), label: { $0 }, onSelect: onPeriod)
             switch history {
@@ -66,6 +78,7 @@ struct PortfolioHistorySection: View {
                         .foregroundStyle(colors.textPrimary).accessibilityHidden(true)
                 }
                 chart(colors)
+                dateRow(colors)
                 if overview.hasGaps(history: state.history) {
                     Text(overview.GAPS_NOTE).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textMeta)
                 }
@@ -104,29 +117,36 @@ struct PortfolioHistorySection: View {
                 PointMark(x: .value("Date", selected), y: .value("Value", value)).symbolSize(40).foregroundStyle(colors.primary)
             }
         }
-        .frame(height: CGFloat(StockStepsTheme.dimensions.chartHeight))
+        // Plot height from the width it gets (shared StockChartLayout): compact on phones, taller on wide screens.
+        .frame(height: CGFloat(StockChartLayout.shared.height(availableWidth: Float(chartWidth > 0 ? chartWidth : 320))))
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { chartWidth = $0 }
         .chartYScale(domain: yDomain)
+        // Axis labels stay legible but don't take over the plot at AX sizes (capped at xxxLarge, as Comparison does); the values remain in the
+        // selection line and the accessibility label. Dates go below the plot so the first one is never clipped at the leading edge.
         .chartYAxis {
             AxisMarks(position: .trailing, values: [values.max(), values.min()].compactMap { $0 }) { value in
                 AxisValueLabel {
                     if let number = value.as(Double.self), let index = [values.max(), values.min()].firstIndex(of: number), index < yLabels.count {
-                        Text(verbatim: yLabels[index]).font(StockStepsTheme.font(type.tiny, relativeTo: .footnote)).fixedSize()
+                        Text(verbatim: yLabels[index]).font(Font(StockStepsTheme.uiFont(type.tiny, typeSize: min(typeSize, .xxxLarge)))).fixedSize()
                     }
                 }
             }
         }
-        // First and last dates only (as Compose): categorical date labels collide on long ranges.
-        .chartXAxis {
-            AxisMarks(values: [state.history.first?.date, state.history.last?.date].compactMap { $0 }) { value in
-                AxisValueLabel {
-                    if let date = value.as(String.self) {
-                        Text(PortfolioDates.shared.shortDate(value: date)).font(StockStepsTheme.font(type.tiny, relativeTo: .footnote)).fixedSize()
-                    }
-                }
-            }
-        }
+        .chartXAxis(.hidden)
         .chartXSelection(value: $selected)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(overview.chartDescription(state: state))
+    }
+
+    /// First and last short dates under the chart (same labels as Compose `xLabels`); decorative — the chart's label already says them.
+    private func dateRow(_ colors: StockColors) -> some View {
+        let labels = overview.xLabels(history: state.history)
+        return HStack {
+            Text(verbatim: labels.first ?? "").fixedSize()
+            Spacer(minLength: CGFloat(space.sm))
+            Text(verbatim: labels.count > 1 ? labels[1] : "").fixedSize()
+        }
+        .font(Font(StockStepsTheme.uiFont(type.tiny, typeSize: min(typeSize, .xxxLarge)))).foregroundStyle(colors.textTertiary)
+        .accessibilityHidden(true)
     }
 }

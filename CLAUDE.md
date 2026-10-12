@@ -13,10 +13,10 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-12, end of session)
 
-HEAD: "Add the Portfolio overview card with on-demand account value history, currency on every metric and the sample selector in the menu (Portfolio Phase B) on Android and iOS" (pushed), on top of `37d74cd` (Phase A: "Fix Portfolio account selection by id…").
+HEAD: "Polish the Portfolio overview with a short sample banner, a grouped scenario sheet, account labels without repeated currency and AX5 fixes (Portfolio Phase B.1) on Android and iOS" (pushed), on top of `6041e8f` (Phase B; `docs/PORTFOLIO_UI_REFINEMENT_PHASE_B1.md`), which sits on `37d74cd` (Phase A).
 Phase B (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md`): overview card built from shared `PortfolioOverviewDisplay` (history stays on demand; the chart is
 "Account value", never performance; currency code on every metric); metric rows stack via `StockLayout.metricRowStacked`. Next: **Phase C** after approval.
-Read `docs/PROJECT_HANDOFF.md` §PORTFOLIO-PB-2026-10-12 first. Before it: the Portfolio UI audit (`docs/PORTFOLIO_UI_AUDIT.md`), the Phase A–E plan
+Read `docs/PROJECT_HANDOFF.md` §PORTFOLIO-PB1-2026-10-12 first. Sample scenarios are chosen in a grouped sheet (`PortfolioScenarioGroups`); iOS badges never wrap, so keep badge text short. Before it: the Portfolio UI audit (`docs/PORTFOLIO_UI_AUDIT.md`), the Phase A–E plan
 (`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`), the P0 fix (Android form chose the account by name; now by id) and Phase A (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md`).
 iOS overview with data needs a signed-in simulator (MOCK sample scenarios aren't offered to guests); the Firebase CLI for the Auth emulator isn't installed.
 Portfolio forms: accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions`/`resolveAccountId`), field visibility/labels come from

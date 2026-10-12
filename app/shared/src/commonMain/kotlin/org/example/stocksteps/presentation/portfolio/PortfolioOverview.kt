@@ -16,6 +16,8 @@ data class PortfolioOverviewMetric(val label: String, val value: String, val dir
  * new percentage. [today] is null when the server's daily change is unavailable (the card then shows the "Why?" line).
  */
 data class PortfolioOverview(
+    /** "Total value", or "Selected account total" when an all-accounts total is shown next to it. */
+    val totalLabel: String,
     val total: String,
     val totalAvailable: Boolean,
     val today: String?,
@@ -24,7 +26,10 @@ data class PortfolioOverview(
     val metrics: List<PortfolioOverviewMetric>,
     val freshness: String?,
     val notice: String?,
+    /** "Sample" badge text (short: a badge never wraps, so a long scenario name widened the card at AX5 — B.1). */
     val sampleBadge: String?,
+    /** "Scenario: Multiple accounts" — the scenario name as wrappable text under the total label. */
+    val sampleScenario: String?,
     val spoken: String
 )
 
@@ -33,6 +38,9 @@ enum class PortfolioHistoryState { NOT_REQUESTED, LOADING, LOADED, FLAT, INSUFFI
 
 object PortfolioOverviewDisplay {
     const val TOTAL_LABEL = "Total value"
+    /** With several accounts the card's total is the selected account's; the all-accounts total is labelled separately (B.1). */
+    const val SELECTED_TOTAL_LABEL = "Selected account total"
+    const val ALL_ACCOUNTS_LABEL = "All accounts total"
     const val TODAY_LABEL = "Today's change"
     /** The period the compact "Show 1M" action loads (history stays on demand, rule R2). */
     const val SHOW_PERIOD = "1M"
@@ -56,7 +64,8 @@ object PortfolioOverviewDisplay {
         }
         val todayDirection = if (today == null) PriceDirection.UNAVAILABLE else PortfolioPresentation.direction(state.dailyGain)
         // Non-breaking space: at large text the line wraps after "All accounts ·", never between the currency code and its amount.
-        val allAccounts = if (activeAccounts > 1) "All accounts · $currency\u00A0${PortfolioFormat.amount(state.combinedTotal)}" else null
+        val allAccounts = if (activeAccounts > 1) "$ALL_ACCOUNTS_LABEL · $currency\u00A0${PortfolioFormat.amount(state.combinedTotal)}" else null
+        val totalLabel = if (activeAccounts > 1) SELECTED_TOTAL_LABEL else TOTAL_LABEL
         val metrics = listOf(
             PortfolioOverviewMetric("Invested cost", "$currency ${PortfolioFormat.amount(state.basis)}", null,
                 spokenAmount("Invested cost", currency, state.basis, signed = false)),
@@ -65,15 +74,39 @@ object PortfolioOverviewDisplay {
             PortfolioOverviewMetric("Realized P/L", PortfolioPresentation.signedMoney(currency, state.realized),
                 PortfolioPresentation.direction(state.realized), spokenAmount("Realized P/L", currency, state.realized, signed = true))
         )
-        val sample = state.mockScenario?.let { "Sample · ${StockLabels.humanize(it)}" }
+        val sample = state.mockScenario?.let { "Sample" }
+        val scenario = state.mockScenario?.let { "Scenario: ${StockLabels.humanize(it)}" }
         val spoken = listOfNotNull(
-            sample?.let { "Read-only sample" },
-            if (totalAvailable) "$TOTAL_LABEL $total" else "$TOTAL_LABEL unavailable",
+            scenario?.let { "Read-only sample. $it" },
+            if (totalAvailable) "$totalLabel $total" else "$totalLabel unavailable",
             today?.let { "$TODAY_LABEL ${spokenChange(todayDirection, it)}" } ?: PortfolioPresentation.TODAY_UNAVAILABLE,
-            allAccounts?.let { if (PortfolioFormat.amount(state.combinedTotal) == "—") "All accounts total unavailable" else it.replace(" · ", " ").replace('\u00A0', ' ') }
+            allAccounts?.let { if (PortfolioFormat.amount(state.combinedTotal) == "—") "$ALL_ACCOUNTS_LABEL unavailable" else it.replace(" · ", " ").replace('\u00A0', ' ') }
         ).joinToString(". ") + "."
-        return PortfolioOverview(total, totalAvailable, today, todayDirection, allAccounts, metrics, PortfolioPresentation.freshness(state),
-            state.notice, sample, spoken)
+        return PortfolioOverview(totalLabel, total, totalAvailable, today, todayDirection, allAccounts, metrics, PortfolioPresentation.freshness(state),
+            noticeText(state.notice, currency), sample, scenario, spoken)
+    }
+
+    /**
+     * The presenter's "Unavailable: …" notice with the engine's codes in words (B.1; seen on device as "FX:basis:USD:2026-09-01, FX:USD/CAD"):
+     * `FX:USD/CAD` → "USD to CAD exchange rate", `FX:basis:USD:2026-09-01` → "USD to CAD exchange rate on Sep 1, 2026 (for cost)", a ticker →
+     * "AAPL price". Any other text is kept as given — never dropped or guessed.
+     */
+    fun noticeText(notice: String?, reportingCurrency: String): String? {
+        notice ?: return null
+        val prefix = "Unavailable: "
+        if (!notice.startsWith(prefix)) return notice
+        val items = notice.removePrefix(prefix).split(", ").map { code ->
+            val parts = code.split(':')
+            when {
+                parts.size == 2 && parts[0] == "FX" && parts[1].count { it == '/' } == 1 ->
+                    parts[1].split('/').let { (from, to) -> "$from to $to exchange rate" }
+                parts.size == 4 && parts[0] == "FX" && parts[1] == "basis" ->
+                    "${parts[2]} to $reportingCurrency exchange rate on ${PortfolioDates.date(parts[3])} (for cost)"
+                code.isNotBlank() && ':' !in code && ' ' !in code -> "$code price"
+                else -> code
+            }
+        }
+        return prefix + items.joinToString(", ")
     }
 
     /**

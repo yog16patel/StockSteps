@@ -1,6 +1,17 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-12 (America/Toronto). Current commit: **Add the Portfolio overview card with on-demand account value history, currency on every metric and the sample selector in the menu (Portfolio Phase B) on Android and iOS** on `main` (pushed):
+Last updated: 2026-10-12 (America/Toronto). Current commit: **Polish the Portfolio overview with a short sample banner, a grouped scenario sheet, account labels without repeated currency and AX5 fixes (Portfolio Phase B.1) on Android and iOS** on `main` (pushed):
+- Portfolio Phase B.1 (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B1.md`):
+  - short sample banner with Details; grouped scenario sheet;
+  - account labels without the repeated currency; "Selected account total" vs "All accounts total";
+  - one-line chart note with ⓘ; width-based chart height;
+  - an explanation under the disabled Add transaction in samples; readable "Unavailable: …" notice;
+  - iOS AX5 fixes and live Dynamic Type for `StockBanner` / `StockStateMessage` / `StockPriceChange`.
+- Validation: core 471/0 (JVM, iOS), shared 156/0 (Android) and 152/0 (iOS), both builds OK; device checks on Android (light/dark, 1.0/1.3/2.0×) and iPhone 16 (Large/AX5).
+- NOT RUN: iPhone SE, TalkBack, VoiceOver.
+- Next: Phase C after approval.
+
+Previous commit: **Add the Portfolio overview card with on-demand account value history, currency on every metric and the sample selector in the menu (Portfolio Phase B) on Android and iOS** on `main` (pushed):
 - Portfolio Phase B (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md`): one overview card, with total → today's change → Account value history (on demand: Show 1M, loading, loaded, flat, insufficient, empty, error) → metrics with currency codes; "+ Add transaction" below it; MOCK sample scenarios in ⋯.
 - Shared `PortfolioOverviewDisplay` and `StockLayout.metricRowStacked` (no mid-word metric labels at large text).
 - Validation: core 471/0 (JVM, iOS), shared 150/0 (Android) and 146/0 (iOS), `assembleDebug` OK, iOS `xcodebuild` OK; Android emulator captures on local MOCK (`docs/design/portfolio_pb/`).

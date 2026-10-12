@@ -33,6 +33,8 @@ struct PortfolioScreen: View {
     @State private var showDailyReason = false
     /// The period chosen on this screen (nil = none yet): history stays on demand, so the card can tell "not requested" from "no values".
     @State private var requestedPeriod: String?
+    @State private var sampleDetails = false
+    @State private var choosingScenario = false
     @State private var rowWidth: CGFloat = 0
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -73,6 +75,12 @@ struct PortfolioScreen: View {
         .background(colors.appBackground.ignoresSafeArea())
         .refreshable { onRefresh() }
         .sheet(isPresented: $showAbout) { if let state { aboutSheet(state) } }
+        .sheet(isPresented: $choosingScenario) {
+            PortfolioScenarioSheet(selected: state?.mockScenario ?? Self.savedAccounts) { id in
+                choosingScenario = false
+                onScenario(id == Self.savedAccounts ? nil : id)
+            }
+        }
         .confirmationDialog(deleteAccount.map { display.deleteAccountTitle(name: $0.name) } ?? display.DELETE, isPresented: Binding(get: { deleteAccount != nil }, set: { if !$0 { deleteAccount = nil } }), titleVisibility: .visible) {
             Button(display.DELETE, role: .destructive) { if let account = deleteAccount { onDeleteAccount(account.id) }; deleteAccount = nil }
         } message: { Text(display.DELETE_ACCOUNT_MESSAGE) }
@@ -99,13 +107,9 @@ struct PortfolioScreen: View {
                         Button("Account settings", systemImage: "gearshape") { onEditAccount(account) }
                         Button("Delete account…", systemImage: "trash", role: .destructive) { deleteAccount = account }
                     }
-                    // MOCK only: sample scenarios moved here from the top of the screen (same presenter call).
+                    // MOCK only: one entry opening the grouped scenario sheet (B.1 — the inline list ran past the screen).
                     if state.mockAvailable {
-                        Picker(display.SAMPLE_SCENARIO, selection: Binding(get: { state.mockScenario ?? Self.savedAccounts },
-                                                                           set: { value in onScenario(value == Self.savedAccounts ? nil : value) })) {
-                            ForEach([Self.savedAccounts] + PortfolioFixtureCatalog.shared.ids, id: \.self) { Text(display.scenarioLabel(id: $0)).tag($0) }
-                        }
-                        .pickerStyle(.menu)
+                        Button(display.SCENARIO_MENU, systemImage: "square.stack.3d.up") { choosingScenario = true }
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle").foregroundStyle(colors.iconSecondary)
@@ -118,7 +122,11 @@ struct PortfolioScreen: View {
     /// Sample scenario, loading, sync errors, offline and sign-in — compact, above the numbers they qualify.
     @ViewBuilder private func status(_ state: PortfolioUiState) -> some View {
         // The scenario is chosen in the ⋯ menu; while one is shown this read-only banner stays visible (never collapsed).
-        if state.mockScenario != nil { StockBanner(kind: .sample, message: display.SAMPLE_BANNER) }
+        // B.1: one short line; the full explanation is one tap away (never collapsed away entirely).
+        if state.mockScenario != nil {
+            StockBanner(kind: .sample, message: sampleDetails ? "\(display.SAMPLE_SHORT) \(display.SAMPLE_BANNER)" : display.SAMPLE_SHORT,
+                        actionTitle: sampleDetails ? display.SAMPLE_HIDE : display.SAMPLE_DETAILS, action: { sampleDetails.toggle() })
+        }
         if state.loading { ProgressView(display.LOADING).frame(maxWidth: .infinity) }
         // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
         if state.error != nil || state.offline {
@@ -135,7 +143,13 @@ struct PortfolioScreen: View {
         if holdingSymbol == nil {
             overviewCard(state, active: active, colors: colors)
             // Outside the overview so the total stays next to its history.
-            Button(action: onAdd) { Text("+ Add transaction").frame(maxWidth: .infinity) }.buttonStyle(.stockPrimary).disabled(state.busy)
+            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                Button(action: onAdd) { Text("+ Add transaction").frame(maxWidth: .infinity) }.buttonStyle(.stockPrimary).disabled(state.busy)
+                // Samples are read-only (the presenter rejects changes); say why the action is off instead of a silent grey button.
+                if state.mockScenario != nil {
+                    Text(display.ADD_DISABLED_SAMPLE).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                }
+            }
         }
         let rows = state.holdings.filter { holdingSymbol == nil || $0.symbol == holdingSymbol }
         sectionTitle(holdingSymbol == nil && !rows.isEmpty ? "Holdings (\(rows.count))" : "Holdings", colors)
@@ -221,29 +235,35 @@ struct PortfolioScreen: View {
     /// "Personal · CAD ▾" with a menu of accounts (name, type, currency) and "+ Add".
     private func accountSelector(_ state: PortfolioUiState, active: [PortfolioAccount], colors: StockColors) -> some View {
         let selected = active.first { $0.id == state.selectedAccountId }
-        return HStack(spacing: CGFloat(space.sm)) {
-            Menu {
-                ForEach(active, id: \.id) { account in
-                    Button { onSelect(account.id) } label: {
-                        if account.id == selected?.id { Label(present.accountLabel(account: account), systemImage: "checkmark") }
-                        else { Text(present.accountLabel(account: account)) }
-                        Text(present.accountDetail(account: account))
-                    }
+        let menu = Menu {
+            ForEach(active, id: \.id) { account in
+                Button { onSelect(account.id) } label: {
+                    if account.id == selected?.id { Label(present.accountLabel(account: account), systemImage: "checkmark") }
+                    else { Text(present.accountLabel(account: account)) }
+                    Text(present.accountDetail(account: account))
                 }
-            } label: {
-                HStack(spacing: CGFloat(space.sm)) {
-                    Text(selected.map { present.accountLabel(account: $0) } ?? "Choose an account")
-                        .font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).lineLimit(2).multilineTextAlignment(.leading)
-                    Image(systemName: "chevron.down").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.iconSecondary)
-                }
-                .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.sm)).frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
-                .background(colors.surface, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.button)))
             }
-            .accessibilityLabel("Account: \(selected.map { present.accountLabel(account: $0) } ?? "none")")
-            .accessibilityHint("Change account")
-            Spacer(minLength: 0)
-            Button("+ Add", action: onAddAccount).buttonStyle(.stockSecondary).disabled(!state.signedIn || state.busy)
-                .accessibilityLabel("Add account")
+        } label: {
+            HStack(spacing: CGFloat(space.sm)) {
+                Text(selected.map { present.accountLabel(account: $0) } ?? "Choose an account")
+                    .font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Image(systemName: "chevron.down").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.iconSecondary)
+            }
+            .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.sm)).frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
+            .background(colors.surface, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.button)))
+        }
+        .accessibilityLabel("Account: \(selected.map { present.accountLabel(account: $0) } ?? "none")")
+        .accessibilityHint("Change account")
+        let add = Button("+ Add", action: onAddAccount).buttonStyle(.stockSecondary).disabled(!state.signedIn || state.busy)
+            .accessibilityLabel("Add account")
+        // B.1: at accessibility sizes "+ Add" moves under the selector — side by side it squeezed the name to "Pers / on…" at AX5.
+        return Group {
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: CGFloat(space.xs)) { menu; add }
+            } else {
+                HStack(spacing: CGFloat(space.sm)) { menu; Spacer(minLength: 0); add }
+            }
         }
     }
 
@@ -282,9 +302,12 @@ struct PortfolioScreen: View {
         let labels = PortfolioOverviewDisplay.shared
         VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
             StockTitleWithBadge {
-                Text(labels.TOTAL_LABEL).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                Text(overview.totalLabel).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
             } badge: {
                 if let badge = overview.sampleBadge { StockStatusBadge(text: badge, kind: .sample, size: .compact) }
+            }
+            if let scenario = overview.sampleScenario {
+                Text(scenario).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
             }
             Text(overview.total).font(StockStepsTheme.font(type.largeNumber, relativeTo: .title1)).foregroundStyle(colors.textValue)
                 .fixedSize(horizontal: false, vertical: true)
@@ -430,3 +453,39 @@ struct PortfolioScreen: View {
     }
 }
 
+/// MOCK sample scenarios grouped by what they show (Portfolio B.1, `PortfolioScenarioGroups`), opened from the ⋯ menu; mirrors the Compose
+/// `PortfolioScenarioSheet`. The active one is checked and announced as selected.
+struct PortfolioScenarioSheet: View {
+    let selected: String
+    let onSelect: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
+    private let display = PortfolioDisplay.shared
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        NavigationStack {
+            List {
+                Section { Text(display.SCENARIO_NOTE).font(StockStepsTheme.font(StockStepsTheme.typography.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting) }
+                ForEach(PortfolioScenarioGroups.shared.groups(ids: PortfolioFixtureCatalog.shared.ids), id: \.title) { group in
+                    Section(group.title) {
+                        ForEach(group.ids, id: \.self) { id in
+                            Button { onSelect(id) } label: {
+                                HStack {
+                                    Text(display.scenarioLabel(id: id)).foregroundStyle(id == selected ? colors.primaryText : colors.textBody)
+                                    Spacer()
+                                    if id == selected { Image(systemName: "checkmark").foregroundStyle(colors.primaryText).accessibilityHidden(true) }
+                                }
+                                .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
+                                .contentShape(Rectangle())
+                            }
+                            .accessibilityAddTraits(id == selected ? [.isSelected] : [])
+                        }
+                    }
+                }
+            }
+            .navigationTitle(display.SAMPLE_SCENARIO).navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(display.SCENARIO_DONE) { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}

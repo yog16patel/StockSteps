@@ -2,6 +2,7 @@ package org.example.stocksteps.presentation.portfolio
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -67,6 +68,8 @@ internal fun PortfolioScreen(
     var allTransactions by remember { mutableStateOf(false) }
     // The period the user chose here (null = none yet): history stays on demand, so the card can tell "not requested" from "no values".
     var requestedPeriod by rememberSaveable { mutableStateOf<String?>(null) }
+    var sampleDetails by rememberSaveable { mutableStateOf(false) }
+    var choosingScenario by remember { mutableStateOf(false) }
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -89,8 +92,7 @@ internal fun PortfolioScreen(
                     PortfolioOverflowMenu(
                         account = selectedAccount, busy = state.busy, onRefresh = onRefresh,
                         onSettings = { editingAccount = it; accountEditor = true }, onDelete = { deletingAccount = it },
-                        scenarios = if (state.mockAvailable) listOf(SAVED_ACCOUNTS) + PortfolioFixtureCatalog.ids else emptyList(),
-                        scenario = state.mockScenario ?: SAVED_ACCOUNTS, onScenario = { onScenario(it.takeUnless { it == SAVED_ACCOUNTS }) })
+                        onChooseScenario = if (state.mockAvailable) ({ choosingScenario = true }) else null)
                 }
             }
         }
@@ -103,7 +105,11 @@ internal fun PortfolioScreen(
         }
         // Status: sample, loading, sync errors, offline and sign-in — compact, above the numbers they qualify. The sample scenario is chosen in
         // the ⋯ menu (MOCK builds only); while one is shown, this read-only banner stays visible (never collapsed).
-        if (state.mockScenario != null) item { StockBanner(StockBannerKind.SAMPLE, PortfolioDisplay.SAMPLE_BANNER) }
+        // B.1: one short line; the full explanation is one tap away (never collapsed away entirely).
+        if (state.mockScenario != null) item {
+            StockBanner(StockBannerKind.SAMPLE, if (sampleDetails) "${PortfolioDisplay.SAMPLE_SHORT} ${PortfolioDisplay.SAMPLE_BANNER}" else PortfolioDisplay.SAMPLE_SHORT,
+                actionText = if (sampleDetails) PortfolioDisplay.SAMPLE_HIDE else PortfolioDisplay.SAMPLE_DETAILS, onAction = { sampleDetails = !sampleDetails })
+        }
         if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
         if (state.error != null || state.offline) item {
@@ -135,7 +141,11 @@ internal fun PortfolioScreen(
                 }
                 // Outside the overview so the total stays next to its history.
                 item {
-                    StockButton("+ Add transaction", onAdd, Modifier.fillMaxWidth(), enabled = !state.busy)
+                    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        StockButton("+ Add transaction", onAdd, Modifier.fillMaxWidth(), enabled = !state.busy)
+                        // Samples are read-only (the presenter rejects changes); say why the action is off instead of a silent grey button.
+                        if (state.mockScenario != null) Text(PortfolioDisplay.ADD_DISABLED_SAMPLE, style = typography.caption, color = colors.textSupporting)
+                    }
                 }
             }
             val rows = state.holdings.filter { holdingSymbol == null || it.symbol == holdingSymbol }
@@ -206,6 +216,10 @@ internal fun PortfolioScreen(
         }
     }
     if (showAbout) PortfolioAboutDialog(state) { showAbout = false }
+    if (choosingScenario) PortfolioScenarioSheet(state.mockScenario ?: SAVED_ACCOUNTS, onDismiss = { choosingScenario = false }) {
+        choosingScenario = false
+        onScenario(it.takeUnless { it == SAVED_ACCOUNTS })
+    }
     if (accountEditor) PortfolioAccountDialog(editingAccount, onDismiss = { accountEditor = false }, onSave = { onSaveAccount(it); accountEditor = false })
     deletingAccount?.let { account ->
         AlertDialog(onDismissRequest = { deletingAccount = null }, title = { Text(PortfolioDisplay.deleteAccountTitle(account.name)) },
@@ -253,7 +267,7 @@ private fun PortfolioSectionTitle(title: String) {
 /** Account settings, refresh and delete — low-frequency actions kept out of the dashboard. */
 @Composable
 private fun PortfolioOverflowMenu(account: PortfolioAccount?, busy: Boolean, onRefresh: () -> Unit, onSettings: (PortfolioAccount) -> Unit, onDelete: (PortfolioAccount) -> Unit,
-                                  scenarios: List<String> = emptyList(), scenario: String = "", onScenario: (String) -> Unit = {}) {
+                                  onChooseScenario: (() -> Unit)? = null) {
     var open by remember { mutableStateOf(false) }
     val colors = StockStepsTheme.colors
     Box {
@@ -264,15 +278,10 @@ private fun PortfolioOverflowMenu(account: PortfolioAccount?, busy: Boolean, onR
                 DropdownMenuItem(text = { Text("Account settings") }, onClick = { open = false; onSettings(account) })
                 DropdownMenuItem(text = { Text("Delete account…", color = colors.negativeText) }, onClick = { open = false; onDelete(account) })
             }
-            // MOCK only: sample scenarios replace the old select field at the top of the screen (same presenter call).
-            if (scenarios.isNotEmpty()) {
+            // MOCK only: one entry opening the grouped scenario sheet (B.1 — the inline list ran past the screen).
+            if (onChooseScenario != null) {
                 HorizontalDivider()
-                Text(PortfolioDisplay.SAMPLE_SCENARIO, Modifier.padding(horizontal = StockStepsTheme.spacing.md, vertical = StockStepsTheme.spacing.xs)
-                    .semantics { heading() }, style = StockStepsTheme.typography.label, color = colors.textSupporting)
-                scenarios.forEach { option ->
-                    DropdownMenuItem(text = { Text(PortfolioDisplay.scenarioLabel(option)) }, onClick = { open = false; onScenario(option) },
-                        trailingIcon = if (option == scenario) ({ Icon(StockIcons.Check, contentDescription = "Selected", tint = colors.primaryText) }) else null)
-                }
+                DropdownMenuItem(text = { Text(PortfolioDisplay.SCENARIO_MENU) }, onClick = { open = false; onChooseScenario() })
             }
         }
     }
@@ -334,8 +343,9 @@ private fun PortfolioOverviewCard(state: PortfolioUiState, accountCount: Int, re
         val summary = if (overview.today != null) Modifier.clearAndSetSemantics { contentDescription = overview.spoken } else Modifier
         Column(summary, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                StockTitleWithBadge(title = { Text(PortfolioOverviewDisplay.TOTAL_LABEL, style = typography.label, color = colors.textSupporting) },
+                StockTitleWithBadge(title = { Text(overview.totalLabel, style = typography.label, color = colors.textSupporting) },
                     badge = { overview.sampleBadge?.let { StockStatusBadge(it, StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT) } })
+                overview.sampleScenario?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
                 Text(overview.total, style = typography.largeNumber, color = colors.textValue)
             }
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
@@ -486,4 +496,42 @@ private fun PortfolioAboutDialog(state: PortfolioUiState, onDismiss: () -> Unit)
                 ).forEach { Text(it, style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textBody) }
             }
         })
+}
+
+/**
+ * MOCK sample scenarios grouped by what they show (Portfolio B.1, `PortfolioScenarioGroups`), opened from the ⋯ menu. The active one is
+ * checked and announced as selected; choosing one closes the sheet and calls the same presenter action as before.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PortfolioScenarioSheet(selected: String, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
+    val colors = StockStepsTheme.colors
+    val spacing = StockStepsTheme.spacing
+    val typography = StockStepsTheme.typography
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = colors.surface) {
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, bottom = spacing.xxl)) {
+            item {
+                Column(Modifier.padding(bottom = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                    Text(PortfolioDisplay.SAMPLE_SCENARIO, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textTitle)
+                    Text(PortfolioDisplay.SCENARIO_NOTE, style = typography.small, color = colors.textSupporting)
+                }
+            }
+            PortfolioScenarioGroups.groups(PortfolioFixtureCatalog.ids).forEach { group ->
+                item {
+                    Text(group.title, Modifier.padding(top = spacing.md, bottom = spacing.xxs).semantics { heading() }, style = typography.label,
+                        color = colors.textSupporting)
+                }
+                items(group.ids) { id ->
+                    val active = id == selected
+                    Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
+                        .selectable(active, role = Role.RadioButton) { onSelect(id) }.padding(vertical = spacing.xs),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        Text(PortfolioDisplay.scenarioLabel(id), Modifier.weight(1f), style = if (active) typography.bodySemiBold else typography.body,
+                            color = if (active) colors.primaryText else colors.textBody)
+                        if (active) Icon(StockIcons.Check, contentDescription = null, tint = colors.primaryText)
+                    }
+                }
+            }
+        }
+    }
 }

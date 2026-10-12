@@ -210,7 +210,10 @@ struct StockStateMessage: View {
     var action: (() -> Void)?
     /// Spoken form of `title` when the visible one is shortened ("This watchlist is empty" read as "Tech is empty", Phase 5A.1).
     var titleAccessibilityLabel: String? = nil
+    /// Re-render on live Dynamic Type changes (Portfolio B.1; same fix as `StockButtonBody`).
+    @Environment(\.dynamicTypeSize) private var liveTypeSize
     var body: some View {
+        let _ = liveTypeSize
         let colors = StockStepsTheme.colors(scheme)
         VStack(spacing: CGFloat(space.sm)) {
             if let systemImage {

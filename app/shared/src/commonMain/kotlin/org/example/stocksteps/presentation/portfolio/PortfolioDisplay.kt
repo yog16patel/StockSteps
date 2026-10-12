@@ -22,7 +22,17 @@ object PortfolioDisplay {
     const val SAVED_ACCOUNTS = "My saved accounts"
     /** Menu text for a scenario id ("mixed-currencies" → "Mixed currencies"); the saved-accounts option stays as written. */
     fun scenarioLabel(id: String): String = if (id == SAVED_ACCOUNTS) id else org.example.stocksteps.designsystem.StockLabels.humanize(id)
-    const val SAMPLE_BANNER = "Read-only sample. Your saved accounts and watchlists stay unchanged; switch to My saved accounts to make changes."
+    /** Always-visible sample line (B.1); [SAMPLE_BANNER] is the full explanation behind [SAMPLE_DETAILS]. */
+    const val SAMPLE_SHORT = "Read-only sample portfolio. Changes can't be saved."
+    const val SAMPLE_DETAILS = "Details"
+    const val SAMPLE_HIDE = "Hide details"
+    const val SCENARIO_MENU = "Sample scenario…"
+    const val SCENARIO_NOTE = "Read-only practice data from the mock backend. Your saved accounts and watchlists are never changed."
+    const val SCENARIO_DONE = "Done"
+    /** Shown under the disabled "Add transaction" while a sample is open. */
+    const val ADD_DISABLED_SAMPLE = "Sample portfolios are read-only. Switch to My saved accounts to add a transaction."
+    /** The details behind [SAMPLE_SHORT] (shown after it, so it doesn't repeat "read-only"). */
+    const val SAMPLE_BANNER = "Your saved accounts and watchlists stay unchanged; switch to My saved accounts to make changes."
 
     // Status.
     const val LOADING = "Loading portfolio"
@@ -44,6 +54,9 @@ object PortfolioDisplay {
      * what is drawn and the note says where deposit-adjusted returns are.
      */
     const val CHART_TITLE = "Account value"
+    /** Always-visible chart line (B.1); [CHART_NOTE] is the full explanation behind the ⓘ action [CHART_INFO]. */
+    const val CHART_NOTE_SHORT = "Includes deposits and withdrawals."
+    const val CHART_INFO = "About account value"
     const val CHART_NOTE = "Includes cash, deposits and withdrawals, so a rise isn't always a gain. Returns that leave out deposits are in Portfolio insights (StockSteps+)."
     const val CHART_EMPTY_TITLE = "No account value history shown"
     const val CHART_EMPTY_MESSAGE = "Choose a period to load dated values."
@@ -84,4 +97,28 @@ object PortfolioDisplay {
     const val DELETE_TRANSACTION_TITLE = "Delete transaction?"
     const val DELETE_TRANSACTION_MESSAGE = "Balances will be recalculated. Deletion is rejected if a later sale would exceed your shares."
     const val DELETE = "Delete"
+}
+
+/** A titled group of sample scenario ids for the scenario picker. */
+data class PortfolioScenarioGroup(val title: String, val ids: List<String>)
+
+/**
+ * Groups the MOCK sample scenarios for the picker sheet (Portfolio B.1). "Your portfolio" (saved accounts) comes first; known ids are grouped by
+ * what they demonstrate, in catalogue order; any id not listed here lands in "Other" so a new fixture is never hidden.
+ */
+object PortfolioScenarioGroups {
+    private val known = listOf(
+        "Accounts" to listOf("no-portfolios", "one-cad", "multiple-accounts", "empty-account", "account-switch"),
+        "Trades and holdings" to listOf("fractional-shares", "multiple-buys", "partial-sale", "complete-sale", "watched-and-owned"),
+        "Income and cash" to listOf("dividend", "dividend-reinvestment", "cash-flows"),
+        "Currencies" to listOf("mixed-currencies", "missing-fx"),
+        "Missing or delayed data" to listOf("missing-history", "stale-quote", "partial-failure")
+    )
+
+    fun groups(ids: List<String>): List<PortfolioScenarioGroup> {
+        val listed = known.flatMap { it.second }.toSet()
+        return listOf(PortfolioScenarioGroup("Your portfolio", listOf(PortfolioDisplay.SAVED_ACCOUNTS))) +
+            known.map { (title, members) -> PortfolioScenarioGroup(title, ids.filter { it in members }) }.filter { it.ids.isNotEmpty() } +
+            listOf(PortfolioScenarioGroup("Other", ids.filter { it !in listed && it != PortfolioDisplay.SAVED_ACCOUNTS })).filter { it.ids.isNotEmpty() }
+    }
 }

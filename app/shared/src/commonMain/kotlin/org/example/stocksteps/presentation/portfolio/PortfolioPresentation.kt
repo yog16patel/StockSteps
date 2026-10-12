@@ -43,8 +43,15 @@ object PortfolioPresentation {
         TransactionType.STOCK_SPLIT -> "Stock split"
     }
 
-    /** Account selector text: "Personal · CAD". */
-    fun accountLabel(account: PortfolioAccount): String = "${account.name} · ${account.reportingCurrency.name}"
+    /**
+     * Account selector text: "Personal · CAD". When the name already says the reporting currency ("TFSA CAD") it isn't repeated ("TFSA CAD",
+     * not "TFSA CAD · CAD"); a name naming another currency keeps both ("US savings USD · CAD").
+     */
+    fun accountLabel(account: PortfolioAccount): String {
+        val code = account.reportingCurrency.name
+        val named = account.name.split(' ', '-', '(', ')', '·', '/', ',').any { it.equals(code, ignoreCase = true) }
+        return if (named) account.name else "${account.name} · $code"
+    }
 
     /** Menu / settings detail: "TFSA · reports in CAD". */
     fun accountDetail(account: PortfolioAccount): String = "${categoryLabel(account.category)} · reports in ${account.reportingCurrency.name}"

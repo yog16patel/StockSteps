@@ -146,7 +146,7 @@ class PortfolioPresentationTest {
     @Test
     fun sharedCopyKeepsDisclosuresAndAvoidsAdvice() {
         // Sample copy says it's read-only and that saved data is untouched; the chart copy says it isn't a return (A-F6, A-F18).
-        assertTrue("Read-only" in PortfolioDisplay.SAMPLE_BANNER && "stay unchanged" in PortfolioDisplay.SAMPLE_BANNER)
+        assertTrue("Read-only" in PortfolioDisplay.SAMPLE_SHORT && "stay unchanged" in PortfolioDisplay.SAMPLE_BANNER)
         assertTrue("deposits" in PortfolioDisplay.CHART_NOTE && "StockSteps+" in PortfolioDisplay.CHART_NOTE)
         assertEquals("Account value", PortfolioDisplay.CHART_TITLE)
         assertEquals("Portfolio insights", PortfolioDisplay.INSIGHTS_TITLE)

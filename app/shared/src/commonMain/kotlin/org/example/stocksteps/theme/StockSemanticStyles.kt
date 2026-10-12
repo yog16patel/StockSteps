@@ -202,3 +202,13 @@ object StockHeadingFit {
         return if (longestWord <= 0f || longestWord <= room) 1f else (room / longestWord).coerceAtLeast(minimum)
     }
 }
+
+/**
+ * Chart plot height from the width it gets (Portfolio B.1): about 0.45 × width, between 120 and 200 dp/pt — compact on a 360 dp phone,
+ * taller on wide screens. Font scale doesn't change it: axis labels sit beside and below the plot, so larger text never squeezes the line.
+ */
+object StockChartLayout {
+    const val MIN_HEIGHT = 120f
+    const val MAX_HEIGHT = 200f
+    fun height(availableWidth: Float): Float = (availableWidth * 0.45f).coerceIn(MIN_HEIGHT, MAX_HEIGHT)
+}

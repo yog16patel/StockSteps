@@ -1,9 +1,35 @@
-# StockSteps — session handoff (2026-10-12: Portfolio Phase B overview card committed and pushed on top of Phase A `37d74cd`; next = Phase C after approval)
+# StockSteps — session handoff (2026-10-12: Portfolio Phase B.1 polish committed and pushed on top of Phase B `6041e8f`; next = Phase C after approval)
 
-Read order for a new session: `CLAUDE.md` → **§PORTFOLIO-PB-2026-10-12 below** → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PORTFOLIO-PB1-2026-10-12 below** → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PORTFOLIO-PB1-2026-10-12. Portfolio Phase B.1 polish — START HERE (committed and pushed)
+
+- Repository: `main`. Current commit: **"Polish the Portfolio overview with a short sample banner, a grouped scenario sheet, account labels without repeated currency and AX5 fixes (Portfolio Phase B.1) on Android and iOS"** (pushed), on top of `6041e8f` (Phase B). Working tree clean after it.
+- Done (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B1.md`):
+  - short sample banner with Details;
+  - grouped, scrollable scenario sheet from ⋯ (`PortfolioScenarioGroups`);
+  - account labels without the repeated currency;
+  - "Selected account total" vs "All accounts total";
+  - one-line chart note with ⓘ;
+  - width-based chart height (`StockChartLayout`);
+  - an explanation under the disabled Add transaction in samples;
+  - readable "Unavailable: …" notice;
+  - iOS AX5 fixes: account selector stacking, short badge + scenario caption, capped axis labels with dates under the plot;
+  - live Dynamic Type for iOS `StockBanner` / `StockStateMessage` / `StockPriceChange`.
+- Validation:
+  - core 471/0 (JVM, iOS), shared 156/0 (Android) and 152/0 (iOS);
+  - `assembleDebug` OK;
+  - iOS `xcodebuild` OK;
+  - device checks on Android 360 dp (light/dark, 1.0/1.3/2.0×) and iPhone 16 (Large/AX5 live, light/dark, data-backed via the cached test
+    session): 29 captures in `docs/design/portfolio_pb1/`.
+- **NOT RUN:** iPhone SE, TalkBack, VoiceOver, physical devices.
+- Auth emulator: started from `firebase/node_modules` (already present); a throwaway `@example.test` account was created but not needed. No
+  credentials were typed into the app.
+- Devices restored; MOCK and the emulator are stopped. The iPhone 16 keeps the ad-hoc MOCK build.
+- Next: Phase C after approval (D3, Q6; Q1/Q3/Q4 open); commit only on request.
 
 ## PORTFOLIO-PB-2026-10-12. Portfolio Phase B overview card — START HERE (committed and pushed)
 

@@ -78,7 +78,10 @@ struct StockBanner: View {
     var actionTitle: String?
     var action: (() -> Void)?
     var onDismiss: (() -> Void)?
+    /// Re-render on live Dynamic Type changes: fonts are resolved when the body runs (Portfolio B.1; same fix as `StockButtonBody`).
+    @Environment(\.dynamicTypeSize) private var liveTypeSize
     var body: some View {
+        let _ = liveTypeSize
         let colors = StockStepsTheme.colors(scheme)
         let tone = StockSemanticStyles.shared.banner(kind: kind, p: StockStepsTheme.palette(scheme))
         let c = StockStepsTheme.color
