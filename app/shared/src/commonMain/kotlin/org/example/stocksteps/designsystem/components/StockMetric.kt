@@ -86,16 +86,32 @@ internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = 
         }?.let { with(density) { it.toDp().value } } ?: 0f
         val columns = StockLayout.metricColumns(items.size, maxWidth.value, density.fontScale, maxColumns, widest, StockStepsTheme.spacing.md.value)
         if (rowsWhenNarrow && columns < minOf(items.size, maxColumns)) {
+            val rowValueStyle = StockStepsTheme.typography.numberMedium
+            val available = maxWidth.value
+            val gap = StockStepsTheme.spacing.md
             Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
                 items.forEach { item ->
-                    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {
-                        Text(item.label, Modifier.weight(1f), style = StockStepsTheme.typography.label, color = StockStepsTheme.colors.textSecondary)
-                        if (item.direction != null && item.direction != PriceDirection.UNAVAILABLE) {
-                            StockPriceChange(item.value, item.direction, style = StockStepsTheme.typography.numberMedium, maxLines = Int.MAX_VALUE)
+                    val hasDirection = item.direction != null && item.direction != PriceDirection.UNAVAILABLE
+                    val value: @Composable () -> Unit = {
+                        if (hasDirection) {
+                            StockPriceChange(item.value, item.direction!!, style = rowValueStyle, maxLines = Int.MAX_VALUE)
                         } else {
-                            Text(item.value, style = StockStepsTheme.typography.numberMedium, color = StockStepsTheme.colors.textPrimary, textAlign = TextAlign.End)
+                            Text(item.value, style = rowValueStyle, color = StockStepsTheme.colors.textPrimary, textAlign = TextAlign.End)
                         }
+                    }
+                    // Stack only when the label's longest word and the value can't share the line (StockLayout.metricRowStacked).
+                    val word = item.label.split(' ').maxOfOrNull { measurer.measure(it, labelStyle).size.width } ?: 0
+                    val valueWidth = measurer.measure((if (hasDirection) "↑\u00A0" else "") + item.value, rowValueStyle).size.width
+                    val stacked = with(density) { StockLayout.metricRowStacked(word.toDp().value, valueWidth.toDp().value, available, gap.value) }
+                    if (stacked) {
+                        Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+                            Text(item.label, style = labelStyle, color = StockStepsTheme.colors.textSecondary)
+                            value()
+                        }
+                    } else Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        Text(item.label, Modifier.weight(1f), style = labelStyle, color = StockStepsTheme.colors.textSecondary)
+                        value()
                     }
                 }
             }

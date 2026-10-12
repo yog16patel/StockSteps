@@ -4,17 +4,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import org.example.stocksteps.designsystem.components.StockCard
-import org.example.stocksteps.designsystem.components.StockIconTile
+import org.example.stocksteps.designsystem.components.StockButton
+import org.example.stocksteps.designsystem.components.StockButtonVariant
 import org.example.stocksteps.designsystem.components.StockPillSelector
 import org.example.stocksteps.designsystem.components.StockTrendChart
-import org.example.stocksteps.designsystem.icons.StockIcons
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
-import org.example.stocksteps.portfolio.PortfolioFormat
 import org.example.stocksteps.portfolio.PortfolioUiState
 import org.example.stocksteps.portfolio.PortfolioValuation
 
@@ -29,40 +27,46 @@ object PortfolioChartRules {
 internal val PORTFOLIO_RANGES = listOf("1D", "1W", "1M", "3M", "1Y", "ALL")
 
 /**
- * Account value card (Phase 3; titled "Account value" since Portfolio Phase A — it plots value incl. cash and deposits, not a return): period pills, the dated account-value chart (cash included, missing observations drawn as
- * gaps — never interpolated) or a compact empty state. History loads only when a period is chosen, so no pill looks selected until
- * dated values are loading or shown; the disclosure stays one line.
+ * Account value history inside the overview card (Portfolio Phase B): heading + one-line note, period pills, then exactly one state from
+ * [PortfolioOverviewDisplay.historyState] — "Show 1M" before any request (history stays on demand), loading, the chart (missing values are
+ * gaps, high/low labels from exact decimals), a flat or single-value summary instead of a misleading line, empty, or an error with Retry.
+ * It plots account value including cash and deposits — never labelled as investment performance.
  */
 @Composable
-internal fun PortfolioPerformanceCard(state: PortfolioUiState, onRange: (String) -> Unit) {
+internal fun PortfolioHistorySection(state: PortfolioUiState, requested: String?, onPeriod: (String) -> Unit, onRetry: () -> Unit) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
-    val active = state.history.isNotEmpty() || state.historyLoading
-    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        Text(PortfolioDisplay.CHART_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
-        Text(PortfolioDisplay.CHART_NOTE, style = typography.caption, color = colors.textSupporting)
-        StockPillSelector(PORTFOLIO_RANGES, selected = if (active) state.historyRange else "", label = { it }, onSelect = onRange)
-        if (state.historyLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        if (state.history.isEmpty()) {
-            if (!state.historyLoading) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
-                StockIconTile(StockIcons.TrendingUp, colors.surfaceSecondary, colors.iconSecondary)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                    Text(PortfolioDisplay.CHART_EMPTY_TITLE, style = typography.bodySemiBold, color = colors.textTitle)
-                    Text(PortfolioDisplay.CHART_EMPTY_MESSAGE, style = typography.small, color = colors.textSupporting)
-                }
-            }
-        } else if (PortfolioChartRules.drawable(state.history.map { it.totalValue })) {
-            val values = state.history.map { it.totalValue?.toDoubleOrNull() }
-            val details = state.history.map { "${PortfolioDates.date(it.date)} · ${it.currency.name} ${it.totalValue?.let(PortfolioFormat::amount) ?: "Unavailable"}" }
-            StockTrendChart(values, details, listOf(PortfolioDates.shortDate(state.history.first().date), PortfolioDates.shortDate(state.history.last().date)), emptyList(),
-                description = PortfolioDisplay.chartDescription(state.currency, details.first(), details.last()))
-        } else {
-            // Fewer than two dated values: a line chart would be an almost empty box, so state the one value instead.
-            val latest = state.history.lastOrNull { it.totalValue != null }
-            Text(latest?.let { "Only one dated value so far: ${PortfolioDates.date(it.date)} · ${it.currency.name} ${PortfolioFormat.amount(it.totalValue)}" }
-                ?: "No dated values in this period.", style = typography.small, color = colors.textSupporting)
+    val history = PortfolioOverviewDisplay.historyState(state, requested)
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Text(PortfolioDisplay.CHART_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
+            Text(PortfolioDisplay.CHART_NOTE, style = typography.caption, color = colors.textSupporting)
         }
-        Text(state.historyNotice, style = typography.caption, color = colors.textMeta)
+        StockPillSelector(PortfolioOverviewDisplay.PERIODS, selected = PortfolioOverviewDisplay.selectedPeriod(state, requested), label = { it }, onSelect = onPeriod)
+        when (history) {
+            // Text above the action (not beside it): at 2.0× font scale a side-by-side row would squeeze the sentence into a narrow column.
+            PortfolioHistoryState.NOT_REQUESTED -> Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text(PortfolioOverviewDisplay.NOT_REQUESTED_MESSAGE, style = typography.small, color = colors.textSupporting)
+                StockButton(PortfolioOverviewDisplay.SHOW_ACTION, { onPeriod(PortfolioOverviewDisplay.SHOW_PERIOD) }, variant = StockButtonVariant.SECONDARY)
+            }
+            PortfolioHistoryState.LOADING -> Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = PortfolioOverviewDisplay.LOADING_MESSAGE })
+                Text(PortfolioOverviewDisplay.LOADING_MESSAGE, style = typography.caption, color = colors.textMeta)
+            }
+            PortfolioHistoryState.LOADED -> {
+                val values = state.history.map { it.totalValue?.toDoubleOrNull() }
+                StockTrendChart(values, state.history.map(PortfolioOverviewDisplay::pointDetail), PortfolioOverviewDisplay.xLabels(state.history),
+                    PortfolioOverviewDisplay.yLabels(state.history), description = PortfolioOverviewDisplay.chartDescription(state))
+                if (PortfolioOverviewDisplay.hasGaps(state.history)) Text(PortfolioOverviewDisplay.GAPS_NOTE, style = typography.caption, color = colors.textMeta)
+            }
+            PortfolioHistoryState.FLAT -> Text(PortfolioOverviewDisplay.flatSummary(state).orEmpty(), style = typography.small, color = colors.textBody)
+            PortfolioHistoryState.INSUFFICIENT -> Text(PortfolioOverviewDisplay.insufficientSummary(state), style = typography.small, color = colors.textSupporting)
+            PortfolioHistoryState.EMPTY -> Text(PortfolioOverviewDisplay.EMPTY_MESSAGE, style = typography.small, color = colors.textSupporting)
+            PortfolioHistoryState.ERROR -> Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text(PortfolioOverviewDisplay.ERROR_MESSAGE, style = typography.small, color = colors.negativeText)
+                StockButton(PortfolioOverviewDisplay.RETRY, onRetry, variant = StockButtonVariant.SECONDARY)
+            }
+        }
     }
 }

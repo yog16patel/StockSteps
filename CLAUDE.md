@@ -13,13 +13,15 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-12, end of session)
 
-HEAD: "Fix Portfolio account selection by id and add Phase A shared form rules, readable labels, formatted holding amounts and consistent copy on Android and iOS" (pushed), on top of `f55fd90` (Company Comparison QA closure).
-It holds the Portfolio UI audit (`docs/PORTFOLIO_UI_AUDIT.md`), the Phase A–E plan (`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`), the P0 fix (Android form chose the
-account by name; now by id) and Phase A (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md`; shared `PortfolioDisplay` copy and `PortfolioFormRules`). Next: **Portfolio
-Phase B** (overview card, plan §Phase B) or **Phase 5D**, each only after approval. Read `docs/PROJECT_HANDOFF.md` §PORTFOLIO-PA-2026-10-12 first.
+HEAD: "Add the Portfolio overview card with on-demand account value history, currency on every metric and the sample selector in the menu (Portfolio Phase B) on Android and iOS" (pushed), on top of `37d74cd` (Phase A: "Fix Portfolio account selection by id…").
+Phase B (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md`): overview card built from shared `PortfolioOverviewDisplay` (history stays on demand; the chart is
+"Account value", never performance; currency code on every metric); metric rows stack via `StockLayout.metricRowStacked`. Next: **Phase C** after approval.
+Read `docs/PROJECT_HANDOFF.md` §PORTFOLIO-PB-2026-10-12 first. Before it: the Portfolio UI audit (`docs/PORTFOLIO_UI_AUDIT.md`), the Phase A–E plan
+(`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`), the P0 fix (Android form chose the account by name; now by id) and Phase A (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md`).
+iOS overview with data needs a signed-in simulator (MOCK sample scenarios aren't offered to guests); the Firebase CLI for the Auth emulator isn't installed.
 Portfolio forms: accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions`/`resolveAccountId`), field visibility/labels come from
 `PortfolioFormRules`, and screen copy from `PortfolioDisplay`; never show raw enum names.
-Portfolio rules for P-B: history loads on demand only; no UI-computed overall-return %; donut only when `allocationDonutAllowed`; missing stays missing.
+Portfolio rules (P-B onward): history loads on demand only; no UI-computed overall-return %; donut only when `allocationDonutAllowed`; missing stays missing.
 iOS device checks: build with `STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081` (default build bakes the LAN host from git-ignored
 `app/iosApp/Configuration/Local.xcconfig`); a fresh simulator install defaults to REAL (`localhost:8080`) — set MOCK in Settings or
 `defaults write org.example.stocksteps stocksteps.backendEnvironment MOCK`. The app needs iOS ≥ 18.2 (the iOS 17.5 SE simulator can't install it).

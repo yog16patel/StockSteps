@@ -1,4 +1,4 @@
-# Portfolio UI Refinement — implementation roadmap (P-A and Phase A implemented and committed; Phase B awaiting approval)
+# Portfolio UI Refinement — implementation roadmap (P-A, Phase A and Phase B committed; Phase C awaiting approval)
 
 Status: **plan only** (revised 2026-10-12). Findings: `docs/PORTFOLIO_UI_AUDIT.md` (IDs **A-F1…A-F20**, risks **D-R1…D-R10**, questions **Q1–Q7**).
 This revision replaces the 2026-10-11 plan, which was committed in `92a6d6a` and is still in git history. Its issues **#1–#16**, components
@@ -70,6 +70,8 @@ Goal: fix the P0/P1 defects that need no layout redesign, and put the shared cop
 - **Excluded:** layout changes, the date picker (Phase D), validation placement (D), overview card (B).
 
 ## Phase B — Portfolio overview
+
+**Implemented 2026-10-12, committed as "Add the Portfolio overview card with on-demand account value history, currency on every metric and the sample selector in the menu (Portfolio Phase B) on Android and iOS"**: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md`. Q5 decided: currency code with every metric.
 
 Goal: rules R1/R2 — one overview card with NUMBER → CONTEXT, honest chart naming, and fixed iOS scaling.
 

@@ -1,6 +1,13 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-12 (America/Toronto). Current commit: **Fix Portfolio account selection by id and add Phase A shared form rules, readable labels, formatted holding amounts and consistent copy on Android and iOS** on `main` (pushed):
+Last updated: 2026-10-12 (America/Toronto). Current commit: **Add the Portfolio overview card with on-demand account value history, currency on every metric and the sample selector in the menu (Portfolio Phase B) on Android and iOS** on `main` (pushed):
+- Portfolio Phase B (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md`): one overview card, with total → today's change → Account value history (on demand: Show 1M, loading, loaded, flat, insufficient, empty, error) → metrics with currency codes; "+ Add transaction" below it; MOCK sample scenarios in ⋯.
+- Shared `PortfolioOverviewDisplay` and `StockLayout.metricRowStacked` (no mid-word metric labels at large text).
+- Validation: core 471/0 (JVM, iOS), shared 150/0 (Android) and 146/0 (iOS), `assembleDebug` OK, iOS `xcodebuild` OK; Android emulator captures on local MOCK (`docs/design/portfolio_pb/`).
+- NOT RUN: iOS overview with data (needs a signed-in simulator), TalkBack, VoiceOver.
+- Next: Phase C after approval.
+
+Previous commit: **Fix Portfolio account selection by id and add Phase A shared form rules, readable labels, formatted holding amounts and consistent copy on Android and iOS** on `main` (pushed):
 - Portfolio UI audit (`docs/PORTFOLIO_UI_AUDIT.md`) and a revised Phase A–E plan (`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`).
 - **P0 fix A-F1**: the Android transaction form chose the account by name, so a same-named second account saved into the first; it now uses ids, with tests.
 - **Phase A** (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_A.md`): readable transaction and category labels, holding-detail amounts with currency, design-system buttons, errors and decimal keyboards, shared `PortfolioDisplay` copy and `PortfolioFormRules`, readable Insights "As of", "Portfolio insights" naming, and the chart titled "Account value".

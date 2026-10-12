@@ -141,4 +141,12 @@ object StockLayout {
         val byContent = if (widestContent > 0f) ((availableWidth + gap) / (widestContent + gap)).toInt() else Int.MAX_VALUE
         return minOf(fit, byContent).coerceIn(1, minOf(count, maxColumns))
     }
+
+    /**
+     * Label/value metric rows (`StockMetricGrid(rowsWhenNarrow)`): put the value under its label when the label's longest word, the gap and the
+     * value can't share one line — otherwise the label column is squeezed until a word breaks ("Unrealiz / ed P/L" at 2.0×, Portfolio Phase B).
+     * Widths are font-independent measurements of the text (never of the row's own frame).
+     */
+    fun metricRowStacked(longestLabelWord: Float, valueWidth: Float, availableWidth: Float, gap: Float = 12f): Boolean =
+        availableWidth > 0f && longestLabelWord + gap + valueWidth > availableWidth
 }

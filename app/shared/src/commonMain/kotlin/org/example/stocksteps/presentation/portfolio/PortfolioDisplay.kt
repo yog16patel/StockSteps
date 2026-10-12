@@ -20,6 +20,8 @@ object PortfolioDisplay {
     // Sample data (MOCK builds only).
     const val SAMPLE_SCENARIO = "Sample scenario"
     const val SAVED_ACCOUNTS = "My saved accounts"
+    /** Menu text for a scenario id ("mixed-currencies" → "Mixed currencies"); the saved-accounts option stays as written. */
+    fun scenarioLabel(id: String): String = if (id == SAVED_ACCOUNTS) id else org.example.stocksteps.designsystem.StockLabels.humanize(id)
     const val SAMPLE_BANNER = "Read-only sample. Your saved accounts and watchlists stay unchanged; switch to My saved accounts to make changes."
 
     // Status.

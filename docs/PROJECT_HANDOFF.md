@@ -1,9 +1,37 @@
-# StockSteps — session handoff (2026-10-12: Portfolio audit + Stage 1 P0 fix + Phase A committed and pushed; next = Phase B after approval)
+# StockSteps — session handoff (2026-10-12: Portfolio Phase B overview card committed and pushed on top of Phase A `37d74cd`; next = Phase C after approval)
 
-Read order for a new session: `CLAUDE.md` → **§PORTFOLIO-PA-2026-10-12 below** → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PORTFOLIO-PB-2026-10-12 below** → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PORTFOLIO-PB-2026-10-12. Portfolio Phase B overview card — START HERE (committed and pushed)
+
+- Repository: `main`. Current commit: **"Add the Portfolio overview card with on-demand account value history, currency on every metric and the sample selector in the menu (Portfolio Phase B) on Android and iOS"** (pushed), on top of `37d74cd` (Phase A). Working tree clean after it.
+- Done (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_B.md`):
+  - one overview card on both platforms: account → total → today's change / Why? → all accounts → Account value history → metrics with
+    currency codes (owner Q5) → notice + freshness;
+  - "+ Add transaction" below the card;
+  - MOCK sample scenarios moved into the ⋯ menu (banner and badge stay visible);
+  - shared `PortfolioOverviewDisplay` (states NOT_REQUESTED / LOADING / LOADED / FLAT / INSUFFICIENT / EMPTY / ERROR, Show 1M, flat summary,
+    high/low labels, spoken text);
+  - new shared rule `StockLayout.metricRowStacked` (no mid-word metric labels at large text, both platforms);
+  - `StockLabels` acronym FX;
+  - the iOS chart without point marks.
+- No presenter, API, server, calculation, route or entitlement change.
+- Validation (final sequential run):
+  - core 471/0 (JVM, iOS), shared 150/0 (Android) and 146/0 (iOS);
+  - `assembleDebug` OK;
+  - iOS `xcodebuild` BUILD SUCCEEDED;
+  - Android emulator 360 dp light/dark 1.0/1.3/2.0× on local MOCK and iOS guest screens: 24 captures in `docs/design/portfolio_pb/`.
+- **NOT RUN:**
+  - iOS overview with data: sample scenarios need sign-in, which is only allowed via the Firebase Auth emulator, and its CLI isn't installed;
+  - iPhone SE captures, TalkBack, VoiceOver.
+- Devices restored:
+  - Android: emulator size reset, font scale 1.0, app Theme Light, `adb reverse` removed;
+  - iOS: iPhone 16 back to Large/light;
+  - the MOCK server is stopped.
+- Next: Phase C after approval (decisions D3, Q6; Q1/Q3/Q4/Q7 open); commit only on request.
 
 ## PORTFOLIO-PA-2026-10-12. Portfolio audit, P0 account fix and Phase A — START HERE (committed and pushed)
 

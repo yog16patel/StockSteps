@@ -31,6 +31,8 @@ struct PortfolioScreen: View {
     @State private var showAbout = false
     @State private var allTransactions = false
     @State private var showDailyReason = false
+    /// The period chosen on this screen (nil = none yet): history stays on demand, so the card can tell "not requested" from "no values".
+    @State private var requestedPeriod: String?
     @State private var rowWidth: CGFloat = 0
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -87,7 +89,8 @@ struct PortfolioScreen: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             if holdingSymbol == nil, let state {
                 Button { showAbout = true } label: {
-                    Image(systemName: "info.circle").foregroundStyle(colors.iconSecondary).frame(width: 44, height: 44)
+                    Image(systemName: "info.circle").foregroundStyle(colors.iconSecondary)
+                        .frame(width: CGFloat(StockStepsTheme.dimensions.touchTarget), height: CGFloat(StockStepsTheme.dimensions.touchTarget))
                 }.accessibilityLabel(display.ABOUT_TITLE)
                 let account = state.accounts.first { $0.id == state.selectedAccountId && !$0.archived }
                 Menu {
@@ -96,8 +99,17 @@ struct PortfolioScreen: View {
                         Button("Account settings", systemImage: "gearshape") { onEditAccount(account) }
                         Button("Delete account…", systemImage: "trash", role: .destructive) { deleteAccount = account }
                     }
+                    // MOCK only: sample scenarios moved here from the top of the screen (same presenter call).
+                    if state.mockAvailable {
+                        Picker(display.SAMPLE_SCENARIO, selection: Binding(get: { state.mockScenario ?? Self.savedAccounts },
+                                                                           set: { value in onScenario(value == Self.savedAccounts ? nil : value) })) {
+                            ForEach([Self.savedAccounts] + PortfolioFixtureCatalog.shared.ids, id: \.self) { Text(display.scenarioLabel(id: $0)).tag($0) }
+                        }
+                        .pickerStyle(.menu)
+                    }
                 } label: {
-                    Image(systemName: "ellipsis.circle").foregroundStyle(colors.iconSecondary).frame(width: 44, height: 44)
+                    Image(systemName: "ellipsis.circle").foregroundStyle(colors.iconSecondary)
+                        .frame(width: CGFloat(StockStepsTheme.dimensions.touchTarget), height: CGFloat(StockStepsTheme.dimensions.touchTarget))
                 }.accessibilityLabel("Portfolio actions")
             }
         }
@@ -105,13 +117,8 @@ struct PortfolioScreen: View {
 
     /// Sample scenario, loading, sync errors, offline and sign-in — compact, above the numbers they qualify.
     @ViewBuilder private func status(_ state: PortfolioUiState) -> some View {
-        if state.mockAvailable {
-            StockSelectField(label: display.SAMPLE_SCENARIO, options: [Self.savedAccounts] + PortfolioFixtureCatalog.shared.ids,
-                             selection: Binding(get: { state.mockScenario ?? Self.savedAccounts },
-                                                set: { value in onScenario(value == Self.savedAccounts ? nil : value) }),
-                             optionLabel: { $0 })
-            if state.mockScenario != nil { StockBanner(kind: .sample, message: display.SAMPLE_BANNER) }
-        }
+        // The scenario is chosen in the ⋯ menu; while one is shown this read-only banner stays visible (never collapsed).
+        if state.mockScenario != nil { StockBanner(kind: .sample, message: display.SAMPLE_BANNER) }
         if state.loading { ProgressView(display.LOADING).frame(maxWidth: .infinity) }
         // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
         if state.error != nil || state.offline {
@@ -126,10 +133,9 @@ struct PortfolioScreen: View {
 
     @ViewBuilder private func content(_ state: PortfolioUiState, active: [PortfolioAccount], colors: StockColors) -> some View {
         if holdingSymbol == nil {
-            accountSelector(state, active: active, colors: colors)
-            hero(state, accountCount: active.count, colors: colors)
+            overviewCard(state, active: active, colors: colors)
+            // Outside the overview so the total stays next to its history.
             Button(action: onAdd) { Text("+ Add transaction").frame(maxWidth: .infinity) }.buttonStyle(.stockPrimary).disabled(state.busy)
-            PortfolioHistoryChart(state: state, onHistory: onHistory)
         }
         let rows = state.holdings.filter { holdingSymbol == nil || $0.symbol == holdingSymbol }
         sectionTitle(holdingSymbol == nil && !rows.isEmpty ? "Holdings (\(rows.count))" : "Holdings", colors)
@@ -230,7 +236,7 @@ struct PortfolioScreen: View {
                         .font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).lineLimit(2).multilineTextAlignment(.leading)
                     Image(systemName: "chevron.down").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.iconSecondary)
                 }
-                .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.sm)).frame(minHeight: 44)
+                .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.sm)).frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
                 .background(colors.surface, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.button)))
             }
             .accessibilityLabel("Account: \(selected.map { present.accountLabel(account: $0) } ?? "none")")
@@ -241,40 +247,71 @@ struct PortfolioScreen: View {
         }
     }
 
-    /// Value hero: total (dominant), today's change (or that it is unavailable), invested / unrealized / realized, freshness.
-    private func hero(_ state: PortfolioUiState, accountCount: Int, colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            Text("Total portfolio value").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSupporting)
-            Text("\(state.currency) \(PortfolioFormat.shared.amount(value: state.total))")
-                .font(StockStepsTheme.font(type.largeNumber)).foregroundStyle(colors.textValue)
-                .minimumScaleFactor(0.7).lineLimit(2)
-            if let today = present.todayChange(state: state) {
-                StockPriceChange(percentage: "\(today) today", direction: present.direction(amount: state.dailyGain), style: type.numberMedium, lineLimit: nil)
+    /// Overview card (Portfolio Phase B), mirroring Compose `PortfolioOverviewCard`: account context → total value (largest; wraps, never
+    /// shrinks) → today's change or "unavailable · Why?" → all-accounts line → account value history → Invested / Unrealized / Realized with
+    /// currencies → caution notice and one freshness line. Text from `PortfolioOverviewDisplay`; value and caption share a Dynamic Type curve.
+    private func overviewCard(_ state: PortfolioUiState, active: [PortfolioAccount], colors: StockColors) -> some View {
+        let overview = PortfolioOverviewDisplay.shared.of(state: state, activeAccounts: Int32(active.count))
+        return VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            accountSelector(state, active: active, colors: colors)
+            // One spoken summary (total, today's change in words, all accounts) when there is no "Why?" button to reach; otherwise the total alone.
+            Group {
+                if overview.today != nil {
+                    VStack(alignment: .leading, spacing: CGFloat(space.sm)) { summaryContent(state, overview, colors) }
+                        .accessibilityElement(children: .ignore).accessibilityLabel(overview.spoken)
+                } else {
+                    VStack(alignment: .leading, spacing: CGFloat(space.sm)) { summaryContent(state, overview, colors) }
+                }
+            }
+            StockDivider()
+            PortfolioHistorySection(state: state, requested: requestedPeriod,
+                                    onPeriod: { period in requestedPeriod = period; onHistory(period) }, onRetry: onRefresh)
+            StockDivider()
+            StockMetricGrid(items: overview.metrics.map { StockMetricItem(label: $0.label, value: $0.value, direction: $0.direction) }, rowsWhenNarrow: true)
+            if let notice = overview.notice {
+                Text(notice).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.cautionText)
+            }
+            if let freshness = overview.freshness {
+                Text(freshness).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textMeta)
+            }
+        }.stockCard()
+    }
+
+    /// Total value, today's change (or "unavailable · Why?") and the all-accounts line at the top of the overview card.
+    @ViewBuilder private func summaryContent(_ state: PortfolioUiState, _ overview: PortfolioOverview, _ colors: StockColors) -> some View {
+        let labels = PortfolioOverviewDisplay.shared
+        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            StockTitleWithBadge {
+                Text(labels.TOTAL_LABEL).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+            } badge: {
+                if let badge = overview.sampleBadge { StockStatusBadge(text: badge, kind: .sample, size: .compact) }
+            }
+            Text(overview.total).font(StockStepsTheme.font(type.largeNumber, relativeTo: .title1)).foregroundStyle(colors.textValue)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            // The label only above a value: "Today's change unavailable" already names itself.
+            if let today = overview.today {
+                Text(labels.TODAY_LABEL).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                StockPriceChange(percentage: today, direction: overview.todayDirection, style: type.numberMedium, lineLimit: nil)
             } else {
-                // The reason stays one tap away instead of adding two lines to every view of the hero.
+                // The reason stays one tap away instead of adding two lines to every view of the card.
                 HStack(spacing: CGFloat(space.xs)) {
-                    Text(present.TODAY_UNAVAILABLE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                    Text(present.TODAY_UNAVAILABLE).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
                     if !state.dailyNotice.isEmpty {
                         Button(showDailyReason ? "Hide" : "Why?") { showDailyReason.toggle() }
-                            .font(StockStepsTheme.font(type.label)).foregroundStyle(colors.primaryText).frame(minHeight: 44)
+                            .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
+                            .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
                             .accessibilityLabel(showDailyReason ? "Hide reason" : "Why is today's change unavailable?")
                     }
                 }
-                if showDailyReason { Text(state.dailyNotice).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textMeta) }
+                if showDailyReason { Text(state.dailyNotice).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textMeta) }
             }
-            StockDivider().padding(.vertical, CGFloat(space.xs))
-            StockMetricGrid(items: [
-                StockMetricItem(label: "Invested cost", value: PortfolioFormat.shared.amount(value: state.basis)),
-                StockMetricItem(label: "Unrealized P/L", value: present.signedAmount(amount: state.unrealized) ?? "—", direction: present.direction(amount: state.unrealized)),
-                StockMetricItem(label: "Realized P/L", value: present.signedAmount(amount: state.realized) ?? "—", direction: present.direction(amount: state.realized))
-            ], rowsWhenNarrow: true)
-            if accountCount > 1 {
-                Text("All accounts · \(state.currency) \(PortfolioFormat.shared.amount(value: state.combinedTotal))").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
-            }
-            if let notice = state.notice { Text(notice).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.cautionText) }
-            ForEach(present.freshnessLines(state: state), id: \.self) { Text($0).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textMeta) }
-            if let sample = state.mockScenario { StockStatusBadge(text: "Sample · \(sample)", kind: .sample, size: .compact) }
-        }.stockCard()
+        }
+        if let all = overview.allAccounts {
+            Text(all).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+        }
     }
 
     /// Compact holding row: logo · name / ticker · shares — value / unrealized change; one spoken description. At large Dynamic Type

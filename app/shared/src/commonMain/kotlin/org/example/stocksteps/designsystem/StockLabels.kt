@@ -22,5 +22,5 @@ object StockLabels {
         }.joinToString(" ")
     }
 
-    private val acronyms = setOf("TFSA", "RRSP", "RESP", "FHSA", "RRIF", "LIRA", "ETF", "IPO", "EPS", "USD", "CAD", "AI", "US")
+    private val acronyms = setOf("TFSA", "RRSP", "RESP", "FHSA", "RRIF", "LIRA", "ETF", "IPO", "EPS", "USD", "CAD", "AI", "US", "FX")
 }

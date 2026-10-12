@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +65,8 @@ internal fun PortfolioScreen(
     var editingTransaction by remember { mutableStateOf<PortfolioTransaction?>(null) }
     var showAbout by remember { mutableStateOf(false) }
     var allTransactions by remember { mutableStateOf(false) }
+    // The period the user chose here (null = none yet): history stays on demand, so the card can tell "not requested" from "no values".
+    var requestedPeriod by rememberSaveable { mutableStateOf<String?>(null) }
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -85,7 +88,9 @@ internal fun PortfolioScreen(
                     }
                     PortfolioOverflowMenu(
                         account = selectedAccount, busy = state.busy, onRefresh = onRefresh,
-                        onSettings = { editingAccount = it; accountEditor = true }, onDelete = { deletingAccount = it })
+                        onSettings = { editingAccount = it; accountEditor = true }, onDelete = { deletingAccount = it },
+                        scenarios = if (state.mockAvailable) listOf(SAVED_ACCOUNTS) + PortfolioFixtureCatalog.ids else emptyList(),
+                        scenario = state.mockScenario ?: SAVED_ACCOUNTS, onScenario = { onScenario(it.takeUnless { it == SAVED_ACCOUNTS }) })
                 }
             }
         }
@@ -96,14 +101,9 @@ internal fun PortfolioScreen(
                 onSelect = { if (it == PortfolioMode.PRACTICE) onPractice() }
             )
         }
-        // Status: sample scenario, loading, sync errors, offline and sign-in — compact, above the numbers they qualify.
-        if (state.mockAvailable) item {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                StockSelectField(label = PortfolioDisplay.SAMPLE_SCENARIO, options = listOf(SAVED_ACCOUNTS) + PortfolioFixtureCatalog.ids,
-                    selected = state.mockScenario ?: SAVED_ACCOUNTS, optionLabel = { it }, onSelect = { onScenario(it.takeUnless { it == SAVED_ACCOUNTS }) })
-                if (state.mockScenario != null) StockBanner(StockBannerKind.SAMPLE, PortfolioDisplay.SAMPLE_BANNER)
-            }
-        }
+        // Status: sample, loading, sync errors, offline and sign-in — compact, above the numbers they qualify. The sample scenario is chosen in
+        // the ⋯ menu (MOCK builds only); while one is shown, this read-only banner stays visible (never collapsed).
+        if (state.mockScenario != null) item { StockBanner(StockBannerKind.SAMPLE, PortfolioDisplay.SAMPLE_BANNER) }
         if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
         if (state.error != null || state.offline) item {
@@ -127,14 +127,16 @@ internal fun PortfolioScreen(
         } else {
             if (listMode) {
                 item {
-                    PortfolioAccountSelector(activeAccounts, selectedAccount, onSelect,
-                        onAddAccount = { editingAccount = null; accountEditor = true }, addEnabled = state.signedIn && !state.busy)
+                    PortfolioOverviewCard(state, activeAccounts.size, requestedPeriod,
+                        onPeriod = { requestedPeriod = it; onHistory(it) }, onRetry = onRefresh) {
+                        PortfolioAccountSelector(activeAccounts, selectedAccount, onSelect,
+                            onAddAccount = { editingAccount = null; accountEditor = true }, addEnabled = state.signedIn && !state.busy)
+                    }
                 }
-                item { PortfolioHero(state, activeAccounts.size) }
+                // Outside the overview so the total stays next to its history.
                 item {
                     StockButton("+ Add transaction", onAdd, Modifier.fillMaxWidth(), enabled = !state.busy)
                 }
-                item { PortfolioPerformanceCard(state, onHistory) }
             }
             val rows = state.holdings.filter { holdingSymbol == null || it.symbol == holdingSymbol }
             item { PortfolioSectionTitle(if (listMode && rows.isNotEmpty()) "Holdings (${rows.size})" else "Holdings") }
@@ -250,7 +252,8 @@ private fun PortfolioSectionTitle(title: String) {
 
 /** Account settings, refresh and delete — low-frequency actions kept out of the dashboard. */
 @Composable
-private fun PortfolioOverflowMenu(account: PortfolioAccount?, busy: Boolean, onRefresh: () -> Unit, onSettings: (PortfolioAccount) -> Unit, onDelete: (PortfolioAccount) -> Unit) {
+private fun PortfolioOverflowMenu(account: PortfolioAccount?, busy: Boolean, onRefresh: () -> Unit, onSettings: (PortfolioAccount) -> Unit, onDelete: (PortfolioAccount) -> Unit,
+                                  scenarios: List<String> = emptyList(), scenario: String = "", onScenario: (String) -> Unit = {}) {
     var open by remember { mutableStateOf(false) }
     val colors = StockStepsTheme.colors
     Box {
@@ -260,6 +263,16 @@ private fun PortfolioOverflowMenu(account: PortfolioAccount?, busy: Boolean, onR
             if (account != null) {
                 DropdownMenuItem(text = { Text("Account settings") }, onClick = { open = false; onSettings(account) })
                 DropdownMenuItem(text = { Text("Delete account…", color = colors.negativeText) }, onClick = { open = false; onDelete(account) })
+            }
+            // MOCK only: sample scenarios replace the old select field at the top of the screen (same presenter call).
+            if (scenarios.isNotEmpty()) {
+                HorizontalDivider()
+                Text(PortfolioDisplay.SAMPLE_SCENARIO, Modifier.padding(horizontal = StockStepsTheme.spacing.md, vertical = StockStepsTheme.spacing.xs)
+                    .semantics { heading() }, style = StockStepsTheme.typography.label, color = colors.textSupporting)
+                scenarios.forEach { option ->
+                    DropdownMenuItem(text = { Text(PortfolioDisplay.scenarioLabel(option)) }, onClick = { open = false; onScenario(option) },
+                        trailingIcon = if (option == scenario) ({ Icon(StockIcons.Check, contentDescription = "Selected", tint = colors.primaryText) }) else null)
+                }
             }
         }
     }
@@ -303,40 +316,54 @@ private fun PortfolioAccountSelector(accounts: List<PortfolioAccount>, selected:
     }
 }
 
-/** Value hero: total (dominant), today's change (or that it is unavailable), invested / unrealized / realized, freshness. */
+/**
+ * Overview card (Portfolio Phase B): account context → total value (largest, wraps instead of shrinking) → today's change or "unavailable ·
+ * Why?" → all-accounts line → account value history → Invested / Unrealized / Realized with currencies → one freshness line and the caution
+ * notice. All text comes from [PortfolioOverviewDisplay]; nothing is computed here.
+ */
 @Composable
-private fun PortfolioHero(state: PortfolioUiState, accountCount: Int) {
+private fun PortfolioOverviewCard(state: PortfolioUiState, accountCount: Int, requested: String?, onPeriod: (String) -> Unit, onRetry: () -> Unit,
+                                  account: @Composable () -> Unit) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
-    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        Text("Total portfolio value", style = typography.label, color = colors.textSupporting)
-        Text("${state.currency} ${PortfolioFormat.amount(state.total)}", style = typography.largeNumber, color = colors.textValue)
-        val today = PortfolioPresentation.todayChange(state)
-        if (today != null) {
-            StockPriceChange("$today today", PortfolioPresentation.direction(state.dailyGain), style = typography.numberMedium, maxLines = 2)
-        } else {
-            // The reason stays one tap away instead of adding two lines to every view of the hero.
-            var why by remember { mutableStateOf(false) }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Text(PortfolioPresentation.TODAY_UNAVAILABLE, style = typography.small, color = colors.textSupporting)
-                if (state.dailyNotice.isNotBlank()) {
-                    Text(if (why) "Hide" else "Why?", Modifier.minimumInteractiveComponentSize().clickable(role = Role.Button) { why = !why },
-                        style = typography.label, color = colors.primaryText)
+    val overview = PortfolioOverviewDisplay.of(state, accountCount)
+    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        account()
+        // One spoken summary (total, today's change in words, all accounts) when there is no "Why?" action to reach; otherwise the total alone.
+        val summary = if (overview.today != null) Modifier.clearAndSetSemantics { contentDescription = overview.spoken } else Modifier
+        Column(summary, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                StockTitleWithBadge(title = { Text(PortfolioOverviewDisplay.TOTAL_LABEL, style = typography.label, color = colors.textSupporting) },
+                    badge = { overview.sampleBadge?.let { StockStatusBadge(it, StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT) } })
+                Text(overview.total, style = typography.largeNumber, color = colors.textValue)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                val today = overview.today
+                if (today != null) {
+                    Text(PortfolioOverviewDisplay.TODAY_LABEL, style = typography.label, color = colors.textSupporting)
+                    StockPriceChange(today, overview.todayDirection, style = typography.numberMedium, maxLines = 2)
+                } else {
+                    // The reason stays one tap away instead of adding two lines to every view of the card.
+                    var why by remember { mutableStateOf(false) }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        Text(PortfolioPresentation.TODAY_UNAVAILABLE, Modifier.weight(1f, fill = false), style = typography.small, color = colors.textSupporting)
+                        if (state.dailyNotice.isNotBlank()) {
+                            Text(if (why) "Hide" else "Why?", Modifier.minimumInteractiveComponentSize().clickable(role = Role.Button) { why = !why },
+                                style = typography.label, color = colors.primaryText)
+                        }
+                    }
+                    if (why) Text(state.dailyNotice, style = typography.caption, color = colors.textMeta)
                 }
             }
-            if (why) Text(state.dailyNotice, style = typography.caption, color = colors.textMeta)
+            overview.allAccounts?.let { Text(it, style = typography.small, color = colors.textSupporting) }
         }
-        StockDivider(Modifier.padding(vertical = spacing.xs))
-        StockMetricGrid(listOf(
-            StockMetricItem("Invested cost", PortfolioFormat.amount(state.basis)),
-            StockMetricItem("Unrealized P/L", PortfolioPresentation.signedAmount(state.unrealized) ?: "—", direction = PortfolioPresentation.direction(state.unrealized)),
-            StockMetricItem("Realized P/L", PortfolioPresentation.signedAmount(state.realized) ?: "—", direction = PortfolioPresentation.direction(state.realized))
-        ), rowsWhenNarrow = true)
-        if (accountCount > 1) Text("All accounts · ${state.currency} ${PortfolioFormat.amount(state.combinedTotal)}", style = typography.small, color = colors.textSupporting)
-        state.notice?.let { Text(it, style = typography.caption, color = colors.cautionText) }
-        PortfolioPresentation.freshnessLines(state).forEach { Text(it, style = typography.caption, color = colors.textMeta) }
-        if (state.mockScenario != null) StockStatusBadge("Sample · ${state.mockScenario}", StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT)
+        StockDivider()
+        PortfolioHistorySection(state, requested, onPeriod, onRetry)
+        StockDivider()
+        StockMetricGrid(overview.metrics.map { StockMetricItem(it.label, it.value, direction = it.direction) }, rowsWhenNarrow = true)
+        overview.notice?.let { Text(it, style = typography.caption, color = colors.cautionText) }
+        overview.freshness?.let { Text(it, style = typography.caption, color = colors.textMeta) }
     }
 }
 

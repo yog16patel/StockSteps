@@ -92,6 +92,10 @@ class DesignTokensTest {
     @Test
     fun metricGridDropsColumnsInsteadOfTruncating() {
         assertEquals(3, StockLayout.metricColumns(count = 3, availableWidth = 343f, fontScale = 1f))
+        // Metric rows: side by side while "Unrealized" + gap + value fit, stacked once they don't (2.0× at 360 dp), never for an unmeasured row.
+        assertEquals(false, StockLayout.metricRowStacked(longestLabelWord = 80f, valueWidth = 120f, availableWidth = 312f))
+        assertEquals(true, StockLayout.metricRowStacked(longestLabelWord = 160f, valueWidth = 190f, availableWidth = 312f))
+        assertEquals(false, StockLayout.metricRowStacked(longestLabelWord = 160f, valueWidth = 190f, availableWidth = 0f))
         assertEquals(1, StockLayout.metricColumns(count = 1, availableWidth = 343f, fontScale = 1f))
         assertEquals(2, StockLayout.metricColumns(count = 2, availableWidth = 343f, fontScale = 1f))
         assertEquals(2, StockLayout.metricColumns(count = 3, availableWidth = 250f, fontScale = 1f))

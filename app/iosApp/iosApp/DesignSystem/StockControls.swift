@@ -135,15 +135,34 @@ struct StockMetricGrid: View {
         Group {
         if rowsWhenNarrow && width > 0 && columns < min(items.count, maxColumns) {
             let colors = StockStepsTheme.colors(scheme)
+            let rowValueFont = StockStepsTheme.uiFont(type.numberMedium, typeSize: typeSize)
             VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                 ForEach(items) { item in
-                    HStack(spacing: CGFloat(space.md)) {
-                        Text(item.label).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    // Stack only when the label's longest word and the value can't share the line (StockLayout.metricRowStacked) — a
+                    // squeezed label column broke "Unrealized" mid-word at large sizes. Text widths only, never this row's own frame.
+                    let hasDirection = item.direction.map { $0 != .unavailable } ?? false
+                    let word = item.label.split(separator: " ").map { (String($0) as NSString).size(withAttributes: [.font: labelFont]).width }.max() ?? 0
+                    let valueWidth = (((hasDirection ? "↑\u{00A0}" : "") + item.value) as NSString).size(withAttributes: [.font: rowValueFont]).width
+                    let stacked = StockLayout.shared.metricRowStacked(longestLabelWord: Float(word), valueWidth: Float(valueWidth), availableWidth: Float(width), gap: Float(space.md))
+                    let value = Group {
                         if let direction = item.direction, direction != .unavailable {
                             StockPriceChange(percentage: item.value, direction: direction, style: type.numberMedium, lineLimit: nil)
                         } else {
-                            Text(item.value).font(StockStepsTheme.font(type.numberMedium)).foregroundStyle(colors.textPrimary).multilineTextAlignment(.trailing)
+                            Text(item.value).font(StockStepsTheme.font(type.numberMedium)).foregroundStyle(colors.textPrimary).multilineTextAlignment(stacked ? .leading : .trailing)
+                        }
+                    }
+                    Group {
+                        if stacked {
+                            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                                Text(item.label).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
+                                value
+                            }
+                        } else {
+                            HStack(spacing: CGFloat(space.md)) {
+                                Text(item.label).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                value
+                            }
                         }
                     }
                     .accessibilityElement(children: .combine)
