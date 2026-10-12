@@ -342,6 +342,8 @@ enum InsightTone { case info, education }
 /// Educational/informational card. Never signals market direction; `systemImage` adds a compact icon layout.
 struct StockInsightCard: View {
     @Environment(\.colorScheme) private var scheme
+    /// Read in body: live Dynamic Type refresh, and the icon moves above the text at accessibility sizes (Portfolio C.1).
+    @Environment(\.dynamicTypeSize) private var typeSize
     let title: String
     let message: String
     var tone: InsightTone = .info
@@ -363,30 +365,35 @@ struct StockInsightCard: View {
         let colors = StockStepsTheme.colors(scheme)
         let container = tone == .education ? colors.educationContainer : colors.primaryContainer
         let accent = tone == .education ? colors.educationAccent : colors.primaryText
-        return HStack(spacing: CGFloat(space.md)) {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                        .font(.title3)
-                        .foregroundStyle(accent)
-                        .frame(width: CGFloat(dims.educationIcon), height: CGFloat(dims.educationIcon))
-                        .background(colors.surface.opacity(0.7), in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
-                        .accessibilityHidden(true)
-                }
-                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                    Text(title).font(StockStepsTheme.font(systemImage == nil ? type.cardTitle : type.bodySemiBold, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
-                    Text(message).font(StockStepsTheme.font(systemImage == nil ? type.small : type.caption, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
-                    if let actionTitle, systemImage == nil {
-                        Text("\(actionTitle) →").font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(colors.primaryText)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                if systemImage != nil {
-                    Image(systemName: "arrow.right").foregroundStyle(colors.textSecondary).accessibilityHidden(true)
-                }
+        // C.1: fixed-size symbol inside its fixed tile (`.title3` grew past the tile and over the text at AX5).
+        let icon = systemImage.map { name in
+            Image(systemName: name)
+                .font(.system(size: CGFloat(dims.educationIcon) * 0.5))
+                .foregroundStyle(accent)
+                .frame(width: CGFloat(dims.educationIcon), height: CGFloat(dims.educationIcon))
+                .background(colors.surface.opacity(0.7), in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
+                .accessibilityHidden(true)
+        }
+        let text = VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            Text(title).font(StockStepsTheme.font(systemImage == nil ? type.cardTitle : type.bodySemiBold, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
+            Text(message).font(StockStepsTheme.font(systemImage == nil ? type.small : type.caption, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
+            if let actionTitle, systemImage == nil {
+                Text("\(actionTitle) →").font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(colors.primaryText)
             }
-            .padding(CGFloat(systemImage == nil ? space.educationalCardPadding : space.md))
-            .background(container, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
-            .contentShape(Rectangle())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // C.1: the arrow only on a tappable card — a plain insight showed an arrow that did nothing.
+        let arrow = (systemImage != nil && action != nil) ? Image(systemName: "arrow.right").foregroundStyle(colors.textSecondary).accessibilityHidden(true) : nil
+        return Group {
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: CGFloat(space.sm)) { icon; text; arrow }
+            } else {
+                HStack(spacing: CGFloat(space.md)) { icon; text; arrow }
+            }
+        }
+        .padding(CGFloat(systemImage == nil ? space.educationalCardPadding : space.md))
+        .background(container, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
+        .contentShape(Rectangle())
     }
 }
 

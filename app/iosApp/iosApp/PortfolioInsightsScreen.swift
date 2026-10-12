@@ -49,6 +49,7 @@ struct PortfolioInsightsScreen: View {
 
     @ViewBuilder private func header(_ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            // C.1: the only visible heading (the navigation bar shows just the back button).
             Text(PortfolioDisplay.shared.INSIGHTS_TITLE).font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader)
             if let state {
                 Text([state.accountName.isEmpty ? nil : state.accountName, state.view.map { "Amounts in \($0.currency)" }, state.plus ? "StockSteps+" : nil]
@@ -79,7 +80,7 @@ struct PortfolioInsightsScreen: View {
 
     @ViewBuilder private func content(_ view: InsightsView, _ state: InsightsUiState, _ colors: StockColors) -> some View {
         section("Portfolio health", subtitle: "Key facts about your portfolio. There's no single score; each number is explained.") {
-            ForEach(Array(view.health.enumerated()), id: \.offset) { _, row in metric(row, colors) }
+            ForEach(Array(view.health.enumerated()), id: \.offset) { i, row in if i > 0 { StockDivider() }; metric(row, colors) }
         }
         section("Performance") {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -95,7 +96,7 @@ struct PortfolioInsightsScreen: View {
             }
             body(view.performance, colors) {
                 if let chart = view.chart { comparisonChart(chart, colors) }
-                ForEach(Array(view.performance.rows.enumerated()), id: \.offset) { _, row in metric(row, colors) }
+                ForEach(Array(view.performance.rows.enumerated()), id: \.offset) { i, row in if i > 0 { StockDivider() }; metric(row, colors) }
             }
         }
         section("Compared with a market index") {
@@ -125,9 +126,9 @@ struct PortfolioInsightsScreen: View {
         }
         section("What moved your portfolio", subtitle: "Over \(view.selectedPeriod.label), in \(view.currency)") {
             body(view.contributors, colors) {
-                if !view.positiveContributors.isEmpty { Text("Added the most").font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textSupporting) }
+                if !view.positiveContributors.isEmpty { Text("Added the most").font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textSupporting).accessibilityAddTraits(.isHeader).padding(.top, CGFloat(space.xs)) }
                 ForEach(view.positiveContributors, id: \.symbol) { contributor($0, colors) }
-                if !view.negativeContributors.isEmpty { Text("Subtracted the most").font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textSupporting) }
+                if !view.negativeContributors.isEmpty { Text("Subtracted the most").font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textSupporting).accessibilityAddTraits(.isHeader).padding(.top, CGFloat(space.xs)) }
                 ForEach(view.negativeContributors, id: \.symbol) { contributor($0, colors) }
                 ForEach(Array(view.contributors.rows.enumerated()), id: \.offset) { _, row in metric(row, colors) }
             }
@@ -136,11 +137,11 @@ struct PortfolioInsightsScreen: View {
             body(view.dividends, colors) {
                 ForEach(Array(view.dividends.rows.enumerated()), id: \.offset) { _, row in metric(row, colors) }
                 if !view.dividendsByYear.isEmpty {
-                    Text("By year").font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textSupporting)
+                    Text("By year").font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textSupporting).accessibilityAddTraits(.isHeader).padding(.top, CGFloat(space.xs))
                     ForEach(Array(view.dividendsByYear.enumerated()), id: \.offset) { _, row in metric(row, colors) }
                 }
                 if !view.dividendsByCompany.isEmpty {
-                    Text("By company").font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textSupporting)
+                    Text("By company").font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textSupporting).accessibilityAddTraits(.isHeader).padding(.top, CGFloat(space.xs))
                     ForEach(Array(view.dividendsByCompany.prefix(5).enumerated()), id: \.offset) { _, row in metric(row, colors) }
                 }
             }
@@ -161,8 +162,15 @@ struct PortfolioInsightsScreen: View {
         }
         section("How these numbers work") {
             ForEach(AnalyticsEducation.shared.entries, id: \.key) { entry in
-                DisclosureGroup(entry.title) { Text(entry.body).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody) }
-                    .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
+                // C.1: leading-aligned label in the body colour (the default centred tint label hyphenated "complete-ness" at AX5).
+                DisclosureGroup {
+                    Text(entry.body).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textBody)
+                } label: {
+                    Text(entry.title).font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textTitle)
+                        .multilineTextAlignment(.leading).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .tint(colors.iconSecondary)
+                .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
             }
         }
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
@@ -180,7 +188,7 @@ struct PortfolioInsightsScreen: View {
         let colors = StockStepsTheme.colors(scheme)
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
             Text(title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader)
-            if let subtitle { Text(subtitle).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting) }
+            if let subtitle { Text(subtitle).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting) }
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -234,10 +242,16 @@ struct PortfolioInsightsScreen: View {
 
     private func allocation(_ row: AllocationRowView, _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
+            // C.1: value under the label at accessibility sizes — side by side the ticker broke mid-word ("SHOP.T / O") at AX5.
+            if typeSize.isAccessibilitySize {
                 Text(row.label).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textBody)
-                Spacer()
                 Text("\(row.percent) · \(row.value)").font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+            } else {
+                HStack {
+                    Text(row.label).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textBody)
+                    Spacer()
+                    Text("\(row.percent) · \(row.value)").font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                }
             }
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
@@ -250,21 +264,37 @@ struct PortfolioInsightsScreen: View {
         .accessibilityLabel(row.accessibility)
     }
 
+    /// C.1 (mirrors Compose): at accessibility sizes the amounts go under the name, so names wrap on whole words.
     private func contributor(_ row: ContributorView, _ colors: StockColors) -> some View {
-        Button { onCompany(row.symbol) } label: {
-            HStack {
-                VStack(alignment: .leading) {
-                    Text(row.symbol).font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textTitle)
-                    if let name = row.name { Text(name).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting) }
-                }
-                Spacer()
-                VStack(alignment: .trailing) {
-                    Text(row.amount).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .footnote)).foregroundStyle(row.tone == .negative ? colors.negativeText : colors.positiveText)
-                    Text([row.percent, row.fx.map { "FX \($0)" }].compactMap { $0 }.joined(separator: " · ")).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+        let amountColor = row.tone == .negative ? colors.negativeText : colors.positiveText
+        let detail = [row.percent, row.fx.map { "FX \($0)" }].compactMap { $0 }.joined(separator: " · ")
+        let name = VStack(alignment: .leading, spacing: 0) {
+            Text(row.symbol).font(StockStepsTheme.font(type.label, relativeTo: .footnote).weight(.semibold)).foregroundStyle(colors.textTitle)
+            if let n = row.name { Text(n).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting) }
+        }
+        return Button { onCompany(row.symbol) } label: {
+            Group {
+                if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        name
+                        Text(row.amount).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .footnote)).foregroundStyle(amountColor)
+                        if !detail.isEmpty { Text(detail).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting) }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    HStack {
+                        name
+                        Spacer()
+                        VStack(alignment: .trailing) {
+                            Text(row.amount).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .footnote)).foregroundStyle(amountColor)
+                            Text(detail).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                        }
+                    }
                 }
             }
             .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(row.accessibility)
         .accessibilityHint("Opens \(row.symbol)")
     }

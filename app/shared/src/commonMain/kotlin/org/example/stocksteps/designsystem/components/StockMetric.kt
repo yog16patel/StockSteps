@@ -89,6 +89,14 @@ internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = 
             val rowValueStyle = StockStepsTheme.typography.numberMedium
             val available = maxWidth.value
             val gap = StockStepsTheme.spacing.md
+            // Portfolio C.1: one decision for the whole group — if any row must stack, all do, so neighbouring rows read the same way
+            // ("Invested / cost  CAD 1,455.00" beside a stacked "Unrealized P/L" looked broken at 2.0×).
+            val anyStacked = items.any { item ->
+                val dir = item.direction != null && item.direction != PriceDirection.UNAVAILABLE
+                val w = item.label.split(' ').maxOfOrNull { measurer.measure(it, labelStyle).size.width } ?: 0
+                val v = measurer.measure((if (dir) "↑\u00A0" else "") + item.value, rowValueStyle).size.width
+                with(density) { StockLayout.metricRowStacked(w.toDp().value, v.toDp().value, available, gap.value) }
+            }
             Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
                 items.forEach { item ->
                     val hasDirection = item.direction != null && item.direction != PriceDirection.UNAVAILABLE
@@ -100,9 +108,7 @@ internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = 
                         }
                     }
                     // Stack only when the label's longest word and the value can't share the line (StockLayout.metricRowStacked).
-                    val word = item.label.split(' ').maxOfOrNull { measurer.measure(it, labelStyle).size.width } ?: 0
-                    val valueWidth = measurer.measure((if (hasDirection) "↑\u00A0" else "") + item.value, rowValueStyle).size.width
-                    val stacked = with(density) { StockLayout.metricRowStacked(word.toDp().value, valueWidth.toDp().value, available, gap.value) }
+                    val stacked = anyStacked
                     if (stacked) {
                         Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
                             Text(item.label, style = labelStyle, color = StockStepsTheme.colors.textSecondary)

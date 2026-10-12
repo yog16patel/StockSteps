@@ -48,17 +48,48 @@ internal fun StockAllocationDonut(fractions: List<Float>, colorIndexes: List<Int
  * the label always names the category, so colour is never the only cue. Wraps on whole words at large text.
  */
 @Composable
-internal fun StockAllocationLegendRow(colorIndex: Int, label: String, percent: String, amount: String?, description: String, modifier: Modifier = Modifier) {
+internal fun StockAllocationLegendRow(colorIndex: Int, label: String, percent: String, amount: String?, description: String, modifier: Modifier = Modifier,
+                                      /** C.1: the group's decision (`allocationLegendStacked`) so all rows read the same way; null = decide alone. */
+                                      stacked: Boolean? = null) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
-    Row(modifier.fillMaxWidth().heightIn(min = 32.dp).clearAndSetSemantics { contentDescription = description },
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        Box(Modifier.size(10.dp).background(colors.rgb(StockChartSeriesStyle.series(colorIndex, colors.palette).color), CircleShape))
-        Text(label, Modifier.weight(1f), style = typography.small, color = colors.textBody)
-        Column(horizontalAlignment = Alignment.End) {
-            Text(percent, style = typography.numberLabelStrong, color = colors.textValue, textAlign = TextAlign.End)
-            amount?.let { Text(it, style = typography.caption, color = colors.textSupporting, textAlign = TextAlign.End) }
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val dot: @Composable () -> Unit = { Box(Modifier.size(10.dp).background(colors.rgb(StockChartSeriesStyle.series(colorIndex, colors.palette).color), CircleShape)) }
+    BoxWithConstraints(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = description }) {
+        // C.1: the percentage and amount go under the label when the whole (short) label and the values can't share the line (shared
+        // StockLayout.metricRowStacked) — "AAPL · / USD" broke at 2.0×.
+        val word = measurer.measure(label, typography.small).size.width
+        val values = maxOf(measurer.measure(percent, typography.numberLabelStrong).size.width, amount?.let { measurer.measure(it, typography.caption).size.width } ?: 0)
+        val own = with(density) { org.example.stocksteps.theme.StockLayout.metricRowStacked(word.toDp().value + 18f, values.toDp().value, maxWidth.value, spacing.sm.value) }
+        if (stacked ?: own) Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Box(Modifier.padding(top = 6.dp)) { dot() }
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text(label, style = typography.small, color = colors.textBody)
+                Text(percent, style = typography.numberLabelStrong, color = colors.textValue)
+                amount?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
+            }
+        } else Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            dot()
+            Text(label, Modifier.weight(1f), style = typography.small, color = colors.textBody)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(percent, style = typography.numberLabelStrong, color = colors.textValue, textAlign = TextAlign.End)
+                amount?.let { Text(it, style = typography.caption, color = colors.textSupporting, textAlign = TextAlign.End) }
+            }
         }
+    }
+}
+
+/** C.1: true when any legend line (label, percentage, amount) can't share one line at [width] dp — then every row of the group stacks. */
+@Composable
+internal fun allocationLegendStacked(lines: List<Triple<String, String, String?>>, width: Float): Boolean {
+    val typography = StockStepsTheme.typography
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    return lines.any { (label, percent, amount) ->
+        val l = measurer.measure(label, typography.small).size.width
+        val v = maxOf(measurer.measure(percent, typography.numberLabelStrong).size.width, amount?.let { measurer.measure(it, typography.caption).size.width } ?: 0)
+        with(density) { org.example.stocksteps.theme.StockLayout.metricRowStacked(l.toDp().value + 18f, v.toDp().value, width, StockStepsTheme.spacing.sm.value) }
     }
 }

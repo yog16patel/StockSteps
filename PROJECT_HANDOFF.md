@@ -1,6 +1,15 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-12 (America/Toronto). Current commit: **Refine Portfolio holdings, allocation donut, holding details and insights with borderless sections and matching selector icons (Portfolio Phase C) on Android and iOS** on `main` (pushed):
+Last updated: 2026-10-12 (America/Toronto). Current commit: **Close Portfolio visual and accessibility pass with group stacking, grouped transaction rows, single headings and large-text insights fixes (Portfolio Phase C.1) on Android and iOS** on `main` (pushed):
+- Portfolio Phase C.1 (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md`, 22 issues):
+  - group stacking for metrics and legends; structured holding rows; grouped transaction rows;
+  - single headings on Holding details and Portfolio insights; Insights large-text fixes;
+  - iOS status-bar backdrop.
+- Validation: core 471/0 (JVM, iOS), shared 169/0 (Android) and 165/0 (iOS), both builds OK; Android 360 dp and iPhone 16 device checks.
+- NOT RUN: iPhone SE, TalkBack, VoiceOver.
+- Next: Phase D after approval.
+
+Previous commit: **Refine Portfolio holdings, allocation donut, holding details and insights with borderless sections and matching selector icons (Portfolio Phase C) on Android and iOS** on `main` (pushed):
 - Portfolio Phase C (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C.md`):
   - borderless Portfolio sections; Android selector icons;
   - holdings with server weight and display-only sort;

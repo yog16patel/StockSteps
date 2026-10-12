@@ -136,14 +136,18 @@ struct StockMetricGrid: View {
         if rowsWhenNarrow && width > 0 && columns < min(items.count, maxColumns) {
             let colors = StockStepsTheme.colors(scheme)
             let rowValueFont = StockStepsTheme.uiFont(type.numberMedium, typeSize: typeSize)
+            // Portfolio C.1: one decision for the whole group — if any row must stack, all do (as Compose).
+            let anyStacked = items.contains { item in
+                let dir = item.direction.map { $0 != .unavailable } ?? false
+                let w = item.label.split(separator: " ").map { (String($0) as NSString).size(withAttributes: [.font: labelFont]).width }.max() ?? 0
+                let v = (((dir ? "↑\u{00A0}" : "") + item.value) as NSString).size(withAttributes: [.font: rowValueFont]).width
+                return StockLayout.shared.metricRowStacked(longestLabelWord: Float(w), valueWidth: Float(v), availableWidth: Float(width), gap: Float(space.md))
+            }
             VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                 ForEach(items) { item in
                     // Stack only when the label's longest word and the value can't share the line (StockLayout.metricRowStacked) — a
                     // squeezed label column broke "Unrealized" mid-word at large sizes. Text widths only, never this row's own frame.
-                    let hasDirection = item.direction.map { $0 != .unavailable } ?? false
-                    let word = item.label.split(separator: " ").map { (String($0) as NSString).size(withAttributes: [.font: labelFont]).width }.max() ?? 0
-                    let valueWidth = (((hasDirection ? "↑\u{00A0}" : "") + item.value) as NSString).size(withAttributes: [.font: rowValueFont]).width
-                    let stacked = StockLayout.shared.metricRowStacked(longestLabelWord: Float(word), valueWidth: Float(valueWidth), availableWidth: Float(width), gap: Float(space.md))
+                    let stacked = anyStacked
                     let value = Group {
                         if let direction = item.direction, direction != .unavailable {
                             StockPriceChange(percentage: item.value, direction: direction, style: type.numberMedium, lineLimit: nil)

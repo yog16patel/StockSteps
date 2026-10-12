@@ -51,7 +51,9 @@ internal fun StockInsightCard(
         borderColor = container,
         contentPadding = PaddingValues(if (leading != null) spacing.md else spacing.educationalCardPadding)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+        // Portfolio C.1: at large text an icon well goes above the text so the text keeps the full card width.
+        val stackIcon = leading != null && androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
+        val iconWell: @Composable () -> Unit = {
             if (leading != null) {
                 Box(
                     modifier = Modifier
@@ -64,7 +66,9 @@ internal fun StockInsightCard(
                     CompositionLocalProvider(LocalContentColor provides accent, content = leading)
                 }
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+        }
+        val texts: @Composable (Modifier) -> Unit = { m ->
+            Column(m, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                 if (eyebrow != null) Text(eyebrow, style = typography.label, color = accentText)
                 Text(title, style = if (leading != null) typography.bodySemiBold else typography.cardTitle, color = colors.textTitle)
                 Text(body, style = if (leading != null) typography.caption else typography.small, color = colors.textBody)
@@ -72,10 +76,16 @@ internal fun StockInsightCard(
                     Text("$actionText →", style = typography.bodyMedium, color = colors.primaryText)
                 }
             }
+        }
+        val arrow: @Composable () -> Unit = {
             if (onClick != null && leading != null) {
                 // Compact layout: the whole card is the action; the arrow is a visual cue only.
                 Text("→", style = typography.cardTitle, color = colors.textSecondary, modifier = Modifier.clearAndSetSemantics {})
             }
+        }
+        if (stackIcon) Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) { iconWell(); texts(Modifier); arrow() }
+        else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+            iconWell(); texts(Modifier.weight(1f)); arrow()
         }
     }
 }

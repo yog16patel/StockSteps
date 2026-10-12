@@ -1,9 +1,26 @@
-# StockSteps — session handoff (2026-10-12: Portfolio Phase C committed and pushed on top of B.1 `6c1d76b`; verification partial; next = Phase D after approval)
+# StockSteps — session handoff (2026-10-12: Portfolio Phase C.1 closure committed and pushed on top of Phase C `8a86e4e`; next = Phase D after approval)
 
-Read order for a new session: `CLAUDE.md` → **§PORTFOLIO-PC-2026-10-12 below** → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PORTFOLIO-PC1-2026-10-12 below** → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PORTFOLIO-PC1-2026-10-12. Portfolio Phase C.1 closure — START HERE (committed and pushed)
+
+- Repository: `main`. Current commit: **"Close Portfolio visual and accessibility pass with group stacking, grouped transaction rows, single headings and large-text insights fixes (Portfolio Phase C.1) on Android and iOS"** (pushed), on top of `8a86e4e` (Phase C). Working tree clean after it.
+- Done (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md`, 22 issues FIXED/ACCEPTED/DEFERRED):
+  - group stacking for metric grids and allocation legends;
+  - structured vertical holding rows; grouped transaction rows (`PortfolioPresentation.transactionText`);
+  - one heading on Holding details and on Portfolio insights;
+  - insights rows, contributors and allocation stack at large text; `StockInsightCard` icon above the text at large text;
+  - iOS status-bar backdrop; scenario caption under the total.
+- Validation:
+  - core 471/0 (JVM, iOS), shared 169/0 (Android) and 165/0 (iOS);
+  - `assembleDebug` OK;
+  - iOS `xcodebuild` OK;
+  - Android 360 dp (light 1.0×, dark 1.0×, dark 2.0×) and iPhone 16 (light Large, dark AX5): 36 captures in `docs/design/portfolio_pc1/`.
+- **NOT RUN:** iPhone SE, TalkBack, VoiceOver. The iOS Learn-row hyphenation fix is in code but not re-captured.
+- Next: Phase D after approval; commit only on request.
 
 ## PORTFOLIO-PC-2026-10-12. Portfolio Phase C — START HERE (committed and pushed; VERIFICATION PARTIAL)
 

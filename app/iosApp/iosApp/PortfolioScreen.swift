@@ -76,6 +76,14 @@ struct PortfolioScreen: View {
                 .padding(CGFloat(space.screen)).frame(maxWidth: .infinity)
         }
         .background(colors.appBackground.ignoresSafeArea())
+        // C.1: no navigation bar on this tab, so scrolled content showed through the status bar (time over numbers). A zero-height strip at the
+        // top of the safe area paints the page background behind the status bar; decorative and never hit-testable.
+        .overlay(alignment: .top) {
+            Color.clear.frame(height: 0)
+                .background(colors.appBackground.ignoresSafeArea(edges: .top))
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
         .refreshable { onRefresh() }
         .sheet(isPresented: $showAbout) { if let state { aboutSheet(state) } }
         .sheet(isPresented: $choosingScenario) {
@@ -157,10 +165,21 @@ struct PortfolioScreen: View {
         let items = PortfolioHoldingsDisplay.shared.items(state: state, sort: holdingSymbol == nil ? holdingSort : nil)
             .filter { holdingSymbol == nil || $0.symbol == holdingSymbol }
         // Phase C: the sort menu sits beside the title (display order only) instead of a toolbar.
-        HStack(alignment: .lastTextBaseline) {
-            sectionTitle(holdingSymbol == nil && !items.isEmpty ? "Holdings (\(items.count))" : "Holdings", colors)
-            Spacer(minLength: CGFloat(space.sm))
-            if holdingSymbol == nil && items.count > 1 { holdingSortMenu(colors) }
+        // C.1: no "Holdings" title on Holding details — the holding row itself heads that screen.
+        if holdingSymbol == nil {
+            // C.1: at accessibility sizes the sort menu goes under the title instead of squeezing it.
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 0) {
+                    sectionTitle(!items.isEmpty ? "Holdings (\(items.count))" : "Holdings", colors)
+                    if items.count > 1 { holdingSortMenu(colors) }
+                }
+            } else {
+                HStack(alignment: .lastTextBaseline) {
+                    sectionTitle(!items.isEmpty ? "Holdings (\(items.count))" : "Holdings", colors)
+                    Spacer(minLength: CGFloat(space.sm))
+                    if items.count > 1 { holdingSortMenu(colors) }
+                }
+            }
         }
         if items.isEmpty {
             Text(display.HOLDINGS_EMPTY).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting).stockCard(bordered: false)
@@ -328,11 +347,12 @@ struct PortfolioScreen: View {
             } badge: {
                 if let badge = overview.sampleBadge { StockStatusBadge(text: badge, kind: .sample, size: .compact) }
             }
+            Text(overview.total).font(StockStepsTheme.font(type.largeNumber, relativeTo: .title1)).foregroundStyle(colors.textValue)
+                .fixedSize(horizontal: false, vertical: true)
+            // C.1: under the total, so the total sits right under its label.
             if let scenario = overview.sampleScenario {
                 Text(scenario).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
             }
-            Text(overview.total).font(StockStepsTheme.font(type.largeNumber, relativeTo: .title1)).foregroundStyle(colors.textValue)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
         VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
@@ -364,18 +384,29 @@ struct PortfolioScreen: View {
     /// wrap on whole words and values are never cut.
     private func holdingRow(_ item: PortfolioHoldingItem, colors: StockColors) -> some View {
         let stacked = typeSize >= .xxxLarge || (rowWidth > 0 && rowWidth < CGFloat(PortfolioLayout.shared.stackedRowWidth))
+        let name = Text(item.name).font(StockStepsTheme.font(type.bodySemiBold, relativeTo: .body)).foregroundStyle(colors.textTitle)
+            .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+        let details = Group {
+            Text(item.subtitle).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+            if let weight = item.weight { Text(weight).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textMeta) }
+            if item.stale { Text(PortfolioHoldingsDisplay.shared.STALE).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textMeta) }
+        }
         return Button { onHolding(item.symbol) } label: {
-            HStack(spacing: CGFloat(space.md)) {
-                StockTickerAvatar(symbol: item.symbol, logoUrl: item.logoUrl)
-                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                    Text(item.name).font(StockStepsTheme.font(type.bodySemiBold, relativeTo: .body)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(item.subtitle).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
-                    if let weight = item.weight { Text(weight).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textMeta) }
-                    if item.stale { Text(PortfolioHoldingsDisplay.shared.STALE).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textMeta) }
-                    if stacked { holdingValues(item, alignment: .leading, colors: colors) }
-                }.frame(maxWidth: .infinity, alignment: .leading)
-                if !stacked { holdingValues(item, alignment: .trailing, colors: colors).fixedSize(horizontal: true, vertical: false) }
+            Group {
+                if stacked {
+                    // C.1: structured vertical layout — avatar beside the name only; ticker, weight and values use the full row width below.
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        HStack(spacing: CGFloat(space.md)) { StockTickerAvatar(symbol: item.symbol, logoUrl: item.logoUrl); name }
+                        details
+                        holdingValues(item, alignment: .leading, colors: colors)
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    HStack(spacing: CGFloat(space.md)) {
+                        StockTickerAvatar(symbol: item.symbol, logoUrl: item.logoUrl)
+                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { name; details }.frame(maxWidth: .infinity, alignment: .leading)
+                        holdingValues(item, alignment: .trailing, colors: colors).fixedSize(horizontal: true, vertical: false)
+                    }
+                }
             }
             .padding(.horizontal, CGFloat(space.cardPadding)).padding(.vertical, CGFloat(space.sm))
             .frame(minHeight: CGFloat(StockStepsTheme.dimensions.rowMinHeight)).contentShape(Rectangle())
@@ -418,22 +449,33 @@ struct PortfolioScreen: View {
         .accessibilityValue(holdingSort?.label ?? PortfolioHoldingsDisplay.shared.DEFAULT_ORDER)
     }
 
-    /// Human-readable transaction with Edit / Delete in a menu.
+    /// Transaction (C.1, mirrors Compose): type, security and date · price as separate text groups, so large text wraps between them; Edit /
+    /// Delete in a menu.
     private func transactionRow(_ transaction: PortfolioTransaction, colors: StockColors) -> some View {
-        let title = [present.transactionLabel(type: transaction.type), present.transactionDetail(transaction: transaction)].compactMap { $0 }.joined(separator: " · ")
+        let text = present.transactionText(transaction: transaction)
         return HStack(spacing: CGFloat(space.sm)) {
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                Text(title).font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(colors.textTitle)
-                Text("\(present.dateLabel(date: transaction.tradeDate)) · \(present.transactionAmount(transaction: transaction))").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                Text(text.title).font(StockStepsTheme.font(type.bodySemiBold, relativeTo: .body)).foregroundStyle(colors.textTitle)
+                if let security = text.security {
+                    Text(security).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textBody)
+                }
+                if typeSize.isAccessibilitySize {
+                    Text(text.date).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                    Text(text.amount).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                } else {
+                    Text("\(text.date) · \(text.amount)").font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(text.spoken)
             Menu {
                 Button("Edit", systemImage: "pencil") { onEditTransaction(transaction) }
                 Button("Delete…", systemImage: "trash", role: .destructive) { deleteTransaction = transaction }
             } label: {
-                Image(systemName: "ellipsis").foregroundStyle(colors.iconSecondary).frame(width: 44, height: 44)
-            }.accessibilityLabel("Actions for \(title)")
+                Image(systemName: "ellipsis").foregroundStyle(colors.iconSecondary)
+                    .frame(width: CGFloat(StockStepsTheme.dimensions.touchTarget), height: CGFloat(StockStepsTheme.dimensions.touchTarget))
+            }.accessibilityLabel("Actions for \(text.title)\(text.security.map { ", " + $0.replacingOccurrences(of: "\u{00A0}", with: " ") } ?? "")")
         }
         .padding(.leading, CGFloat(space.cardPadding)).padding(.vertical, CGFloat(space.xs))
     }
@@ -453,13 +495,16 @@ struct PortfolioScreen: View {
                 if view.donut {
                     let width = max(rowWidth - CGFloat(space.cardPadding) * 2, 0)
                     let diameter = CGFloat(StockAllocationLayout.shared.diameter(availableWidth: Float(width > 0 ? width : 320)))
+                    let besideLayout = !(typeSize.isAccessibilitySize || typeSize >= .xxLarge)
+                    let legendWidth = besideLayout ? max(width - diameter - CGFloat(space.md), 0) : width
+                    let stackedGroup = StockAllocationLegendRow.groupStacked(view.holdings.map { ($0.label, $0.percent, $0.amount) }, width: legendWidth, typeSize: typeSize)
                     let legend = VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                         ForEach(Array(view.holdings.enumerated()), id: \.offset) { _, e in
-                            StockAllocationLegendRow(colorIndex: Int(e.colorIndex), label: e.label, percent: e.percent, amount: e.amount, spoken: e.spoken)
+                            StockAllocationLegendRow(colorIndex: Int(e.colorIndex), label: e.label, percent: e.percent, amount: e.amount, spoken: e.spoken, groupStacked: stackedGroup)
                         }
                     }
                     let donut = StockAllocationDonut(fractions: view.holdings.map { $0.fraction }, colorIndexes: view.holdings.map { Int($0.colorIndex) }, diameter: diameter)
-                    if typeSize.isAccessibilitySize || typeSize >= .xxLarge {
+                    if !besideLayout {
                         VStack(alignment: .center, spacing: CGFloat(space.md)) { donut; legend }.frame(maxWidth: .infinity)
                     } else {
                         HStack(spacing: CGFloat(space.md)) { donut; legend }
@@ -483,8 +528,10 @@ struct PortfolioScreen: View {
                 .accessibilityValue(byCurrency ? "Expanded" : "Collapsed")
                 .accessibilityHint(byCurrency ? labels.HIDE_CURRENCY : labels.SHOW_CURRENCY)
                 if byCurrency {
+                    let currencyWidth = max(rowWidth - CGFloat(space.cardPadding) * 2, 0)
+                    let currencyStacked = StockAllocationLegendRow.groupStacked(view.currencies.map { ($0.label, $0.percent, $0.amount) }, width: currencyWidth, typeSize: typeSize)
                     ForEach(Array(view.currencies.enumerated()), id: \.offset) { _, e in
-                        StockAllocationLegendRow(colorIndex: Int(e.colorIndex), label: e.label, percent: e.percent, amount: e.amount, spoken: e.spoken)
+                        StockAllocationLegendRow(colorIndex: Int(e.colorIndex), label: e.label, percent: e.percent, amount: e.amount, spoken: e.spoken, groupStacked: currencyStacked)
                     }
                 }
             }

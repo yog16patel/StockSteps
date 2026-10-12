@@ -45,18 +45,45 @@ struct StockAllocationLegendRow: View {
     let percent: String
     let amount: String?
     let spoken: String
+    /// C.1: the group's decision (`StockAllocationLegendRow.groupStacked`) so all rows read the same way; nil = decide alone.
+    var groupStacked: Bool? = nil
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var width: CGFloat = 0
+
+    /// C.1: values under the label when the whole (short) label and the values can't share the line (shared `StockLayout.metricRowStacked`,
+    /// as Compose); always at accessibility sizes. Text widths only, never this row's own height.
+    /// True when any line (label, percent, amount) can't share one line at `width` — then every row of the group stacks (mirrors Compose).
+    static func groupStacked(_ lines: [(String, String, String?)], width: CGFloat, typeSize: DynamicTypeSize) -> Bool {
+        if typeSize.isAccessibilitySize { return true }
+        guard width > 0 else { return false }
+        return lines.contains { label, percent, amount in
+            let l = (label as NSString).size(withAttributes: [.font: StockStepsTheme.uiFont(type.small, typeSize: typeSize)]).width
+            let v = max((percent as NSString).size(withAttributes: [.font: StockStepsTheme.uiFont(type.numberLabelStrong, typeSize: typeSize)]).width,
+                        ((amount ?? "") as NSString).size(withAttributes: [.font: StockStepsTheme.uiFont(type.caption, typeSize: typeSize)]).width)
+            return StockLayout.shared.metricRowStacked(longestLabelWord: Float(l + 18), valueWidth: Float(v), availableWidth: Float(width), gap: Float(space.sm))
+        }
+    }
+
+    private var stacked: Bool {
+        if let groupStacked { return groupStacked }
+        if typeSize.isAccessibilitySize { return true }
+        guard width > 0 else { return false }
+        let labelWidth = (label as NSString).size(withAttributes: [.font: StockStepsTheme.uiFont(type.small, typeSize: typeSize)]).width
+        let values = max((percent as NSString).size(withAttributes: [.font: StockStepsTheme.uiFont(type.numberLabelStrong, typeSize: typeSize)]).width,
+                         ((amount ?? "") as NSString).size(withAttributes: [.font: StockStepsTheme.uiFont(type.caption, typeSize: typeSize)]).width)
+        return StockLayout.shared.metricRowStacked(longestLabelWord: Float(labelWidth + 18), valueWidth: Float(values), availableWidth: Float(width), gap: Float(space.sm))
+    }
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         let dot = Circle().fill(StockStepsTheme.color(StockStepsTheme.chartLine(colorIndex, scheme).color)).frame(width: 10, height: 10)
-        let values = VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: 0) {
+        let values = VStack(alignment: stacked ? .leading : .trailing, spacing: 0) {
             Text(percent).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .footnote)).foregroundStyle(colors.textValue)
             if let amount { Text(amount).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting) }
         }
         Group {
-            if typeSize.isAccessibilitySize {
+            if stacked {
                 HStack(alignment: .top, spacing: CGFloat(space.sm)) {
                     dot.padding(.top, 6)
                     VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
@@ -74,6 +101,7 @@ struct StockAllocationLegendRow: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spoken)
     }

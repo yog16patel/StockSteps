@@ -45,7 +45,7 @@ internal fun PortfolioInsightsScreen(
     LazyColumn(modifier, contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sectionGap)) {
         item(key = "header") {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Text(PortfolioDisplay.INSIGHTS_TITLE, style = typography.screenTitle, color = colors.textTitle, modifier = Modifier.semantics { heading() })
+                // C.1: the top bar already says "Portfolio insights"; a second large title repeated it.
                 Text(listOfNotNull(state.accountName.takeIf { it.isNotBlank() }, view?.let { "Amounts in ${it.currency}" }, if (state.plus) "StockSteps+" else null).joinToString(" · "),
                     style = typography.small, color = colors.textSupporting)
                 // Phase C: design-system chips (was Material FilterChip); account labels as on the dashboard.
@@ -59,7 +59,7 @@ internal fun PortfolioInsightsScreen(
                 if (state.mockAvailable) {
                     // Readable scenario names (MOCK only), e.g. "Missing sectors" instead of "missing-sectors".
                     StockSelectField("Sample scenario", listOf<String?>(null) + state.scenarios, state.scenario, { it?.let(PortfolioDisplay::scenarioLabel) ?: "My accounts" },
-                        onSelect = { onScenario(it) })
+                        onSelect = { onScenario(it) }, placeholder = "My accounts")
                     if (state.scenario != null) StockSampleDataBanner("Read-only sample data. Generated prices and index levels, not real markets.")
                 }
             }
@@ -80,7 +80,7 @@ internal fun PortfolioInsightsScreen(
         // 1 · Health overview: transparent facts, no score.
         item(key = "health") {
             InsightsSection("Portfolio health", "Key facts about your portfolio. There's no single score; each number is explained.") {
-                view.health.forEach { MetricLine(it) }
+                view.health.forEachIndexed { i, row -> if (i > 0) StockDivider(); MetricLine(row) }
             }
         }
 
@@ -104,7 +104,7 @@ internal fun PortfolioInsightsScreen(
                             comparisonLabel = chart.benchmarkLabel
                         )
                     }
-                    view.performance.rows.forEach { MetricLine(it) }
+                    view.performance.rows.forEachIndexed { i, row -> if (i > 0) StockDivider(); MetricLine(row) }
                 }
             }
         }
@@ -140,9 +140,9 @@ internal fun PortfolioInsightsScreen(
         item(key = "contributors") {
             InsightsSection("What moved your portfolio", "Over ${view.selectedPeriod.label}, in ${view.currency}") {
                 SectionBody(view.contributors) {
-                    if (view.positiveContributors.isNotEmpty()) Text("Added the most", style = typography.label)
+                    if (view.positiveContributors.isNotEmpty()) SubHeading("Added the most")
                     view.positiveContributors.forEach { ContributorLine(it, onCompany) }
-                    if (view.negativeContributors.isNotEmpty()) Text("Subtracted the most", style = typography.label)
+                    if (view.negativeContributors.isNotEmpty()) SubHeading("Subtracted the most")
                     view.negativeContributors.forEach { ContributorLine(it, onCompany) }
                     view.contributors.rows.forEach { MetricLine(it) }
                 }
@@ -154,8 +154,8 @@ internal fun PortfolioInsightsScreen(
             InsightsSection("Dividends", null) {
                 SectionBody(view.dividends) {
                     view.dividends.rows.forEach { MetricLine(it) }
-                    if (view.dividendsByYear.isNotEmpty()) { Text("By year", style = typography.label); view.dividendsByYear.forEach { MetricLine(it) } }
-                    if (view.dividendsByCompany.isNotEmpty()) { Text("By company", style = typography.label); view.dividendsByCompany.take(5).forEach { MetricLine(it) } }
+                    if (view.dividendsByYear.isNotEmpty()) { SubHeading("By year"); view.dividendsByYear.forEach { MetricLine(it) } }
+                    if (view.dividendsByCompany.isNotEmpty()) { SubHeading("By company"); view.dividendsByCompany.take(5).forEach { MetricLine(it) } }
                 }
             }
         }
@@ -204,7 +204,7 @@ private fun InsightsSection(title: String, subtitle: String?, content: @Composab
     StockCard(bordered = false) {
         Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
             Text(title, style = StockStepsTheme.typography.cardTitle, color = StockStepsTheme.colors.textTitle, modifier = Modifier.semantics { heading() })
-            subtitle?.let { Text(it, style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textSupporting) }
+            subtitle?.let { Text(it, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSupporting) }
             content()
         }
     }
@@ -246,7 +246,9 @@ private fun MetricLine(row: MetricRow) {
     BoxWithConstraints(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = listOfNotNull(row.accessibility, row.detail).joinToString(". ") }) {
         val word = row.label.split(' ').maxOfOrNull { measurer.measure(it, StockStepsTheme.typography.small).size.width } ?: 0
         val value = measurer.measure(row.value, StockStepsTheme.typography.numberLabelStrong).size.width
-        val stacked = with(density) { org.example.stocksteps.theme.StockLayout.metricRowStacked(word.toDp().value, value.toDp().value, maxWidth.value) }
+        // C.1: at large text every row stacks (one decision for the list — rows decided one by one alternated at 2.0×).
+        val stacked = density.fontScale >= StockStepsTheme.dimensions.largeFontScale ||
+            with(density) { org.example.stocksteps.theme.StockLayout.metricRowStacked(word.toDp().value, value.toDp().value, maxWidth.value) }
         Column(Modifier.fillMaxWidth().padding(vertical = StockStepsTheme.spacing.xxs), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
             if (stacked) {
                 Text(row.label, style = StockStepsTheme.typography.small, color = colors.textSupporting)
@@ -264,7 +266,11 @@ private fun MetricLine(row: MetricRow) {
 private fun AllocationLine(row: AllocationRowView) {
     val colors = StockStepsTheme.colors
     Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = row.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-        Row(Modifier.fillMaxWidth()) {
+        // C.1: value under the label at large text (Android 2.0×), as on iOS.
+        if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale) {
+            Text(row.label, style = StockStepsTheme.typography.small, color = colors.textBody)
+            Text("${row.percent} · ${row.value}", style = StockStepsTheme.typography.small, color = colors.textSupporting)
+        } else Row(Modifier.fillMaxWidth()) {
             Text(row.label, Modifier.weight(1f), style = StockStepsTheme.typography.small, color = colors.textBody)
             Text("${row.percent} · ${row.value}", style = StockStepsTheme.typography.small, color = colors.textSupporting)
         }
@@ -277,18 +283,28 @@ private fun AllocationLine(row: AllocationRowView) {
 @Composable
 private fun ContributorLine(row: ContributorView, onCompany: (String) -> Unit) {
     val colors = StockStepsTheme.colors
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(onClickLabel = "Open ${row.symbol}") { onCompany(row.symbol) }
-            .clearAndSetSemantics { contentDescription = row.accessibility; role = Role.Button },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    val typography = StockStepsTheme.typography
+    val amountColor = if (row.tone == Tone.NEGATIVE) colors.negativeText else colors.positiveText
+    val detail = listOfNotNull(row.percent, row.fx?.let { "FX $it" }).joinToString(" · ")
+    // C.1: at large text the amounts go under the name — side by side the name column broke words ("Micros / oft") at 2.0×.
+    val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
+    val rowModifier = Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(onClickLabel = "Open ${row.symbol}") { onCompany(row.symbol) }
+        .clearAndSetSemantics { contentDescription = row.accessibility; role = Role.Button }
+    if (largeText) {
+        Column(rowModifier.padding(vertical = StockStepsTheme.spacing.xxs), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+            Text(row.symbol, style = typography.label, color = colors.textTitle)
+            row.name?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
+            Text(row.amount, style = typography.numberLabelStrong, color = amountColor)
+            if (detail.isNotEmpty()) Text(detail, style = typography.caption, color = colors.textSupporting)
+        }
+    } else Row(rowModifier, verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text(row.symbol, style = StockStepsTheme.typography.label)
-            row.name?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSupporting) }
+            Text(row.symbol, style = typography.label, color = colors.textTitle)
+            row.name?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text(row.amount, style = StockStepsTheme.typography.label, color = if (row.tone == Tone.NEGATIVE) colors.negativeText else colors.positiveText)
-            Text(listOfNotNull(row.percent, row.fx?.let { "FX $it" }).joinToString(" · "), style = StockStepsTheme.typography.caption, color = colors.textSecondary)
+            Text(row.amount, style = typography.label, color = amountColor)
+            Text(detail, style = typography.caption, color = colors.textSupporting)
         }
     }
 }
@@ -315,8 +331,13 @@ private fun LearnLine(entry: AnalyticsEducation.Entry) {
     }
 }
 
+/** C.1: sub-group title inside a section (label role, supporting colour, heading for screen readers, space above). */
 @Composable
-private fun Note(text: String) = Text(text, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary)
+private fun SubHeading(text: String) = Text(text, Modifier.padding(top = StockStepsTheme.spacing.xs).semantics { heading() },
+    style = StockStepsTheme.typography.label, color = StockStepsTheme.colors.textSupporting)
+
+@Composable
+private fun Note(text: String) = Text(text, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textMeta)
 
 /** Insight category icon (shared mapping `PortfolioInsightIcons`), decorative — the eyebrow names the category. */
 private fun insightIcon(category: InsightCategory) = when (PortfolioInsightIcons.icon(category)) {

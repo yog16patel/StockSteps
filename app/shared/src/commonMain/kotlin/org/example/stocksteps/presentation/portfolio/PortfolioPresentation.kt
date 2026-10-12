@@ -151,6 +151,22 @@ object PortfolioPresentation {
         else "${transaction.currency.name}\u00A0${PortfolioFormat.amount(transaction.netAmount)}"
     }
 
+    /**
+     * Transaction row text in separate groups (Phase C.1): [title] "Opening position", [security] "TD.TO · 5 shares" (null for cash), [when]
+     * "Sep 1, 2026", [amount] "CAD 75.00 per share" — so large text wraps between groups instead of inside "Opening position · TD.TO". [spoken]
+     * reads them in order with plain spaces.
+     */
+    data class TransactionText(val title: String, val security: String?, val date: String, val amount: String, val spoken: String)
+
+    fun transactionText(transaction: PortfolioTransaction): TransactionText {
+        val title = transactionLabel(transaction.type)
+        val security = transactionDetail(transaction)
+        val date = dateLabel(transaction.tradeDate)
+        val amount = transactionAmount(transaction)
+        val spoken = listOfNotNull(title, security, date, amount).joinToString(", ").replace('\u00A0', ' ')
+        return TransactionText(title, security, date, amount, spoken)
+    }
+
     private val PRICED_TRADES = setOf(TransactionType.BUY, TransactionType.SELL, TransactionType.OPENING_POSITION,
         TransactionType.DIVIDEND_REINVESTMENT, TransactionType.TRANSFER_IN, TransactionType.TRANSFER_OUT)
 

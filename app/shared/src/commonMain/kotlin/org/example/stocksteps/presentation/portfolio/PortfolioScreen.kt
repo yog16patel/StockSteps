@@ -87,11 +87,12 @@ internal fun PortfolioScreen(
         contentPadding = PaddingValues(spacing.screen),
         verticalArrangement = Arrangement.spacedBy(spacing.md)
     ) {
-        item {
+        // C.1: on Holding details the top bar already says "Holding details"; a second large title repeated it.
+        if (listMode) item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if (listMode) PortfolioDisplay.TITLE else PortfolioDisplay.HOLDING_DETAILS_TITLE, Modifier.weight(1f).semantics { heading() },
+                Text(PortfolioDisplay.TITLE, Modifier.weight(1f).semantics { heading() },
                     style = typography.screenTitle, color = colors.textTitle)
-                if (listMode) {
+                run {
                     IconButton(onClick = { showAbout = true }) {
                         Icon(StockIcons.Info, contentDescription = PortfolioDisplay.ABOUT_TITLE, tint = colors.iconSecondary)
                     }
@@ -157,11 +158,15 @@ internal fun PortfolioScreen(
                 }
             }
             val items = PortfolioHoldingsDisplay.items(state, if (listMode) sort else null).filter { holdingSymbol == null || it.symbol == holdingSymbol }
-            item {
+            if (listMode) item {
                 // Phase C: the sort menu sits beside the title (display order only) instead of a toolbar.
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Box(Modifier.weight(1f)) { PortfolioSectionTitle(if (listMode && items.isNotEmpty()) "Holdings (${items.size})" else "Holdings") }
-                    if (listMode && items.size > 1) PortfolioHoldingSortMenu(sort) { holdingSort = it?.name }
+                val title = if (items.isNotEmpty()) "Holdings (${items.size})" else "Holdings"
+                // C.1: at large text the sort menu goes under the title ("Holdings / (2)" wrapped beside it at 2.0×).
+                if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale) {
+                    Column { PortfolioSectionTitle(title); if (items.size > 1) PortfolioHoldingSortMenu(sort) { holdingSort = it?.name } }
+                } else Row(verticalAlignment = Alignment.Bottom) {
+                    Box(Modifier.weight(1f)) { PortfolioSectionTitle(title) }
+                    if (items.size > 1) PortfolioHoldingSortMenu(sort) { holdingSort = it?.name }
                 }
             }
             if (items.isEmpty()) item {
@@ -268,11 +273,23 @@ private const val SAVED_ACCOUNTS = PortfolioDisplay.SAVED_ACCOUNTS
 private fun PortfolioValueLines(label: String, values: List<String>, empty: String) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {
-        Text(label, Modifier.weight(1f), style = typography.small, color = colors.textSupporting)
-        Column(horizontalAlignment = Alignment.End) {
-            if (values.isEmpty()) Text(empty, style = typography.small, color = colors.textMeta)
-            values.forEach { Text(it, style = typography.numberLabelStrong, color = colors.textValue) }
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    // C.1: value under the label when they can't share a line (shared StockLayout.metricRowStacked) — "Dividends / received" at 2.0×.
+    BoxWithConstraints(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
+        val word = label.split(' ').maxOf { measurer.measure(it, typography.small).size.width }
+        val value = (values.ifEmpty { listOf(empty) }).maxOf { measurer.measure(it, typography.numberLabelStrong).size.width }
+        val stacked = with(density) { org.example.stocksteps.theme.StockLayout.metricRowStacked(word.toDp().value, value.toDp().value, maxWidth.value) }
+        val lines: @Composable (Alignment.Horizontal) -> Unit = { align ->
+            Column(horizontalAlignment = align) {
+                if (values.isEmpty()) Text(empty, style = typography.small, color = colors.textMeta)
+                values.forEach { Text(it, style = typography.numberLabelStrong, color = colors.textValue) }
+            }
+        }
+        if (stacked) Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+            Text(label, style = typography.small, color = colors.textSupporting); lines(Alignment.Start)
+        } else Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {
+            Text(label, Modifier.weight(1f), style = typography.small, color = colors.textSupporting); lines(Alignment.End)
         }
     }
 }
@@ -365,8 +382,8 @@ private fun PortfolioOverviewCard(state: PortfolioUiState, accountCount: Int, re
             Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                 StockTitleWithBadge(title = { Text(overview.totalLabel, style = typography.label, color = colors.textSupporting) },
                     badge = { overview.sampleBadge?.let { StockStatusBadge(it, StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT) } })
-                overview.sampleScenario?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
                 Text(overview.total, style = typography.largeNumber, color = colors.textValue)
+                overview.sampleScenario?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
             }
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                 val today = overview.today
@@ -417,24 +434,34 @@ private fun PortfolioHoldingRowView(item: PortfolioHoldingItem, onClick: (() -> 
     }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
     val stacked = largeText || maxWidth < PortfolioLayout.stackedRowWidth.dp
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.rowMinHeight)
-            .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClickLabel = "Open holding", onClick = onClick) else Modifier)
-            .semantics { contentDescription = item.spoken }
-            .padding(horizontal = spacing.cardPadding, vertical = spacing.sm),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)
-    ) {
+    val rowModifier = Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.rowMinHeight)
+        .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClickLabel = "Open holding", onClick = onClick) else Modifier)
+        .semantics { contentDescription = item.spoken }
+        .padding(horizontal = spacing.cardPadding, vertical = spacing.sm)
+    val details: @Composable () -> Unit = {
+        Text(item.subtitle, style = typography.small, color = colors.textSupporting)
+        item.weight?.let { Text(it, style = typography.caption, color = colors.textMeta) }
+        if (item.stale) Text(PortfolioHoldingsDisplay.STALE, style = typography.caption, color = colors.textMeta)
+    }
+    if (stacked) {
+        // C.1: structured vertical layout — avatar beside the name only; ticker, weight and values use the full row width below.
+        Column(rowModifier.clearAndSetSemantics { contentDescription = item.spoken }, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                StockTickerAvatar(symbol = item.symbol, logoUrl = item.logoUrl)
+                Text(item.name, Modifier.weight(1f), style = typography.bodySemiBold, color = colors.textTitle)
+            }
+            details()
+            values(Alignment.Start)
+        }
+    } else Row(rowModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
         Row(Modifier.weight(1f).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
             StockTickerAvatar(symbol = item.symbol, logoUrl = item.logoUrl)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                 Text(item.name, style = typography.bodySemiBold, color = colors.textTitle)
-                Text(item.subtitle, style = typography.small, color = colors.textSupporting)
-                item.weight?.let { Text(it, style = typography.caption, color = colors.textMeta) }
-                if (item.stale) Text(PortfolioHoldingsDisplay.STALE, style = typography.caption, color = colors.textMeta)
-                if (stacked) values(Alignment.Start)
+                details()
             }
         }
-        if (!stacked) values(Alignment.End)
+        values(Alignment.End)
     }
     }
 }
@@ -468,14 +495,21 @@ private fun PortfolioTransactionRow(transaction: PortfolioTransaction, onEdit: (
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
     var open by remember { mutableStateOf(false) }
-    val title = listOfNotNull(PortfolioPresentation.transactionLabel(transaction.type), PortfolioPresentation.transactionDetail(transaction)).joinToString(" · ")
+    val text = PortfolioPresentation.transactionText(transaction)
+    // C.1: type, security and date · price are separate text groups, so large text wraps between them ("Opening position" / "TD.TO · 5 shares"
+    // / "Sep 1, 2026" / "CAD 75.00 per share") instead of inside "Opening position · TD.TO".
+    val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
     Row(Modifier.fillMaxWidth().padding(start = spacing.cardPadding, top = spacing.xs, bottom = spacing.xs), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Text(title, style = typography.bodyMedium, color = colors.textTitle)
-            Text("${PortfolioPresentation.dateLabel(transaction.tradeDate)} · ${PortfolioPresentation.transactionAmount(transaction)}", style = typography.small, color = colors.textSupporting)
+        Column(Modifier.weight(1f).clearAndSetSemantics { contentDescription = text.spoken }, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Text(text.title, style = typography.bodySemiBold, color = colors.textTitle)
+            text.security?.let { Text(it, style = typography.small, color = colors.textBody) }
+            if (largeText) {
+                Text(text.date, style = typography.small, color = colors.textSupporting)
+                Text(text.amount, style = typography.small, color = colors.textSupporting)
+            } else Text("${text.date} · ${text.amount}", style = typography.small, color = colors.textSupporting)
         }
         Box {
-            IconButton(onClick = { open = true }) { Icon(StockIcons.More, contentDescription = "Actions for $title", tint = colors.iconSecondary) }
+            IconButton(onClick = { open = true }) { Icon(StockIcons.More, contentDescription = "Actions for ${text.title}${text.security?.let { ", " + it.replace('\u00A0', ' ') } ?: ""}", tint = colors.iconSecondary) }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                 DropdownMenuItem(text = { Text("Edit") }, onClick = { open = false; onEdit() })
                 DropdownMenuItem(text = { Text("Delete…", color = colors.negativeText) }, onClick = { open = false; onDelete() })
@@ -510,15 +544,18 @@ private fun PortfolioAllocationCard(state: PortfolioUiState) {
                 }.let { with(density) { it.toDp().value } } + 40f
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                     val diameter = StockAllocationLayout.diameter(maxWidth.value).dp
+                    val beside = StockAllocationLayout.legendBeside(maxWidth.value, widest, spacing.md.value)
+                    val legendWidth = if (beside) maxWidth.value - diameter.value - spacing.md.value else maxWidth.value
+                    val groupStacked = allocationLegendStacked(view.holdings.map { Triple(it.label, it.percent, it.amount) }, legendWidth)
                     val legend: @Composable (Modifier) -> Unit = { m ->
                         Column(m, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                            view.holdings.forEach { StockAllocationLegendRow(it.colorIndex, it.label, it.percent, it.amount, it.spoken) }
+                            view.holdings.forEach { StockAllocationLegendRow(it.colorIndex, it.label, it.percent, it.amount, it.spoken, stacked = groupStacked) }
                         }
                     }
                     val donut: @Composable () -> Unit = {
                         StockAllocationDonut(view.holdings.map { it.fraction }, view.holdings.map { it.colorIndex }, diameter)
                     }
-                    if (StockAllocationLayout.legendBeside(maxWidth.value, widest, spacing.md.value)) {
+                    if (beside) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
                             donut(); legend(Modifier.weight(1f))
                         }
@@ -544,7 +581,12 @@ private fun PortfolioAllocationCard(state: PortfolioUiState) {
                 Icon(StockIcons.ChevronDown, contentDescription = null, tint = colors.iconSecondary,
                     modifier = Modifier.size(StockStepsTheme.dimensions.icon).graphicsLayer { rotationZ = if (byCurrency) 180f else 0f })
             }
-            if (byCurrency) view.currencies.forEach { StockAllocationLegendRow(it.colorIndex, it.label, it.percent, it.amount, it.spoken) }
+            if (byCurrency) BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val currencyStacked = allocationLegendStacked(view.currencies.map { Triple(it.label, it.percent, it.amount) }, maxWidth.value)
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    view.currencies.forEach { StockAllocationLegendRow(it.colorIndex, it.label, it.percent, it.amount, it.spoken, stacked = currencyStacked) }
+                }
+            }
         }
     }
 }
