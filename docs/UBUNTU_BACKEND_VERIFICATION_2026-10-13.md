@@ -99,7 +99,7 @@ By design: `MockUserAuthenticator` reads the uid without checking the signature.
 
 ---
 
-## 5. Stabilization Phase 1 — fixes and validation (2026-10-13, uncommitted, not deployed)
+## 5. Stabilization Phase 1 — fixes and validation (2026-10-13; committed as `fa7c563`, deployed in §7)
 
 ### 5.1 Fix: MOCK quotes follow the MOCK market clock (§3.1)
 
@@ -152,3 +152,33 @@ By design: `MockUserAuthenticator` reads the uid without checking the signature.
    - Disable the debug/scenario routes unless `STOCKSTEPS_MOCK_DEBUG_ROUTES=true` (default true on the LAN, false when public).
 3. **Transport.** HTTPS through a tunnel or reverse proxy bound to `127.0.0.1`. Keep the existing admission limits, with `TRUSTED_PROXY_HOPS` set for the proxy and App Check in monitor mode, then enforce it.
 4. **Tests.** Unsigned token → 401; expired or wrong-audience token → 401; debug routes 404 when disabled; `/internal/*` 401 without the secret.
+
+---
+
+## 7. Stabilization Phase 2 — LAN deployment (2026-10-13)
+
+**Deployed:** commit `fa7c563` "Keep MOCK quotes current with the advancing MOCK market clock…", image `stocksteps-local:fa7c563c94a9`
+(image ID `sha256:ab18efa542adc36c184c1306a34040bc35e0cc89f314f9de9b5f95bbe1707872`). Container started 2026-10-13T21:30:03Z.
+**Rollback:** `deploy/local/deploy.sh rollback a50a2e3cc833` (previous image and release kept on the host; `d138b193ad44` is also available).
+
+Deployed from a clean `git worktree` of `fa7c563` (0 local changes; git-ignored `server.env` copied in) with `deploy/local/deploy.sh deploy`, so the tag is
+the plain commit SHA (no `-dirty`). The parallel Portfolio work was not touched. Nothing changed in Firebase auth, networking, firewall or mobile configuration;
+the bind address is still the LAN IP only.
+
+| # | Check | Result | Evidence |
+|---|---|---|---|
+| 1 | Only the Phase 1 files committed | **PASS** | `fa7c563`: `PROJECT_HANDOFF.md`, this report, `Application.kt`, `FixtureMarketDataSource.kt`, `MockClockFreshnessTest.kt`; pushed |
+| 2 | Worktree content | **PASS** | `catalog.json` (137), `marketNow = marketClock::instant`, `includeCatalog = true`, both test classes |
+| 3 | Tests on the exact commit (worktree) | **PASS** | `:server:test` 499 run, 0 failed, 3 skipped |
+| 4 | Image ↔ commit | **PASS** | `.env` tag, container image and release dir all `fa7c563c94a9` = `git rev-parse --short=12 fa7c563`; host release source contains the catalog (137) and the clock fix |
+| 5 | Health | **PASS** | `/health/live` 200, `/health/ready` 200, `/api/v1/meta` 200 `{"dataMode":"mock"}`; Docker health `healthy` |
+| 6 | Smoke (host) | **PASS** | 23 passed, 0 failed (includes practice preview, review-required 400, execute 200, holding recorded) |
+| 7 | Reliability (host) | **PASS** | peak 132 MiB of 1 GiB; uid 10001, read-only, CapDrop ALL, no-new-privileges, LAN-IP port only; 0 secret-like env or log lines; crash → restarted, healthy in ≈ 10 s; health check flags an unresponsive backend |
+| 8 | Screener | **PASS** | US filter 152 of 160 (sample); paging (50 per page) returns 160 rows with no duplicates; all 30 brief companies present; COST = "Costco Wholesale Corporation" 902.32 |
+| 9 | Practice trade (host) | **PASS** | COST preview: no blocker; execute 200; holding COST recorded |
+| 10 | Price alert (host) | **PASS** | create PRICE_ABOVE AAPL 200 → `POST /internal/alerts/evaluate`: rules 1, triggered 1, stale 0, dataErrors 0 → status `TRIGGERED` (sent 0: no device registered, MOCK push is simulated) |
+| 11 | Zero paid provider calls | **PASS** | usage counters: upstream 0, no fmp/finnhub/gemini/boc counters; 0 provider URLs, 0 WARN/ERROR in logs |
+| 12 | Immich and Nextcloud | **PASS** | all 8 containers: same start time, restart count, health and image before and after; networks and volume count unchanged; Immich ping 200; Nextcloud `status.php` installed, not in maintenance |
+| 13 | Freshness on the host after ≥ 16 h of uptime | **NOT TESTED YET** | The container is fresh (the mock clock starts at the capture). Covered by tests and by simulated-clock smoke runs (§5.2). Re-run `deploy/local/deploy.sh smoke` on the host after 2026-10-14 ≈ 14:00 UTC to confirm in production |
+
+Host after deploy: StockSteps CPU 0.28 %, 120 MiB; host 12 GiB RAM available, disk 22 GB used / 72 GB free (+1 GB: new image and build cache).

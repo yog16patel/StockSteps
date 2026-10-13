@@ -1,10 +1,41 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-11 against the repository (`main`, HEAD "Polish Company Comparison with collapsible sections, short periods, comparison bars, concise notes and one info action (Global UI Refinement Phase 5C.1) on Android and iOS", in sync with `origin/main`). Verify with
+Last reviewed: 2026-10-13 against the repository (`main`, HEAD "Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend" (docs only), on top of `3d91ef3` (Portfolio Phase E) and `fa7c563` (backend Phase 1); the working tree also holds uncommitted parallel-session work). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
+
+**2026-10-13 — Ubuntu self-hosted MOCK backend (parallel backend session).** Details: `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md` (§7: Phase 2 record) and `docs/UBUNTU_MOBILE_INTEGRATION_VERIFICATION.md` (Phase 3B); committed in
+"Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend" and `PROJECT_HANDOFF.md` (top entries).
+- **Deployed on the LAN Ubuntu host** (2026-10-13 21:30 UTC): commit `fa7c563`, image `stocksteps-local:fa7c563c94a9` (plain commit SHA, built from a clean
+  `git worktree`), Compose project `stocksteps-local`, `STOCKSTEPS_DATA_MODE=mock`, published on the host's LAN IP port 8081 only. Rollback:
+  `deploy/local/deploy.sh rollback a50a2e3cc833`.
+- **Committed and pushed:** Phase B sample company catalog (`231a0a1`: 137 US companies, screener 160 = 152 US + 8 Canadian), Stabilization Phase 1
+  (`fa7c563`: MOCK quote timestamps follow the advancing MOCK clock; fixes 409 `QUOTE_STALE` practice trades and stale price alerts ≈16 h after a start).
+- **Verified on the host after deploy:** health 200/200/200; smoke 23/23; reliability PASS (peak 132 MiB of 1 GiB, crash restart healthy in ≈10 s);
+  screener 152 US of 160; practice trade (COST) and price alert (triggered 1, stale 0); FMP/Finnhub/Gemini upstream 0; all 8 Immich/Nextcloud
+  containers unchanged. Tests on `fa7c563`: server 499 run / 0 failed / 3 skipped.
+- **Not yet verified on the host:** freshness after ≥ 16 h of real uptime. Run `deploy/local/deploy.sh smoke` after ≈ 13:50 UTC on 2026-10-14
+  without restarting the container (it last restarted 21:30:36 UTC during the reliability check).
+- **Phase 3B (2026-10-13, isolated devices): PASS WITH CONDITIONS.** See `docs/UBUNTU_MOBILE_INTEGRATION_VERIFICATION.md` and `docs/design/ubuntu_mobile/`.
+  - Android `emulator-5556` and the iOS iPhone 16 Pro simulator, both guest, both against Ubuntu: every signed-out journey passes except the iOS screener's first
+    open after a REAL → Mock switch (stale error; "Try again" works).
+  - Signed-in journeys, physical devices and the long-uptime smoke are **NOT TESTED**.
+  - `~/.gradle/gradle.properties` was removed; Android uses a per-build `-PstockstepsMockBackendUrl`.
+  - Issues: iOS screener stale error; MOCK catalog lacks `payoutRatio` (Dividend preset leaves out 76/160); Settings copy; iOS Markets status-bar overlap.
+- **Phase 3 first attempt (superseded by 3B) — paused.**
+  - Android: `stockstepsMockBackendUrl` is set in `~/.gradle/gradle.properties`. The `fa7c563` debug build (clean worktree) baked the Ubuntu URL; installed;
+    Home rendered Ubuntu MOCK data (indices "Close · Oct 7", Sample badge, "Sample data · mock backend" banner); Settings → Development showed Mock Data.
+    Then the parallel Portfolio session reinstalled its own build on the same emulator (17:47:40) and set a 1080×2400 size override, so testing stopped.
+    Markets, Screener, Stock Details, Portfolio/Practice, Watchlist, Comparison, AI Comparison, Learn, auth, error/retry and reliability: **NOT TESTED**.
+  - iOS: not built or launched in Phase 3. Git-ignored `Local.xcconfig` points to the Ubuntu URL (last Debug build, 2026-10-13 00:11, had it in Info.plist).
+    **NOT TESTED** end-to-end.
+  - Owner decisions pending: keep the machine-wide Gradle property (it also redirects the Portfolio session's debug builds to Ubuntu) or use
+    `-P` per build; shared emulator (pause Portfolio device checks) vs a second AVD (signed-out only); iPhone 16 simulator (only one with a cached
+    session) coordination.
+- **Next (backend track):** long-uptime host smoke → resume Phase 3 after the emulator/simulator decision → security hardening before any remote access
+  (`docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md` §6). Keep the server LAN-only.
 
 **2026-10-13 (Phase D3.1, committed and pushed as "Stabilize Portfolio Phase D3.1 with cash-aware allocation notes, formatted cash lines, Portfolio tab selection on sub-screens, action-specific error titles and action-free samples on Android and iOS"):** stabilization (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D3_1.md`).
 - Allocation >100% explained: not a bug; cash, including negative, is in the denominator.
@@ -286,6 +317,8 @@ Scheduler (OIDC or the new per-job secrets); push verification; per-IP limits on
 
 | Feature | Commit (title) | Doc | Notes |
 |---|---|---|---|
+| Ubuntu backend stabilization Phase 1: MOCK quote timestamps follow the MOCK market clock (practice trades and price alerts keep working on a long-running server) | `fa7c563` "Keep MOCK quotes current with the advancing MOCK market clock so practice trades and price alerts keep working on a long-running Ubuntu backend (Ubuntu backend stabilization Phase 1)" | `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md` | Deployed to the LAN Ubuntu host as `stocksteps-local:fa7c563c94a9`. `MockClockFreshnessTest` 7/7. Host ≥ 16 h check pending. |
+| Ubuntu backend Phase A audit + Phase B MOCK sample company catalog (137 US companies; MOCK screener 160 = 152 US + 8 CA; consistent P/E = price ÷ EPS; 52-week range from the 1Y chart) | `231a0a1` "Add a sample company catalog to the MOCK backend so the screener covers about 150 US stocks with consistent P/E, EPS and 52-week ranges (Ubuntu backend Phase B)" | `docs/LOCAL_DEVELOPMENT_SERVER.md` | `MockCatalogTest` 7/7. Deployed with `fa7c563`. |
 | Portfolio Phase C.1 closure (group stacking, grouped transactions, single headings, Insights large-text fixes, iOS status-bar backdrop) | "Close Portfolio visual and accessibility pass with group stacking, grouped transaction rows, single headings and large-text insights fixes (Portfolio Phase C.1) on Android and iOS" | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` | Shared 169/0, 165/0; captures `docs/design/portfolio_pc1/`; iPhone SE/TalkBack/VoiceOver NOT RUN. |
 | Portfolio Phase C (borderless sections, selector icons, holdings weight + sort, `StockAllocationDonut` + `StockAllocationLayout`, holding details grid, chart area fill, Insights pass) | "Refine Portfolio holdings, allocation donut, holding details and insights with borderless sections and matching selector icons (Portfolio Phase C) on Android and iOS" | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C.md` | Shared 166/0, 162/0; captures `docs/design/portfolio_pc/`; iPhone SE/TalkBack/VoiceOver NOT RUN. |
 | Portfolio Phase B.1 polish (short sample banner, grouped scenario sheet, currency not repeated in account labels, selected/all-accounts totals, chart note + ⓘ, `StockChartLayout`, readable unavailable notice, iOS AX5 and live Dynamic Type fixes) | "Polish the Portfolio overview with a short sample banner, a grouped scenario sheet, account labels without repeated currency and AX5 fixes (Portfolio Phase B.1) on Android and iOS" | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_B1.md` | Shared 156/0, 152/0; captures `docs/design/portfolio_pb1/`. |
@@ -321,7 +354,10 @@ Scheduler (OIDC or the new per-job secrets); push verification; per-IP limits on
 
 ### Implemented but NOT committed (working tree)
 
-None.
+As of 2026-10-13 (after `3d91ef3` and the backend docs commit):
+- Parallel Portfolio session (owned by that session; in progress): `app/androidApp/.../account/AndroidAuthGateway.kt`,
+  `app/iosApp/iosApp/FirebaseAccountAdapters.swift`, `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_1_PLAN.md`, `docs/design/portfolio_phase_e_1/`.
+- Backend session: nothing uncommitted. Its deployment and Phase 3B records were committed in "Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend".
 
 ## 2. Architecture and key decisions
 
@@ -427,6 +463,18 @@ None.
     Deployment conditions: `docs/FINANCIAL_API_PHASE4_IMPLEMENTATION.md` §8. Deferred: Phase 4E shared caching (licensing D3).
 17. App Check client integration (Android Play Integrity, iOS App Attest/DeviceCheck) and later enforcement (`APP_CHECK_ENFORCE`).
 18. Password reset / forgot-password flow (no backend support; the sign-in screen shows a "not available yet" notice).
+19. **Ubuntu backend — host freshness check**: `deploy/local/deploy.sh smoke` after ≥ 16 h of container uptime (≈ 13:50 UTC 2026-10-14), no restart.
+20. **Ubuntu backend — finish mobile integration**: signed-out journeys done (Phase 3B). Remaining:
+    - the owner signs in on `emulator-5556` and the iPhone 16 Pro simulator, then test server watchlists, Portfolio, Practice trades, AI comparison;
+    - physical devices;
+    - iOS offline;
+    - fixes for the four Phase 3B issues (approval needed; the `payoutRatio` fix needs a redeploy).
+21. **Before any remote access** (not implemented): Firebase ID-token verification in MOCK (`STOCKSTEPS_MOCK_AUTH=firebase`), gate MOCK debug and
+    `/internal/*` routes, HTTPS via tunnel/reverse proxy bound to `127.0.0.1` (plan: `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md` §6).
+22. Optional MOCK fixes: unknown symbols return a generated sample company (200) instead of 404; Settings → Development copy "Using local sample
+    market data" is misleading when the mock server is the Ubuntu host.
+23. Housekeeping: remove the scratch worktree `mobile-fa7c563` (registered in `git worktree list`) when Phase 3 no longer needs it; old
+    `stocksteps-local:*` images on the host are kept for rollback (remove explicitly, never prune globally).
 
 ## 5. Known limitations / bugs to watch
 
@@ -464,6 +512,21 @@ None.
 - Phase 4: every provider-backed public route has a cost-weighted admission policy; unknown symbols are answered by a cached existence check.
 - Flaky: `PracticeServiceTest.concurrentOrdersCannotOverspendOrBypassTheLimit` failed once in a full parallel run, passed 3/3 alone.
 - Company Details market status now follows the NYSE calendar (may show pre-market/after-hours); TSX listings still use NYSE status there.
+- **Ubuntu MOCK backend (LAN only)**:
+  - MOCK trusts unsigned bearer tokens (`MockUserAuthenticator` reads the uid without verification; `mock-user:<uid>` also accepted): any LAN
+    client can act as any uid. Acceptable only while LAN-only.
+  - `/internal/metrics/usage`, `/internal/*` dispatch routes and MOCK debug routes (plan simulation, practice/portfolio/home scenarios) are open in MOCK.
+  - User data (watchlists, practice, alerts, AI usage) is in container memory and is lost on every restart/redeploy; nothing goes to Firestore.
+  - The MOCK clock restarts at the fixture capture (2026-10-07 21:15Z) on every container start and advances in real time; quote *timestamps*
+    follow it, prices stay the captured/sample values (static), so changes and charts still describe Oct 7 data.
+  - Market data: ~25 captured tickers + ETFs + 8 TSX listings, plus the 137-company catalog; any other valid symbol gets a labelled generated
+    sample company.
+- Parallel sessions share one Android emulator, one iPhone 16 simulator and the same `build/` folders: concurrent installs, size overrides and
+  Gradle test runs interfere (seen 2026-10-13: an app reinstall mid-test and a Gradle `EOFException`).
+- Android builds against the Ubuntu host need `-PstockstepsMockBackendUrl=http://<lan-ip>:8081` per build. The machine-wide `~/.gradle/gradle.properties`
+  entry used briefly on 2026-10-13 was removed, so debug builds default to `127.0.0.1:8081` again.
+- MOCK screener: the catalog companies have no payout ratio, so presets that filter on it leave them out "for missing data".
+- iOS: the shared screener presenter keeps a catalog error from before a REAL → Mock switch until "Try again".
 
 ## 6. Where things are
 

@@ -1,5 +1,94 @@
 # StockSteps project handoff
 
+## Ubuntu backend track (2026-10-13)
+
+Current commit: **Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend** on `main` (pushed; docs and screenshots only). It sits on top of **Add Portfolio Phase E accessibility fixes with iOS error and
+rejection announcements, unbroken P/L labels, filter-only history announcements and single-announcer save errors, plus Android and iOS large-text QA**
+(`3d91ef3`, Portfolio session). The last backend code commit is **Keep MOCK quotes current with the advancing MOCK market clock so practice trades and price
+alerts keep working on a long-running Ubuntu backend (Ubuntu backend stabilization Phase 1)** (`fa7c563`, entry below).
+This commit records the Phase 2 deployment, the first mobile attempt and Phase 3B:
+- `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md` §7;
+- `docs/UBUNTU_MOBILE_INTEGRATION_VERIFICATION.md`;
+- `docs/design/ubuntu_mobile/` (37 screenshots);
+- this entry and `docs/project-status.md`.
+
+**Phase 3B: mobile connectivity, PASS WITH CONDITIONS** (`docs/UBUNTU_MOBILE_INTEGRATION_VERIFICATION.md`). Apps built from a clean worktree of `fa7c563`;
+backend `stocksteps-local:fa7c563c94a9`, not restarted.
+- **Isolation:**
+  - `~/.gradle/gradle.properties` (added in the earlier pass) was removed; the Android URL was passed per build with `-PstockstepsMockBackendUrl`.
+  - Separate devices: AVD `Pixel_3a_API_34` (`emulator-5556`) and the iPhone 16 Pro simulator. Phase E's `emulator-5554` and iPhone 16 were not used.
+- **Android** (`emulator-5556`, guest):
+  - **PASS:** build (Ubuntu mock URL), Mock Data, Home, Markets, search (incl. no-results), META/COST details with every chart range, screener presets,
+    comparison (AAPL/MSFT + V), guest watchlist add/remove, Learn, offline → "Could not reach StockSteps" → reconnect, background/foreground, 0 crashes.
+  - Traffic: the app's socket to Ubuntu:8081 was ESTABLISHED, with none to loopback.
+- **iOS** (iPhone 16 Pro simulator, guest, ad-hoc signed build):
+  - **PASS:** build, Mock Data, Home, Markets, search, COST details (1M/5Y), comparison (COST + WMT), guest watchlist add/remove, Learn,
+    background/foreground.
+  - Traffic: 16 distinct API paths went to Ubuntu:8081 with 200 responses.
+  - **Screener:** FAIL on first open after switching REAL → Mock (stale launch-time error from `localhost:8080`; "Try again" works).
+- **NOT TESTED:**
+  - signed-in journeys (server watchlists, Portfolio, Practice trades, AI comparison): no credentials may be entered, and the Auth emulator needs approval.
+    The owner can sign in on `emulator-5556` and the iPhone 16 Pro simulator, which are still running;
+  - physical devices (none connected);
+  - iOS offline (would affect the shared Mac network);
+  - long-uptime host smoke (due after ≈ 13:50 UTC 2026-10-14).
+- **Issues found** (fixes need approval):
+  1. iOS screener stale catalog error after an environment switch.
+  2. MOCK catalog lacks `payoutRatio`, so the Dividend preset leaves out 76 of 160 companies (server change + redeploy).
+  3. Settings copy "Using local sample market data".
+  4. iOS Markets content shows through the status bar when scrolled.
+- **Backend during the tests:** upstream 0, 0 WARN/ERROR, 141 MiB; Immich and Nextcloud unchanged.
+
+**Ubuntu backend Stabilization Phase 2: deployed (LAN only).**
+- **Deployed version:** commit `fa7c563`; image `stocksteps-local:fa7c563c94a9` (ID `sha256:ab18efa542adc36c184c1306a34040bc35e0cc89f314f9de9b5f95bbe1707872`); built on the host
+  by `deploy/local/deploy.sh deploy` from a clean `git worktree` of `fa7c563` (git-ignored `server.env` copied in; no `-dirty` tag; Portfolio work untouched).
+  The container started 2026-10-13 21:30:03Z and restarted once at 21:30:36Z (reliability crash test).
+- **Configuration (unchanged from Phase 5B Local):**
+  - Compose project `stocksteps-local`, service `api`, own bridge network, published on the host LAN IP port 8081 only;
+  - `STOCKSTEPS_DATA_MODE=mock`, `LOG_FORMAT=text`, `STOCKSTEPS_MOCK_ALERT_SECONDS=60`; no keys or credentials;
+  - uid 10001, read-only rootfs, `cap_drop ALL`, `no-new-privileges`, 1 CPU / 1 GiB, healthcheck `/health/ready`, json-file logs 10 MB × 3,
+    restart `unless-stopped`, no volumes.
+- **Rollback:** `deploy/local/deploy.sh rollback a50a2e3cc833` (images `a50a2e3cc833`, `d138b193ad44`, `1c1b0731adb0-dirty-f8eecdbc` kept on the host).
+- **Validation (actual):**
+  - tests on `fa7c563` (worktree): server 499 run / 0 failed / 3 skipped;
+  - image tag = commit; health 200/200/200 with `dataMode: mock`; host smoke 23/23; reliability PASS (peak 132 MiB);
+  - screener: US 152 of 160, paging 160 with no duplicates, all 30 brief companies present;
+  - COST practice trade 200; AAPL price alert evaluated (triggered 1, stale 0);
+  - upstream 0 (no fmp/finnhub/gemini/boc counters), 0 WARN/ERROR in logs;
+  - all 8 Immich/Nextcloud containers with identical start time, restart count, health and image before/after.
+- **NOT verified yet:** freshness on the host after ≥ 16 h of uptime. Run `deploy/local/deploy.sh smoke` after ≈ 13:50 UTC 2026-10-14 without restarting.
+
+**Ubuntu backend Phase 3, first attempt (Android/iOS against Ubuntu): paused, superseded by Phase 3B above.**
+- **Audit:**
+  - Android: `BACKEND_URL` / `MOCK_BACKEND_URL` come from Gradle properties (debug default `127.0.0.1:8081` via `adb reverse`; release has no mock URL).
+  - iOS: `STOCKSTEPS_MOCK_BACKEND_URL` (DEBUG only) from the git-ignored `Local.xcconfig`.
+  - Both: `stocksteps.backendEnvironment` selects MOCK/REAL; there are no local fallback repositories; Ktor `HttpTimeout` is 20 s; section errors offer "Try again".
+- **Android** (emulator `Pixel_9_Pro`):
+  - Setup: `~/.gradle/gradle.properties` (outside git) set `stockstepsMockBackendUrl` to the Ubuntu host for every debug build on this Mac (removed again in Phase 3B). The `fa7c563`
+    debug APK (clean worktree) baked the Ubuntu URL and installed with existing data kept. Signed in through the existing Firebase session, with Mock Data selected.
+  - **PASS:** Home rendered Ubuntu MOCK data (indices "Close · Oct 7", "Sample" badge, "Sample data · mock backend" banner). No mock server was
+    running on the Mac at the time.
+  - Interrupted: the parallel Portfolio session reinstalled its build (17:47:40) and set a 1080×2400 override on the same emulator. Its 17:47:25 build also
+    picked up the Ubuntu URL from the machine-wide property.
+  - **NOT TESTED:** Markets, Screener, Stock Details, Portfolio/Practice, Watchlist, Comparison, AI Comparison, Learn, auth flows, error/retry, reliability.
+  - **UI issue:** Settings → Development says "Using local sample market data" while the data comes from Ubuntu.
+- **iOS:** not built or launched in Phase 3. `Local.xcconfig` points to the Ubuntu URL; the last Debug build (00:11) carried it. **NOT TESTED** end-to-end.
+- **Authentication limits:** MOCK accepts unsigned tokens (any LAN client can act as any uid). Data written while signed in stays in container memory (not
+  Firestore) and resets on restart. New sign-ins can't be tested without credentials or the Auth emulator (owner approval).
+- **Leftovers:** the scratch worktree `mobile-fa7c563` (registered in `git worktree list`) holds the `fa7c563` APK for resuming.
+- **Decisions pending:**
+  - machine-wide Gradle property vs `-P` per build;
+  - shared emulator (pause Portfolio device checks) vs a second AVD (signed-out only);
+  - iPhone 16 simulator sharing.
+
+**Next (backend track):**
+1. Long-uptime host smoke.
+2. Resume Phase 3 after the device decisions.
+3. Security before any remote access (MOCK Firebase verification, gated debug/`/internal/*` routes, HTTPS via tunnel; plan in report §6).
+4. Optional: unknown symbol → 404, and the Settings copy.
+
+Keep the server LAN-only.
+
 Last updated: 2026-10-13 (America/Toronto). Current commit: **Keep MOCK quotes current with the advancing MOCK market clock so practice trades and price alerts keep working on a long-running Ubuntu backend (Ubuntu backend stabilization Phase 1)** on `main` (pushed):
 - Ubuntu verification 2026-10-13 (`docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md`): the LAN host still ran `a50a2e3`; practice trades failed with 409 `QUOTE_STALE` about 16 h after each start, because the MOCK market clock advances while captured quotes kept their capture timestamps.
 - Fix: `FixtureMarketDataSource(marketNow = …)`. With the MOCK clock, a quote's timestamp is "now" during the open session, else the close of the latest session (13:00 ET on early-close days). Captured quotes only move forward; generated quotes take the session time. Prices are unchanged and deterministic; quotes without a timestamp stay without one. `mockDataSources()` builds the clock first and passes it. The clock itself is unchanged: it also stamps user data and must stay monotonic. REAL is unchanged; the `stale-quote` scenario still blocks.
