@@ -25,9 +25,10 @@ class PortfolioPhaseD1Test {
     fun sectionsFollowTheTypeAndKeepOptionalFieldsUnderMore() {
         assertEquals(listOf(PortfolioFormField.TRANSACTION_TYPE, PortfolioFormField.DATE, PortfolioFormField.ACCOUNT, PortfolioFormField.SYMBOL),
             PortfolioFormRules.sectionFields(PortfolioFormSection.DETAILS, TransactionType.BUY, "AAPL", false))
-        assertEquals(listOf(PortfolioFormField.SHARES, PortfolioFormField.PRICE, PortfolioFormField.FEES),
+        // E.2: the trade currency opens "Amounts" (it was under "More options").
+        assertEquals(listOf(PortfolioFormField.TRADE_CURRENCY, PortfolioFormField.SHARES, PortfolioFormField.PRICE, PortfolioFormField.FEES),
             PortfolioFormRules.sectionFields(PortfolioFormSection.AMOUNTS, TransactionType.BUY, "AAPL", false))
-        assertEquals(listOf(PortfolioFormField.AMOUNT, PortfolioFormField.FEES),
+        assertEquals(listOf(PortfolioFormField.TRADE_CURRENCY, PortfolioFormField.AMOUNT, PortfolioFormField.FEES),
             PortfolioFormRules.sectionFields(PortfolioFormSection.AMOUNTS, TransactionType.CASH_DEPOSIT, "", false))
         assertFalse(PortfolioFormField.FX_RATE in PortfolioFormRules.sectionFields(PortfolioFormSection.MORE, TransactionType.BUY, "AAPL", false))
         assertTrue(PortfolioFormField.FX_RATE in PortfolioFormRules.sectionFields(PortfolioFormSection.MORE, TransactionType.BUY, "AAPL", true))

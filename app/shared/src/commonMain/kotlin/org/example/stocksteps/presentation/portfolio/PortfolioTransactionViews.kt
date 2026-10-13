@@ -136,17 +136,19 @@ internal fun PortfolioDeleteTransactionDialog(transaction: PortfolioTransaction,
 
 /**
  * Phase D3.1 status banner shared by the dashboard, history and details: offline / sync problems keep Retry (a refresh); a rejected save, delete
- * or account change is titled by that action ("Couldn't save transaction") with the server's message unchanged, and offers Dismiss.
+ * or account change is titled by that action ("Couldn't save transaction") with the server's message unchanged, and offers Dismiss. E.2: an
+ * ended session is titled "Session expired" and offers "Sign in again" ([onSignInAgain]); title, message and action come from [PortfolioDisplay].
  */
 @Composable
-internal fun PortfolioErrorBanner(state: PortfolioUiState, onRefresh: () -> Unit, onDismiss: () -> Unit) {
-    val retries = PortfolioDisplay.errorRetries(state)
+internal fun PortfolioErrorBanner(state: PortfolioUiState, onRefresh: () -> Unit, onDismiss: () -> Unit, onSignInAgain: () -> Unit) {
+    val action = PortfolioDisplay.errorAction(state)
     StockBanner(
         kind = if (state.error != null) StockBannerKind.ERROR else StockBannerKind.WARNING,
         title = PortfolioDisplay.errorTitle(state),
-        message = state.error ?: PortfolioDisplay.OUT_OF_DATE,
-        actionText = when { state.error == null -> null; retries -> "Retry"; else -> PortfolioDisplay.DISMISS },
-        onAction = if (retries) onRefresh else onDismiss, announce = PortfolioDisplay.errorAnnounced(state))
+        message = PortfolioDisplay.errorMessage(state),
+        actionText = PortfolioDisplay.errorActionLabel(action),
+        onAction = when (action) { PortfolioErrorAction.SIGN_IN -> onSignInAgain; PortfolioErrorAction.DISMISS -> onDismiss; else -> onRefresh },
+        announce = PortfolioDisplay.errorAnnounced(state))
 }
 
 /**

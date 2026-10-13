@@ -17,7 +17,13 @@ struct PortfolioAccountForm: View {
         let colors = StockStepsTheme.colors(scheme)
         NavigationStack {
             Form {
-                TextField(display.ACCOUNT_NAME, text: $name)
+                // E.2 (D-4): the label stays visible above the input, as in the transaction form (a placeholder-only label vanished once typed).
+                VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.xxs)) {
+                    Text(display.ACCOUNT_NAME).font(StockStepsTheme.font(StockStepsTheme.typography.label, relativeTo: .footnote))
+                        .foregroundStyle(colors.textSecondary).accessibilityHidden(true)
+                    TextField("", text: $name, prompt: Text(verbatim: "")).accessibilityLabel(display.ACCOUNT_NAME)
+                }
+                .padding(.vertical, CGFloat(StockStepsTheme.spacing.xxs))
                 // Readable category labels; the tag stays the enum name the bridge expects (A-F2).
                 Picker(display.ACCOUNT_CATEGORY, selection: $category) {
                     ForEach(rules.categoryOptions, id: \.name) { Text(present.categoryLabel(category: $0)).tag($0.name) }
@@ -34,6 +40,8 @@ struct PortfolioAccountForm: View {
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || name.count > 40)
                 .listRowBackground(Color.clear)
             }.navigationTitle(existing == nil ? display.ACCOUNT_CREATE_TITLE : display.ACCOUNT_SETTINGS_TITLE)
+                // E.2: inline like every other Portfolio sheet — a large title never wraps and truncated "Create investment ac…" at Large.
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button(display.FORM_CANCEL) { dismiss() } } }
         }.onAppear {
             if let existing { name = existing.name; category = existing.category.name; currency = existing.reportingCurrency.name; archived = existing.archived }
@@ -176,7 +184,15 @@ struct PortfolioTransactionForm: View {
                 ForEach(rules.typeOptions, id: \.name) { Text(present.transactionLabel(type: $0)).tag($0.name) }
             }
         } else if field == .tradeCurrency {
-            choice(field, value: currency, selection: $currency) { ForEach(rules.currencyOptions, id: \.name) { Text(verbatim: $0.name).tag($0.name) } }
+            // E.2 (mirrors Compose): the cash currency follows the trade currency while they were the same, so picking CAD doesn't leave cash in
+            // USD and ask for an FX rate nobody needed.
+            let trade = Binding(get: { currency }, set: { new in if cashCurrency == currency { cashCurrency = new }; currency = new })
+            choice(field, value: currency, selection: trade) { ForEach(rules.currencyOptions, id: \.name) { Text(verbatim: $0.name).tag($0.name) } }
+            // E.2: says when the amounts aren't in the account's reporting currency (a typed symbol's currency isn't looked up).
+            if let note = rules.currencyNote(tradeCurrency: currency, account: state?.accounts.first(where: { $0.id == account })) {
+                Text(note).font(StockStepsTheme.font(StockStepsTheme.typography.caption, relativeTo: .footnote))
+                    .foregroundStyle(StockStepsTheme.colors(scheme).textSupporting)
+            }
         } else if field == .cashCurrency {
             choice(field, value: cashCurrency, selection: $cashCurrency) { ForEach(rules.currencyOptions, id: \.name) { Text(verbatim: $0.name).tag($0.name) } }
         } else if field == .symbol {

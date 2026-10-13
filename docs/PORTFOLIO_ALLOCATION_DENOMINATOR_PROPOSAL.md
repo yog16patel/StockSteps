@@ -89,3 +89,27 @@ Contract for `PortfolioEngine.allocations` (and the server report):
 |---|---|---|
 | A1 | Adopt gross long value app-wide (§3)? | Yes |
 | A2 | Alternatively keep both rules and only relabel (no engine change)? | Fallback if A1 is declined |
+
+## 7. Clarifications added in Phase E.2 (documentation only; still not implemented)
+
+Added at the owner's request (E.2 decision D-6) so the A1 phase starts from a complete contract. Nothing here changes code or numbers today.
+
+1. **Unfunded cash with several negative balances.** `unfundedCash` is **one amount in the account's reporting currency**: the sum of every
+   negative cash balance, each converted at the same current FX as the holdings. If any negative balance can't be converted (FX missing),
+   `unfundedCash` is null and every percentage is null (rule 4). The UI line names the reporting currency only ("Unfunded cash −CAD 69.53").
+   The per-currency balances stay in the existing cash lines.
+2. **Stale prices.** A quote that is present but not from the current session still counts (as today, on both screens). Only a **missing**
+   price or FX value nulls the percentages. The existing freshness line ("Prices as of …") qualifies the percentages; A1 adds no second staleness rule.
+3. **One account, one reporting currency.** Allocation is calculated per account, in that account's reporting currency. There's no cross-account
+   or cross-currency aggregate allocation (the "All accounts" view was excluded by the owner), so two accounts with different reporting
+   currencies never share a denominator.
+4. **Rounding.** Each slice is the exact `Decimal` ratio, rounded half-up to 2 places **for display only**. Displayed slices may add up to
+   99.99% or 100.01%. There's no largest-remainder adjustment (Insights doesn't adjust either), so the §4 test asserts the **exact** sum = 100
+   before rounding, not the displayed sum.
+5. **Old clients.** Old clients get the new percentages (gross long value) without the new `cash` slices, so their listed holdings add up to
+   **less than 100%** when cash is positive. With negative cash they no longer exceed 100%. They keep rendering; only the ">100%" note they
+   show becomes unnecessary. Server and clients should ship in the same release (§5).
+6. **Labels** (exact copy, the same on the dashboard and Insights):
+   - caption: "Share of what you own: holdings plus cash you hold.";
+   - unfunded line: "Unfunded cash −CAD 69.53", with the note "Borrowed or unfunded cash isn't part of these percentages.";
+   - the D3.1 `cashNote` (">100%") is removed.

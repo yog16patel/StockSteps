@@ -16,4 +16,16 @@ interface AuthRepository {
     suspend fun idToken(forceRefresh: Boolean = false): String? = null
 }
 
-class AccountException(message: String) : Exception(message)
+open class AccountException(message: String) : Exception(message)
+
+/**
+ * Portfolio Phase E.2: the ID token couldn't be refreshed only because the auth service couldn't be reached — the session may still be valid, so
+ * this is a connection problem ("Could not connect…"), not an ended session. Thrown for [AccountMessages.TOKEN_CONNECTION].
+ */
+class AccountConnectionException(message: String) : AccountException(message)
+
+/** Messages shared by the platform auth gateways and the shared code that tells them apart. */
+object AccountMessages {
+    /** E.1 token-refresh message for a connection failure; the platform mappers return exactly this text so the cause can be recognized. */
+    const val TOKEN_CONNECTION = "Could not connect. Check your connection and try again."
+}

@@ -43,6 +43,22 @@ fun userDataError(cause: Throwable): String = when (cause) {
 }
 
 /**
+ * Portfolio Phase E.2: what kind of failure [userDataError] described, so a screen can offer the recovery that works. [SESSION]: the sign-in
+ * can't be renewed (token refresh failed, or the server answered 401) — Retry can't fix it, signing in again can. [SERVER]: the server
+ * answered with an error. [NETWORK]: no answer (offline, unreachable, timed out).
+ */
+enum class UserDataErrorKind { SESSION, NETWORK, SERVER }
+
+/** The [UserDataErrorKind] of a failed request; a [UserDataRequestException] is classified by its cause. */
+fun userDataErrorKind(cause: Throwable): UserDataErrorKind = when (cause) {
+    is UserDataRequestException -> cause.cause?.let(::userDataErrorKind) ?: UserDataErrorKind.SERVER
+    is org.example.stocksteps.domain.AccountConnectionException -> UserDataErrorKind.NETWORK
+    is org.example.stocksteps.domain.AccountException -> UserDataErrorKind.SESSION
+    is StockStepsApiException -> if (cause.status == 401) UserDataErrorKind.SESSION else UserDataErrorKind.SERVER
+    else -> UserDataErrorKind.NETWORK
+}
+
+/**
  * Generic signed-in resource (watchlists, alerts): the server is the source of truth; the last
  * response is cached per environment+account and shown (marked offline) when the server can't be
  * reached. Mutations are sent one at a time; nothing is shown as saved until the server confirms.
@@ -65,7 +81,9 @@ abstract class ServerBackedRepository<T : Any>(
         /** Showing the cached copy because the latest request failed (or hasn't finished). */
         val offline: Boolean = false,
         val savedAt: Long? = null,
-        val error: String? = null
+        val error: String? = null,
+        /** E.2: the kind of [error]; null without one. */
+        val errorKind: UserDataErrorKind? = null
     )
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -97,12 +115,12 @@ abstract class ServerBackedRepository<T : Any>(
     suspend fun refresh() {
         val (uid, env) = mutable.value.uid to mutable.value.environment
         if (uid == null || env == null || auth.session.value.user?.id != uid || environment.value != env) return
-        mutable.update { it.copy(loading = true, error = null) }
+        mutable.update { it.copy(loading = true, error = null, errorKind = null) }
         try {
             apply(uid, env, fetch())
         } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
-            mutable.update { if (it.uid == uid && it.environment == env) it.copy(loading = false, offline = it.value != null, error = userDataError(cause)) else it }
+            mutable.update { if (it.uid == uid && it.environment == env) it.copy(loading = false, offline = it.value != null, error = userDataError(cause), errorKind = userDataErrorKind(cause)) else it }
         }
     }
 
@@ -123,7 +141,7 @@ abstract class ServerBackedRepository<T : Any>(
         // A response for a previous account or environment is never shown.
         if (mutable.value.uid != uid || mutable.value.environment != env || auth.session.value.user?.id != uid || environment.value != env) return
         val time = now()
-        mutable.update { it.copy(value = value, loading = false, offline = false, savedAt = time, error = null) }
+        mutable.update { it.copy(value = value, loading = false, offline = false, savedAt = time, error = null, errorKind = null) }
         cache.write(userCacheOwner(env, uid), cacheKey, json.encodeToString(serializer, value), time)
         if (auth.session.value.user?.id != uid) cache.clearAccount(uid)
     }

@@ -40,6 +40,7 @@ internal fun PortfolioTransactionsScene(
 ) {
     val model = viewModel(key = "portfolio") { PortfolioViewModel(accounts.portfolioPresenter) }
     val state by model.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
     var scopeCleared by rememberSaveable { mutableStateOf(false) }
     // Account switched away from the holding's account: the symbol no longer belongs here, so the scope is dropped (not restored on switching back).
     LaunchedEffect(state.selectedAccountId) {
@@ -61,7 +62,8 @@ internal fun PortfolioTransactionsScene(
                 onSaveTransaction = { model.presenter.saveTransaction(it, true) },
                 onOpenTransaction = onOpenTransaction,
                 feedback = accounts.portfolioFeedback,
-                onDismissError = model.presenter::clearError
+                onDismissError = model.presenter::clearError,
+                onSignInAgain = { scope.signInAgain(accounts) }
             )
         }
     }
@@ -86,7 +88,9 @@ internal fun PortfolioTransactionsScreen(
     onSaveTransaction: (PortfolioTransaction) -> Unit,
     onOpenTransaction: ((String) -> Unit)? = null,
     feedback: PortfolioFeedbackTracker? = null,
-    onDismissError: () -> Unit = {}
+    onDismissError: () -> Unit = {},
+    /** E.2: "Sign in again" for an ended session (signs out, so the app's sign-out handling opens Login). */
+    onSignInAgain: () -> Unit = {}
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -116,7 +120,7 @@ internal fun PortfolioTransactionsScreen(
             }
             if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             if (state.error != null || state.offline) item {
-                PortfolioErrorBanner(state, onRefresh, onDismissError)
+                PortfolioErrorBanner(state, onRefresh, onDismissError, onSignInAgain)
             }
             if (!state.signedIn && state.mockScenario == null) item {
                 StockBanner(StockBannerKind.INFO, PortfolioDisplay.SIGN_IN_PROMPT, actionText = "Sign in", onAction = onSignIn)
@@ -149,7 +153,10 @@ internal fun PortfolioTransactionsScreen(
                 StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     if (scoped.isEmpty() && symbol == null) {
                         Text(PortfolioDisplay.TRANSACTIONS_EMPTY, style = typography.small, color = colors.textSupporting)
-                        if (activeAccounts.isNotEmpty() && !readOnly) StockButton("+ Add transaction", onAdd, enabled = !state.busy)
+                        if (activeAccounts.isNotEmpty() && !readOnly) {
+                            StockButton("+ Add transaction", onAdd, enabled = !state.busy && !state.sessionExpired)
+                            PortfolioDisplay.addDisabledReason(state)?.let { Text(it, style = typography.caption, color = colors.textSupporting) } // E.2
+                        }
                     } else {
                         Text(PortfolioTransactionsDisplay.emptyMessage(filter, symbol), style = typography.small, color = colors.textSupporting)
                         if (filter != PortfolioTransactionFilter.ALL) StockButton(PortfolioTransactionsDisplay.SHOW_ALL_FILTER,

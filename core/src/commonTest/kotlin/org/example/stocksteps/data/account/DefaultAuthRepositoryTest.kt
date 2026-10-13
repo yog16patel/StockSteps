@@ -21,6 +21,24 @@ class DefaultAuthRepositoryTest {
         override fun signIn(email: String, password: String, completion: (String?) -> Unit) { signInCalls++; completion("Check your email and password.") }
         override fun signUp(email: String, password: String, completion: (String?) -> Unit) { completion(null) }
         override fun signOut(completion: (String?) -> Unit) { listener?.invoke(null); completion(null) }
+        var tokenError: String? = null
+        override fun idToken(forceRefresh: Boolean, completion: (String?, String?) -> Unit) {
+            tokenError?.let { completion(null, it) } ?: completion("token", null)
+        }
+    }
+    /** Portfolio Phase E.2: a token refresh that only couldn't connect is a connection problem; an ended session stays an account problem. */
+    @Test fun tokenConnectionFailuresAreNotEndedSessions() = runTest {
+        val gateway = Gateway()
+        val auth = DefaultAuthRepository(gateway, backgroundScope)
+        runCurrent()
+        gateway.tokenError = org.example.stocksteps.domain.AccountMessages.TOKEN_CONNECTION
+        val offline = assertFailsWith<org.example.stocksteps.domain.AccountConnectionException> { auth.idToken(true) }
+        assertEquals("Could not connect. Check your connection and try again.", offline.message)
+        assertEquals(org.example.stocksteps.data.userdata.UserDataErrorKind.NETWORK, org.example.stocksteps.data.userdata.userDataErrorKind(offline))
+        gateway.tokenError = "Your session has ended. Sign in again to continue."
+        val ended = assertFailsWith<AccountException> { auth.idToken(true) }
+        assertFalse(ended is org.example.stocksteps.domain.AccountConnectionException)
+        assertEquals(org.example.stocksteps.data.userdata.UserDataErrorKind.SESSION, org.example.stocksteps.data.userdata.userDataErrorKind(ended))
     }
     @Test fun restoresSessionAndLogoutPublishesGuest() = runTest {
         val gateway = Gateway()

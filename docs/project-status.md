@@ -6,13 +6,35 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-13 — Portfolio Phase E.1 (committed and pushed as "Fix Portfolio Phase E.1 session-refresh messaging so an ended session says to sign in again instead of blaming the password, and record the allocation-denominator proposal and blocked screen-reader checks"; NOT READY FOR SIGN-OFF).** Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_1.md`.
-- A failed session refresh now says "Your session has ended. Sign in again to continue." instead of "Check your email and password".
-  Reproduced with the local Auth emulator (`INVALID_REFRESH_TOKEN`); iOS runtime-verified, Android build-only.
-- Allocation denominator (dashboard net value vs Insights gross long value): `docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md`, not implemented.
-- iOS signed-in workflows (with the owner's local emulator sign-in): **all PASS** on the iPhone 16 simulator (report §3; committed).
-- **NOT VERIFIED:** TalkBack (deferred by the owner), VoiceOver, Accessibility Inspector.
-- Tests: core 474/0 (JVM, iOS), server 499/0, shared 219/0 (Android) and 215/0 (iOS); both builds OK.
+**2026-10-13 — Portfolio Phase E.2 (committed and pushed as "Add Portfolio Phase E.2 with a readable iOS account title, the trade currency shown with the amounts, and a Session expired banner with Sign in again on Android and iOS"; verification in progress).**
+- "New investment account" (inline iOS title), Trade currency in Amounts with a reporting-currency note, "Session expired" + "Sign in again",
+  Add unavailable only for an expired session. Report `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2.md`.
+- At commit: core JVM 478/0, shared Android 226/0; other suites, final iOS build and device checks not recorded yet. Screen readers NOT VERIFIED.
+
+**2026-10-13 — Portfolio session end (Portfolio D1.1 → E.1 committed and pushed).**
+- HEAD `82fd22e`: "Record Portfolio Phase E.1 iOS signed-in verification with all add, edit, delete, rejection, sample, account-switch and navigation
+  checks passing on the iPhone 16 simulator".
+- Full handoff: `docs/PROJECT_HANDOFF.md` §SESSION-END-2026-10-13-PORTFOLIO.
+- **Portfolio state:**
+  - Transaction history (D2) and Transaction details with confirmed-only success feedback (D3) are done.
+  - Stabilization (D3.1) is done: allocation note, "-USD 51.50 / Unfunded" cash lines, Portfolio tab selection on sub-screens, errors titled by
+    action, samples without actions.
+  - Accessibility fixes (E) are done: iOS error announcements, unbroken "P/L", single announcements.
+  - Session-ended message fix (E.1) is done.
+  - iOS signed-in workflows: all PASS on the iPhone 16 simulator (local Auth emulator + MOCK).
+- **Phase E.1 verdict: NOT READY FOR SIGN-OFF** (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_1.md`). **NOT VERIFIED:**
+  - TalkBack (deferred by the owner until requested);
+  - VoiceOver (physical device);
+  - Accessibility Inspector.
+- **Tests (last full run, code unchanged since):** core 474/0 (JVM, iOS), server 499/0 (3 skipped, run alone), shared 219/0 (Android) and 215/0
+  (iOS); `assembleDebug` OK; unsigned `xcodebuild` OK.
+- **Pending decisions:** the allocation denominator (`docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md`, A1 gross long value recommended; no engine
+  change yet).
+- **Known P3:** the iOS "Create investment account" title is truncated at Large text.
+- **Next:**
+  1. Owner decision on the allocation denominator.
+  2. Phase E closure (screen readers when requested, or owner acceptance).
+  3. Phase 5D.
 
 **2026-10-13 — Ubuntu self-hosted MOCK backend (parallel backend session).** Details: `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md` (§7: Phase 2 record) and `docs/UBUNTU_MOBILE_INTEGRATION_VERIFICATION.md` (Phase 3B); committed in
 "Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend" and `PROJECT_HANDOFF.md` (top entries).

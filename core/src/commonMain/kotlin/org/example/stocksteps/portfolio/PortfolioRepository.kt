@@ -18,7 +18,9 @@ data class PortfolioSnapshot(
     val loading: Boolean = false,
     val offline: Boolean = false,
     val error: String? = null,
-    val signedIn: Boolean = false
+    val signedIn: Boolean = false,
+    /** E.2: the kind of [error]; null without one. */
+    val errorKind: UserDataErrorKind? = null
 )
 
 /** Separate account resource and cache key. Neither watchlist membership nor alerts affect it. */
@@ -54,7 +56,7 @@ class PortfolioRepository(
                     cachedLedger = ledger
                     cachedAccount = id
                 }
-                PortfolioSnapshot(ledger, id, cachedPosition, resource.loading, resource.offline, resource.error, resource.uid != null)
+                PortfolioSnapshot(ledger, id, cachedPosition, resource.loading, resource.offline, resource.error, resource.uid != null, resource.errorKind)
             }.collect { mutableSnapshot.value = it }
         }
     }

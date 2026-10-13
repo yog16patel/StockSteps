@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.example.stocksteps.WindowHinge
 import org.example.stocksteps.designsystem.components.StockButton
@@ -27,6 +28,15 @@ import org.example.stocksteps.presentation.stocksearch.WatchlistChooserSheet
 
 internal class PortfolioViewModel(val presenter: PortfolioPresenter) : ViewModel() {
     val state = presenter.state
+}
+
+/**
+ * Portfolio Phase E.2: "Sign in again" for an ended session. Signs out — Firebase sign-out plus this device's cached copy of the account; nothing
+ * on the server is deleted — and the app's sign-out handling then opens Login with an empty back stack (`AppNavigation`). Login is never opened
+ * while the expired user is still signed in, so there is no loop. A failed sign-out leaves everything as it was (the banner stays).
+ */
+internal fun CoroutineScope.signInAgain(accounts: AccountDependencies) {
+    launch { try { accounts.signOut()() } catch (cause: Exception) { if (cause is CancellationException) throw cause } }
 }
 
 @Composable
@@ -81,6 +91,7 @@ internal fun PortfolioScene(
                 onOpenTransaction = onOpenTransaction,
                 feedback = accounts.portfolioFeedback,
                 onDismissError = model.presenter::clearError,
+                onSignInAgain = { scope.signInAgain(accounts) },
                 onDeleteTransaction = model.presenter::deleteTransaction,
                 onSaveTransaction = { model.presenter.saveTransaction(it, true) },
                 onWatchlist = { symbol ->

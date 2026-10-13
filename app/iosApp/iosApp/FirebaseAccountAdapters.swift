@@ -104,7 +104,7 @@ private final class NativeAuthGateway: NSObject, PlatformAuthGateway {
 private func tokenMessage(_ error: Error) -> String {
     let nsError = error as NSError
     switch AuthErrorCode(rawValue: nsError.code) {
-    case .networkError: return "Could not connect. Check your connection and try again."
+    case .networkError: return AccountMessages.shared.TOKEN_CONNECTION // E.2: recognized as a connection problem, not an ended session
     case .userTokenExpired, .invalidUserToken, .userNotFound, .userDisabled, .requiresRecentLogin:
         return "Your session has ended. Sign in again to continue."
     case .internalError where serverReason(nsError).map(sessionEndedReasons.contains) == true:

@@ -1,6 +1,18 @@
 import SwiftUI
 import Shared
 
+/// Portfolio Phase E.2 (mirrors Compose `signInAgain`): "Sign in again" for an ended session. Signs out first — Firebase sign-out plus this
+/// device's cached copy of the account; nothing on the server is deleted — then opens the existing sign-in sheet (`onSignIn`), so sign-in never
+/// starts while the expired user is still signed in (no loop). A failed sign-out opens nothing and leaves the banner in place.
+@MainActor func portfolioSignInAgain(_ accounts: AccountViewModel, then onSignIn: @escaping () -> Void) -> () -> Void {
+    {
+        Task { @MainActor in
+            await accounts.signOut()
+            if accounts.state.user == nil { onSignIn() }
+        }
+    }
+}
+
 struct PortfolioScene: View {
     let accounts: AccountViewModel
     let watchlists: WatchlistsModel
@@ -33,7 +45,8 @@ struct PortfolioScene: View {
             onEditTransaction: { editingTransaction = $0; showTransaction = true }, onDeleteTransaction: model.deleteTransaction,
             onInsights: { showInsights = true }, onPractice: initialSymbol == nil ? onPractice : nil,
             onTransactions: { transactionsAccount = model.state?.selectedAccountId; showTransactions = true },
-            onOpenTransaction: { openTransactionId = $0 }, onDismissError: model.clearError)
+            onOpenTransaction: { openTransactionId = $0 }, onDismissError: model.clearError,
+            onSignInAgain: portfolioSignInAgain(accounts, then: onSignIn))
         .onAppear { model.connect(accounts); model.clearError() } // D1: no stale failure from another action on a fresh form
         .portfolioFeedback(accounts: accounts, result: model.state?.actionResult) // D3: confirmed add / edit / delete
         .sheet(isPresented: $showAccount) {

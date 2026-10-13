@@ -46,6 +46,8 @@ class DefaultAuthRepository(private val gateway: PlatformAuthGateway, scope: Cor
             gateway.idToken(forceRefresh) { token, error ->
                 if (!continuation.isActive) return@idToken
                 if (token != null) continuation.resume(token)
+                // E.2: a connection failure isn't an ended session (the banner offers Retry for it, not "Sign in again").
+                else if (error == org.example.stocksteps.domain.AccountMessages.TOKEN_CONNECTION) continuation.resumeWithException(org.example.stocksteps.domain.AccountConnectionException(error))
                 else continuation.resumeWithException(AccountException(error ?: "Sign in again to continue."))
             }
         }

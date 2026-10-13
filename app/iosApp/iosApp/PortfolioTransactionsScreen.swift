@@ -104,18 +104,20 @@ struct PortfolioTransactionRow: View {
 }
 
 /// Phase D3.1 status banner (mirrors Compose `PortfolioErrorBanner`): sync problems keep Retry; a rejected save / delete / account change is titled
-/// by that action with the server's message unchanged, and offers Dismiss.
-@ViewBuilder func portfolioErrorBanner(_ state: PortfolioUiState, onRefresh: @escaping () -> Void, onDismiss: @escaping () -> Void) -> some View {
+/// by that action with the server's message unchanged, and offers Dismiss. E.2: an ended session is titled "Session expired" and offers
+/// "Sign in again" (`onSignInAgain`); title, message and action come from `PortfolioDisplay`.
+@ViewBuilder func portfolioErrorBanner(_ state: PortfolioUiState, onRefresh: @escaping () -> Void, onDismiss: @escaping () -> Void,
+                                       onSignInAgain: @escaping () -> Void) -> some View {
     let display = PortfolioDisplay.shared
-    let retries = display.errorRetries(state: state)
+    let action = display.errorAction(state: state)
     let title = display.errorTitle(state: state)
-    let message = state.error ?? display.OUT_OF_DATE
+    let message = display.errorMessage(state: state)
     // Phase E (E-01): announced when it appears or changes, like Compose's polite live region; a rejected save is announced by its form
     // instead (E-05, `errorAnnounced`).
     let announce = { if display.errorAnnounced(state: state) { AccessibilityNotification.Announcement("\(title). \(message)").post() } }
     StockBanner(kind: state.error != nil ? .error : .warning, message: message, title: title,
-                actionTitle: state.error == nil ? nil : (retries ? "Retry" : display.DISMISS),
-                action: state.error == nil ? nil : (retries ? onRefresh : onDismiss))
+                actionTitle: display.errorActionLabel(action: action),
+                action: action == .signIn ? onSignInAgain : action == .dismiss ? onDismiss : onRefresh)
         .onAppear(perform: announce)
         .onChange(of: state.error) { _, _ in announce() }
 }
@@ -217,7 +219,7 @@ struct PortfolioTransactionsScene: View {
         PortfolioTransactionsScreen(state: state, symbol: active, onClearSymbol: { scopeCleared = true }, onSelectAccount: model.select,
                                     onRefresh: model.refresh, onSignIn: onSignIn,
                                     onEdit: { editing = $0 }, onDelete: model.deleteTransaction, onOpen: { openTransactionId = $0 },
-                                    onDismissError: model.clearError)
+                                    onDismissError: model.clearError, onSignInAgain: portfolioSignInAgain(accounts, then: onSignIn))
             .portfolioFeedback(accounts: accounts, result: state?.actionResult)
             .navigationTitle(PortfolioTransactionsDisplay.shared.TITLE)
             .navigationBarTitleDisplayMode(.inline)
@@ -249,6 +251,8 @@ struct PortfolioTransactionsScreen: View {
     let onDelete: (String) -> Void
     var onOpen: ((String) -> Void)? = nil
     var onDismissError: () -> Void = {}
+    /// E.2: "Sign in again" for an ended session (`portfolioSignInAgain`).
+    var onSignInAgain: () -> Void = {}
     @State private var filter: PortfolioTransactionFilter = .all
     @State private var sampleDetails = false
     @State private var deleting: PortfolioTransaction?
@@ -286,7 +290,7 @@ struct PortfolioTransactionsScreen: View {
         }
         if state.loading { ProgressView(display.LOADING).frame(maxWidth: .infinity) }
         if state.error != nil || state.offline {
-            portfolioErrorBanner(state, onRefresh: onRefresh, onDismiss: onDismissError)
+            portfolioErrorBanner(state, onRefresh: onRefresh, onDismiss: onDismissError, onSignInAgain: onSignInAgain)
         }
         if !state.signedIn && state.mockScenario == nil {
             StockBanner(kind: .info, message: display.SIGN_IN_PROMPT, actionTitle: "Sign in", action: onSignIn)

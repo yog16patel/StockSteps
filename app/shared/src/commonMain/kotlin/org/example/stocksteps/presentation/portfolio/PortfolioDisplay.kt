@@ -39,6 +39,14 @@ object PortfolioDisplay {
     const val RESTORING = "Restoring portfolio"
     const val OFFLINE_TITLE = "Offline · last saved portfolio"
     const val REFRESH_FAILED_TITLE = "Couldn't refresh your portfolio"
+    /** E.2: the sign-in can't be renewed while the app still has the user ("Signed out" would be wrong: the account is still on this device). */
+    const val SESSION_EXPIRED_TITLE = "Session expired"
+    const val SIGN_IN_AGAIN = "Sign in again"
+    const val RETRY = "Retry"
+    /** E.2: added after a session or server message when the cached copy is on screen. */
+    const val SHOWING_SAVED = "Showing your last saved portfolio."
+    /** E.2: under the disabled Add actions while the session has ended. */
+    const val SESSION_ADD_DISABLED = "Sign in again to add or change transactions."
     // D3.1: an error is titled by the action that failed; the server's message is shown unchanged under it.
     const val SAVE_TRANSACTION_FAILED_TITLE = "Couldn't save transaction"
     const val DELETE_TRANSACTION_FAILED_TITLE = "Couldn't delete transaction"
@@ -47,8 +55,17 @@ object PortfolioDisplay {
     const val CASH_UNFUNDED = "Unfunded"
     const val SAMPLE_CANNOT_CHANGE = "Sample transactions can't be changed."
 
-    /** D3.1: the banner title for [state]'s error — by the action that failed, offline first. */
+    /** E.2: a refresh (sync) problem, as opposed to a rejected save, delete or account change. */
+    private fun refreshProblem(state: org.example.stocksteps.portfolio.PortfolioUiState) =
+        state.errorSource == null || state.errorSource == org.example.stocksteps.portfolio.PortfolioErrorSource.REFRESH
+
+    /**
+     * D3.1: the banner title for [state]'s error — by the action that failed, offline first. E.2: a sync problem is titled by its kind — an ended
+     * session "Session expired", a server error "Couldn't refresh…" — and "Offline" only when there was no answer (or the kind is unknown).
+     */
     fun errorTitle(state: org.example.stocksteps.portfolio.PortfolioUiState): String = when {
+        refreshProblem(state) && state.errorKind == org.example.stocksteps.data.userdata.UserDataErrorKind.SESSION -> SESSION_EXPIRED_TITLE
+        refreshProblem(state) && state.errorKind == org.example.stocksteps.data.userdata.UserDataErrorKind.SERVER -> REFRESH_FAILED_TITLE
         state.offline -> OFFLINE_TITLE
         else -> when (state.errorSource) {
             org.example.stocksteps.portfolio.PortfolioErrorSource.SAVE_TRANSACTION -> SAVE_TRANSACTION_FAILED_TITLE
@@ -66,9 +83,41 @@ object PortfolioDisplay {
     fun errorAnnounced(state: org.example.stocksteps.portfolio.PortfolioUiState): Boolean =
         state.errorSource != org.example.stocksteps.portfolio.PortfolioErrorSource.SAVE_TRANSACTION
 
+    /**
+     * E.2: the banner message — the error unchanged (or "Values may be out of date." for cached data without one); after a session or server
+     * problem, plus "Showing your last saved portfolio." when the cached copy is on screen (the "Offline" title already says so).
+     */
+    fun errorMessage(state: org.example.stocksteps.portfolio.PortfolioUiState): String {
+        val error = state.error ?: return OUT_OF_DATE
+        val saved = state.offline && refreshProblem(state) && state.errorKind != null && state.errorKind != org.example.stocksteps.data.userdata.UserDataErrorKind.NETWORK
+        return if (saved) "$error $SHOWING_SAVED" else error
+    }
+
+    /**
+     * E.2: the banner's one action. Retry re-runs a refresh, so it's for sync problems that a retry can fix; an ended session gets
+     * [PortfolioErrorAction.SIGN_IN] (Retry would fail the same way); a rejected save/delete/account change gets Dismiss (D3.1).
+     */
+    fun errorAction(state: org.example.stocksteps.portfolio.PortfolioUiState): PortfolioErrorAction = when {
+        state.error == null -> PortfolioErrorAction.NONE
+        refreshProblem(state) && state.errorKind == org.example.stocksteps.data.userdata.UserDataErrorKind.SESSION -> PortfolioErrorAction.SIGN_IN
+        refreshProblem(state) -> PortfolioErrorAction.RETRY
+        else -> PortfolioErrorAction.DISMISS
+    }
+
+    /** The button text for [action] (null for [PortfolioErrorAction.NONE]). */
+    fun errorActionLabel(action: PortfolioErrorAction): String? = when (action) {
+        PortfolioErrorAction.NONE -> null
+        PortfolioErrorAction.RETRY -> RETRY
+        PortfolioErrorAction.SIGN_IN -> SIGN_IN_AGAIN
+        PortfolioErrorAction.DISMISS -> DISMISS
+    }
+
     /** D3.1: Retry only re-runs a refresh, so it's offered for refresh problems; a rejected save/delete/account change gets Dismiss. */
-    fun errorRetries(state: org.example.stocksteps.portfolio.PortfolioUiState): Boolean =
-        state.errorSource == null || state.errorSource == org.example.stocksteps.portfolio.PortfolioErrorSource.REFRESH
+    fun errorRetries(state: org.example.stocksteps.portfolio.PortfolioUiState): Boolean = refreshProblem(state) &&
+        state.errorKind != org.example.stocksteps.data.userdata.UserDataErrorKind.SESSION
+
+    /** E.2: why Add is unavailable — only for an ended session (an ordinary outage keeps Add; the save explains its own failure). */
+    fun addDisabledReason(state: org.example.stocksteps.portfolio.PortfolioUiState): String? = SESSION_ADD_DISABLED.takeIf { state.sessionExpired }
     const val OUT_OF_DATE = "Values may be out of date."
     const val SIGN_IN_PROMPT = "Sign in to save your portfolio securely."
 
@@ -111,7 +160,11 @@ object PortfolioDisplay {
     const val FORM_SECTION_DETAILS = "Transaction information"
     const val FORM_SECTION_AMOUNTS = "Amounts"
     const val FORM_SECTION_MORE = "More options"
-    const val FORM_MORE_HINT = "Currencies, FX rate, settlement date, company name and notes"
+    const val FORM_MORE_HINT = "Cash currency, FX rate, settlement date, company name and notes"
+    /** E.2: "This account reports in CAD. These amounts are in USD; change Trade currency if you paid in CAD. They're converted to CAD with dated exchange rates." */
+    fun formCurrencyNote(tradeCurrency: String, reportingCurrency: String): String =
+        "This account reports in $reportingCurrency. These amounts are in $tradeCurrency; change Trade currency if you paid in $reportingCurrency. " +
+            "They're converted to $reportingCurrency with dated exchange rates."
     const val FORM_NUMBER_INVALID = "Enter a number like 1250.50: digits and one period, up to 8 decimal places, no commas or currency symbols."
     const val FORM_DATE_INVALID = "Choose a valid date."
     const val FORM_CHECK_FAILED = "Check the highlighted fields and try again."
@@ -134,7 +187,8 @@ object PortfolioDisplay {
     const val CHOOSE_ACCOUNT = "Choose an account"
 
     // Account form.
-    const val ACCOUNT_CREATE_TITLE = "Create investment account"
+    /** E.2: short enough for the iOS inline sheet title at every text size ("Create investment account" truncated as a large title). */
+    const val ACCOUNT_CREATE_TITLE = "New investment account"
     const val ACCOUNT_SETTINGS_TITLE = "Account settings"
     const val ACCOUNT_NAME = "Account name"
     const val ACCOUNT_CATEGORY = "Account category"
@@ -150,6 +204,9 @@ object PortfolioDisplay {
     const val DELETE_TRANSACTION_MESSAGE = "Balances will be recalculated. Deletion is rejected if a later sale would exceed your shares."
     const val DELETE = "Delete"
 }
+
+/** E.2: what the Portfolio status banner's button does. */
+enum class PortfolioErrorAction { NONE, RETRY, SIGN_IN, DISMISS }
 
 /** A titled group of sample scenario ids for the scenario picker. */
 data class PortfolioScenarioGroup(val title: String, val ids: List<String>)

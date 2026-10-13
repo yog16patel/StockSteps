@@ -32,6 +32,8 @@ struct PortfolioScreen: View {
     var onOpenTransaction: ((String) -> Void)? = nil
     /// D3.1: dismisses a rejected save / delete / account change (Retry would only refresh).
     var onDismissError: () -> Void = {}
+    /// E.2: "Sign in again" for an ended session (`portfolioSignInAgain`).
+    var onSignInAgain: () -> Void = {}
     @State private var deleteAccount: PortfolioAccount?
     @State private var deleteTransaction: PortfolioTransaction?
     @State private var showAbout = false
@@ -72,7 +74,7 @@ struct PortfolioScreen: View {
                         StockStateMessage(title: display.EMPTY_TITLE,
                                           message: display.EMPTY_MESSAGE,
                                           systemImage: "chart.pie",
-                                          actionTitle: state.signedIn && !state.busy ? display.EMPTY_ACTION : nil, action: onAddAccount)
+                                          actionTitle: state.signedIn && !state.busy && !state.sessionExpired ? display.EMPTY_ACTION : nil, action: onAddAccount)
                     } else {
                         content(state, active: active, colors: colors)
                     }
@@ -146,7 +148,7 @@ struct PortfolioScreen: View {
         if state.loading { ProgressView(display.LOADING).frame(maxWidth: .infinity) }
         // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
         if state.error != nil || state.offline {
-            portfolioErrorBanner(state, onRefresh: onRefresh, onDismiss: onDismissError)
+            portfolioErrorBanner(state, onRefresh: onRefresh, onDismiss: onDismissError, onSignInAgain: onSignInAgain)
         }
         if !state.signedIn && state.mockScenario == nil {
             StockBanner(kind: .info, message: display.SIGN_IN_PROMPT, actionTitle: "Sign in", action: onSignIn)
@@ -158,10 +160,13 @@ struct PortfolioScreen: View {
             overviewCard(state, active: active, colors: colors)
             // Outside the overview so the total stays next to its history.
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                Button(action: onAdd) { Text("+ Add transaction").frame(maxWidth: .infinity) }.buttonStyle(.stockPrimary).disabled(state.busy)
+                Button(action: onAdd) { Text("+ Add transaction").frame(maxWidth: .infinity) }.buttonStyle(.stockPrimary).disabled(state.busy || state.sessionExpired)
                 // Samples are read-only (the presenter rejects changes); say why the action is off instead of a silent grey button.
                 if state.mockScenario != nil {
                     Text(display.ADD_DISABLED_SAMPLE).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                } else if let reason = display.addDisabledReason(state: state) {
+                    // E.2: the same for an ended session (an ordinary outage keeps Add; the save explains its own failure).
+                    Text(reason).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
                 }
             }
         }
@@ -291,7 +296,7 @@ struct PortfolioScreen: View {
     /// "Personal · CAD ▾" with a menu of accounts (name, type, currency) and "+ Add".
     private func accountSelector(_ state: PortfolioUiState, active: [PortfolioAccount], colors: StockColors) -> some View {
         let menu = PortfolioAccountMenu(accounts: active, selectedId: state.selectedAccountId, onSelect: onSelect) // D2: shared with Transaction history
-        let add = Button("+ Add", action: onAddAccount).buttonStyle(.stockSecondary).disabled(!state.signedIn || state.busy)
+        let add = Button("+ Add", action: onAddAccount).buttonStyle(.stockSecondary).disabled(!state.signedIn || state.busy || state.sessionExpired)
             .accessibilityLabel("Add account")
         // B.1: at accessibility sizes "+ Add" moves under the selector — side by side it squeezed the name to "Pers / on…" at AX5.
         return Group {

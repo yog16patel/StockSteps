@@ -1,11 +1,251 @@
-# StockSteps — session handoff (2026-10-13: Portfolio D1.1–E committed and pushed; Phase E.1 session-message fix and allocation proposal committed and pushed; TalkBack and iOS signed-in verification await the owner)
+# StockSteps — session handoff (2026-10-13 Portfolio session end: D1.1–E.1 committed and pushed at `82fd22e`; Phase E.1 NOT READY FOR SIGN-OFF — TalkBack deferred by owner, VoiceOver/Inspector not verified; allocation-denominator decision pending)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE-E-1-2026-10-13 below** → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE-E-2-2026-10-13 below** → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## PHASE-E-1-2026-10-13. Portfolio Phase E.1 (accessibility verification and QA closure) — START HERE (committed and pushed; NOT READY FOR SIGN-OFF)
+## PHASE-E-2-2026-10-13. Portfolio Phase E.2 (title, trade-currency visibility, session recovery) — committed and pushed; verification in progress
+
+- Commit: "Add Portfolio Phase E.2 with a readable iOS account title, the trade currency shown with the amounts, and a Session expired banner with
+  Sign in again on Android and iOS" (this commit; committed at the owner's request before the full suite and device checks finished).
+- Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2.md`; plan + audit: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2_PLAN.md` (owner decisions D-1…D-6).
+- **Done:** "New investment account" inline iOS title + persistent Account name label; Trade currency at the top of Amounts with a reporting-currency
+  note; iOS cash currency follows trade currency; SESSION / NETWORK / SERVER failure kinds (`UserDataErrorKind`), a token refresh that only
+  couldn't connect is NETWORK (`AccountConnectionException`); banner "Session expired" + "Sign in again" (sign out → Login; no server data deleted);
+  Add unavailable only for an expired session; allocation proposal §7 clarifications (docs only).
+- **Validation at commit:** core JVM 478/0; focused session/auth/presenter tests pass; shared Android host 226/0 (before the token-constant change);
+  unsigned `xcodebuild` OK (before the one-line Swift mapper change). Core iOS, shared iOS, server, `assembleDebug` and a final `xcodebuild` were
+  running and are **not recorded**. Device checks **NOT RUN**. TalkBack / VoiceOver / Accessibility Inspector **NOT VERIFIED** (deferred).
+- **Not changed (by decision):** engine, Decimal, ledger, FX, API, fixtures, existing transactions, default currency. MOCK's synthetic TD.TO profile
+  (USD / NASDAQ) is recorded for the backend session (D-5). Typed-symbol currency metadata contract deferred (D-3).
+- **Next:** record the suite + build; run plan §6 device rows 1–9 on local MOCK (Auth emulator for row 6); add after captures to
+  `docs/design/portfolio_phase_e_2/`; then owner decision on scheduling allocation A1; Phase 5D.
+- Dirty files not from this phase (never staged): root `PROJECT_HANDOFF.md` and the two backend hunks of `docs/project-status.md`.
+
+## SESSION-END-2026-10-13-PORTFOLIO. Portfolio session end-of-session handoff — START HERE
+
+### 0. Repository state (verified at handoff with `git fetch`, `git status`, `git log`)
+- Branch `main`, **in sync with `origin/main`**. HEAD: **"Record Portfolio Phase E.1 iOS signed-in verification with all add, edit, delete, rejection,
+  sample, account-switch and navigation checks passing on the iPhone 16 simulator"** (`82fd22e`, pushed).
+- **Dirty files at handoff are NOT Portfolio work.** They belong to the parallel "Ubuntu backend" session. Never stage, revert or overwrite them:
+  - root `PROJECT_HANDOFF.md` (2 added lines);
+  - `docs/project-status.md`: its `~/.gradle/gradle.properties` / Android LAN-build notes, two hunks.
+  - This handoff also edits `docs/project-status.md` §0 (Portfolio entry), so that file holds **both sessions' uncommitted edits**. To commit only
+    Portfolio lines, export the diff, keep only the Portfolio hunk, and `git apply --cached` it (that is how `82fd22e` was staged). Never use
+    `git add .`, `reset` or `clean`.
+- `CLAUDE.md`: unchanged by this handoff (no new permanent conventions). Its "Current task" block names `863d756` / `698b149` as the latest commits;
+  the repository is authoritative (HEAD is `82fd22e`).
+
+### 1. Current development objective
+Global UI refinement of the **Portfolio module** on Android (Compose) and iOS (native SwiftUI): display and accessibility layer only.
+- Done: plan phases A–D (`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`), stabilization (D3.1) and the accessibility / QA phase (E, E.1).
+- Phase 5D (Learn, Daily Brief, Earnings refinement) starts only after Phase E is closed or the owner accepts the remaining gaps.
+
+### 2. Exact task at the end of this session
+**Portfolio Phase E.1: accessibility verification and QA closure.** Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_1.md`. Verdict: **NOT READY FOR
+SIGN-OFF**. Nothing is half-done in code.
+
+| Item | State |
+|---|---|
+| Session-ended message fix (both platforms) | Done, committed (`698b149`) |
+| iOS signed-in workflows (11 scenarios) | Done, all PASS, committed (`82fd22e`) |
+| Allocation-denominator proposal | Written (`docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md`); **awaiting owner decision A1/A2**; no engine change |
+| Android TalkBack journeys 1–10 | **NOT VERIFIED.** The owner deferred all TalkBack testing **until they explicitly request it**. Don't start it unasked |
+| VoiceOver | **NOT VERIFIED** (needs a physical iPhone) |
+| Accessibility Inspector | **NOT VERIFIED** (GUI tool; owner-run) |
+
+### 3. Commits this session (oldest first; all pushed)
+
+| Commit | Phase | Report |
+|---|---|---|
+| `bdaa148` | D1.1 transaction-form polish closure | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md` |
+| `5c3f15f` | D2 Transaction history + D3 Transaction details / action feedback (one commit; they share files) | `..._PHASE_D2.md`, `..._PHASE_D3.md` (+ plans) |
+| `2bb39af` | D3.1 stabilization | `..._PHASE_D3_1.md` (+ plan) |
+| `fa7c563`, `863d756` | **Backend session** (not Portfolio) | — |
+| `3d91ef3` | E accessibility fixes + large-text QA | `..._PHASE_E.md` (+ plan) |
+| `698b149` | E.1 session-message fix + allocation proposal + E.1 report | `..._PHASE_E_1.md`, `PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md` |
+| `82fd22e` | E.1 iOS signed-in verification (docs and captures only) | `..._PHASE_E_1.md` §3 |
+
+### 4. Work completed (what exists now)
+
+**D1.1:**
+- all validation problems shown at once (re-running the unchanged `PortfolioEngine.validate`), messages split per field;
+- a type switch keeps only format errors;
+- selected-security line;
+- Android keyboard resize scoped to the Add screen (`KeyboardResizesContent`).
+
+**D2 — Transaction history:**
+- `PortfolioTransactionsRoute(accountId?, symbol?)` / iOS `navigationDestination`;
+- filters All · Buys · Sells · Dividends · Cash · **Other** (Opening position is Other, never Buys);
+- month groups;
+- a holding scope that is dropped for good on an account switch;
+- "See all transactions (N)" whenever N ≥ 1;
+- samples have no Delete.
+
+**D3 — Transaction details:**
+- `PortfolioTransactionRoute(transactionId)`; recorded fields only (per type via `visibleFields`);
+- **confirmed-only success banners** through the additive presenter field `PortfolioUiState.actionResult` and the shared
+  `AccountDependencies.portfolioFeedback` tracker (each result is shown once);
+- reusable rows (avatar, recorded `grossAmount` right-aligned, never "0.00" when unrecorded);
+- the delete dialog names the transaction.
+
+**D3.1:**
+- allocation > 100% explained (the engine divides by holdings + **signed** cash; documented): `cashNote` under "By holding";
+- negative cash is a supported state, shown as "-USD 51.50" + "Unfunded" (`moneyLine`, exact `Decimal`);
+- `PortfolioTabRoutes` keeps the Portfolio tab selected on Transactions / details / Holding details / Insights (Android; iOS by structure);
+- additive presenter `errorSource` titles errors ("Couldn't save / delete transaction", Dismiss instead of Retry);
+- success only if the session is unchanged;
+- samples have no row actions.
+
+**E:**
+- E-01 / E-02: iOS error and form-rejection announcements;
+- E-03: "P/L" joined with word joiners at render sites (`keepTogether`);
+- E-04: Android history count announced only on a filter change;
+- E-05: a rejected save is announced once (`errorAnnounced`; `StockBanner(announce)` optional parameter);
+- Android 360 dp matrix (light 1.0 / 1.3 / 2.0, dark 1.0 / 2.0) and iPhone 16 Large / AX5 / dark visual QA.
+
+**E.1:**
+- A failed ID-token refresh used the sign-in mapper ("Check your email and password"). Reproduced: the emulator answers `INVALID_REFRESH_TOKEN`; the
+  iOS SDK reports it as internal error **17999** with that server reason underneath.
+- Fix: new token-path mappers.
+  - iOS: `FirebaseAccountAdapters.swift` `tokenMessage` + `serverReason`.
+  - Android: `AndroidAuthGateway.kt` `tokenMessage`.
+  - Messages: "Your session has ended. Sign in again to continue." / "Could not connect…" / "Sign in again to continue."
+  - Sign-in messages are unchanged.
+- Then the full iOS signed-in pass with the owner's local emulator account.
+
+### 5. Files created or modified this session (Portfolio; all committed)
+- **Core:** `portfolio/PortfolioPresenter.kt` (`actionResult`, `PortfolioActionKind/Result`, `errorSource`, `PortfolioErrorSource`, session-checked
+  `confirm`); tests `PortfolioPresenterSaveTest.kt`.
+- **Shared Kotlin** (`app/shared/src/commonMain/.../presentation/portfolio/`):
+  - new: `PortfolioTransactionsDisplay.kt`, `PortfolioTransactionDetailsDisplay.kt`, `PortfolioTransactionsScreen.kt`, `PortfolioTransactionScreen.kt`,
+    `PortfolioTransactionViews.kt`, `KeyboardResize.kt` (+ `androidMain` / `iosMain` / `jvmMain` actuals);
+  - edited: `PortfolioFormRules.kt`, `PortfolioForms.kt`, `PortfolioDisplay.kt`, `PortfolioPresentation.kt`, `PortfolioAllocationDisplay.kt`,
+    `PortfolioRoute.kt`, `PortfolioScene.kt`, `PortfolioScreen.kt`;
+  - also: `presentation/AppNavigation.kt`, `di/AccountDependencies.kt`, `designsystem/components/StockBanner.kt`,
+    `iosMain/.../IosAccountClient.kt`.
+- **iOS:**
+  - new: `PortfolioTransactionsScreen.swift`, `PortfolioTransactionDetailsScreen.swift`;
+  - edited: `PortfolioScreen.swift`, `PortfolioScene.swift`, `PortfolioForms.swift`, `FirebaseAccountAdapters.swift`.
+- **Android:** `app/androidApp/.../account/AndroidAuthGateway.kt`.
+- **Tests** (commonTest): `PortfolioPhaseD11Test`, `PortfolioPhaseD2Test`, `PortfolioPhaseD3Test`, `PortfolioPhaseD31Test`, `PortfolioPhaseETest`.
+- **Docs:**
+  - `docs/PORTFOLIO_UI_REFINEMENT_PHASE_{D1_1,D2,D2_PLAN,D3,D3_PLAN,D3_1,D3_1_PLAN,E,E_PLAN,E_1,E_1_PLAN}.md`;
+  - `docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md`, `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`;
+  - this file, `docs/project-status.md`, `CLAUDE.md`.
+- **Captures:** `docs/design/portfolio_d1_1/`, `portfolio_d2/`, `portfolio_d3/`, `portfolio_d3_1/`, `portfolio_phase_e/`, `portfolio_phase_e_1/`.
+
+### 6. Important decisions (and why)
+- **Display only.**
+  - Ledger, `PortfolioEngine`, `Decimal`, API, server, entitlements and Firebase config are untouched.
+  - The only core changes are two **additive** presenter fields (`actionResult`, `errorSource`). Success can't be inferred from busy/error
+    transitions: a cancelled request (account change) also ends busy with no error.
+- **Opening position → Other** (owner): it isn't a purchase made in the app.
+- **Feedback is a nonblocking banner** (owner, D3 Q1), not the reference's full-screen pages. Auto-hide after 4 s kept (owner, Phase E R-05).
+- **Samples are action-free** (owner, D3.1 Q6). The presenter already ignores sample commands; sample states are `busy = true`, so read-only sheets
+  must close regardless of `busy`.
+- **Allocation > 100% is correct.**
+  - Dashboard = net account value incl. signed cash; Insights = gross long value (positive cash only).
+  - Both are disclosed. Not changed: the owner asked for a separate proposal (written, decision pending).
+- **No new UI test framework** (owner, Phase E Q5). Coverage is shared/core unit tests plus manual device passes.
+- **Claude never types credentials on simulators** (project rule). The owner did the iOS sign-in.
+- **TalkBack** is deferred by the owner until explicitly requested.
+
+### 7. Known bugs, blockers and risks
+- **P3 (pre-existing, not fixed):** iOS "Create investment account" sheet title truncated at Large text ("Create investment ac…").
+  Capture `docs/design/portfolio_phase_e_1/i16-e1-02-account-form-title-truncated.jpg`.
+- **K-01:** dashboard vs Insights allocation percentages differ when cash is negative (by design today). Proposal pending (§10).
+- **Android token-message path:** build + code inspection only (no stale Android session reproduced).
+- **TalkBack automation:** TalkBack ignores **all injected adb input** on this emulator (swipe, tap, `motionevent`, Alt+Arrow). A pass needs real
+  gestures (owner) or a desktop-control tool.
+- **Shared build outputs with the backend session:** `:server:test` collided twice (`EOFException`, missing `in-progress-results-generic.bin`).
+  Run server tests **alone**, never in parallel with that session's builds.
+- **`~/.gradle/gradle.properties`** (outside git; the backend session re-added it at the owner's request) sets
+  `stockstepsMockBackendUrl=http://<lan-ip>:8081` for **every** Android debug build on this Mac. For the local MOCK, build with
+  `-PstockstepsMockBackendUrl=http://127.0.0.1:8081` and `adb reverse tcp:8081 tcp:8081`.
+- **A second emulator `emulator-5556`** appeared during the session (not started by Claude). Use `ANDROID_SERIAL=emulator-5554` (or `adb -s`).
+- **MOCK user data is in memory**: test accounts (D2Test, D3Test, D31Test, PhaseE, PhaseE1, E1 iOS) vanish when the server stops.
+- **iPhone 16 simulator** is still signed in as the local emulator account `e1-test@example.test`.
+  - Once the Auth emulator restarts, that session becomes invalid. The app shows "Your session has ended. Sign in again to continue." with cached
+    data, and the owner must sign in or create an account again.
+  - Pre-existing: the Android build signs in through the default (non-emulator) Firebase project, and the MOCK server reads the uid without
+    verifying it.
+
+### 8. Build and test results
+**Last full sequential run** (on the code committed in `698b149`, unchanged since; test tasks forced with `--rerun`):
+
+| Suite | Result |
+|---|---|
+| core JVM / core iOS | 474 / 0 each |
+| server (alone) | 499 / 0, 3 skipped |
+| shared Android host / shared iOS | 219 / 0 / 215 / 0 |
+| `:app:androidApp:assembleDebug` | OK |
+| unsigned `xcodebuild` | BUILD SUCCEEDED |
+
+No code changed after that run (the later commit `82fd22e` is docs and captures only).
+
+**Verified on device [visual / functional]:**
+- Android emulator 360 dp: D2, D3 and D3.1 flows; Phase E text-scale / theme matrix.
+- iPhone 16: Phase E Large / AX5 / dark layouts; E.1 all 11 signed-in scenarios; session-ended message.
+
+**NOT verified:**
+- TalkBack journeys;
+- VoiceOver;
+- Accessibility Inspector;
+- Android token-message path at runtime;
+- Android 1.3× dark;
+- physical devices;
+- iPhone SE (excluded by the owner).
+
+### 9. How to run (recipes used this session)
+- **MOCK:** `./gradlew :server:runMock` (port 8081); stop with `./gradlew :server:stopMock`.
+- **Auth emulator** (local only, owner-approved): `cd firebase && node_modules/.bin/firebase emulators:start --only auth --project stocksteps
+  --config ../firebase.json` (port 9099). Accounts: `POST http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/stocksteps/accounts:query`
+  with `Authorization: Bearer owner`.
+- **iOS:**
+  - build: `xcodebuild -project app/iosApp/iosApp.xcodeproj -scheme app.iosApp -sdk iphonesimulator -destination
+    "platform=iOS Simulator,id=A04A9C8B-D9D1-4910-B0C0-BEC042629EDA" CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES
+    STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081 build`;
+  - then `xcrun simctl install` the DerivedData `StockSteps.app` and `xcrun simctl launch <udid> org.example.stocksteps --firebase-emulators`
+    (backend env default `MOCK`).
+- **Android:** `./gradlew :app:androidApp:installDebug -PstockstepsMockBackendUrl=http://127.0.0.1:8081`, then
+  `adb -s emulator-5554 reverse tcp:8081 tcp:8081`. 360 dp = `adb shell wm size 1080x2400`. Restore afterwards: `wm size reset`, `font_scale 1.0`,
+  app theme Light, `adb reverse --remove tcp:8081`.
+- **Simulator driving tips:**
+  - the simulator control tool uses **points (393×852)**, not screenshot pixels;
+  - the number pad has no "next", so tap each field;
+  - a Save button under the home indicator needs a scroll first.
+
+### 10. Exact next steps
+1. **Owner decision on the allocation denominator** (`docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md`, A1 = gross long value app-wide,
+   recommended; A2 = relabel only). If A1 is approved, it is a separate phase: change `PortfolioEngine.allocations` + the server report (additive
+   `cash` / `unfundedCash`), add the listed engine / server / display tests, replace the D3.1 `cashNote` ">100%" text with an unfunded line, restart
+   MOCK, run device checks.
+2. **Phase E closure decision:** either run the remaining screen-reader checks or record owner acceptance of the gaps:
+   - TalkBack: only when the owner requests it. Plan §E.1-A has the 10 owner steps; Claude prepares the environment and records the speech display;
+   - VoiceOver: physical device;
+   - Accessibility Inspector.
+3. Optional small fix: the iOS account-form title truncation (P3).
+4. Then **Phase 5D** (Learn, Daily Brief, Earnings) per `docs/project-status.md`.
+
+Commit or push only when the owner asks, staging by explicit path.
+
+### 11. Requirements discussed but not implemented
+- **Allocation contract A1 / A2:** proposal only.
+- **"Sign in" action on the session-ended banner:** deferred by the owner (shared-banner change; needs a separate review).
+- **Reference-sheet features excluded by the owner:**
+  - "All accounts" aggregate view;
+  - transaction "Status" field;
+  - type-filter dropdown;
+  - a "Cash" allocation row;
+  - full-screen success / delete pages;
+  - chevron-only rows.
+- **Review screen with a computed total before save** (D-R7: net amount is server-only) and a success destination: not built.
+- **Comma decimal separators** are still explained, not converted (ledger accepts "." only).
+- **UI automation** (Compose UI tests / XCUITest): declined for Phase E.
+
+## PHASE-E-1-2026-10-13. Portfolio Phase E.1 (accessibility verification and QA closure) — committed and pushed; NOT READY FOR SIGN-OFF
 
 ### Repository state
 - `main` = `origin/main` at "Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend" (`863d756`, backend session); Phase E = `3d91ef3`.
@@ -58,7 +298,7 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
 - **iPhone 16:** booted, Large/light, E.1 build installed.
 - **MOCK and Auth emulator:** stopped.
 
-## PHASE-E-2026-10-13. Portfolio Phase E (accessibility and cross-platform QA) — START HERE (committed and pushed; screen-reader passes blocked)
+## PHASE-E-2026-10-13. Portfolio Phase E (accessibility and cross-platform QA) — committed and pushed; screen-reader passes blocked
 
 ### Repository state
 - `main` at "Keep MOCK quotes current with the advancing MOCK market clock so practice trades and price alerts keep working on a long-running Ubuntu backend (Ubuntu backend stabilization Phase 1)" (`fa7c563`, pushed); Portfolio D3.1 = `2bb39af`.
@@ -333,7 +573,7 @@ Rules:
 
 Push `main` only when the owner asks.
 
-## HANDOFF-2026-10-13-END. End-of-session handoff — START HERE
+## HANDOFF-2026-10-13-END. End-of-session handoff (earlier on 2026-10-13; superseded by §SESSION-END-2026-10-13-PORTFOLIO)
 
 ### Repository state (verified with `git status` / `git log` / `git fetch` at handoff)
 - Branch `main`, in sync with `origin/main`. HEAD: **"Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level

@@ -53,7 +53,7 @@ internal class AndroidAuthGateway(private val auth: FirebaseAuth?, private val g
  * (e.g. the local emulator answering INVALID_REFRESH_TOKEN for an old session) is not a wrong password — it read "Check your email and password".
  */
 private fun Exception.tokenMessage(): String = when {
-    this is FirebaseNetworkException -> "Could not connect. Check your connection and try again."
+    this is FirebaseNetworkException -> org.example.stocksteps.domain.AccountMessages.TOKEN_CONNECTION // E.2: recognized as a connection problem
     this is FirebaseAuthException && errorCode in SESSION_ENDED -> "Your session has ended. Sign in again to continue."
     else -> "Sign in again to continue."
 }

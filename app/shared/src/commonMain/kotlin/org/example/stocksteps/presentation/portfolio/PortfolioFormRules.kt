@@ -12,7 +12,7 @@ import org.example.stocksteps.portfolio.TransactionType
  * "Advanced"; Phase A doesn't use it for layout yet.
  */
 enum class PortfolioFormField(val advanced: Boolean) {
-    ACCOUNT(false), TRANSACTION_TYPE(false), TRADE_CURRENCY(true), SYMBOL(false), COMPANY_NAME(true), EXCHANGE(true), SHARES(false), PRICE(false), AMOUNT(false),
+    ACCOUNT(false), TRANSACTION_TYPE(false), TRADE_CURRENCY(false), SYMBOL(false), COMPANY_NAME(true), EXCHANGE(true), SHARES(false), PRICE(false), AMOUNT(false),
     FEES(false), DATE(false), CASH_CURRENCY(true), FX_RATE(true), SETTLEMENT(true), NOTES(true)
 }
 
@@ -49,12 +49,15 @@ object PortfolioFormRules {
     val categoryOptions: List<PortfolioCategory> = PortfolioCategory.entries
     val currencyOptions: List<PortfolioCurrency> = PortfolioCurrency.entries
 
-    /** Phase D1 on-screen order on both platforms: type, date, account and security; amounts; then the optional (advanced) fields. */
+    /**
+     * Phase D1 on-screen order on both platforms: type, date, account and security; amounts; then the optional (advanced) fields. E.2: the trade
+     * currency opens "Amounts" (it was under the collapsed "More options", so a typed symbol's USD default went unnoticed in a CAD account).
+     */
     val redesignOrder: List<PortfolioFormField> = listOf(PortfolioFormField.TRANSACTION_TYPE, PortfolioFormField.DATE, PortfolioFormField.ACCOUNT,
-        PortfolioFormField.SYMBOL, PortfolioFormField.SHARES, PortfolioFormField.PRICE, PortfolioFormField.AMOUNT, PortfolioFormField.FEES,
-        PortfolioFormField.TRADE_CURRENCY, PortfolioFormField.CASH_CURRENCY, PortfolioFormField.FX_RATE, PortfolioFormField.SETTLEMENT,
+        PortfolioFormField.SYMBOL, PortfolioFormField.TRADE_CURRENCY, PortfolioFormField.SHARES, PortfolioFormField.PRICE, PortfolioFormField.AMOUNT,
+        PortfolioFormField.FEES, PortfolioFormField.CASH_CURRENCY, PortfolioFormField.FX_RATE, PortfolioFormField.SETTLEMENT,
         PortfolioFormField.COMPANY_NAME, PortfolioFormField.EXCHANGE, PortfolioFormField.NOTES)
-    private val AMOUNT_FIELDS = setOf(PortfolioFormField.SHARES, PortfolioFormField.PRICE, PortfolioFormField.AMOUNT, PortfolioFormField.FEES)
+    private val AMOUNT_FIELDS = setOf(PortfolioFormField.TRADE_CURRENCY, PortfolioFormField.SHARES, PortfolioFormField.PRICE, PortfolioFormField.AMOUNT, PortfolioFormField.FEES)
 
     fun section(field: PortfolioFormField): PortfolioFormSection = when {
         field.advanced -> PortfolioFormSection.MORE
@@ -283,6 +286,14 @@ object PortfolioFormRules {
         if (symbol.isBlank() || (name.isBlank() && exchange.isBlank())) return null
         return listOf(name, exchange, currency.orEmpty()).filter { it.isNotBlank() }.joinToString(" · ")
     }
+
+    /**
+     * E.2: under "Trade currency" when it differs from the chosen account's reporting currency (null when they match or no account is chosen).
+     * Says which currency the amounts are in and that the app converts them; it never changes or converts what was typed. The trade currency
+     * isn't looked up for a typed symbol, so the note is also the prompt to check it.
+     */
+    fun currencyNote(tradeCurrency: String, account: PortfolioAccount?): String? =
+        account?.reportingCurrency?.name?.takeIf { it != tradeCurrency }?.let { PortfolioDisplay.formCurrencyNote(tradeCurrency, it) }
 
     /** D1.1: the "earlier returns" note only where it applies (an opening position's effective date), instead of a paragraph above every form. */
     fun dateNote(type: TransactionType): String? = if (type == TransactionType.OPENING_POSITION) PortfolioDisplay.FORM_INTRO else null

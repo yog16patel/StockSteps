@@ -16,7 +16,8 @@ struct PortfolioTransactionDetailsScene: View {
     var body: some View {
         let state = model.state
         PortfolioTransactionDetailsScreen(state: state, transactionId: transactionId, onBack: { dismiss() }, onRefresh: model.refresh,
-                                          onSignIn: onSignIn, onEdit: { editing = $0 }, onDelete: model.deleteTransaction, onDismissError: model.clearError)
+                                          onSignIn: onSignIn, onEdit: { editing = $0 }, onDelete: model.deleteTransaction, onDismissError: model.clearError,
+                                          onSignInAgain: portfolioSignInAgain(accounts, then: onSignIn))
             .portfolioFeedback(accounts: accounts, result: state?.actionResult,
                                leaving: { $0.kind == .deleted && $0.transactionId == transactionId })
             .navigationTitle(PortfolioTransactionDetailsDisplay.shared.TITLE)
@@ -45,6 +46,8 @@ struct PortfolioTransactionDetailsScreen: View {
     let onEdit: (PortfolioTransaction) -> Void
     let onDelete: (String) -> Void
     var onDismissError: () -> Void = {}
+    /// E.2: "Sign in again" for an ended session (`portfolioSignInAgain`).
+    var onSignInAgain: () -> Void = {}
     @State private var deleting: PortfolioTransaction?
     @State private var sampleDetails = false
     @Environment(\.colorScheme) private var scheme
@@ -78,7 +81,7 @@ struct PortfolioTransactionDetailsScreen: View {
         if state.loading { ProgressView(display.LOADING).frame(maxWidth: .infinity) }
         // A rejected delete (or a sync problem) keeps the server's message, as on the dashboard.
         if state.error != nil || state.offline {
-            portfolioErrorBanner(state, onRefresh: onRefresh, onDismiss: onDismissError)
+            portfolioErrorBanner(state, onRefresh: onRefresh, onDismiss: onDismissError, onSignInAgain: onSignInAgain)
         }
         if !state.signedIn && state.mockScenario == nil {
             StockBanner(kind: .info, message: display.SIGN_IN_PROMPT, actionTitle: "Sign in", action: onSignIn)

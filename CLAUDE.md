@@ -11,7 +11,13 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-13, Portfolio Phase E.1)
+## Current task (as of 2026-10-13, Portfolio Phase E.2)
+
+**Phase E.2** ("Add Portfolio Phase E.2 with a readable iOS account title, the trade currency shown with the amounts, and a Session expired banner
+with Sign in again on Android and iOS") is committed and pushed with verification in progress: record the remaining suites and the final
+`xcodebuild`, then run the device matrix in `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2_PLAN.md` §6. Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2.md`.
+
+Earlier context (Phase E.1):
 
 HEAD: "Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend" (`863d756`, backend session). Portfolio Phase E = `3d91ef3`.
 
@@ -57,6 +63,11 @@ Portfolio conventions (permanent):
   ("P/L" never breaks). History count announces only on a filter change.
 - **Auth messages (E.1).** A failed ID-token refresh uses the platform `tokenMessage` mapper ("Your session has ended…"), never the sign-in mapper
   ("Check your email and password" is only for real sign-in failures).
+- **Session recovery (E.2).** Sync failures carry a `UserDataErrorKind` (SESSION / NETWORK / SERVER; `userDataErrorKind`). The banner's title,
+  message and action come only from `PortfolioDisplay.errorTitle` / `errorMessage` / `errorAction`. SESSION → "Session expired" + "Sign in again",
+  which signs out first (`signInAgain` / `portfolioSignInAgain`); never open sign-in while the expired user is still signed in. A token failure
+  that only couldn't connect is `AccountConnectionException` (NETWORK; text `AccountMessages.TOKEN_CONNECTION`). Add is unavailable only while
+  `sessionExpired`. Trade currency sits in Amounts; `PortfolioFormRules.currencyNote` explains a currency other than the reporting currency.
 - **Android keyboard.** A screen that uses `imePadding` calls `KeyboardResizesContent()` (scoped, reference-counted; restores the previous mode). Don't
   change the manifest's soft-input mode app-wide.
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,

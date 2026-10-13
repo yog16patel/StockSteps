@@ -42,6 +42,7 @@ internal fun PortfolioTransactionScene(
     val model = viewModel(key = "portfolio") { PortfolioViewModel(accounts.portfolioPresenter) }
     val state by model.state.collectAsStateWithLifecycle()
     val since = rememberSaveable { PortfolioActionFeedback.baseline(state.actionResult) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(state.actionResult?.id) {
         val result = state.actionResult ?: return@LaunchedEffect
         if (result.id > since && result.kind == PortfolioActionKind.DELETED && result.transactionId == route.transactionId) onBack()
@@ -58,7 +59,8 @@ internal fun PortfolioTransactionScene(
                 onSignIn = onSignIn,
                 onDelete = model.presenter::deleteTransaction,
                 onSave = { model.presenter.saveTransaction(it, true) },
-                onDismissError = model.presenter::clearError
+                onDismissError = model.presenter::clearError,
+                onSignInAgain = { scope.signInAgain(accounts) }
             )
         }
     }
@@ -80,7 +82,9 @@ internal fun PortfolioTransactionScreen(
     onSignIn: () -> Unit,
     onDelete: (String) -> Unit,
     onSave: (PortfolioTransaction) -> Unit,
-    onDismissError: () -> Unit = {}
+    onDismissError: () -> Unit = {},
+    /** E.2: "Sign in again" for an ended session (signs out, so the app's sign-out handling opens Login). */
+    onSignInAgain: () -> Unit = {}
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -104,7 +108,7 @@ internal fun PortfolioTransactionScreen(
             if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             // A rejected delete (or a sync problem) keeps the server's message, as on the dashboard.
             if (state.error != null || state.offline) item {
-                PortfolioErrorBanner(state, onRefresh, onDismissError)
+                PortfolioErrorBanner(state, onRefresh, onDismissError, onSignInAgain)
             }
             if (!state.signedIn && state.mockScenario == null) item {
                 StockBanner(StockBannerKind.INFO, PortfolioDisplay.SIGN_IN_PROMPT, actionText = "Sign in", onAction = onSignIn)

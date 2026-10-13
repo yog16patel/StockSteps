@@ -2,7 +2,10 @@ package org.example.stocksteps.portfolio
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import org.example.stocksteps.data.userdata.UserDataErrorKind
 import org.example.stocksteps.data.userdata.WatchDataRepository
+import org.example.stocksteps.data.userdata.userDataError
+import org.example.stocksteps.data.userdata.userDataErrorKind
 import org.example.stocksteps.data.userdata.userCacheOwner
 import org.example.stocksteps.model.InstrumentRef
 import org.example.stocksteps.model.WatchQuote
@@ -36,7 +39,14 @@ data class PortfolioUiState(
     /** Portfolio Phase D3: the last transaction change the server confirmed (null until one succeeds); screens show feedback once per [PortfolioActionResult.id]. */
     val actionResult: PortfolioActionResult? = null,
     /** Portfolio Phase D3.1: which action [error] came from, so screens can title it ("Couldn't save transaction"); null without an error. */
-    val errorSource: PortfolioErrorSource? = null
+    val errorSource: PortfolioErrorSource? = null,
+    /** Portfolio Phase E.2: the kind of [error] (session ended / no connection / server error); null without an error. */
+    val errorKind: UserDataErrorKind? = null,
+    /**
+     * Phase E.2: the signed-in session can't be renewed (a refresh or a change failed with [UserDataErrorKind.SESSION]) while the app still has the
+     * user. Screens offer "Sign in again" and don't offer changes; cleared by the next successful sync or a new command.
+     */
+    val sessionExpired: Boolean = false
 )
 
 /** What failed (Phase D3.1). Background sync, valuation and quote problems count as [REFRESH]. */
@@ -60,6 +70,7 @@ class PortfolioPresenter(
     private val quoteState = MutableStateFlow<List<WatchQuote>>(emptyList())
     private val failure = MutableStateFlow<String?>(null)
     private val failureSource = MutableStateFlow<PortfolioErrorSource?>(null)
+    private val failureKind = MutableStateFlow<UserDataErrorKind?>(null)
     private val busy = MutableStateFlow(false)
     private val result = MutableStateFlow<PortfolioActionResult?>(null)
     private val report = MutableStateFlow<PortfolioReport?>(null)
@@ -84,7 +95,7 @@ class PortfolioPresenter(
                 try { report.value = repository.report(account, key[4], expectedUid = key[0]) }
                 catch (cause: Exception) {
                     if (cause is CancellationException) throw cause
-                    failure.value = "Market valuation unavailable. Your ledger remains available."; failureSource.value = PortfolioErrorSource.REFRESH
+                    fail(PortfolioErrorSource.REFRESH, cause, "Market valuation unavailable. Your ledger remains available.")
                 } finally { historyLoading.value = false }
             }
         }
@@ -107,16 +118,18 @@ class PortfolioPresenter(
                     quoteState.value = emptyList()
                     if (uid != null && environment != null && symbols.isNotEmpty()) {
                         try { quoteState.value = symbols.chunked(100).flatMap { quotes.load(userCacheOwner(environment, uid), it).data.quotes } }
-                        catch (cause: Exception) { if (cause is CancellationException) throw cause; failure.value = "Quotes unavailable. Your transactions are saved."; failureSource.value = PortfolioErrorSource.REFRESH }
+                        catch (cause: Exception) { if (cause is CancellationException) throw cause; fail(PortfolioErrorSource.REFRESH, cause, "Quotes unavailable. Your transactions are saved.") }
                     }
                 }
         }
         scope.launch {
-            val problem = combine(failure, failureSource) { message, source -> message to source }
-            val base = combine(repository.snapshot, quoteState, problem, busy, result) { snapshot, prices, (error, source), working, done ->
+            val problem = combine(failure, failureSource, failureKind) { message, source, kind -> Triple(message, source, kind) }
+            val base = combine(repository.snapshot, quoteState, problem, busy, result) { snapshot, prices, (error, source, kind), working, done ->
                 val shown = error ?: snapshot.error
                 present(snapshot, prices).copy(error = shown, busy = working, actionResult = done,
-                    errorSource = if (error != null) source ?: PortfolioErrorSource.REFRESH else if (shown != null) PortfolioErrorSource.REFRESH else null)
+                    errorSource = if (error != null) source ?: PortfolioErrorSource.REFRESH else if (shown != null) PortfolioErrorSource.REFRESH else null,
+                    errorKind = if (error != null) kind else snapshot.errorKind,
+                    sessionExpired = snapshot.signedIn && (snapshot.errorKind == UserDataErrorKind.SESSION || error != null && kind == UserDataErrorKind.SESSION))
             }
             val marketState = combine(base, report, historyLoading, allReports) { base, market, loading, reports ->
                 val valid = market?.takeIf { it.accountId == base.selectedAccountId && it.revision == repository.snapshot.value.ledger.revision }
@@ -187,18 +200,24 @@ class PortfolioPresenter(
         if (owner() != owner) return
         result.value = PortfolioActionResult((result.value?.id ?: 0) + 1, kind, transactionId)
     }
-    fun clearError() { failure.value = null; failureSource.value = null }
+    fun clearError() { failure.value = null; failureSource.value = null; failureKind.value = null }
     private fun command(source: PortfolioErrorSource, action: suspend () -> Unit) {
         if (busy.value || scenario.value != null && repository.state.value.environment == "mock") return
         busy.value = true
         scope.launch {
-            failure.value = null; failureSource.value = null
+            failure.value = null; failureSource.value = null; failureKind.value = null
             try { action() } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
-                failureSource.value = source
-                failure.value = cause.message ?: "The portfolio could not be updated."
+                fail(source, cause, cause.message ?: "The portfolio could not be updated.")
             } finally { busy.value = false }
         }
+    }
+    /** E.2: records a failure with its kind; an ended session keeps the session message (the action's own text would hide the real cause). */
+    private fun fail(source: PortfolioErrorSource, cause: Exception, message: String) {
+        val kind = userDataErrorKind(cause)
+        failureKind.value = kind
+        failureSource.value = source
+        failure.value = if (kind == UserDataErrorKind.SESSION && source == PortfolioErrorSource.REFRESH) userDataError(cause) else message
     }
     private suspend fun refreshQuotes() {
         val resource = repository.state.value

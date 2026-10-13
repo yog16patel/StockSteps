@@ -204,8 +204,10 @@ internal fun PortfolioTransactionForm(
                     errorList = PortfolioFormRules.retainedErrors(errors, new, symbol, cashDiffers).map { (f, m) -> "${f.name}|$m" }
                     type = new; formMessage = null; attempted = false
                 }, modifier = fill)
+            // E.2: says when the amounts aren't in the account's reporting currency (a typed symbol's currency isn't looked up).
             PortfolioFormField.TRADE_CURRENCY -> StockSelectField(label, PortfolioFormRules.currencyOptions, currency, { it.name },
-                onSelect = { if (cashCurrency == currency) cashCurrency = it; currency = it }, modifier = fill)
+                onSelect = { if (cashCurrency == currency) cashCurrency = it; currency = it }, modifier = fill,
+                supporting = PortfolioFormRules.currencyNote(currency.name, state.accounts.firstOrNull { it.id == accountId }))
             PortfolioFormField.CASH_CURRENCY -> StockSelectField(label, PortfolioFormRules.currencyOptions, cashCurrency, { it.name },
                 onSelect = { cashCurrency = it }, modifier = fill)
             PortfolioFormField.SYMBOL -> Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {

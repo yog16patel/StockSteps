@@ -67,6 +67,8 @@ internal fun PortfolioScreen(
     onOpenTransaction: ((String) -> Unit)? = null,
     /** D3.1: dismisses a rejected save / delete / account change (Retry would only refresh). */
     onDismissError: () -> Unit = {},
+    /** E.2: "Sign in again" for an ended session (signs out, so the app's sign-out handling opens Login). */
+    onSignInAgain: () -> Unit = {},
     /** Phase D3: shared "already announced" tracker for confirmed adds / edits / deletes; null shows no feedback. */
     feedback: PortfolioFeedbackTracker? = null
 ) {
@@ -132,7 +134,7 @@ internal fun PortfolioScreen(
             if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
             if (state.error != null || state.offline) item {
-                PortfolioErrorBanner(state, onRefresh, onDismissError)
+                PortfolioErrorBanner(state, onRefresh, onDismissError, onSignInAgain)
             }
             if (!state.signedIn && state.mockScenario == null) item {
                 StockBanner(StockBannerKind.INFO, PortfolioDisplay.SIGN_IN_PROMPT, actionText = "Sign in", onAction = onSignIn)
@@ -142,7 +144,7 @@ internal fun PortfolioScreen(
                     StockEmptyState(
                         message = PortfolioDisplay.EMPTY_MESSAGE,
                         title = PortfolioDisplay.EMPTY_TITLE, icon = StockIcons.PieChart,
-                        actionText = if (state.signedIn && !state.busy) PortfolioDisplay.EMPTY_ACTION else null,
+                        actionText = if (state.signedIn && !state.busy && !state.sessionExpired) PortfolioDisplay.EMPTY_ACTION else null,
                         onAction = { editingAccount = null; accountEditor = true })
                 }
             } else {
@@ -151,15 +153,17 @@ internal fun PortfolioScreen(
                         PortfolioOverviewCard(state, activeAccounts.size, requestedPeriod,
                             onPeriod = { requestedPeriod = it; onHistory(it) }, onRetry = onRefresh) {
                             PortfolioAccountSelector(activeAccounts, selectedAccount, onSelect,
-                                onAddAccount = { editingAccount = null; accountEditor = true }, addEnabled = state.signedIn && !state.busy)
+                                onAddAccount = { editingAccount = null; accountEditor = true }, addEnabled = state.signedIn && !state.busy && !state.sessionExpired)
                         }
                     }
                     // Outside the overview so the total stays next to its history.
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                            StockButton("+ Add transaction", onAdd, Modifier.fillMaxWidth(), enabled = !state.busy)
+                            StockButton("+ Add transaction", onAdd, Modifier.fillMaxWidth(), enabled = !state.busy && !state.sessionExpired)
                             // Samples are read-only (the presenter rejects changes); say why the action is off instead of a silent grey button.
                             if (state.mockScenario != null) Text(PortfolioDisplay.ADD_DISABLED_SAMPLE, style = typography.caption, color = colors.textSupporting)
+                            // E.2: the same for an ended session (an ordinary outage keeps Add; the save explains its own failure).
+                            else PortfolioDisplay.addDisabledReason(state)?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
                         }
                     }
                 }
