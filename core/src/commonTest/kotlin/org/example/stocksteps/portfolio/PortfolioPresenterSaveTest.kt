@@ -67,4 +67,73 @@ class PortfolioPresenterSaveTest {
             assertEquals(2, posts.value)
         } finally { scope.cancel(); client.close() }
     }
+
+    /** Phase D3: a confirmed add / edit / delete sets one increasing action result; a rejection, an ignored tap or a sample never does. */
+    @Test fun actionResultsOnlyFollowConfirmedChanges(): Unit = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val reject = MutableStateFlow(false)
+        val gate = MutableStateFlow(true)
+        val writes = MutableStateFlow(0)
+        val account = PortfolioAccount("acc-1", "TFSA", reportingCurrency = PortfolioCurrency.CAD)
+        val json = headersOf(HttpHeaders.ContentType, "application/json")
+        val client = HttpClient(MockEngine { request ->
+            if (request.url.encodedPath.contains("portfolio/transactions")) {
+                writes.update { it + 1 }
+                while (!gate.value) delay(5)
+                if (reject.value) return@MockEngine respond("""{"code":"REJECTED","message":"Selling more shares than owned."}""", HttpStatusCode.Conflict, json)
+            }
+            respond(Json.encodeToString(PortfolioLedger.serializer(), PortfolioLedger(listOf(account))), HttpStatusCode.OK, json)
+        }) { configureStockStepsClient() }
+        val auth = Auth()
+        val cache = InMemoryUserDataCache()
+        val repository = PortfolioRepository(auth, UserApi(client, { "http://mock" }, auth::idToken, { auth.session.value.user?.id }), cache,
+            MutableStateFlow("mock"), scope)
+        val presenter = PortfolioPresenter(repository, WatchDataRepository(StockStepsApi(client) { "http://mock" }, cache), scope)
+        suspend fun settled() = withTimeout(5_000) { presenter.state.first { !it.busy } }
+        // Waits on the request counter (not on error text: this mock's background valuation also reports an error).
+        suspend fun reached(count: Int) = withTimeout(5_000) { while (writes.value < count) delay(5) }
+        try {
+            repository.start()
+            withTimeout(5_000) { presenter.state.first { it.selectedAccountId == "acc-1" } }
+            withTimeoutOrNull(5_000) { presenter.state.first { it.error?.startsWith("Market valuation unavailable") == true } }
+            presenter.clearError()
+            assertNull(presenter.state.value.actionResult)
+            val deposit = PortfolioTransaction("tx-1", "acc-1", TransactionType.CASH_DEPOSIT, "2026-10-01", PortfolioCurrency.CAD, grossAmount = "100")
+
+            presenter.saveTransaction(deposit)
+            val added = withTimeout(5_000) { presenter.state.first { it.actionResult != null } }.actionResult!!
+            assertEquals(PortfolioActionResult(1, PortfolioActionKind.ADDED, "tx-1"), added)
+            settled()
+
+            reject.value = true
+            presenter.saveTransaction(deposit, edit = true)
+            reached(2)
+            withTimeout(5_000) { presenter.state.first { !it.busy && it.error == "Selling more shares than owned." } }
+            assertEquals(added, presenter.state.value.actionResult) // a rejection leaves the last confirmed result alone
+            reject.value = false
+
+            gate.value = false
+            presenter.saveTransaction(deposit, edit = true)
+            reached(3) // the request is held at the gate, so the presenter is busy
+            presenter.deleteTransaction("tx-1") // ignored while busy: no request, no result
+            gate.value = true
+            val updated = withTimeout(5_000) { presenter.state.first { it.actionResult?.id == 2L } }.actionResult!!
+            assertEquals(PortfolioActionKind.UPDATED, updated.kind)
+            settled()
+
+            presenter.deleteTransaction("tx-1")
+            val deleted = withTimeout(5_000) { presenter.state.first { it.actionResult?.id == 3L } }.actionResult!!
+            assertEquals(PortfolioActionResult(3, PortfolioActionKind.DELETED, "tx-1"), deleted)
+            settled()
+            assertEquals(4, writes.value) // add, rejected edit, edit, delete — the ignored delete never reached the server
+
+            presenter.showScenario(PortfolioFixtureCatalog.ids.first { it == "multiple-buys" })
+            withTimeout(5_000) { presenter.state.first { it.mockScenario != null } }
+            presenter.deleteTransaction("sample-1") // samples are read-only: ignored
+            delay(200)
+            assertEquals(4, writes.value)
+            presenter.showScenario(null)
+            assertEquals(3L, withTimeout(5_000) { presenter.state.first { it.mockScenario == null } }.actionResult?.id)
+        } finally { scope.cancel(); client.close() }
+    }
 }

@@ -158,14 +158,29 @@ small UI fixes (F1–F11). The iPhone SE was excluded by the owner, and screen r
 
 ## Phase D — Add/Edit and transactions
 
-**Phase D1.1 (2026-10-13, owner-approved and committed locally as "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS", not pushed):** form polish and regression closure:
+**Phase D1.1 (2026-10-13, owner-approved and committed (pushed) as "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS", not pushed):** form polish and regression closure:
 - per-field guidance from the unchanged engine (all problems at once);
 - type-switch error cleanup; selected-security line;
 - scoped keyboard resize on Android; compact layout.
 
 See `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md` (§8 is the closure).
 
-**Phase D2 (Transaction history, plan item D5 + D6 preview link):** plan submitted for owner review; not started. It needs Q4 (route) approval.
+**Phase D2 (2026-10-13, committed and pushed with D3):** Transaction history (plan items D5 + D6). Q4 approved.
+- Display-only filters; Opening position goes under Other.
+- Month groups; holding scope dropped on account switch.
+- Delete hidden in sample mode.
+- "See all transactions (N)" on the dashboard and Holding details.
+
+Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D2.md`. iOS is build-verified only. D7 (save confirmation) → Phase D3.
+
+**Phase D3 (2026-10-13, committed and pushed with D2):**
+- Transaction details destination;
+- confirmed-only success banners for add/edit/delete (plan item D7), via an additive presenter `actionResult`;
+- reusable transaction row with avatar and the recorded amount;
+- delete confirmation with a summary.
+
+Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D3.md`. Android was device-verified; iOS is build-only. D2 and D3 share files and were committed
+together.
 
 **Phase D1 (2026-10-12, committed):** plan items D1 (date pickers), D2 (sectioned layout with More options), D3 (shared field-level validation on both platforms, iOS
 included), D4 as a full-height edit sheet (no route), keyboard/focus, read-only samples and hidden-field clearing are implemented
@@ -253,7 +268,7 @@ included), D4 as a full-height edit sheet (no route), keyboard/focus, read-only 
 | Q1 | Save the new reference sheet in the repo (`docs/design/stocksteps-portfolio-reference-v2.png`)? | Yes |
 | Q2 | Ship A1 (P0 account-by-name) on its own now? | Yes |
 | Q3 | Sub-tabs Overview / Holdings / Insights inside Portfolio? | No — single scroll + existing Insights screen |
-| Q4 | Transactions destination with display filters? | Yes (Phase D) |
+| Q4 | Transactions destination with display filters? | Yes (Phase D) — **approved 2026-10-13**, built in D2 |
 | Q5 | Currency on overview metrics: per value or one card line? | Per value ("CAD 1,455.00") — clearer for mixed-currency accounts |
 | Q6 | Hide "By currency" when identical to "By holding"? | Show it as a second legend group, collapsed |
 | Q7 | Drop duplicated currency in account labels? | Yes (display only) |

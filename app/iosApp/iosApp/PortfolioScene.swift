@@ -18,6 +18,10 @@ struct PortfolioScene: View {
     @State private var watchlistError: String?
     @State private var watchlistInstrument: InstrumentRef?
     @State private var showInsights = false
+    @State private var showTransactions = false
+    /// The account a holding-scoped history was opened for, captured on tap (destination builders re-run on every parent update).
+    @State private var transactionsAccount: String?
+    @State private var openTransactionId: String?
 
     var body: some View {
         PortfolioScreen(state: model.state, holdingSymbol: initialSymbol,
@@ -27,8 +31,11 @@ struct PortfolioScene: View {
             onAdd: { editingTransaction = nil; showTransaction = true }, onHolding: { if initialSymbol == nil { holdingSymbol = $0 } }, onCompany: onCompany, onSignIn: onSignIn, onAlerts: onAlerts,
             onWatchlist: { row in if model.state?.mockScenario == nil { watchlistInstrument = InstrumentRef(symbol: row.symbol, name: row.name, exchange: row.exchange, currency: row.currency) } },
             onEditTransaction: { editingTransaction = $0; showTransaction = true }, onDeleteTransaction: model.deleteTransaction,
-            onInsights: { showInsights = true }, onPractice: initialSymbol == nil ? onPractice : nil)
+            onInsights: { showInsights = true }, onPractice: initialSymbol == nil ? onPractice : nil,
+            onTransactions: { transactionsAccount = model.state?.selectedAccountId; showTransactions = true },
+            onOpenTransaction: { openTransactionId = $0 })
         .onAppear { model.connect(accounts); model.clearError() } // D1: no stale failure from another action on a fresh form
+        .portfolioFeedback(accounts: accounts, result: model.state?.actionResult) // D3: confirmed add / edit / delete
         .sheet(isPresented: $showAccount) {
             PortfolioAccountForm(existing: editingAccount, onSave: { id, name, category, currency, archived in
                 model.saveAccount(id: id, name: name, category: category, currency: currency, archived: archived)
@@ -56,6 +63,15 @@ struct PortfolioScene: View {
         .navigationDestination(isPresented: $showInsights) {
             PortfolioInsightsScene(accounts: accounts, onCompany: onCompany, onSignIn: onSignIn)
         }
+        // Phase D2: Transaction history inside Portfolio (not a tab), on this scene's model (no second load).
+        .navigationDestination(isPresented: $showTransactions) {
+            PortfolioTransactionsScene(accounts: accounts, model: model, symbol: initialSymbol, accountId: initialSymbol == nil ? nil : transactionsAccount,
+                                       onSignIn: onSignIn)
+        }
+        // Phase D3: Transaction details on this scene's model.
+        .navigationDestination(item: $openTransactionId) { id in
+            PortfolioTransactionDetailsScene(accounts: accounts, model: model, transactionId: id, onSignIn: onSignIn)
+        }
         .navigationDestination(item: $holdingSymbol) { symbol in
             PortfolioScene(accounts: accounts, watchlists: watchlists, onCompany: onCompany, onSignIn: onSignIn, onAlerts: onAlerts, initialSymbol: symbol)
         }
@@ -68,7 +84,9 @@ struct PortfolioEntryScene: View {
     let existing: PortfolioTransaction?
     let initialInstrument: InstrumentRef?
     @Environment(\.dismiss) private var dismiss
-    @State private var saving = false
+    /// D3: the result id current when Save was tapped and the transaction sent (nil = nothing submitted).
+    @State private var submittedAfter: Int64?
+    @State private var submittedId: String?
     @State private var selectedInstrument: InstrumentRef?
     @State private var showSearch = false
     @State private var showCreateAccount = false
@@ -83,7 +101,8 @@ struct PortfolioEntryScene: View {
         // Phase D1: the security search sits next to the symbol field inside the form; samples get the read-only explanation instead.
         PortfolioTransactionForm(state: model.state, existing: existing, instrument: selectedInstrument ?? initialInstrument,
                                  onSearch: existing == nil ? { showSearch = true } : nil, onUseSavedAccounts: { model.scenario(nil) }) { id, account, type, date, currency, symbol, name, exchange, quantity, price, amount, fees, notes, cashCurrency, fxRate, settlementDate, securityCurrency in
-            saving = true
+            submittedAfter = PortfolioActionFeedback.shared.baseline(result: model.state?.actionResult)
+            submittedId = id
             model.saveTransaction(id: id, account: account, type: type, date: date, currency: currency, symbol: symbol, name: name,
                                   exchange: exchange, quantity: quantity, price: price, amount: amount, fees: fees, notes: notes, cashCurrency: cashCurrency, fxRate: fxRate, settlementDate: settlementDate, securityCurrency: securityCurrency, edit: existing != nil)
         }
@@ -102,8 +121,13 @@ struct PortfolioEntryScene: View {
             })
         }
         .onAppear { model.connect(accounts) }
-        .onChange(of: model.state?.busy) { previous, current in
-            if saving && previous == true && current == false && model.state?.error == nil { dismiss() }
+        // D3: dismiss only when the presenter confirms this transaction was saved (busy → idle without an error also happens when the request is
+        // cancelled because the account changed). A rejection keeps the form open with the server message.
+        .onChange(of: model.state?.actionResult?.id) { _, _ in
+            guard let after = submittedAfter, let result = model.state?.actionResult, result.id > after, result.transactionId == submittedId,
+                  result.kind == (existing == nil ? .added : .updated) else { return }
+            submittedAfter = nil
+            dismiss()
         }
     }
 }

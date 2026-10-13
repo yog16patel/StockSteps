@@ -89,6 +89,8 @@ class AccountDependencies(
     val watchlist: WatchlistRepository = graph.koin.get()
     val watchlists: UserWatchlistsRepository = graph.koin.get()
     val portfolioPresenter: org.example.stocksteps.portfolio.PortfolioPresenter = graph.koin.get()
+    /** Portfolio Phase D3: which confirmed transaction change was already announced (shared by every Portfolio screen, same lifetime as the presenter). */
+    val portfolioFeedback = org.example.stocksteps.presentation.portfolio.PortfolioFeedbackTracker()
     val portfolio: org.example.stocksteps.portfolio.PortfolioRepository = graph.koin.get()
     val entitlements: org.example.stocksteps.portfolio.analytics.EntitlementsRepository = graph.koin.get()
     val savedScreens: org.example.stocksteps.screener.SavedScreensRepository = graph.koin.get()

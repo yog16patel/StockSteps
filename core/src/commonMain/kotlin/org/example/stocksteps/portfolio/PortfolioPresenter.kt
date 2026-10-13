@@ -32,8 +32,19 @@ data class PortfolioUiState(
     val dividends: List<String> = emptyList(),
     val currencyAllocations: List<PortfolioCurrencyAllocation> = emptyList(),
     val quoteAsOf: String? = null, val fxAsOf: String? = null,
-    val today: String = "", val historyNotice: String = "Historical values require dated prices and FX; no estimated history is shown."
+    val today: String = "", val historyNotice: String = "Historical values require dated prices and FX; no estimated history is shown.",
+    /** Portfolio Phase D3: the last transaction change the server confirmed (null until one succeeds); screens show feedback once per [PortfolioActionResult.id]. */
+    val actionResult: PortfolioActionResult? = null
 )
+
+/** What a confirmed transaction change did. */
+enum class PortfolioActionKind { ADDED, UPDATED, DELETED }
+
+/**
+ * Phase D3: set only after the repository call returned normally — never for validation errors, server rejections, cancelled mutations
+ * (account or environment changed) or ignored commands (busy, sample). [id] increases with every confirmed change.
+ */
+data class PortfolioActionResult(val id: Long, val kind: PortfolioActionKind, val transactionId: String)
 
 /** One app-owned presenter, used by Portfolio and Home on both platforms. */
 class PortfolioPresenter(
@@ -44,6 +55,7 @@ class PortfolioPresenter(
     private val quoteState = MutableStateFlow<List<WatchQuote>>(emptyList())
     private val failure = MutableStateFlow<String?>(null)
     private val busy = MutableStateFlow(false)
+    private val result = MutableStateFlow<PortfolioActionResult?>(null)
     private val report = MutableStateFlow<PortfolioReport?>(null)
     private val range = MutableStateFlow<String?>(null)
     private val historyLoading = MutableStateFlow(false)
@@ -94,8 +106,8 @@ class PortfolioPresenter(
                 }
         }
         scope.launch {
-            val base = combine(repository.snapshot, quoteState, failure, busy) { snapshot, prices, error, working ->
-                present(snapshot, prices).copy(error = error ?: snapshot.error, busy = working)
+            val base = combine(repository.snapshot, quoteState, failure, busy, result) { snapshot, prices, error, working, done ->
+                present(snapshot, prices).copy(error = error ?: snapshot.error, busy = working, actionResult = done)
             }
             val marketState = combine(base, report, historyLoading, allReports) { base, market, loading, reports ->
                 val valid = market?.takeIf { it.accountId == base.selectedAccountId && it.revision == repository.snapshot.value.ledger.revision }
@@ -147,8 +159,15 @@ class PortfolioPresenter(
     fun refresh() = command { repository.refresh(); refreshQuotes(); repository.invalidateMarketCache(); marketRefresh.value++ }
     fun saveAccount(account: PortfolioAccount) = command { repository.saveAccount(account); repository.selectAccount(account.id) }
     fun deleteAccount(id: String) = command { repository.deleteAccount(id) }
-    fun saveTransaction(transaction: PortfolioTransaction, edit: Boolean = false) = command { repository.saveTransaction(transaction, edit) }
-    fun deleteTransaction(id: String) = command { repository.deleteTransaction(id) }
+    fun saveTransaction(transaction: PortfolioTransaction, edit: Boolean = false) = command {
+        repository.saveTransaction(transaction, edit)
+        confirm(if (edit) PortfolioActionKind.UPDATED else PortfolioActionKind.ADDED, transaction.id)
+    }
+    fun deleteTransaction(id: String) = command { repository.deleteTransaction(id); confirm(PortfolioActionKind.DELETED, id) }
+    /** Reached only when the repository call returned normally (it throws on rejection, cancellation or a changed account). */
+    private fun confirm(kind: PortfolioActionKind, transactionId: String) {
+        result.value = PortfolioActionResult((result.value?.id ?: 0) + 1, kind, transactionId)
+    }
     fun clearError() { failure.value = null }
     private fun command(action: suspend () -> Unit) {
         if (busy.value || scenario.value != null && repository.state.value.environment == "mock") return

@@ -60,7 +60,13 @@ internal fun PortfolioScreen(
     onSaveTransaction: (PortfolioTransaction) -> Unit,
     onWatchlist: (String) -> Unit,
     /** Opens the separate, simulated Practice Portfolio (never mixed into these totals). */
-    onPractice: (() -> Unit)? = null
+    onPractice: (() -> Unit)? = null,
+    /** Phase D2: opens Transaction history (scoped to [holdingSymbol] on Holding details); null keeps the preview without a link. */
+    onTransactions: (() -> Unit)? = null,
+    /** Phase D3: opens Transaction details for a row; null keeps rows without the tap. */
+    onOpenTransaction: ((String) -> Unit)? = null,
+    /** Phase D3: shared "already announced" tracker for confirmed adds / edits / deletes; null shows no feedback. */
+    feedback: PortfolioFeedbackTracker? = null
 ) {
     var accountEditor by remember { mutableStateOf(false) }
     var editingAccount by remember { mutableStateOf<PortfolioAccount?>(null) }
@@ -68,7 +74,6 @@ internal fun PortfolioScreen(
     var deletingTransaction by remember { mutableStateOf<PortfolioTransaction?>(null) }
     var editingTransaction by remember { mutableStateOf<PortfolioTransaction?>(null) }
     var showAbout by remember { mutableStateOf(false) }
-    var allTransactions by remember { mutableStateOf(false) }
     // The period the user chose here (null = none yet): history stays on demand, so the card can tell "not requested" from "no values".
     var requestedPeriod by rememberSaveable { mutableStateOf<String?>(null) }
     var sampleDetails by rememberSaveable { mutableStateOf(false) }
@@ -82,158 +87,165 @@ internal fun PortfolioScreen(
     val activeAccounts = state.accounts.filterNot { it.archived }
     val selectedAccount = activeAccounts.firstOrNull { it.id == state.selectedAccountId }
     val listMode = holdingSymbol == null
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(spacing.screen),
-        verticalArrangement = Arrangement.spacedBy(spacing.md)
-    ) {
-        // C.1: on Holding details the top bar already says "Holding details"; a second large title repeated it.
-        if (listMode) item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(PortfolioDisplay.TITLE, Modifier.weight(1f).semantics { heading() },
-                    style = typography.screenTitle, color = colors.textTitle)
-                run {
-                    IconButton(onClick = { showAbout = true }) {
-                        Icon(StockIcons.Info, contentDescription = PortfolioDisplay.ABOUT_TITLE, tint = colors.iconSecondary)
-                    }
-                    PortfolioOverflowMenu(
-                        account = selectedAccount, busy = state.busy, onRefresh = onRefresh,
-                        onSettings = { editingAccount = it; accountEditor = true }, onDelete = { deletingAccount = it },
-                        onChooseScenario = if (state.mockAvailable) ({ choosingScenario = true }) else null)
-                }
-            }
-        }
-        if (listMode && onPractice != null) item {
-            StockSegmentedControl(
-                options = listOf(StockSegment(PortfolioMode.MINE, "My Portfolio", StockIcons.Briefcase),
-                    StockSegment(PortfolioMode.PRACTICE, "Practice", StockIcons.School)),
-                selected = PortfolioMode.MINE,
-                onSelect = { if (it == PortfolioMode.PRACTICE) onPractice() },
-                compactIcons = true
-            )
-        }
-        // Status: sample, loading, sync errors, offline and sign-in — compact, above the numbers they qualify. The sample scenario is chosen in
-        // the ⋯ menu (MOCK builds only); while one is shown, this read-only banner stays visible (never collapsed).
-        // B.1: one short line; the full explanation is one tap away (never collapsed away entirely).
-        if (state.mockScenario != null) item {
-            StockBanner(StockBannerKind.SAMPLE, if (sampleDetails) "${PortfolioDisplay.SAMPLE_SHORT} ${PortfolioDisplay.SAMPLE_BANNER}" else PortfolioDisplay.SAMPLE_SHORT,
-                actionText = if (sampleDetails) PortfolioDisplay.SAMPLE_HIDE else PortfolioDisplay.SAMPLE_DETAILS, onAction = { sampleDetails = !sampleDetails })
-        }
-        if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-        // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
-        if (state.error != null || state.offline) item {
-            StockBanner(
-                kind = if (state.error != null) StockBannerKind.ERROR else StockBannerKind.WARNING,
-                title = if (state.offline) PortfolioDisplay.OFFLINE_TITLE else PortfolioDisplay.REFRESH_FAILED_TITLE,
-                message = state.error ?: PortfolioDisplay.OUT_OF_DATE,
-                actionText = if (state.error != null) "Retry" else null, onAction = onRefresh)
-        }
-        if (!state.signedIn && state.mockScenario == null) item {
-            StockBanner(StockBannerKind.INFO, PortfolioDisplay.SIGN_IN_PROMPT, actionText = "Sign in", onAction = onSignIn)
-        }
-        if (activeAccounts.isEmpty()) {
-            item {
-                StockEmptyState(
-                    message = PortfolioDisplay.EMPTY_MESSAGE,
-                    title = PortfolioDisplay.EMPTY_TITLE, icon = StockIcons.PieChart,
-                    actionText = if (state.signedIn && !state.busy) PortfolioDisplay.EMPTY_ACTION else null,
-                    onAction = { editingAccount = null; accountEditor = true })
-            }
-        } else {
-            if (listMode) {
-                item {
-                    PortfolioOverviewCard(state, activeAccounts.size, requestedPeriod,
-                        onPeriod = { requestedPeriod = it; onHistory(it) }, onRetry = onRefresh) {
-                        PortfolioAccountSelector(activeAccounts, selectedAccount, onSelect,
-                            onAddAccount = { editingAccount = null; accountEditor = true }, addEnabled = state.signedIn && !state.busy)
-                    }
-                }
-                // Outside the overview so the total stays next to its history.
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                        StockButton("+ Add transaction", onAdd, Modifier.fillMaxWidth(), enabled = !state.busy)
-                        // Samples are read-only (the presenter rejects changes); say why the action is off instead of a silent grey button.
-                        if (state.mockScenario != null) Text(PortfolioDisplay.ADD_DISABLED_SAMPLE, style = typography.caption, color = colors.textSupporting)
-                    }
-                }
-            }
-            val items = PortfolioHoldingsDisplay.items(state, if (listMode) sort else null).filter { holdingSymbol == null || it.symbol == holdingSymbol }
+    // D3: the confirmation sits above the list (an empty list item would still take a gap), like the iOS top inset.
+    Column(modifier) {
+        feedback?.let { PortfolioActionBanner(it, state.actionResult, Modifier.padding(start = spacing.screen, end = spacing.screen, top = spacing.sm)) } // nonblocking, auto-hides
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(spacing.md)
+        ) {
+            // C.1: on Holding details the top bar already says "Holding details"; a second large title repeated it.
             if (listMode) item {
-                // Phase C: the sort menu sits beside the title (display order only) instead of a toolbar.
-                val title = if (items.isNotEmpty()) "Holdings (${items.size})" else "Holdings"
-                // C.1: at large text the sort menu goes under the title ("Holdings / (2)" wrapped beside it at 2.0×).
-                if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale) {
-                    Column { PortfolioSectionTitle(title); if (items.size > 1) PortfolioHoldingSortMenu(sort) { holdingSort = it?.name } }
-                } else Row(verticalAlignment = Alignment.Bottom) {
-                    Box(Modifier.weight(1f)) { PortfolioSectionTitle(title) }
-                    if (items.size > 1) PortfolioHoldingSortMenu(sort) { holdingSort = it?.name }
-                }
-            }
-            if (items.isEmpty()) item {
-                StockCard(bordered = false) { Text(PortfolioDisplay.HOLDINGS_EMPTY, style = typography.small, color = colors.textSupporting) }
-            } else item {
-                StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xs)) {
-                    items.forEachIndexed { index, item ->
-                        if (index > 0) StockDivider(Modifier.padding(horizontal = spacing.cardPadding))
-                        PortfolioHoldingRowView(item, onClick = if (listMode) ({ onHolding(item.symbol) }) else null)
-                    }
-                }
-            }
-            // Holding details (Phase C): every holding metric with its currency in a responsive grid, then the actions as navigation rows.
-            if (!listMode) state.holdings.firstOrNull { it.symbol == holdingSymbol }?.let { row -> item {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                    StockCard(bordered = false) {
-                        StockMetricGrid(PortfolioHoldingsDisplay.detailMetrics(row).map { StockMetricItem(it.label, it.value, direction = it.direction) },
-                            maxColumns = 2, rowsWhenNarrow = true)
-                    }
-                    PortfolioSectionTitle(PortfolioHoldingsDisplay.DETAILS_ACTIONS)
-                    StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xxs)) {
-                        StockNavigationRow(PortfolioHoldingsDisplay.COMPANY_DETAILS, { onCompany(row.symbol) }, icon = StockIcons.Document)
-                        StockDivider(Modifier.padding(horizontal = spacing.cardPadding))
-                        StockNavigationRow(PortfolioHoldingsDisplay.PRICE_ALERTS, { onAlerts(row.symbol) }, icon = StockIcons.Bell)
-                        StockDivider(Modifier.padding(horizontal = spacing.cardPadding))
-                        StockNavigationRow(PortfolioHoldingsDisplay.ADD_TO_WATCHLIST, { onWatchlist(row.symbol) }, icon = StockIcons.StarOutline)
-                    }
-                }
-            } }
-            if (listMode) item { PortfolioAllocationCard(state) }
-            // Cash and dividends share one card: each is a labelled line, so empty values cost one row, not a whole section. Account-wide, so
-            // not on Holding details (Phase C: it isn't this holding's cash).
-            if (listMode) item {
-                PortfolioSectionTitle("Cash and dividends")
-                StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    PortfolioValueLines("Cash", state.cash, "None recorded")
-                    StockDivider()
-                    PortfolioValueLines("Dividends received", state.dividends, "None recorded")
-                }
-            }
-            val transactions = state.transactions.filter { holdingSymbol == null || it.instrument?.symbol == holdingSymbol }
-            item { PortfolioSectionTitle(if (transactions.isEmpty()) "Transactions" else "Transactions (${transactions.size})") }
-            item {
-                StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xs)) {
-                    if (transactions.isEmpty()) {
-                        Text(PortfolioDisplay.TRANSACTIONS_EMPTY, Modifier.padding(horizontal = spacing.cardPadding, vertical = spacing.sm), style = typography.small, color = colors.textSupporting)
-                    }
-                    val shown = if (allTransactions) transactions else transactions.take(RECENT_TRANSACTIONS)
-                    shown.forEachIndexed { index, transaction ->
-                        if (index > 0) StockDivider(Modifier.padding(horizontal = spacing.cardPadding)) // C.1 closure: inset like the holdings rows
-                        PortfolioTransactionRow(transaction, onEdit = { editingTransaction = transaction }, onDelete = { deletingTransaction = transaction })
-                    }
-                    if (transactions.size > RECENT_TRANSACTIONS) {
-                        StockButton(if (allTransactions) "Show recent only" else "Show all ${transactions.size}", { allTransactions = !allTransactions },
-                            Modifier.padding(horizontal = spacing.sm), variant = StockButtonVariant.TEXT)
-                    }
-                }
-            }
-            if (listMode) item {
-                StockCard(onClick = onInsights, onClickLabel = PortfolioDisplay.INSIGHTS_OPEN, bordered = false) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
-                        StockIconTile(StockIcons.TrendingUp, colors.primaryContainer, colors.primaryText)
-                        Column(Modifier.weight(1f)) {
-                            Text(PortfolioDisplay.INSIGHTS_TITLE, style = typography.bodySemiBold, color = colors.textTitle)
-                            Text(PortfolioDisplay.INSIGHTS_SUBTITLE, style = typography.small, color = colors.textSupporting)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(PortfolioDisplay.TITLE, Modifier.weight(1f).semantics { heading() },
+                        style = typography.screenTitle, color = colors.textTitle)
+                    run {
+                        IconButton(onClick = { showAbout = true }) {
+                            Icon(StockIcons.Info, contentDescription = PortfolioDisplay.ABOUT_TITLE, tint = colors.iconSecondary)
                         }
-                        Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.iconSecondary)
+                        PortfolioOverflowMenu(
+                            account = selectedAccount, busy = state.busy, onRefresh = onRefresh,
+                            onSettings = { editingAccount = it; accountEditor = true }, onDelete = { deletingAccount = it },
+                            onChooseScenario = if (state.mockAvailable) ({ choosingScenario = true }) else null)
+                    }
+                }
+            }
+            if (listMode && onPractice != null) item {
+                StockSegmentedControl(
+                    options = listOf(StockSegment(PortfolioMode.MINE, "My Portfolio", StockIcons.Briefcase),
+                        StockSegment(PortfolioMode.PRACTICE, "Practice", StockIcons.School)),
+                    selected = PortfolioMode.MINE,
+                    onSelect = { if (it == PortfolioMode.PRACTICE) onPractice() },
+                    compactIcons = true
+                )
+            }
+            // Status: sample, loading, sync errors, offline and sign-in — compact, above the numbers they qualify. The sample scenario is chosen in
+            // the ⋯ menu (MOCK builds only); while one is shown, this read-only banner stays visible (never collapsed).
+            // B.1: one short line; the full explanation is one tap away (never collapsed away entirely).
+            if (state.mockScenario != null) item {
+                StockBanner(StockBannerKind.SAMPLE, if (sampleDetails) "${PortfolioDisplay.SAMPLE_SHORT} ${PortfolioDisplay.SAMPLE_BANNER}" else PortfolioDisplay.SAMPLE_SHORT,
+                    actionText = if (sampleDetails) PortfolioDisplay.SAMPLE_HIDE else PortfolioDisplay.SAMPLE_DETAILS, onAction = { sampleDetails = !sampleDetails })
+            }
+            if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
+            if (state.error != null || state.offline) item {
+                StockBanner(
+                    kind = if (state.error != null) StockBannerKind.ERROR else StockBannerKind.WARNING,
+                    title = if (state.offline) PortfolioDisplay.OFFLINE_TITLE else PortfolioDisplay.REFRESH_FAILED_TITLE,
+                    message = state.error ?: PortfolioDisplay.OUT_OF_DATE,
+                    actionText = if (state.error != null) "Retry" else null, onAction = onRefresh)
+            }
+            if (!state.signedIn && state.mockScenario == null) item {
+                StockBanner(StockBannerKind.INFO, PortfolioDisplay.SIGN_IN_PROMPT, actionText = "Sign in", onAction = onSignIn)
+            }
+            if (activeAccounts.isEmpty()) {
+                item {
+                    StockEmptyState(
+                        message = PortfolioDisplay.EMPTY_MESSAGE,
+                        title = PortfolioDisplay.EMPTY_TITLE, icon = StockIcons.PieChart,
+                        actionText = if (state.signedIn && !state.busy) PortfolioDisplay.EMPTY_ACTION else null,
+                        onAction = { editingAccount = null; accountEditor = true })
+                }
+            } else {
+                if (listMode) {
+                    item {
+                        PortfolioOverviewCard(state, activeAccounts.size, requestedPeriod,
+                            onPeriod = { requestedPeriod = it; onHistory(it) }, onRetry = onRefresh) {
+                            PortfolioAccountSelector(activeAccounts, selectedAccount, onSelect,
+                                onAddAccount = { editingAccount = null; accountEditor = true }, addEnabled = state.signedIn && !state.busy)
+                        }
+                    }
+                    // Outside the overview so the total stays next to its history.
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                            StockButton("+ Add transaction", onAdd, Modifier.fillMaxWidth(), enabled = !state.busy)
+                            // Samples are read-only (the presenter rejects changes); say why the action is off instead of a silent grey button.
+                            if (state.mockScenario != null) Text(PortfolioDisplay.ADD_DISABLED_SAMPLE, style = typography.caption, color = colors.textSupporting)
+                        }
+                    }
+                }
+                val items = PortfolioHoldingsDisplay.items(state, if (listMode) sort else null).filter { holdingSymbol == null || it.symbol == holdingSymbol }
+                if (listMode) item {
+                    // Phase C: the sort menu sits beside the title (display order only) instead of a toolbar.
+                    val title = if (items.isNotEmpty()) "Holdings (${items.size})" else "Holdings"
+                    // C.1: at large text the sort menu goes under the title ("Holdings / (2)" wrapped beside it at 2.0×).
+                    if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale) {
+                        Column { PortfolioSectionTitle(title); if (items.size > 1) PortfolioHoldingSortMenu(sort) { holdingSort = it?.name } }
+                    } else Row(verticalAlignment = Alignment.Bottom) {
+                        Box(Modifier.weight(1f)) { PortfolioSectionTitle(title) }
+                        if (items.size > 1) PortfolioHoldingSortMenu(sort) { holdingSort = it?.name }
+                    }
+                }
+                if (items.isEmpty()) item {
+                    StockCard(bordered = false) { Text(PortfolioDisplay.HOLDINGS_EMPTY, style = typography.small, color = colors.textSupporting) }
+                } else item {
+                    StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xs)) {
+                        items.forEachIndexed { index, item ->
+                            if (index > 0) StockDivider(Modifier.padding(horizontal = spacing.cardPadding))
+                            PortfolioHoldingRowView(item, onClick = if (listMode) ({ onHolding(item.symbol) }) else null)
+                        }
+                    }
+                }
+                // Holding details (Phase C): every holding metric with its currency in a responsive grid, then the actions as navigation rows.
+                if (!listMode) state.holdings.firstOrNull { it.symbol == holdingSymbol }?.let { row -> item {
+                    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                        StockCard(bordered = false) {
+                            StockMetricGrid(PortfolioHoldingsDisplay.detailMetrics(row).map { StockMetricItem(it.label, it.value, direction = it.direction) },
+                                maxColumns = 2, rowsWhenNarrow = true)
+                        }
+                        PortfolioSectionTitle(PortfolioHoldingsDisplay.DETAILS_ACTIONS)
+                        StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xxs)) {
+                            StockNavigationRow(PortfolioHoldingsDisplay.COMPANY_DETAILS, { onCompany(row.symbol) }, icon = StockIcons.Document)
+                            StockDivider(Modifier.padding(horizontal = spacing.cardPadding))
+                            StockNavigationRow(PortfolioHoldingsDisplay.PRICE_ALERTS, { onAlerts(row.symbol) }, icon = StockIcons.Bell)
+                            StockDivider(Modifier.padding(horizontal = spacing.cardPadding))
+                            StockNavigationRow(PortfolioHoldingsDisplay.ADD_TO_WATCHLIST, { onWatchlist(row.symbol) }, icon = StockIcons.StarOutline)
+                        }
+                    }
+                } }
+                if (listMode) item { PortfolioAllocationCard(state) }
+                // Cash and dividends share one card: each is a labelled line, so empty values cost one row, not a whole section. Account-wide, so
+                // not on Holding details (Phase C: it isn't this holding's cash).
+                if (listMode) item {
+                    PortfolioSectionTitle("Cash and dividends")
+                    StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        PortfolioValueLines("Cash", state.cash, "None recorded")
+                        StockDivider()
+                        PortfolioValueLines("Dividends received", state.dividends, "None recorded")
+                    }
+                }
+                val transactions = state.transactions.filter { holdingSymbol == null || it.instrument?.symbol == holdingSymbol }
+                item { PortfolioSectionTitle(if (transactions.isEmpty()) "Transactions" else "Transactions (${transactions.size})") }
+                item {
+                    StockCard(bordered = false, contentPadding = PaddingValues(vertical = spacing.xs)) {
+                        if (transactions.isEmpty()) {
+                            Text(PortfolioDisplay.TRANSACTIONS_EMPTY, Modifier.padding(horizontal = spacing.cardPadding, vertical = spacing.sm), style = typography.small, color = colors.textSupporting)
+                        }
+                        // D2: a short preview; the full list is Transaction history (the inline "Show all" toggle grew this page without limit).
+                        val readOnly = PortfolioFormRules.readOnly(state)
+                        transactions.take(RECENT_TRANSACTIONS).forEachIndexed { index, transaction ->
+                            if (index > 0) StockDivider(Modifier.padding(horizontal = spacing.cardPadding)) // C.1 closure: inset like the holdings rows
+                            PortfolioTransactionRow(transaction, state.logoFor(transaction), onOpen = onOpenTransaction?.let { open -> { open(transaction.id) } },
+                                onEdit = { editingTransaction = transaction }, onDelete = if (readOnly) null else ({ deletingTransaction = transaction }))
+                        }
+                        // D2 owner decision: the link is shown whenever there is at least one transaction (one consistent entry point).
+                        if (transactions.isNotEmpty()) onTransactions?.let {
+                            StockButton(PortfolioTransactionsDisplay.seeAll(transactions.size), it, Modifier.padding(horizontal = spacing.sm),
+                                variant = StockButtonVariant.TEXT)
+                        }
+                    }
+                }
+                if (listMode) item {
+                    StockCard(onClick = onInsights, onClickLabel = PortfolioDisplay.INSIGHTS_OPEN, bordered = false) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                            StockIconTile(StockIcons.TrendingUp, colors.primaryContainer, colors.primaryText)
+                            Column(Modifier.weight(1f)) {
+                                Text(PortfolioDisplay.INSIGHTS_TITLE, style = typography.bodySemiBold, color = colors.textTitle)
+                                Text(PortfolioDisplay.INSIGHTS_SUBTITLE, style = typography.small, color = colors.textSupporting)
+                            }
+                            Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.iconSecondary)
+                        }
                     }
                 }
             }
@@ -252,33 +264,9 @@ internal fun PortfolioScreen(
             dismissButton = { TextButton(onClick = { deletingAccount = null }) { Text(PortfolioDisplay.FORM_CANCEL) } })
     }
     deletingTransaction?.let { transaction ->
-        AlertDialog(onDismissRequest = { deletingTransaction = null }, title = { Text(PortfolioDisplay.DELETE_TRANSACTION_TITLE) },
-            text = { Text(PortfolioDisplay.DELETE_TRANSACTION_MESSAGE) },
-            confirmButton = { TextButton(onClick = { onDeleteTransaction(transaction.id); deletingTransaction = null }) { Text(PortfolioDisplay.DELETE, color = StockStepsTheme.colors.negativeText) } },
-            dismissButton = { TextButton(onClick = { deletingTransaction = null }) { Text(PortfolioDisplay.FORM_CANCEL) } })
+        PortfolioDeleteTransactionDialog(transaction, onConfirm = { onDeleteTransaction(transaction.id); deletingTransaction = null }, onDismiss = { deletingTransaction = null })
     }
     editingTransaction?.let { transaction -> PortfolioEditSheet(state, transaction, onSaveTransaction) { editingTransaction = null } }
-}
-
-/**
- * Phase D1: editing opens the full form in a full-height sheet (it was squeezed into a dialog) with Cancel; no new route. The sheet stays open
- * while saving and closes only after a successful save, so a server rejection ("would sell more shares than owned") is shown on the form.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PortfolioEditSheet(state: PortfolioUiState, transaction: PortfolioTransaction, onSave: (PortfolioTransaction) -> Unit, onClose: () -> Unit) {
-    var submitted by remember { mutableStateOf(false) }
-    var sawBusy by remember { mutableStateOf(false) }
-    LaunchedEffect(state.busy, state.error) {
-        if (submitted && state.busy) sawBusy = true
-        if (submitted && sawBusy && !state.busy) { submitted = false; sawBusy = false; if (state.error == null) onClose() }
-    }
-    ModalBottomSheet(onDismissRequest = { if (!state.busy) onClose() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = StockStepsTheme.colors.appBackground) {
-        PortfolioTransactionForm(state = state, modifier = Modifier.imePadding(), initialSymbol = transaction.instrument?.symbol.orEmpty(),
-            initialName = transaction.instrument?.name, initialExchange = transaction.instrument?.exchange, initialCurrency = transaction.currency.name,
-            existing = transaction, showTitle = true, onCancel = onClose, onSubmit = { submitted = true; onSave(it) })
-    }
 }
 
 private const val RECENT_TRANSACTIONS = 5
@@ -341,8 +329,8 @@ private fun PortfolioOverflowMenu(account: PortfolioAccount?, busy: Boolean, onR
 
 /** "Personal · CAD ▾" with a menu of accounts (name, type, currency) and "+ Add". */
 @Composable
-private fun PortfolioAccountSelector(accounts: List<PortfolioAccount>, selected: PortfolioAccount?, onSelect: (String) -> Unit,
-                                     onAddAccount: () -> Unit, addEnabled: Boolean) {
+internal fun PortfolioAccountSelector(accounts: List<PortfolioAccount>, selected: PortfolioAccount?, onSelect: (String) -> Unit,
+                                      onAddAccount: (() -> Unit)?, addEnabled: Boolean) {
     var open by remember { mutableStateOf(false) }
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
@@ -373,7 +361,8 @@ private fun PortfolioAccountSelector(accounts: List<PortfolioAccount>, selected:
                 }
             }
         }
-        StockButton("+ Add", onAddAccount, variant = StockButtonVariant.SECONDARY, enabled = addEnabled)
+        // D2: Transaction history reuses the selector without "+ Add" (accounts are created from the dashboard).
+        onAddAccount?.let { StockButton("+ Add", it, variant = StockButtonVariant.SECONDARY, enabled = addEnabled) }
     }
 }
 
@@ -499,36 +488,6 @@ private fun PortfolioHoldingSortMenu(sort: PortfolioHoldingSort?, onSort: (Portf
             (listOf<PortfolioHoldingSort?>(null) + PortfolioHoldingSort.entries).forEach { option ->
                 DropdownMenuItem(text = { Text(option?.label ?: PortfolioHoldingsDisplay.DEFAULT_ORDER) }, onClick = { open = false; onSort(option) },
                     trailingIcon = if (option == sort) ({ Icon(StockIcons.Check, contentDescription = "Selected", tint = colors.primaryText) }) else null)
-            }
-        }
-    }
-}
-
-/** Human-readable transaction with Edit / Delete in a menu. */
-@Composable
-private fun PortfolioTransactionRow(transaction: PortfolioTransaction, onEdit: () -> Unit, onDelete: () -> Unit) {
-    val colors = StockStepsTheme.colors
-    val typography = StockStepsTheme.typography
-    val spacing = StockStepsTheme.spacing
-    var open by remember { mutableStateOf(false) }
-    val text = PortfolioPresentation.transactionText(transaction)
-    // C.1: type, security and date · price are separate text groups, so large text wraps between them ("Opening position" / "TD.TO · 5 shares"
-    // / "Sep 1, 2026" / "CAD 75.00 per share") instead of inside "Opening position · TD.TO".
-    val largeText = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
-    Row(Modifier.fillMaxWidth().padding(start = spacing.cardPadding, top = spacing.xs, bottom = spacing.xs), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).clearAndSetSemantics { contentDescription = text.spoken }, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Text(text.title, style = typography.bodySemiBold, color = colors.textTitle)
-            text.security?.let { Text(it, style = typography.small, color = colors.textBody) }
-            if (largeText) {
-                Text(text.date, style = typography.small, color = colors.textSupporting)
-                Text(text.amount, style = typography.small, color = colors.textSupporting)
-            } else Text("${text.date} · ${text.amount}", style = typography.small, color = colors.textSupporting)
-        }
-        Box {
-            IconButton(onClick = { open = true }) { Icon(StockIcons.More, contentDescription = "Actions for ${text.title}${text.security?.let { ", " + it.replace('\u00A0', ' ') } ?: ""}", tint = colors.iconSecondary) }
-            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                DropdownMenuItem(text = { Text("Edit") }, onClick = { open = false; onEdit() })
-                DropdownMenuItem(text = { Text("Delete…", color = colors.negativeText) }, onClick = { open = false; onDelete() })
             }
         }
     }

@@ -1,11 +1,147 @@
-# StockSteps — session handoff (2026-10-13: Portfolio Phase D1.1 approved, verified and committed locally (not pushed); Phase D2 plan submitted for owner review, not started)
+# StockSteps — session handoff (2026-10-13: Portfolio Phases D1.1, D2 (Transaction history) and D3 (Transaction details, action feedback) committed and pushed; next = Phase E)
 
-Read order for a new session: `CLAUDE.md` → **§D1-1-CLOSURE-2026-10-13 below** → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§D3-2026-10-13 below** → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## D1-1-CLOSURE-2026-10-13. Portfolio Phase D1.1 closure — START HERE
+## D3-2026-10-13. Portfolio Phase D3 (Transaction details and action feedback) — START HERE (committed and pushed with D2)
+
+### Repository state
+- Branch `main`, in sync with `origin/main` after the push. HEAD: **"Add Portfolio Phases D2 and D3 with transaction history filters, transaction details, confirmed-only add/edit/delete feedback, reusable transaction rows and sample read-only handling on Android and iOS"**, on top of "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS". Both were pushed at the owner's request on
+  2026-10-13.
+- That commit holds D2 and D3 together (they share files), staged by explicit path, with no backend-migration files:
+  - D2 paths: see §D2-2026-10-13;
+  - core: `portfolio/PortfolioPresenter.kt`, `PortfolioPresenterSaveTest.kt`;
+  - shared Kotlin: `PortfolioTransactionDetailsDisplay.kt`, `PortfolioTransactionScreen.kt` and the edited row, history, dashboard, scene, route,
+    navigation, `AccountDependencies` and `IosAccountClient` files;
+  - iOS: `PortfolioTransactionDetailsScreen.swift` plus the edited Swift files;
+  - tests: `PortfolioPhaseD3Test.kt`;
+  - docs: D3 report + plan, captures `docs/design/portfolio_d3/` (16).
+
+### What D3 does
+The owner approved the plan's recommendations Q1–Q6 on 2026-10-13.
+- **Transaction details destination.** Android `PortfolioTransactionRoute(transactionId)`; iOS `navigationDestination`. Same presenter, looked up by
+  id. Shows recorded fields only (per type, `visibleFields`). Edit / Delete use the existing sheet and confirmation; samples get Edit only; a
+  vanished transaction shows "Transaction not available".
+- **Success banners** "Transaction added / updated / deleted", shown only after confirmation:
+  - additive presenter `PortfolioUiState.actionResult`, set only after the repository returned;
+  - a shared `PortfolioFeedbackTracker` in `AccountDependencies`, so each result shows once, across screens and rotation;
+  - the Add screen and edit sheet close on that confirmed result (no false success on a cancelled request).
+- **Rows** (dashboard + history):
+  - avatar (logo/ticker; icon for cash rows), and the recorded `grossAmount` right-aligned (none when not recorded, never "0.00");
+  - date and price per share on their own lines; ⋯ separate;
+  - large text stacks.
+- **Delete confirmation** names the transaction.
+
+### Validation
+- **Sequential run, test tasks re-run:**
+  - core 473/0 (JVM) and 473/0 (iOS);
+  - server 492/0 (3 skipped);
+  - shared 210/0 (Android) and 206/0 (iOS), including `PortfolioPhaseD3Test` 9/0;
+  - `assembleDebug` OK; unsigned `xcodebuild` BUILD SUCCEEDED.
+  - The new presenter test first failed on iOS only, because of test sequencing (it waited on error text that the mock's valuation error also
+    produced). It now waits on the request counter and passes 3× on each platform.
+- **Android device** (360 dp, local MOCK, approved), all PASS:
+  - add/edit/delete banners (no repeat after Back);
+  - a rejected edit keeps the server message with no banner;
+  - details from the dashboard and from history;
+  - the filter and holding scope survive Back;
+  - sample read-only;
+  - 2.0×; dark.
+- **NOT VERIFIED:**
+  - **iOS runtime** (not approved; the Auth emulator would also be needed);
+  - TalkBack, VoiceOver;
+  - Android 1.3×;
+  - the "not available" state on a device;
+  - the cancelled-mutation path;
+  - physical devices.
+
+### Environment at handoff
+- **Android:** size reset, font 1.0, night mode off, app theme Light, `adb reverse` removed.
+- **MOCK:** stopped. Its in-memory "D3Test" account is gone.
+- **Auth emulator:** never started. iPhone 16 untouched.
+
+### Next
+1. Phase E: QA, screen readers, the iOS runtime pass (needs approval).
+2. Phase 5D.
+
+Candidates:
+- a clearer title for presenter errors (today they show under "Couldn't refresh your portfolio");
+- the Portfolio tab highlight on sub-screens.
+
+## D2-2026-10-13. Portfolio Phase D2 (Transaction history) — committed and pushed with D3
+
+### Repository state
+- Branch `main`, HEAD "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS" (local, **not pushed**; one commit ahead of `origin/main`).
+- **Phase D2 paths** (uncommitted when written; now in the D2 + D3 commit):
+  - shared Kotlin:
+    - new `presentation/portfolio/PortfolioTransactionsDisplay.kt`, `PortfolioTransactionsScreen.kt`, `PortfolioTransactionViews.kt`;
+    - edited `PortfolioScreen.kt`, `PortfolioScene.kt`, `PortfolioRoute.kt`, `presentation/AppNavigation.kt`;
+  - iOS: new `app/iosApp/iosApp/PortfolioTransactionsScreen.swift`; edited `PortfolioScreen.swift`, `PortfolioScene.swift`;
+  - tests: new `app/shared/src/commonTest/.../portfolio/PortfolioPhaseD2Test.kt`;
+  - docs:
+    - new `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D2.md` (report) and `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D2_PLAN.md` (plan, now marked approved);
+    - edited `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`, this file, `docs/project-status.md`, `CLAUDE.md`;
+  - captures: `docs/design/portfolio_d2/` (19, "after" only).
+
+### What D2 does
+Transaction history inside Portfolio (no new tab). The owner approved Q4 and these decisions on 2026-10-13:
+- Opening position → **Other** (not Buys);
+- Delete hidden in sample mode, Edit kept read-only;
+- "See all transactions (N)" always shown when N ≥ 1;
+- save confirmation → Phase D3.
+
+Rules:
+- Filters, scope and month grouping come from `PortfolioTransactionsDisplay`: display only, presenter order, no sums.
+- Dashboard / Holding details show a 5-row preview plus the link.
+- The holding scope applies only while its account is selected; an account switch drops it permanently.
+- Row, edit sheet, delete dialog and account selector are shared by both screens.
+- **Pre-existing D1 bug fixed:** sample states are `busy = true`, so dismissing the Android edit sheet on a sample row left an invisible scrim that
+  blocked the screen. A read-only sheet now always closes.
+
+### Validation
+- Sequential run, test tasks re-run:
+  - core 472/0 (JVM) and 472/0 (iOS);
+  - server 492/0 (3 skipped);
+  - shared 201/0 (Android) and 197/0 (iOS), including `PortfolioPhaseD2Test` 11/0;
+  - `assembleDebug` OK; unsigned `xcodebuild` BUILD SUCCEEDED.
+- **Android device** (emulator 360 dp, local MOCK, approved), all PASS:
+  - preview + link;
+  - filters (Buys excludes the opening position);
+  - month groups;
+  - edit and delete from history;
+  - empty filter + reset;
+  - Back restores the dashboard scroll;
+  - sample Delete hidden, Edit read-only, banner;
+  - holding scope + account switch;
+  - 2.0× and dark 1.0×;
+  - semantics via uiautomator.
+- **NOT VERIFIED:**
+  - **iOS runtime** (the simulator launch was blocked by the session permission classifier, and the cached session needs the Auth emulator, which
+    wasn't approved): iOS history, iOS edit/delete from history and iOS Large/AX5 are build-only;
+  - TalkBack, VoiceOver;
+  - Android 1.3×; iPhone SE (excluded); physical devices.
+
+### Environment at handoff
+- **Android:** size reset, font 1.0, night mode off, app theme Light, `adb reverse` removed.
+- **MOCK:** stopped. Its in-memory "D2Test" account is gone.
+- **Auth emulator:** never started. iPhone 16 untouched.
+
+### Not built from the reference sheet (owner to decide; report §6)
+- a Transaction details screen (new route);
+- a full-screen delete confirmation;
+- icon / right-aligned-amount rows;
+- the header "See all";
+- outlined chips.
+
+### Next
+1. Owner review of D2 → commit on request.
+2. Phase D3: save-success confirmation; transaction details if approved.
+3. Phase E: QA, screen readers, the iOS runtime pass.
+4. Phase 5D.
+
+## D1-1-CLOSURE-2026-10-13. Portfolio Phase D1.1 closure (committed locally)
 
 ### Repository state
 - Branch `main`. HEAD is **"Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS"**: a local commit, **not pushed** (owner instruction: no push, no deploy). It sits on "Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level validation, keyboard navigation and read-only sample handling on Android and iOS" (`d86c0e5`, pushed),

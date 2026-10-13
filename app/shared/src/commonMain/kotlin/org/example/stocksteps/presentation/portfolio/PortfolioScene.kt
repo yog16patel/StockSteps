@@ -40,7 +40,11 @@ internal fun PortfolioScene(
     onSignIn: () -> Unit = {},
     onAlerts: (String) -> Unit = {},
     onInsights: () -> Unit = {},
-    onPractice: (() -> Unit)? = null
+    onPractice: (() -> Unit)? = null,
+    /** Phase D2: Transaction history for (account, holding symbol); the symbol is null on the dashboard. */
+    onTransactions: (String?, String?) -> Unit = { _, _ -> },
+    /** Phase D3: Transaction details for a transaction id. */
+    onOpenTransaction: (String) -> Unit = {}
 ) {
     val model = viewModel(key = "portfolio") { PortfolioViewModel(accounts.portfolioPresenter) }
     val state by model.state.collectAsStateWithLifecycle()
@@ -73,6 +77,9 @@ internal fun PortfolioScene(
                 onAlerts = onAlerts,
                 onInsights = onInsights,
                 onPractice = onPractice,
+                onTransactions = { onTransactions(holding?.accountId ?: state.selectedAccountId, holding?.symbol) },
+                onOpenTransaction = onOpenTransaction,
+                feedback = accounts.portfolioFeedback,
                 onDeleteTransaction = model.presenter::deleteTransaction,
                 onSaveTransaction = { model.presenter.saveTransaction(it, true) },
                 onWatchlist = { symbol ->
@@ -121,16 +128,19 @@ internal fun PortfolioEntryScene(
     onDone: () -> Unit
 ) {
     val state by accounts.portfolioPresenter.state.collectAsStateWithLifecycle()
-    val revision by accounts.portfolio.state.collectAsStateWithLifecycle()
     var createAccount by rememberSaveable { mutableStateOf(false) }
-    var submittedRevision by rememberSaveable { mutableStateOf<Long?>(null) }
+    // D3: the result id current when Save was tapped, and the id of the transaction sent (null = nothing submitted yet).
+    var submittedAfter by rememberSaveable { mutableStateOf<Long?>(null) }
+    var submittedId by rememberSaveable { mutableStateOf<String?>(null) }
     // Phase D1: a fresh form never shows an earlier, unrelated failure (e.g. a rejected account name) as a save error.
-    LaunchedEffect(Unit) { if (submittedRevision == null) accounts.portfolioPresenter.clearError() }
+    LaunchedEffect(Unit) { if (submittedAfter == null) accounts.portfolioPresenter.clearError() }
 
-    LaunchedEffect(revision.value?.revision) {
-        submittedRevision?.let { submitted ->
-            if ((revision.value?.revision ?: 0) > submitted) onDone()
-        }
+    // D3: close only when the presenter confirms this transaction was added (was: any ledger revision bump, which a change made elsewhere could
+    // also cause). A rejection keeps the form open with the server message.
+    LaunchedEffect(state.actionResult?.id) {
+        val after = submittedAfter ?: return@LaunchedEffect
+        val result = state.actionResult ?: return@LaunchedEffect
+        if (result.id > after && result.kind == org.example.stocksteps.portfolio.PortfolioActionKind.ADDED && result.transactionId == submittedId) onDone()
     }
     KeyboardResizesContent() // D1.1: imePadding below needs the window to resize, not pan
     Column(Modifier.fillMaxSize().imePadding()) {
@@ -149,7 +159,8 @@ internal fun PortfolioEntryScene(
             onSearch = onSearch,
             onUseSavedAccounts = { accounts.portfolioPresenter.showScenario(null) },
             onSubmit = {
-                submittedRevision = revision.value?.revision ?: 0
+                submittedAfter = PortfolioActionFeedback.baseline(state.actionResult)
+                submittedId = it.id
                 accounts.portfolioPresenter.saveTransaction(it)
             }
         )

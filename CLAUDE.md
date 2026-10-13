@@ -11,20 +11,21 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-13, D1.1 closure)
+## Current task (as of 2026-10-13, Phases D2 + D3 committed)
 
-HEAD: "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS" (local commit, **not pushed**; on top of `d86c0e5`, Portfolio Phase D1, pushed). Phase D1.1 is owner-approved and closed:
-`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md` §8.
+HEAD: "Add Portfolio Phases D2 and D3 with transaction history filters, transaction details, confirmed-only add/edit/delete feedback, reusable transaction rows and sample read-only handling on Android and iOS" (pushed), on top of "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS" (pushed).
 
-Read `docs/PROJECT_HANDOFF.md` §D1-1-CLOSURE-2026-10-13 first.
+Portfolio Phases D2 (Transaction history) and D3 (Transaction details + action feedback) are done: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D2.md`,
+`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D3.md`. Android was device-verified; iOS is build-verified only.
+
+Read `docs/PROJECT_HANDOFF.md` §D3-2026-10-13 first.
 
 Next:
-1. **Portfolio Phase D2 — Transaction history.** The plan is submitted for owner review; implement only after approval (Q4 route). A parallel
-   "Ubuntu backend migration" session commits server work in this checkout, so stage by explicit path and never stage its files.
-2. Phase E (QA, screen readers; iPhone SE excluded by the owner).
-3. Phase 5D.
+1. Phase E (QA, screen readers, iOS runtime pass — needs owner approval for the simulator launch and the Auth emulator; iPhone SE excluded).
+2. Phase 5D.
 
-Push only when the owner asks.
+A parallel "Ubuntu backend migration" session commits server work in this checkout: stage by explicit path and never stage its files. Commit or
+push only when the owner asks.
 
 Portfolio conventions (permanent):
 - **Forms.** Accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions` / `resolveAccountId`). Field visibility, order and labels
@@ -32,6 +33,17 @@ Portfolio conventions (permanent):
   - Validation goes through `PortfolioFormRules.check`, which only re-runs `PortfolioEngine.validate`: never add rules, never change typed values.
   - Submit with `visibleTransaction`, so hidden fields are never sent. On a type change keep only `retainedErrors`.
   - Dates are stored as `YYYY-MM-DD` via `PortfolioFormDates` (whole days, no time zone).
+- **Transaction history (D2).**
+  - Filters, holding scope and month groups come only from `PortfolioTransactionsDisplay`: display only, presenter order, no sums.
+    Opening position is **Other**, never Buys.
+  - Rows, edit sheet, delete dialog and account selector are shared (`PortfolioTransactionViews.kt` / `PortfolioTransactionsScreen.swift`).
+  - Samples: no Delete (`onDelete = null` when `PortfolioFormRules.readOnly`). Sample states are `busy = true`, so read-only sheets must close
+    regardless of `busy`.
+- **Transaction details and feedback (D3).**
+  - Details and rows show **recorded** values only (`PortfolioTransactionDetailsDisplay`): the amount is the server-normalized `grossAmount`;
+    0 / unrecorded → no amount, never "0.00".
+  - Success feedback only from `PortfolioUiState.actionResult` (set after the repository returned), shown once via
+    `AccountDependencies.portfolioFeedback`. Never infer success from busy/error transitions; forms close on their own confirmed result.
 - **Android keyboard.** A screen that uses `imePadding` calls `KeyboardResizesContent()` (scoped, reference-counted; restores the previous mode). Don't
   change the manifest's soft-input mode app-wide.
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,

@@ -120,6 +120,10 @@ class IosAccountClient(auth: PlatformAuthGateway, baseUrl: () -> String, environ
         return object : AccountSubscription { override fun cancel() { job.cancel() } }
     }
     fun showPortfolioScenario(id: String?) { dependencies.portfolioPresenter.showScenario(id) }
+    /** Phase D3: the confirmation for the latest confirmed transaction change if no screen has shown it yet (then marked shown), else null. */
+    fun takePortfolioFeedback(): String? = dependencies.portfolioFeedback.take(dependencies.portfolioPresenter.state.value.actionResult)
+    /** Phase D3: marks the latest confirmed change as handled without showing it. */
+    fun skipPortfolioFeedback() { dependencies.portfolioFeedback.skip(dependencies.portfolioPresenter.state.value.actionResult) }
     /** Signed-in saved screens for the Screener (same repository as Android). */
     val savedScreens: org.example.stocksteps.screener.SavedScreensRepository get() = dependencies.savedScreens
     internal val dependenciesForEarnings: org.example.stocksteps.di.AccountDependencies get() = dependencies

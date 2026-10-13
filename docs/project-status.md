@@ -6,6 +6,26 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-13 (Phases D2 + D3, committed and pushed):** `main` HEAD is "Add Portfolio Phases D2 and D3 with transaction history filters, transaction details, confirmed-only add/edit/delete feedback, reusable transaction rows and sample read-only handling on Android and iOS", on top of "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS" (also pushed).
+
+Phase D3: transaction details and action feedback
+(`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D3.md`).
+- Details destination; confirmed-only success banners via an additive presenter `actionResult`.
+- Reusable rows showing recorded amounts; delete confirmation with a summary.
+- Verified: core 473/0, shared 210/0 (Android) and 206/0 (iOS), both builds, and the Android 360 dp flows on local MOCK.
+- **iOS runtime, TalkBack and VoiceOver: NOT VERIFIED.**
+
+D2 and D3 share files and were committed together. Next: Phase E (QA, screen readers, iOS runtime pass) → Phase 5D.
+
+**2026-10-13 (Phase D2, in the same commit):** Portfolio Transaction history (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D2.md`).
+- A destination inside Portfolio (Q4 approved), with display-only filters; Opening position goes under Other.
+- Month groups; holding scope dropped on account switch.
+- Delete hidden in sample mode; "See all transactions (N)" on the dashboard and Holding details.
+- Verified: shared 201/0 (Android) and 197/0 (iOS), both builds, and Android 360 dp at 1.0×/2.0× (light and dark) on local MOCK.
+- **iOS runtime, TalkBack and VoiceOver: NOT VERIFIED.**
+
+(D3 followed in the same commit.)
+
 **2026-10-13 (D1.1 closure)**: `main` HEAD is "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS", committed **locally, not pushed**; it sits on `d86c0e5` (Portfolio Phase D1, pushed). The Portfolio
 UI refinement is committed through **D1.1**: A, B, B.1, C, C.1 (closure and cleanup), D1, D1.1. Docs: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_{A,B,B1,C,C1,D1,D1_1}.md`.
 
@@ -28,7 +48,7 @@ A parallel "Ubuntu backend migration" session commits server work to this checko
 
 Push only on request. Full handoff: `docs/PROJECT_HANDOFF.md` §D1-1-CLOSURE-2026-10-13.
 
-**Portfolio Phase D1.1 (2026-10-13, owner-approved, committed locally as "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS"; not pushed):** form polish and regression closure (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md`, §8 closure).
+**Portfolio Phase D1.1 (2026-10-13, owner-approved, committed as "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS"; not pushed):** form polish and regression closure (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md`, §8 closure).
 
 **Portfolio Phase D1 (2026-10-12, committed and pushed as "Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level validation, keyboard navigation and read-only sample handling on Android and iOS"):** transaction entry and forms on both platforms (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1.md`). Next: Phase D2 after approval.
 

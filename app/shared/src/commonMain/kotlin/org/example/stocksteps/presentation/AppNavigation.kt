@@ -137,7 +137,7 @@ internal fun AppNavigation(
     val isCompanyNews = destination?.hasRoute<CompanyNewsRoute>() == true
     val isNewsInsight = destination?.hasRoute<NewsInsightRoute>() == true
     val isMovement = destination?.hasRoute<StockMovementRoute>() == true
-    val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true || destination?.hasRoute<PortfolioInsightsRoute>() == true ||
+    val hasBack = isSearch || isCompanyFinancials || isCompanyNews || isSettings || destination?.hasRoute<PortfolioEntryRoute>() == true || destination?.hasRoute<HoldingDetailsRoute>() == true || destination?.hasRoute<PortfolioInsightsRoute>() == true || destination?.hasRoute<PortfolioTransactionsRoute>() == true || destination?.hasRoute<PortfolioTransactionRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonResearchRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonAiRoute>() == true ||
@@ -168,6 +168,8 @@ internal fun AppNavigation(
                         destination?.hasRoute<PortfolioEntryRoute>() == true -> PortfolioDisplay.FORM_ADD_TITLE
                         destination?.hasRoute<HoldingDetailsRoute>() == true -> PortfolioDisplay.HOLDING_DETAILS_TITLE
                         destination?.hasRoute<PortfolioInsightsRoute>() == true -> PortfolioDisplay.INSIGHTS_TITLE
+                        destination?.hasRoute<PortfolioTransactionsRoute>() == true -> PortfolioTransactionsDisplay.TITLE
+                        destination?.hasRoute<PortfolioTransactionRoute>() == true -> PortfolioTransactionDetailsDisplay.TITLE
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ScreenerRoute>() == true -> "Discover"
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonRoute>() == true -> "Compare"
                         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonResearchRoute>() == true -> "Research"
@@ -268,7 +270,9 @@ internal fun AppNavigation(
                     onOpenCompany = openStock, hinge = hinge,
                     onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) },
                     onInsights = { navController.navigate(PortfolioInsightsRoute) },
-                    onPractice = openPractice)
+                    onPractice = openPractice,
+                    onTransactions = { account, symbol -> navController.navigate(PortfolioTransactionsRoute(account, symbol)) },
+                    onOpenTransaction = { navController.navigate(PortfolioTransactionRoute(it)) })
             }
             composable<org.example.stocksteps.presentation.screener.ScreenerRoute> { entry ->
                 org.example.stocksteps.presentation.screener.ScreenerScene(
@@ -307,7 +311,20 @@ internal fun AppNavigation(
                 if (accounts != null) PortfolioScene(accounts,
                     onAdd = { navController.navigate(PortfolioEntryRoute()) },
                     onHolding = { _, _ -> }, onOpenCompany = openStock, holding = entry.toRoute(), hinge = hinge,
-                    onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) })
+                    onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) },
+                    onTransactions = { account, symbol -> navController.navigate(PortfolioTransactionsRoute(account, symbol)) },
+                    onOpenTransaction = { navController.navigate(PortfolioTransactionRoute(it)) })
+            }
+            // Phase D2: Transaction history inside Portfolio (not a tab); shares the dashboard's presenter.
+            composable<PortfolioTransactionsRoute> { entry ->
+                if (accounts != null) PortfolioTransactionsScene(accounts, entry.toRoute(), onAdd = { navController.navigate(PortfolioEntryRoute()) },
+                    onSignIn = { navController.navigate(AuthRoute()) }, hinge = hinge,
+                    onOpenTransaction = { navController.navigate(PortfolioTransactionRoute(it)) })
+            }
+            // Phase D3: Transaction details (identity only; same presenter as the dashboard).
+            composable<PortfolioTransactionRoute> { entry ->
+                if (accounts != null) PortfolioTransactionScene(accounts, entry.toRoute(), onBack = { navController.popBackStack() },
+                    onSignIn = { navController.navigate(AuthRoute()) }, hinge = hinge)
             }
             composable<org.example.stocksteps.presentation.practice.PracticeSearchRoute> {
                 StockSearchScene(
@@ -346,7 +363,14 @@ internal fun AppNavigation(
                     accounts,
                     selected ?: entry.toRoute(),
                     onSearch = { navController.navigate(PortfolioSearchRoute) },
-                    onDone = { navController.popBackStack() }
+                    onDone = {
+                        // D3: back to a Portfolio screen → it announces "Transaction added"; elsewhere (e.g. Company details) nothing does.
+                        val back = navController.previousBackStackEntry?.destination
+                        val portfolio = back?.hasRoute<PortfolioRoute>() == true || back?.hasRoute<PortfolioTransactionsRoute>() == true ||
+                            back?.hasRoute<HoldingDetailsRoute>() == true || back?.hasRoute<PortfolioTransactionRoute>() == true
+                        if (!portfolio) accounts.portfolioFeedback.skip(accounts.portfolioPresenter.state.value.actionResult)
+                        navController.popBackStack()
+                    }
                 )
             }
             composable<MarketsRoute> {

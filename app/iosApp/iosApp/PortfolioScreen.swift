@@ -26,10 +26,13 @@ struct PortfolioScreen: View {
     var onInsights: () -> Void = {}
     /// The separate, simulated Practice Portfolio (never mixed into these totals).
     var onPractice: (() -> Void)? = nil
+    /// Phase D2: opens Transaction history (scoped to `holdingSymbol` on Holding details); nil keeps the preview without a link.
+    var onTransactions: (() -> Void)? = nil
+    /// Phase D3: opens Transaction details for a row; nil keeps rows without the tap.
+    var onOpenTransaction: ((String) -> Void)? = nil
     @State private var deleteAccount: PortfolioAccount?
     @State private var deleteTransaction: PortfolioTransaction?
     @State private var showAbout = false
-    @State private var allTransactions = false
     @State private var showDailyReason = false
     /// The period chosen on this screen (nil = none yet): history stays on demand, so the card can tell "not requested" from "no values".
     @State private var requestedPeriod: String?
@@ -97,7 +100,7 @@ struct PortfolioScreen: View {
         } message: { Text(display.DELETE_ACCOUNT_MESSAGE) }
         .confirmationDialog(display.DELETE_TRANSACTION_TITLE, isPresented: Binding(get: { deleteTransaction != nil }, set: { if !$0 { deleteTransaction = nil } }), titleVisibility: .visible) {
             Button(display.DELETE, role: .destructive) { if let transaction = deleteTransaction { onDeleteTransaction(transaction.id) }; deleteTransaction = nil }
-        } message: { Text(display.DELETE_TRANSACTION_MESSAGE) }
+        } message: { Text(deleteConfirmation(deleteTransaction)) }
     }
 
     @ViewBuilder private func header(_ colors: StockColors) -> some View {
@@ -224,13 +227,17 @@ struct PortfolioScreen: View {
                 Text(display.TRANSACTIONS_EMPTY).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                     .padding(CGFloat(space.cardPadding)).frame(maxWidth: .infinity, alignment: .leading)
             }
-            let shown = allTransactions ? transactions : Array(transactions.prefix(Self.recentTransactions))
-            ForEach(Array(shown.enumerated()), id: \.element.id) { index, transaction in
+            // D2: a short preview; the full list is Transaction history (the inline "Show all" toggle grew this page without limit).
+            let readOnly = PortfolioFormRules.shared.readOnly(state: state)
+            ForEach(Array(transactions.prefix(Self.recentTransactions).enumerated()), id: \.element.id) { index, transaction in
                 if index > 0 { StockDivider().padding(.horizontal, CGFloat(space.cardPadding)) } // C.1 closure: inset like the holdings rows
-                transactionRow(transaction, colors: colors)
+                PortfolioTransactionRow(transaction: transaction, logoUrl: state.logo(for: transaction),
+                                        onOpen: onOpenTransaction.map { open in { open(transaction.id) } }, onEdit: { onEditTransaction(transaction) },
+                                        onDelete: readOnly ? nil : { deleteTransaction = transaction })
             }
-            if transactions.count > Self.recentTransactions {
-                Button(allTransactions ? "Show recent only" : "Show all \(transactions.count)") { allTransactions.toggle() }
+            // D2 owner decision: the link is shown whenever there is at least one transaction (one consistent entry point).
+            if !transactions.isEmpty, let onTransactions {
+                Button(PortfolioTransactionsDisplay.shared.seeAll(count: Int32(transactions.count)), action: onTransactions)
                     .font(StockStepsTheme.font(type.bodyMedium)).padding(.horizontal, CGFloat(space.cardPadding)).frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
             }
         }.stockCard(padding: 0, bordered: false)
@@ -275,27 +282,7 @@ struct PortfolioScreen: View {
 
     /// "Personal · CAD ▾" with a menu of accounts (name, type, currency) and "+ Add".
     private func accountSelector(_ state: PortfolioUiState, active: [PortfolioAccount], colors: StockColors) -> some View {
-        let selected = active.first { $0.id == state.selectedAccountId }
-        let menu = Menu {
-            ForEach(active, id: \.id) { account in
-                Button { onSelect(account.id) } label: {
-                    if account.id == selected?.id { Label(present.accountLabel(account: account), systemImage: "checkmark") }
-                    else { Text(present.accountLabel(account: account)) }
-                    Text(present.accountDetail(account: account))
-                }
-            }
-        } label: {
-            HStack(spacing: CGFloat(space.sm)) {
-                Text(selected.map { present.accountLabel(account: $0) } ?? "Choose an account")
-                    .font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                Image(systemName: "chevron.down").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.iconSecondary)
-            }
-            .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.sm)).frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
-            .background(colors.surface, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.button)))
-        }
-        .accessibilityLabel("Account: \(selected.map { present.accountLabel(account: $0) } ?? "none")")
-        .accessibilityHint("Change account")
+        let menu = PortfolioAccountMenu(accounts: active, selectedId: state.selectedAccountId, onSelect: onSelect) // D2: shared with Transaction history
         let add = Button("+ Add", action: onAddAccount).buttonStyle(.stockSecondary).disabled(!state.signedIn || state.busy)
             .accessibilityLabel("Add account")
         // B.1: at accessibility sizes "+ Add" moves under the selector — side by side it squeezed the name to "Pers / on…" at AX5.
@@ -447,38 +434,6 @@ struct PortfolioScreen: View {
         }
         .accessibilityLabel(PortfolioHoldingsDisplay.shared.SORT_TITLE)
         .accessibilityValue(holdingSort?.label ?? PortfolioHoldingsDisplay.shared.DEFAULT_ORDER)
-    }
-
-    /// Transaction (C.1, mirrors Compose): type, security and date · price as separate text groups, so large text wraps between them; Edit /
-    /// Delete in a menu.
-    private func transactionRow(_ transaction: PortfolioTransaction, colors: StockColors) -> some View {
-        let text = present.transactionText(transaction: transaction)
-        return HStack(spacing: CGFloat(space.sm)) {
-            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                Text(text.title).font(StockStepsTheme.font(type.bodySemiBold, relativeTo: .body)).foregroundStyle(colors.textTitle)
-                if let security = text.security {
-                    Text(security).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textBody)
-                }
-                if typeSize.isAccessibilitySize {
-                    Text(text.date).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
-                    Text(text.amount).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
-                } else {
-                    Text("\(text.date) · \(text.amount)").font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(text.spoken)
-            Menu {
-                Button("Edit", systemImage: "pencil") { onEditTransaction(transaction) }
-                Button("Delete…", systemImage: "trash", role: .destructive) { deleteTransaction = transaction }
-            } label: {
-                // C.1 closure: fixed-size symbol inside its fixed 44 pt target (at AX5 the body-sized glyph overflowed to the card edge).
-                Image(systemName: "ellipsis").font(.system(size: CGFloat(StockStepsTheme.dimensions.icon))).foregroundStyle(colors.iconSecondary)
-                    .frame(width: CGFloat(StockStepsTheme.dimensions.touchTarget), height: CGFloat(StockStepsTheme.dimensions.touchTarget))
-            }.accessibilityLabel("Actions for \(text.title)\(text.security.map { ", " + $0.replacingOccurrences(of: "\u{00A0}", with: " ") } ?? "")")
-        }
-        .padding(.leading, CGFloat(space.cardPadding)).padding(.vertical, CGFloat(space.xs))
     }
 
     /// Allocation (Phase C, mirrors Compose): by holding as a donut + legend when every slice is valid (`PortfolioAllocationDisplay`), else

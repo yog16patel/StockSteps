@@ -1,7 +1,7 @@
 # Portfolio UI Refinement — Phase D1.1: transaction form polish and regression closure
 
 Status: **closed 2026-10-13.** The owner approved the UI changes after reviewing the captures and this report; the final repository verification
-(§8) passed and D1.1 is committed locally as "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS" (not pushed). Originally It sits on top of "Add Portfolio Phase D1 transaction entry with sectioned forms, native
+(§8) passed and D1.1 is committed (pushed with the D2/D3 commit) as "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS" (not pushed). Originally It sits on top of "Add Portfolio Phase D1 transaction entry with sectioned forms, native
 date pickers, field-level validation, keyboard navigation and read-only sample handling on Android and iOS" (`d86c0e5`). The working tree was clean before
 D1.1. **Phase D2 is not started.**
 
