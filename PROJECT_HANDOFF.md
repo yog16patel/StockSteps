@@ -1,6 +1,15 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-12 (America/Toronto). Current commit: **Add a sample company catalog to the MOCK backend so the screener covers about 150 US stocks with consistent P/E, EPS and 52-week ranges (Ubuntu backend Phase B)** on `main` (pushed):
+Last updated: 2026-10-13 (America/Toronto). Current commit: **Keep MOCK quotes current with the advancing MOCK market clock so practice trades and price alerts keep working on a long-running Ubuntu backend (Ubuntu backend stabilization Phase 1)** on `main` (pushed):
+- Ubuntu verification 2026-10-13 (`docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md`): the LAN host still ran `a50a2e3`; practice trades failed with 409 `QUOTE_STALE` about 16 h after each start, because the MOCK market clock advances while captured quotes kept their capture timestamps.
+- Fix: `FixtureMarketDataSource(marketNow = …)`. With the MOCK clock, a quote's timestamp is "now" during the open session, else the close of the latest session (13:00 ET on early-close days). Captured quotes only move forward; generated quotes take the session time. Prices are unchanged and deterministic; quotes without a timestamp stay without one. `mockDataSources()` builds the clock first and passes it. The clock itself is unchanged: it also stamps user data and must stay monotonic. REAL is unchanged; the `stale-quote` scenario still blocks.
+- Validation: `MockClockFreshnessTest` 7/7 (start, next open, 24 h, weekend, 7 d, 30 d, Thanksgiving, early close: fresh quotes, practice trades, alerts triggered and not stale); `:server:test --rerun` 499 run / 0 failed / 3 skipped; local MOCK server with `STOCKSTEPS_MOCK_CLOCK` at +0, +24 h, OPEN, +7 d, +30 d and HOLIDAY → smoke 23/23 each, 0 WARN/ERROR.
+- Not changed: Firebase auth, networking, mobile configuration. Security plan for remote access: report §6.
+- Next: Phase 2 LAN redeploy from a clean worktree of this commit (smoke, reliability, screener 152 US, practice/alerts, zero upstream, Immich/Nextcloud check), then Android/iOS integration after approval.
+
+Previous commit: **Stabilize Portfolio Phase D3.1 with cash-aware allocation notes, formatted cash lines, Portfolio tab selection on sub-screens, action-specific error titles and action-free samples on Android and iOS** on `main` (Portfolio session; see `docs/PROJECT_HANDOFF.md`).
+
+Earlier: **Add a sample company catalog to the MOCK backend so the screener covers about 150 US stocks with consistent P/E, EPS and 52-week ranges (Ubuntu backend Phase B)** (Ubuntu backend Phase B, below):
 - Ubuntu self-hosted backend migration, Phase A audit + Phase B (owner: internal LAN backend only, no Tailscale, no public endpoint):
   - Audit finding: the MOCK provider split (`STOCKSTEPS_DATA_MODE`, `DataSources`), template AI, Dockerfile, LAN Compose project `stocksteps-local`, deploy/rollback scripts and debug-only app URLs already existed (Phase 5A/5B Local); nothing was duplicated.
   - `server/src/main/resources/fixtures/stocks/catalog.json` + `SampleCompanyCatalog`: 137 US companies, real names/classifications, simulated price/shares/net margin/P/E/dividend anchors (labelled "Not real or current financial data"). Used only when MOCK fills gaps; captured fixtures win.

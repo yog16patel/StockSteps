@@ -22,6 +22,11 @@ import java.util.Locale
  * stored series that no longer match the quote are replaced too. Why-moving and news stay
  * fixture-only so their unavailable states remain testable.
  *
+ * With [marketNow] (the MOCK server's advancing market clock), quote timestamps follow that clock: the open session's
+ * current time, otherwise the close of the latest session. Prices stay the captured/sample values, so a long-running
+ * MOCK server keeps practice trades and price alerts working instead of every captured quote turning stale after the
+ * next simulated open. A quote without a timestamp stays without one.
+ *
  * Layout under [root]: `manifest.json`, `market/snapshot.json`, `stocks/search.json`,
  * `stocks/{SYMBOL}/{quote,profile,sparkline,chart-intraday,chart-daily,why-moving,fundamentals-annual,fundamentals-quarter}.json`,
  * `news/market.json`, `news/company/{SYMBOL}.json`.
@@ -30,6 +35,7 @@ class FixtureMarketDataSource(
     private val root: String = "fixtures",
     private val now: () -> Instant = Instant::now,
     private val sampleFallback: Boolean = false,
+    private val marketNow: (() -> Instant)? = null,
     private val read: (String) -> String? = { path ->
         FixtureMarketDataSource::class.java.classLoader.getResource(path)?.readText()
     }
@@ -102,8 +108,32 @@ class FixtureMarketDataSource(
     }
 
     override suspend fun getQuote(symbol: String): StockQuote? =
-        stock(symbol, "quote", StockQuote.serializer())?.let(::withYearRange)?.let { if (fillsGaps(it.symbol)) sample.fillQuote(it) else it }
-            ?: withSample(symbol) { sample.quote(it, knownNames[it]) }
+        stock(symbol, "quote", StockQuote.serializer())?.let(::withYearRange)?.let { if (fillsGaps(it.symbol)) sample.fillQuote(it) else it }?.let { current(it, captured = true) }
+            ?: withSample(symbol) { sample.quote(it, knownNames[it]) }?.let { current(it, captured = false) }
+
+    private val calendar = org.example.stocksteps.service.UsMarketCalendar()
+
+    /**
+     * MOCK clock only: a captured quote moves forward to the simulated session (never backwards); a generated quote takes the session's
+     * time exactly, so its generated charts end on the simulated session date. Without [marketNow] quotes are returned as stored.
+     */
+    private fun current(quote: StockQuote, captured: Boolean): StockQuote {
+        val now = marketNow?.invoke() ?: return quote
+        val stored = quote.timestamp ?: return quote
+        val stamp = sessionTimestamp(now)
+        return if (!captured || stored < stamp) quote.copy(timestamp = stamp) else quote
+    }
+
+    /** The open session's current time, else the close (early close on half days) of the latest session that has started. */
+    private fun sessionTimestamp(now: Instant): Long {
+        if (calendar.session(now).status == MarketSessionStatus.OPEN) return now.epochSecond
+        val local = now.atZone(calendar.zone)
+        val today = local.toLocalDate()
+        val day = if (calendar.isTradingDay(today) && !local.toLocalTime().isBefore(org.example.stocksteps.service.UsMarketCalendar.OPEN)) today
+            else calendar.lastTradingDay(today.minusDays(1))
+        val close = if (calendar.isEarlyClose(day)) org.example.stocksteps.service.UsMarketCalendar.EARLY_CLOSE else org.example.stocksteps.service.UsMarketCalendar.CLOSE
+        return day.atTime(close).atZone(calendar.zone).toEpochSecond()
+    }
 
     /** Captured quotes predating the 52-week fields get them from the stored daily closes (last year). */
     private fun withYearRange(quote: StockQuote): StockQuote {

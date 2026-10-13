@@ -577,10 +577,13 @@ private fun Application.realDataSources(): DataSources {
 
 /** Captured fixtures plus sample values for gaps: no provider keys, network calls, Gemini or Firestore. */
 internal fun mockDataSources(): DataSources {
-    val fixtures = FixtureMarketDataSource(sampleFallback = true)
     // STOCKSTEPS_MOCK_CLOCK (ISO instant) lets developers view other sessions (premarket, holiday…).
     val pinned = System.getenv("STOCKSTEPS_MOCK_CLOCK")?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() }
-        ?: fixtures.capturedAt ?: java.time.Instant.EPOCH
+        ?: FixtureMarketDataSource().capturedAt ?: java.time.Instant.EPOCH
+    // Mock time starts at the capture instant and advances, so sessions and alerts behave consistently.
+    val marketClock = java.time.Clock.offset(java.time.Clock.systemUTC(), java.time.Duration.between(java.time.Instant.now(), pinned))
+    // Quotes follow the same clock, so a long-running MOCK server never turns every captured quote stale (practice trades, alerts).
+    val fixtures = FixtureMarketDataSource(sampleFallback = true, marketNow = marketClock::instant)
     return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null), earnings = fixtures,
         insights = org.example.stocksteps.news.TemplateArticleInsightGenerator(), insightVersion = "mock-template-v1",
         indexData = fixtures,
@@ -592,8 +595,7 @@ internal fun mockDataSources(): DataSources {
             sampleData = true,
             notice = "Sample data captured ${java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy").withZone(java.time.ZoneId.of("America/New_York")).format(pinned)}. Not live prices."
         ),
-        // Mock time starts at the capture instant and advances, so sessions and alerts behave consistently.
-        marketClock = java.time.Clock.offset(java.time.Clock.systemUTC(), java.time.Duration.between(java.time.Instant.now(), pinned)),
+        marketClock = marketClock,
         alertsDeliveryNote = "Sample mode: alerts are checked every minute against sample prices. Notifications are simulated on the server, not sent to your device.")
 }
 
