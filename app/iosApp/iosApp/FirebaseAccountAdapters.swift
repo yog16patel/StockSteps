@@ -93,9 +93,38 @@ private final class NativeAuthGateway: NSObject, PlatformAuthGateway {
     func idToken(forceRefresh: Bool, completion: @escaping (String?, String?) -> Void) {
         guard let user = auth?.currentUser else { completion(nil, "Sign in to continue."); return }
         user.getIDTokenForcingRefresh(forceRefresh) { token, error in
-            completion(token, token == nil ? (error.map(safeAuthMessage) ?? "Sign in again to continue.") : nil)
+            completion(token, token == nil ? (error.map(tokenMessage) ?? "Sign in again to continue.") : nil)
         }
     }
+}
+
+/// Phase E.1: messages for a failed ID-token refresh (every backend request), kept apart from sign-in. A session the auth service no longer accepts
+/// is not a wrong password — it read "Check your email and password". Reproduced: the local Auth emulator answers an old session with
+/// INVALID_REFRESH_TOKEN, which the SDK reports as `internalError` (17999) with the server reason in the underlying response.
+private func tokenMessage(_ error: Error) -> String {
+    let nsError = error as NSError
+    switch AuthErrorCode(rawValue: nsError.code) {
+    case .networkError: return "Could not connect. Check your connection and try again."
+    case .userTokenExpired, .invalidUserToken, .userNotFound, .userDisabled, .requiresRecentLogin:
+        return "Your session has ended. Sign in again to continue."
+    case .internalError where serverReason(nsError).map(sessionEndedReasons.contains) == true:
+        return "Your session has ended. Sign in again to continue."
+    default: return "Sign in again to continue."
+    }
+}
+
+private let sessionEndedReasons: Set<String> = ["INVALID_REFRESH_TOKEN", "TOKEN_EXPIRED", "USER_NOT_FOUND", "USER_DISABLED"]
+
+/// The auth server's own reason ("INVALID_REFRESH_TOKEN") from the SDK's deserialized response, searched through the underlying errors.
+private func serverReason(_ error: NSError) -> String? {
+    var current: NSError? = error
+    while let e = current {
+        if let response = e.userInfo["FIRAuthErrorUserInfoDeserializedResponseKey"] as? [String: Any], let message = response["message"] as? String {
+            return message.components(separatedBy: " ").first
+        }
+        current = e.userInfo[NSUnderlyingErrorKey] as? NSError
+    }
+    return nil
 }
 
 private func safeAuthMessage(_ error: Error) -> String {

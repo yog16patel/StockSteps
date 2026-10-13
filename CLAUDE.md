@@ -11,23 +11,22 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-13, Portfolio Phase E in progress)
+## Current task (as of 2026-10-13, Portfolio Phase E.1)
 
-HEAD: "Keep MOCK quotes current with the advancing MOCK market clock so practice trades and price alerts keep working on a long-running Ubuntu backend (Ubuntu backend stabilization Phase 1)" (`fa7c563`, pushed; backend session). Portfolio D3.1 = `2bb39af`.
+HEAD: "Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend" (`863d756`, backend session). Portfolio Phase E = `3d91ef3`.
 
-**Portfolio Phase E** (accessibility and cross-platform QA): fixes E-01–E-05 and the Android/iOS layout runs are committed and pushed ("Add Portfolio Phase E accessibility fixes with iOS error and rejection announcements, unbroken P/L labels, filter-only history announcements and single-announcer save errors, plus Android and iOS large-text QA");
-TalkBack, VoiceOver and the iOS signed-in flows are **blocked** — `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E.md`.
+**Phase E.1**: the session-ended message fix (both platform auth adapters) and the allocation-denominator proposal are committed and pushed ("Fix Portfolio Phase E.1 session-refresh messaging so an ended session says to sign in again instead of blaming the password, and record the allocation-denominator proposal and blocked screen-reader checks").
+Verdict: **NOT READY FOR SIGN-OFF**. TalkBack journeys and iOS signed-in workflows need the owner; VoiceOver and Accessibility Inspector are
+blocked. See `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_1.md`.
 
-Read `docs/PROJECT_HANDOFF.md` §PHASE-E-2026-10-13 first.
+Read `docs/PROJECT_HANDOFF.md` §PHASE-E-1-2026-10-13 first (it includes the resume steps).
 
 Next:
-1. The backend session has uncommitted edits in root `PROJECT_HANDOFF.md`,
-   `docs/project-status.md` and `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md`: never stage them with Portfolio work (`project-status.md` has no
-   Phase E entry yet for that reason).
-2. Unblock screen-reader passes (TalkBack needs real gestures; VoiceOver needs a device) and iOS sign-in on the simulator (owner).
+1. Finish the TalkBack and iOS signed-in passes with the owner.
+2. Owner decision on `docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md` (separate phase).
 3. Phase 5D after Phase E closure.
 
-Commit or push only when the owner asks.
+The backend session works in this checkout too: stage by explicit path. Commit or push only when the owner asks.
 
 Portfolio conventions (permanent):
 - **Forms.** Accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions` / `resolveAccountId`). Field visibility, order and labels
@@ -56,6 +55,8 @@ Portfolio conventions (permanent):
 - **Accessibility (Phase E).** Error and rejection messages are announced once: Compose live region / iOS `AccessibilityNotification`, with the
   screen banner quiet for a rejected save (`PortfolioDisplay.errorAnnounced`). Draw metric labels through `PortfolioPresentation.keepTogether`
   ("P/L" never breaks). History count announces only on a filter change.
+- **Auth messages (E.1).** A failed ID-token refresh uses the platform `tokenMessage` mapper ("Your session has ended…"), never the sign-in mapper
+  ("Check your email and password" is only for real sign-in failures).
 - **Android keyboard.** A screen that uses `imePadding` calls `KeyboardResizesContent()` (scoped, reference-counted; restores the previous mode). Don't
   change the manifest's soft-input mode app-wide.
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,

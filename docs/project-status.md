@@ -6,6 +6,15 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-13 — Portfolio Phase E.1 (committed and pushed as "Fix Portfolio Phase E.1 session-refresh messaging so an ended session says to sign in again instead of blaming the password, and record the allocation-denominator proposal and blocked screen-reader checks"; NOT READY FOR SIGN-OFF).** Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_1.md`.
+- A failed session refresh now says "Your session has ended. Sign in again to continue." instead of "Check your email and password".
+  Reproduced with the local Auth emulator (`INVALID_REFRESH_TOKEN`); iOS runtime-verified, Android build-only.
+- Allocation denominator (dashboard net value vs Insights gross long value): `docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md`, not implemented.
+- Blocked:
+  - TalkBack journeys and iOS signed-in workflows (owner interaction);
+  - VoiceOver and Accessibility Inspector.
+- Tests: core 474/0 (JVM, iOS), server 499/0, shared 219/0 (Android) and 215/0 (iOS); both builds OK.
+
 **2026-10-13 — Ubuntu self-hosted MOCK backend (parallel backend session).** Details: `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md` (§7: Phase 2 record) and `docs/UBUNTU_MOBILE_INTEGRATION_VERIFICATION.md` (Phase 3B); committed in
 "Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend" and `PROJECT_HANDOFF.md` (top entries).
 - **Deployed on the LAN Ubuntu host** (2026-10-13 21:30 UTC): commit `fa7c563`, image `stocksteps-local:fa7c563c94a9` (plain commit SHA, built from a clean

@@ -1,9 +1,52 @@
-# StockSteps — session handoff (2026-10-13: Portfolio D1.1–D3.1 committed and pushed; Phase E (accessibility QA) fixes and runtime checks committed and pushed; screen-reader passes blocked)
+# StockSteps — session handoff (2026-10-13: Portfolio D1.1–E committed and pushed; Phase E.1 session-message fix and allocation proposal committed and pushed; TalkBack and iOS signed-in verification await the owner)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE-E-2026-10-13 below** → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE-E-1-2026-10-13 below** → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PHASE-E-1-2026-10-13. Portfolio Phase E.1 (accessibility verification and QA closure) — START HERE (committed and pushed; NOT READY FOR SIGN-OFF)
+
+### Repository state
+- `main` = `origin/main` at "Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend" (`863d756`, backend session); Phase E = `3d91ef3`.
+- HEAD after the push: **"Fix Portfolio Phase E.1 session-refresh messaging so an ended session says to sign in again instead of blaming the password, and record the allocation-denominator proposal and blocked screen-reader checks"**, on top of `863d756`. That commit holds only these E.1 paths (staged by name):
+  - `app/iosApp/iosApp/FirebaseAccountAdapters.swift`;
+  - `app/androidApp/src/main/kotlin/org/example/stocksteps/account/AndroidAuthGateway.kt`;
+  - `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_1_PLAN.md`, `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_1.md`, `docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md`;
+  - this file, `docs/project-status.md`, `CLAUDE.md`;
+  - `docs/design/portfolio_phase_e_1/`.
+
+### Done
+- **Issue 1 fixed.** A failed ID-token refresh no longer says "Check your email and password".
+  - Reproduced: the local Auth emulator returns `INVALID_REFRESH_TOKEN` for an old session; the iOS SDK reports it as internal error 17999 with that
+    server reason underneath.
+  - New token-path mappers (iOS `tokenMessage` + `serverReason`, Android `tokenMessage`): "Your session has ended. Sign in again to continue." /
+    "Could not connect…" / "Sign in again to continue."
+  - Sign-in messages unchanged.
+  - iOS runtime-verified; Android build and code inspection only.
+- **Allocation denominator:** investigated, no change. Proposal `docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md` (recommend gross long value
+  app-wide, separate phase).
+- **Tests:** core 474/0 (JVM, iOS), server 499/0, shared 219/0 (Android) and 215/0 (iOS); `assembleDebug` OK; unsigned `xcodebuild` OK.
+
+### Blocked (owner interaction or environment)
+- **TalkBack journeys 1–10.** The environment was prepared (PhaseE1 account, TalkBack + speech display, recorder), but no owner gestures arrived;
+  injected input can't drive TalkBack.
+- **iOS signed-in workflows.** The owner sign-in on the iPhone 16 wasn't performed; Claude doesn't type credentials on simulators.
+- **VoiceOver** (device), **Accessibility Inspector** (GUI).
+
+### To resume
+1. **Services:** `./gradlew :server:runMock`; Auth emulator `cd firebase && node_modules/.bin/firebase emulators:start --only auth --project stocksteps
+   --config ../firebase.json`.
+2. **Android:** `adb -s emulator-5554 reverse tcp:8081 tcp:8081`. Enable TalkBack + "Display speech output". Recreate the test account (MOCK data is
+   in memory). The owner follows plan §E.1-A.
+3. **iOS:** launch `org.example.stocksteps --firebase-emulators`. The owner signs out of "Test account" and creates a local emulator account. Claude
+   runs plan §E.1-B.
+
+### Environment at handoff
+- **Android emulator-5554:** restored (TalkBack and speech display off, font 1.0, size reset, `adb reverse` removed); `emulator-5556` (not
+  Claude's) untouched.
+- **iPhone 16:** booted, Large/light, E.1 build installed.
+- **MOCK and Auth emulator:** stopped.
 
 ## PHASE-E-2026-10-13. Portfolio Phase E (accessibility and cross-platform QA) — START HERE (committed and pushed; screen-reader passes blocked)
 

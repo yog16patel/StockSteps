@@ -39,7 +39,7 @@ internal class AndroidAuthGateway(private val auth: FirebaseAuth?, private val g
         val user = auth?.currentUser ?: return completion(null, "Sign in to continue.")
         user.getIdToken(forceRefresh).addOnCompleteListener { task ->
             if (task.isSuccessful) completion(task.result?.token, null)
-            else completion(null, task.exception?.safeAuthMessage() ?: "Sign in again to continue.")
+            else completion(null, task.exception?.tokenMessage() ?: "Sign in again to continue.")
         }
     }
     override fun signOut(completion: (String?) -> Unit) {
@@ -47,6 +47,19 @@ internal class AndroidAuthGateway(private val auth: FirebaseAuth?, private val g
         catch (cause: Exception) { completion(cause.safeAuthMessage()) }
     }
 }
+
+/**
+ * Phase E.1: messages for a failed ID-token refresh (every backend request), kept apart from sign-in. A session the auth service no longer accepts
+ * (e.g. the local emulator answering INVALID_REFRESH_TOKEN for an old session) is not a wrong password — it read "Check your email and password".
+ */
+private fun Exception.tokenMessage(): String = when {
+    this is FirebaseNetworkException -> "Could not connect. Check your connection and try again."
+    this is FirebaseAuthException && errorCode in SESSION_ENDED -> "Your session has ended. Sign in again to continue."
+    else -> "Sign in again to continue."
+}
+
+private val SESSION_ENDED = setOf("ERROR_USER_TOKEN_EXPIRED", "ERROR_INVALID_USER_TOKEN", "ERROR_USER_NOT_FOUND", "ERROR_USER_DISABLED",
+    "ERROR_REQUIRES_RECENT_LOGIN")
 
 private fun Exception.safeAuthMessage(): String = when {
     this is FirebaseNetworkException -> "Could not connect. Check your connection and try again."
