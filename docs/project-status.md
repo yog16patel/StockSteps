@@ -10,9 +10,8 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 - A failed session refresh now says "Your session has ended. Sign in again to continue." instead of "Check your email and password".
   Reproduced with the local Auth emulator (`INVALID_REFRESH_TOKEN`); iOS runtime-verified, Android build-only.
 - Allocation denominator (dashboard net value vs Insights gross long value): `docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md`, not implemented.
-- Blocked:
-  - TalkBack journeys and iOS signed-in workflows (owner interaction);
-  - VoiceOver and Accessibility Inspector.
+- iOS signed-in workflows (with the owner's local emulator sign-in): **all PASS** on the iPhone 16 simulator (report §3; committed).
+- **NOT VERIFIED:** TalkBack (deferred by the owner), VoiceOver, Accessibility Inspector.
 - Tests: core 474/0 (JVM, iOS), server 499/0, shared 219/0 (Android) and 215/0 (iOS); both builds OK.
 
 **2026-10-13 — Ubuntu self-hosted MOCK backend (parallel backend session).** Details: `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md` (§7: Phase 2 record) and `docs/UBUNTU_MOBILE_INTEGRATION_VERIFICATION.md` (Phase 3B); committed in

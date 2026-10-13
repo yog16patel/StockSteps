@@ -28,10 +28,20 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
   app-wide, separate phase).
 - **Tests:** core 474/0 (JVM, iOS), server 499/0, shared 219/0 (Android) and 215/0 (iOS); `assembleDebug` OK; unsigned `xcodebuild` OK.
 
+### Update — iOS signed-in verification (2026-10-13, after the E.1 commit; committed and pushed)
+- The owner created the local emulator account `e1-test@example.test` on the iPhone 16. Claude ran every signed-in scenario.
+- **All PASS [V]:** add, edit, delete, rejected save (title + Dismiss), rejected delete, history updates, samples read-only, account switching with
+  the holding scope dropped, Back navigation, session-ended message.
+- Report §3: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_1.md`; 16 new captures `docs/design/portfolio_phase_e_1/i16-*`.
+- New P3 (pre-existing, not changed): the "Create investment account" title is truncated at Large.
+- No code change, so no test rerun. MOCK and the Auth emulator are stopped.
+- **TalkBack is deferred by the owner. TalkBack, VoiceOver and Accessibility Inspector are NOT VERIFIED.** Verdict stays NOT READY FOR SIGN-OFF.
+- Committed and pushed as "Record Portfolio Phase E.1 iOS signed-in verification with all add, edit, delete, rejection, sample, account-switch and navigation checks passing on the iPhone 16 simulator": the report, this file, the Phase E.1 lines of `docs/project-status.md` and the new captures.
+
 ### Blocked (owner interaction or environment)
 - **TalkBack journeys 1–10.** The environment was prepared (PhaseE1 account, TalkBack + speech display, recorder), but no owner gestures arrived;
   injected input can't drive TalkBack.
-- **iOS signed-in workflows.** The owner sign-in on the iPhone 16 wasn't performed; Claude doesn't type credentials on simulators.
+- iOS signed-in workflows: no longer blocked — completed later the same day (see the update above).
 - **VoiceOver** (device), **Accessibility Inspector** (GUI).
 
 ### To resume
