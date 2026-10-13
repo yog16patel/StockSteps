@@ -132,6 +132,7 @@ internal fun PortfolioEntryScene(
             if ((revision.value?.revision ?: 0) > submitted) onDone()
         }
     }
+    KeyboardResizesContent() // D1.1: imePadding below needs the window to resize, not pan
     Column(Modifier.fillMaxSize().imePadding()) {
         if (state.accounts.none { !it.archived } && !PortfolioFormRules.readOnly(state)) {
             StockButton(PortfolioDisplay.CREATE_ACCOUNT_FIRST, { createAccount = true },

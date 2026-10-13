@@ -6,15 +6,29 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**End of session (2026-10-12)**: `main` at `6a787a3` (pushed). The Portfolio UI refinement is committed through **Phase C.1**: P0 account-by-id fix,
-Phase A, B, B.1, C and C.1 (docs `docs/PORTFOLIO_UI_REFINEMENT_PHASE_{A,B,B1,C,C1}.md`; audit `docs/PORTFOLIO_UI_AUDIT.md`; plan
-`docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`).
+**2026-10-13 (D1.1 closure)**: `main` HEAD is "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS", committed **locally, not pushed**; it sits on `d86c0e5` (Portfolio Phase D1, pushed). The Portfolio
+UI refinement is committed through **D1.1**: A, B, B.1, C, C.1 (closure and cleanup), D1, D1.1. Docs: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_{A,B,B1,C,C1,D1,D1_1}.md`.
 
-Verified:
-- core 471/0 (JVM, iOS), shared 169/0 (Android) and 165/0 (iOS), both builds;
-- device checks on local MOCK: Android 360 dp, iPhone 16 Large/AX5.
+Verified at D1.1 closure (sequential, test tasks re-run):
+- core 472/0 (JVM, iOS), server 492/0 (3 skipped), shared 190/0 (Android) and 186/0 (iOS);
+- `assembleDebug` OK; default unsigned `xcodebuild` OK;
+- device captures: Android 360 dp 1.0×/2.0× and iPhone 16 Large/AX5 on local MOCK. Devices were not re-driven for the closure.
 
-NOT VERIFIED: TalkBack, VoiceOver, iPhone SE, physical devices.
+NOT VERIFIED:
+- a successful iOS save (the Auth emulator isn't running; the owner declined);
+- TalkBack, VoiceOver, Android dark form;
+- iPhone SE (excluded by the owner), physical devices.
+
+A parallel "Ubuntu backend migration" session commits server work to this checkout (`231a0a1`); never stage its files with Portfolio work.
+
+**Next:**
+1. Portfolio **Phase D2 — Transaction history**: plan submitted for owner review; not started (needs Q4 route approval).
+2. Phase E (QA, screen readers).
+3. Phase 5D.
+
+Push only on request. Full handoff: `docs/PROJECT_HANDOFF.md` §D1-1-CLOSURE-2026-10-13.
+
+**Portfolio Phase D1.1 (2026-10-13, owner-approved, committed locally as "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS"; not pushed):** form polish and regression closure (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md`, §8 closure).
 
 **Portfolio Phase D1 (2026-10-12, committed and pushed as "Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level validation, keyboard navigation and read-only sample handling on Android and iOS"):** transaction entry and forms on both platforms (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1.md`). Next: Phase D2 after approval.
 

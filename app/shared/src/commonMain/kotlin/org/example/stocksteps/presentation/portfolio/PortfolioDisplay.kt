@@ -86,6 +86,11 @@ object PortfolioDisplay {
     const val FORM_DATE_INVALID = "Choose a valid date."
     const val FORM_CHECK_FAILED = "Check the highlighted fields and try again."
     const val FORM_ERRORS_SUMMARY = "Some fields need attention."
+    // D1.1: one sentence per field, split from the engine's combined messages (same rules, same values).
+    const val FORM_CHOOSE_SECURITY = "Enter a security symbol or search for one."
+    const val FORM_POSITIVE_SHARES = "Enter a share quantity greater than 0."
+    const val FORM_NOT_NEGATIVE = "This can't be negative."
+    const val FORM_SYMBOL_INVALID = "Use the ticker symbol, for example AAPL or TD.TO."
     const val FORM_CHOOSE_DATE = "Choose date"
     const val FORM_ADD_SETTLEMENT = "Add settlement date"
     const val FORM_REMOVE_SETTLEMENT = "Remove settlement date"

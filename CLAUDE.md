@@ -11,15 +11,29 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-12, end of session)
+## Current task (as of 2026-10-13, D1.1 closure)
 
-HEAD: "Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level validation, keyboard navigation and read-only sample handling on Android and iOS" (pushed; `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1.md`), on top of `231a0a1` (Ubuntu backend Phase B) and `9a1b884` (C.1 cleanup).
-The Portfolio UI refinement is committed through Phase C.1: `37d74cd` (P0 + A) → `6041e8f` (B) → `6c1d76b` (B.1) → `8a86e4e` (C) → `6a787a3` (C.1) → C.1 closure.
-Phase D1 (transaction entry and forms) is done. Next: **Portfolio Phase D2** (Transactions destination, needs Q4 route approval), only after approval. Read
-`docs/PROJECT_HANDOFF.md` §D1-2026-10-12 first. Then Phase E (QA, screen readers; iPhone SE excluded by the owner for now), then Phase 5D.
+HEAD: "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS" (local commit, **not pushed**; on top of `d86c0e5`, Portfolio Phase D1, pushed). Phase D1.1 is owner-approved and closed:
+`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md` §8.
+
+Read `docs/PROJECT_HANDOFF.md` §D1-1-CLOSURE-2026-10-13 first.
+
+Next:
+1. **Portfolio Phase D2 — Transaction history.** The plan is submitted for owner review; implement only after approval (Q4 route). A parallel
+   "Ubuntu backend migration" session commits server work in this checkout, so stage by explicit path and never stage its files.
+2. Phase E (QA, screen readers; iPhone SE excluded by the owner).
+3. Phase 5D.
+
+Push only when the owner asks.
+
 Portfolio conventions (permanent):
 - **Forms.** Accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions` / `resolveAccountId`). Field visibility, order and labels
   come from `PortfolioFormRules`; copy from `PortfolioDisplay`; never show raw enum names.
+  - Validation goes through `PortfolioFormRules.check`, which only re-runs `PortfolioEngine.validate`: never add rules, never change typed values.
+  - Submit with `visibleTransaction`, so hidden fields are never sent. On a type change keep only `retainedErrors`.
+  - Dates are stored as `YYYY-MM-DD` via `PortfolioFormDates` (whole days, no time zone).
+- **Android keyboard.** A screen that uses `imePadding` calls `KeyboardResizesContent()` (scoped, reference-counted; restores the previous mode). Don't
+  change the manifest's soft-input mode app-wide.
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,
   `PortfolioAllocationDisplay`). History loads on demand only; the chart is "Account value", never performance. No UI-computed return %. The donut
   only when `allocationDonutAllowed` (`StockAllocationLayout` geometry). Missing stays missing.

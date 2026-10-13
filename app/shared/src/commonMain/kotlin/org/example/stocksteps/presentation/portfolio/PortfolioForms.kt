@@ -199,15 +199,21 @@ internal fun PortfolioTransactionForm(
                     placeholder = PortfolioDisplay.CHOOSE_ACCOUNT, supporting = selected?.detail)
             }
             PortfolioFormField.TRANSACTION_TYPE -> StockSelectField(label, PortfolioFormRules.typeOptions, type, PortfolioPresentation::transactionLabel,
-                onSelect = { type = it; formMessage = null; attempted = false }, modifier = fill) // the last save's error was about the old type
+                onSelect = { new ->
+                    // D1.1: errors from the old type's rules no longer apply; format errors stay while their field is still shown.
+                    errorList = PortfolioFormRules.retainedErrors(errors, new, symbol, cashDiffers).map { (f, m) -> "${f.name}|$m" }
+                    type = new; formMessage = null; attempted = false
+                }, modifier = fill)
             PortfolioFormField.TRADE_CURRENCY -> StockSelectField(label, PortfolioFormRules.currencyOptions, currency, { it.name },
                 onSelect = { if (cashCurrency == currency) cashCurrency = it; currency = it }, modifier = fill)
             PortfolioFormField.CASH_CURRENCY -> StockSelectField(label, PortfolioFormRules.currencyOptions, cashCurrency, { it.name },
                 onSelect = { cashCurrency = it }, modifier = fill)
-            PortfolioFormField.SYMBOL -> Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            PortfolioFormField.SYMBOL -> Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                // D1.1: the chosen security is named under the symbol; search is a secondary action tied to the field (outlined, start-aligned).
                 StockTextField(symbol, { symbol = it.trim().uppercase(); edited(field) }, label, fill.order(field), error = error, keyboardType = KeyboardType.Ascii,
-                    imeAction = ime(field), keyboardActions = actions(field))
-                onSearch?.let { StockButton(PortfolioDisplay.SEARCH_SECURITY, it, variant = StockButtonVariant.TEXT, icon = StockIcons.Search) }
+                    imeAction = ime(field), keyboardActions = actions(field),
+                    supporting = PortfolioFormRules.selectedSecurity(symbol, name, exchange, existing?.instrument?.currency ?: initialCurrency))
+                onSearch?.let { StockButton(PortfolioDisplay.SEARCH_SECURITY, it, variant = StockButtonVariant.OUTLINED, icon = StockIcons.Search) }
             }
             PortfolioFormField.COMPANY_NAME -> StockTextField(name, { name = it }, label, fill.order(field), imeAction = ime(field), keyboardActions = actions(field))
             PortfolioFormField.EXCHANGE -> StockTextField(exchange, { exchange = it }, label, fill.order(field), imeAction = ime(field), keyboardActions = actions(field))
@@ -217,7 +223,8 @@ internal fun PortfolioTransactionForm(
             PortfolioFormField.FEES -> StockTextField(fees, { fees = it; edited(field) }, label, fill.order(field), error = error, keyboardType = number, imeAction = ime(field), keyboardActions = actions(field))
             PortfolioFormField.FX_RATE -> StockTextField(fxRate, { fxRate = it; edited(field) }, label, fill.order(field), error = error, keyboardType = number, imeAction = ime(field), keyboardActions = actions(field))
             PortfolioFormField.DATE -> StockDateField(label, PortfolioFormDates.display(date), { focus.clearFocus(); picking = field }, fill,
-                placeholder = PortfolioDisplay.FORM_CHOOSE_DATE, error = error, actionLabel = PortfolioDisplay.FORM_CHOOSE_DATE)
+                placeholder = PortfolioDisplay.FORM_CHOOSE_DATE, error = error, actionLabel = PortfolioDisplay.FORM_CHOOSE_DATE,
+                supporting = PortfolioFormRules.dateNote(type)) // D1.1: the "earlier returns" note where it applies
             PortfolioFormField.SETTLEMENT -> Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 StockDateField(label, PortfolioFormDates.display(settlement), { focus.clearFocus(); picking = field }, fill,
                     placeholder = PortfolioDisplay.FORM_ADD_SETTLEMENT, error = error, actionLabel = PortfolioDisplay.FORM_CHOOSE_DATE)
@@ -233,13 +240,11 @@ internal fun PortfolioTransactionForm(
 
     Column(
         modifier = modifier.fillMaxWidth().verticalScroll(scroll).padding(spacing.screen),
-        verticalArrangement = Arrangement.spacedBy(spacing.sectionGap)
+        // D1.1: sections 20dp apart, fields 12dp (was 12/12 plus an intro paragraph on every form).
+        verticalArrangement = Arrangement.spacedBy(spacing.xl)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            if (showTitle) Text(if (existing == null) PortfolioDisplay.FORM_ADD_TITLE else PortfolioDisplay.FORM_EDIT_TITLE, Modifier.semantics { heading() },
-                style = typography.sectionTitle, color = colors.textTitle)
-            Text(PortfolioDisplay.FORM_INTRO, style = typography.small, color = colors.textSupporting)
-        }
+        if (showTitle) Text(if (existing == null) PortfolioDisplay.FORM_ADD_TITLE else PortfolioDisplay.FORM_EDIT_TITLE, Modifier.semantics { heading() },
+            style = typography.sectionTitle, color = colors.textTitle)
         listOf(PortfolioFormSection.DETAILS, PortfolioFormSection.AMOUNTS).forEach { section ->
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 sectionTitle(section)
@@ -263,10 +268,14 @@ internal fun PortfolioTransactionForm(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             formMessage?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = typography.small, color = colors.negativeText) }
             state.error?.takeIf { attempted }?.let { StockBanner(StockBannerKind.ERROR, it, title = PortfolioDisplay.FORM_SAVE_FAILED_TITLE) }
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            val saveText = if (state.busy) PortfolioDisplay.FORM_SAVING else PortfolioDisplay.FORM_SAVE
+            // D1.1: at large text Save and Cancel each take a full row (side by side, "Save transaction" wrapped inside half the width).
+            if (onCancel != null && androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale) {
+                StockButton(saveText, ::submit, Modifier.fillMaxWidth(), enabled = !state.busy && accountId.isNotEmpty())
+                StockButton(PortfolioDisplay.FORM_CANCEL, onCancel, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY, enabled = !state.busy)
+            } else Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 onCancel?.let { StockButton(PortfolioDisplay.FORM_CANCEL, it, Modifier.weight(1f), variant = StockButtonVariant.SECONDARY, enabled = !state.busy) }
-                StockButton(if (state.busy) PortfolioDisplay.FORM_SAVING else PortfolioDisplay.FORM_SAVE, ::submit, Modifier.weight(1f),
-                    enabled = !state.busy && accountId.isNotEmpty())
+                StockButton(saveText, ::submit, Modifier.weight(1f), enabled = !state.busy && accountId.isNotEmpty())
             }
         }
     }

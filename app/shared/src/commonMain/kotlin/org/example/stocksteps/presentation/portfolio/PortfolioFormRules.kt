@@ -188,9 +188,12 @@ object PortfolioFormRules {
     }
 
     /**
-     * Phase D1 field-level check, shared by both forms. Number fields are checked with the same parser the ledger uses (`Decimal.parse`), dates
-     * with `PortfolioEngine.validDate`; then `PortfolioEngine.validate` runs unchanged and its message is placed next to the field it is about.
-     * No new rules: every message comes from those existing checks (number and date texts are explained in plain words).
+     * Field-level check, shared by both forms (D1, refined in D1.1). Number fields are checked with the same parser the ledger uses
+     * (`Decimal.parse`), dates with `PortfolioEngine.validDate`; then `PortfolioEngine.validate` runs **unchanged**. It stops at its first failed
+     * rule, so to show every problem at once the check re-runs it: each failure is placed under its field, that field is given a stand-in
+     * value that satisfies the rule just reported, and `validate` runs again (at most once per field). The stand-ins exist only inside this
+     * check — what is submitted is always exactly what was typed. Messages that name two fields are split per field ([guidance]); an
+     * unknown message stays a form-level message, unaltered. No new rules.
      */
     fun check(transaction: PortfolioTransaction, inputs: Map<PortfolioFormField, String>): PortfolioFormCheck {
         val visible = visibleFields(transaction.type, transaction.instrument?.symbol.orEmpty(), transaction.cashCurrency != transaction.currency)
@@ -202,35 +205,87 @@ object PortfolioFormRules {
         if (!org.example.stocksteps.portfolio.PortfolioEngine.validDate(transaction.tradeDate)) errors[PortfolioFormField.DATE] = PortfolioDisplay.FORM_DATE_INVALID
         transaction.settlementDate?.let { if (!org.example.stocksteps.portfolio.PortfolioEngine.validDate(it)) errors[PortfolioFormField.SETTLEMENT] = PortfolioDisplay.FORM_DATE_INVALID }
         if (errors.isNotEmpty()) return PortfolioFormCheck(errors, null)
-        return try {
-            org.example.stocksteps.portfolio.PortfolioEngine.validate(transaction)
-            PortfolioFormCheck(emptyMap(), null)
-        } catch (cause: IllegalArgumentException) {
-            val message = cause.message ?: PortfolioDisplay.FORM_CHECK_FAILED
-            fieldFor(message, transaction)?.let { PortfolioFormCheck(mapOf(it to message), null) } ?: PortfolioFormCheck(emptyMap(), message)
+        var probe = transaction
+        repeat(PortfolioFormField.entries.size) {
+            try {
+                org.example.stocksteps.portfolio.PortfolioEngine.validate(probe)
+                return PortfolioFormCheck(errors, null)
+            } catch (cause: IllegalArgumentException) {
+                val message = cause.message ?: PortfolioDisplay.FORM_CHECK_FAILED
+                val found = guidance(message, probe).filterKeys { it !in errors }
+                if (found.isEmpty()) return PortfolioFormCheck(errors, if (errors.isEmpty()) message else null)
+                errors.putAll(found)
+                probe = standIn(probe, found.keys)
+            }
+        }
+        return PortfolioFormCheck(errors, null)
+    }
+
+    /**
+     * Field guidance for one `PortfolioEngine.validate` message (empty for unknown messages). A message about two fields ("Choose a security and
+     * a positive share quantity.") becomes one sentence per field that actually fails it, using the same values the engine checked.
+     */
+    internal fun guidance(message: String, tx: PortfolioTransaction): Map<PortfolioFormField, String> {
+        fun value(text: String) = runCatching { org.example.stocksteps.portfolio.Decimal.parse(text) }.getOrNull()
+        fun negative(text: String) = value(text)?.let { it < org.example.stocksteps.portfolio.Decimal.ZERO } == true
+        return when (message) {
+            "Settlement cannot precede the trade." -> mapOf(PortfolioFormField.SETTLEMENT to message)
+            "Shares, price and fees cannot be negative." -> buildMap {
+                if (negative(tx.quantity)) put(PortfolioFormField.SHARES, PortfolioDisplay.FORM_NOT_NEGATIVE)
+                if (negative(tx.unitPrice)) put(PortfolioFormField.PRICE, PortfolioDisplay.FORM_NOT_NEGATIVE)
+                if (negative(tx.fees)) put(PortfolioFormField.FEES, PortfolioDisplay.FORM_NOT_NEGATIVE)
+            }
+            "Amount cannot be negative.", "Amount must be positive." -> mapOf(PortfolioFormField.AMOUNT to message)
+            "Choose a security and a positive share quantity." -> buildMap {
+                if (tx.instrument == null) put(PortfolioFormField.SYMBOL, PortfolioDisplay.FORM_CHOOSE_SECURITY)
+                if ((value(tx.quantity) ?: org.example.stocksteps.portfolio.Decimal.ZERO) <= org.example.stocksteps.portfolio.Decimal.ZERO)
+                    put(PortfolioFormField.SHARES, PortfolioDisplay.FORM_POSITIVE_SHARES)
+            }
+            "Trade price must be positive." -> mapOf(PortfolioFormField.PRICE to message)
+            "Record split-related fees as a separate fee transaction." -> mapOf(PortfolioFormField.FEES to message)
+            "Invalid security symbol." -> mapOf(PortfolioFormField.SYMBOL to PortfolioDisplay.FORM_SYMBOL_INVALID)
+            "FX rate must be positive." -> mapOf(PortfolioFormField.FX_RATE to message)
+            "Notes are too long." -> mapOf(PortfolioFormField.NOTES to message)
+            else -> emptyMap()
         }
     }
 
-    /** The field a `PortfolioEngine.validate` message is about; null keeps it as a form-level message (unknown texts are never reworded). */
-    internal fun fieldFor(message: String, tx: PortfolioTransaction): PortfolioFormField? {
-        fun negative(value: String) = runCatching { org.example.stocksteps.portfolio.Decimal.parse(value) < org.example.stocksteps.portfolio.Decimal.ZERO }.getOrDefault(false)
-        return when (message) {
-            "Settlement cannot precede the trade." -> PortfolioFormField.SETTLEMENT
-            "Shares, price and fees cannot be negative." -> when {
-                negative(tx.quantity) -> PortfolioFormField.SHARES
-                negative(tx.unitPrice) -> PortfolioFormField.PRICE
-                else -> PortfolioFormField.FEES
+    /** Check-only stand-ins that satisfy the rule just reported for [fields], so the next `validate` run reveals the next problem. */
+    private fun standIn(tx: PortfolioTransaction, fields: Set<PortfolioFormField>): PortfolioTransaction {
+        var t = tx
+        fields.forEach { field ->
+            t = when (field) {
+                PortfolioFormField.SYMBOL -> t.copy(instrument = InstrumentRef("CHECK", null, null, t.currency.name))
+                PortfolioFormField.SHARES -> t.copy(quantity = "1")
+                PortfolioFormField.PRICE -> t.copy(unitPrice = "1")
+                PortfolioFormField.AMOUNT -> t.copy(grossAmount = "1")
+                PortfolioFormField.FEES -> t.copy(fees = "0")
+                PortfolioFormField.FX_RATE -> t.copy(fxRate = null)
+                PortfolioFormField.SETTLEMENT -> t.copy(settlementDate = null)
+                PortfolioFormField.NOTES -> t.copy(notes = null)
+                else -> t
             }
-            "Amount cannot be negative.", "Amount must be positive." -> PortfolioFormField.AMOUNT
-            "Choose a security and a positive share quantity." -> if (tx.instrument == null) PortfolioFormField.SYMBOL else PortfolioFormField.SHARES
-            "Trade price must be positive." -> PortfolioFormField.PRICE
-            "Record split-related fees as a separate fee transaction." -> PortfolioFormField.FEES
-            "Invalid security symbol." -> PortfolioFormField.SYMBOL
-            "FX rate must be positive." -> PortfolioFormField.FX_RATE
-            "Notes are too long." -> PortfolioFormField.NOTES
-            else -> null
         }
+        return t
     }
+
+    /**
+     * D1.1: errors kept after the transaction type (or another visibility input) changes. Errors from `PortfolioEngine.validate` depended on
+     * the old type, so they are dropped; number/date format errors describe the typed text and stay while their field is still visible.
+     */
+    fun retainedErrors(errors: Map<PortfolioFormField, String>, type: TransactionType, symbol: String, cashDiffers: Boolean): Map<PortfolioFormField, String> {
+        val visible = visibleFields(type, symbol, cashDiffers).toSet()
+        return errors.filter { (field, message) -> field in visible && (message == PortfolioDisplay.FORM_NUMBER_INVALID || message == PortfolioDisplay.FORM_DATE_INVALID) }
+    }
+
+    /** D1.1: "Apple Inc. · NASDAQ · USD" under the symbol when the chosen security's details are known (null otherwise; never looked up). */
+    fun selectedSecurity(symbol: String, name: String, exchange: String, currency: String?): String? {
+        if (symbol.isBlank() || (name.isBlank() && exchange.isBlank())) return null
+        return listOf(name, exchange, currency.orEmpty()).filter { it.isNotBlank() }.joinToString(" · ")
+    }
+
+    /** D1.1: the "earlier returns" note only where it applies (an opening position's effective date), instead of a paragraph above every form. */
+    fun dateNote(type: TransactionType): String? = if (type == TransactionType.OPENING_POSITION) PortfolioDisplay.FORM_INTRO else null
 }
 
 /** Phase D1 date pickers: the stored value stays a plain YYYY-MM-DD day; pickers exchange whole days since 1970-01-01 (no time zone involved). */

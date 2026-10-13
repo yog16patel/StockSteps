@@ -181,6 +181,11 @@ struct PortfolioTransactionForm: View {
             choice(field, value: cashCurrency, selection: $cashCurrency) { ForEach(rules.currencyOptions, id: \.name) { Text(verbatim: $0.name).tag($0.name) } }
         } else if field == .symbol {
             textField(field, $symbol).textInputAutocapitalization(.characters).autocorrectionDisabled()
+            // D1.1: the chosen security, named under the symbol when its details are known (never looked up).
+            if let selected = rules.selectedSecurity(symbol: symbol, name: name, exchange: exchange, currency: securityCurrency) {
+                Text(verbatim: selected).font(StockStepsTheme.font(StockStepsTheme.typography.caption, relativeTo: .footnote))
+                    .foregroundStyle(StockStepsTheme.colors(scheme).textSupporting)
+            }
         } else if field == .companyName {
             textField(field, $name)
         } else if field == .exchange {
@@ -201,6 +206,9 @@ struct PortfolioTransactionForm: View {
                     .environment(\.timeZone, TimeZone(identifier: "UTC")!)
             }
             .onChange(of: date) { _, _ in clear(field) }
+            if let note = rules.dateNote(type: transactionType) {
+                Text(note).font(StockStepsTheme.font(StockStepsTheme.typography.caption, relativeTo: .footnote)).foregroundStyle(StockStepsTheme.colors(scheme).textSupporting)
+            }
         } else if field == .settlement {
             if settlementDate.isEmpty {
                 Button(display.FORM_ADD_SETTLEMENT, systemImage: "calendar.badge.plus") { settlementDate = date }
@@ -267,7 +275,11 @@ struct PortfolioTransactionForm: View {
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button(display.FORM_KEYBOARD_DONE) { focused = nil } }
             }
         }.onChange(of: state?.selectedAccountId) { _, value in if account.isEmpty { account = value ?? "" } }
-        .onChange(of: type) { _, _ in formMessage = nil; attempted = false } // the last save's error was about the old type
+        .onChange(of: type) { _, _ in
+            // D1.1: errors from the old type's rules no longer apply; format errors stay while their field is still shown.
+            errors = rules.retainedErrors(errors: errors, type: transactionType, symbol: symbol, cashDiffers: cashDiffers)
+            formMessage = nil; attempted = false
+        }
         .onAppear {
             account = existing?.accountId ?? state?.selectedAccountId ?? ""
             date = existing?.tradeDate ?? state?.today ?? String(ISO8601DateFormatter().string(from: Date()).prefix(10))
@@ -288,7 +300,6 @@ struct PortfolioTransactionForm: View {
 
     private func form(_ colors: StockColors) -> some View {
         Form {
-            Section { Text(display.FORM_INTRO).font(StockStepsTheme.font(StockStepsTheme.typography.small, relativeTo: .subheadline)).foregroundStyle(colors.textSupporting) }
             Section(rules.sectionTitle(section: .details)) { ForEach(fields(.details), id: \.name) { fieldView($0) } }
             Section(rules.sectionTitle(section: .amounts)) { ForEach(fields(.amounts), id: \.name) { fieldView($0) } }
             Section {

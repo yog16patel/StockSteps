@@ -57,8 +57,8 @@ class PortfolioPhaseD1Test {
 
     @Test
     fun requiredValuesAreReportedNextToTheirField() {
-        assertEquals(mapOf(PortfolioFormField.SYMBOL to "Choose a security and a positive share quantity."), check(TransactionType.BUY, symbol = "").errors)
-        assertEquals(mapOf(PortfolioFormField.SHARES to "Choose a security and a positive share quantity."), check(TransactionType.BUY, quantity = "").errors)
+        assertEquals(mapOf(PortfolioFormField.SYMBOL to PortfolioDisplay.FORM_CHOOSE_SECURITY), check(TransactionType.BUY, symbol = "").errors)
+        assertEquals(mapOf(PortfolioFormField.SHARES to PortfolioDisplay.FORM_POSITIVE_SHARES), check(TransactionType.BUY, quantity = "").errors)
         assertEquals(mapOf(PortfolioFormField.PRICE to "Trade price must be positive."), check(TransactionType.BUY, price = "").errors)
         assertEquals(mapOf(PortfolioFormField.AMOUNT to "Amount must be positive."), check(TransactionType.CASH_DEPOSIT, symbol = "", amount = "").errors)
         assertEquals(mapOf(PortfolioFormField.SETTLEMENT to "Settlement cannot precede the trade."), check(TransactionType.BUY, settlement = "2026-10-01").errors)

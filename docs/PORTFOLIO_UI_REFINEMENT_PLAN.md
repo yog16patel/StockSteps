@@ -158,6 +158,15 @@ small UI fixes (F1–F11). The iPhone SE was excluded by the owner, and screen r
 
 ## Phase D — Add/Edit and transactions
 
+**Phase D1.1 (2026-10-13, owner-approved and committed locally as "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS", not pushed):** form polish and regression closure:
+- per-field guidance from the unchanged engine (all problems at once);
+- type-switch error cleanup; selected-security line;
+- scoped keyboard resize on Android; compact layout.
+
+See `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md` (§8 is the closure).
+
+**Phase D2 (Transaction history, plan item D5 + D6 preview link):** plan submitted for owner review; not started. It needs Q4 (route) approval.
+
 **Phase D1 (2026-10-12, committed):** plan items D1 (date pickers), D2 (sectioned layout with More options), D3 (shared field-level validation on both platforms, iOS
 included), D4 as a full-height edit sheet (no route), keyboard/focus, read-only samples and hidden-field clearing are implemented
 (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1.md`). Not done (need data, approval or routes): review/total screen, success screen, the Transactions destination

@@ -1,9 +1,249 @@
-# StockSteps — session handoff (2026-10-12: Portfolio Phase D1 committed and pushed; next = Phase D2 after approval)
+# StockSteps — session handoff (2026-10-13: Portfolio Phase D1.1 approved, verified and committed locally (not pushed); Phase D2 plan submitted for owner review, not started)
 
-Read order for a new session: `CLAUDE.md` → **§D1-2026-10-12 below** → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§D1-1-CLOSURE-2026-10-13 below** → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## D1-1-CLOSURE-2026-10-13. Portfolio Phase D1.1 closure — START HERE
+
+### Repository state
+- Branch `main`. HEAD is **"Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS"**: a local commit, **not pushed** (owner instruction: no push, no deploy). It sits on "Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level validation, keyboard navigation and read-only sample handling on Android and iOS" (`d86c0e5`, pushed),
+  so `main` is one commit ahead of `origin/main`.
+- This commit contains only D1.1:
+  - shared Kotlin: `PortfolioFormRules.kt`, `PortfolioDisplay.kt`, `PortfolioForms.kt`, `PortfolioScene.kt`, plus `KeyboardResize.kt` and its
+    `androidMain`/`iosMain`/`jvmMain` actuals;
+  - iOS: `PortfolioForms.swift`;
+  - tests: `PortfolioPhaseD11Test.kt`, `PortfolioPhaseD1Test.kt`;
+  - docs: the D1.1 report, plan, this file, `project-status.md`, `CLAUDE.md`;
+  - captures: `docs/design/portfolio_d1_1/`.
+
+  Every path was staged explicitly. No backend-migration file was included.
+
+### What was done
+- **Owner approval.** The owner reviewed the D1.1 captures and report and approved the UI changes, subject to a final repository check.
+- **Diff audit.** Every change belongs to D1.1. Unchanged: ledger, `PortfolioEngine`, decimals, API, entitlements, sample labelling, routes, five tabs.
+- **Final sequential verification** (test tasks forced with `--rerun`):
+  - core **472/0** (JVM) and **472/0** (iOS);
+  - server **492/0** (3 skipped, pre-existing);
+  - shared **190/0** (Android host) and **186/0** (iOS), with `PortfolioPhaseD11Test` 7/0 and `PortfolioPhaseD1Test` 8/0 on both;
+  - `assembleDebug` OK;
+  - default unsigned `xcodebuild` **BUILD SUCCEEDED**.
+- **Behaviour re-confirmed** from tests and code (devices **not** re-driven): field-specific validation, type-switch error clearing
+  (`retainedErrors` on both platforms), scoped keyboard resize (only `PortfolioEntryScene`), stacked large-text actions. Device evidence is the D1.1
+  capture set. The 2.0× and iPhone 16 captures post-date the last source edit. The 1.0× keyboard captures pre-date the final reference-counting edit.
+  See D1.1 report §8.
+- **NOT VERIFIED** (unchanged):
+  - a successful iOS save (the Auth emulator isn't running; the owner declined);
+  - TalkBack, VoiceOver;
+  - Android dark mode for the form;
+  - iPhone SE (excluded), physical devices.
+
+### Next
+1. **Phase D2 — Transaction history.** The plan was submitted to the owner in this session and is **not implemented**. It needs Q4 (a new
+   navigation destination inside Portfolio, not a tab) and the plan's open decisions approved first.
+2. Phase E (QA, screen readers).
+3. Phase 5D.
+
+Push `main` only when the owner asks.
+
+## HANDOFF-2026-10-13-END. End-of-session handoff — START HERE
+
+### Repository state (verified with `git status` / `git log` / `git fetch` at handoff)
+- Branch `main`, in sync with `origin/main`. HEAD: **"Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level
+  validation, keyboard navigation and read-only sample handling on Android and iOS"** (`d86c0e5`, pushed).
+- Commits this session (oldest first, all pushed), on top of `6a787a3` (Portfolio Phase C.1):
+
+  | Commit | What | Doc |
+  |---|---|---|
+  | `0fecddb` | C.1 final verification: 11 UI fixes (F1–F11) | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` §8 |
+  | `9a1b884` | C.1 cleanup: insight cards with Show details, currency on insight amounts, stacked metric spacing | same doc §9 |
+  | `231a0a1` | **Not this session:** Ubuntu backend Phase B (MOCK sample company catalog). Made by the parallel "StockSteps Ubuntu backend migration" session | — |
+  | `d86c0e5` | Portfolio Phase D1: transaction entry and forms | `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1.md` |
+
+- **Phase D1.1** (uncommitted at this handoff; since approved and committed locally, see §D1-1-CLOSURE-2026-10-13):
+  - app code (verified in §D1-1-2026-10-13):
+    - `app/shared/src/commonMain/.../presentation/portfolio/PortfolioFormRules.kt`, `PortfolioDisplay.kt`, `PortfolioForms.kt`, `PortfolioScene.kt`;
+    - new `KeyboardResize.kt` (commonMain `expect`), with actuals in `androidMain/.../portfolio/KeyboardResize.android.kt`, `iosMain/.../KeyboardResize.ios.kt`
+      and `jvmMain/.../KeyboardResize.jvm.kt`;
+    - `app/iosApp/iosApp/PortfolioForms.swift`;
+  - tests: new `app/shared/src/commonTest/.../portfolio/PortfolioPhaseD11Test.kt`; modified `PortfolioPhaseD1Test.kt`;
+  - docs:
+    - new `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md`;
+    - modified `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`, this file, `docs/project-status.md`, `CLAUDE.md` ("Current task" and two Portfolio form conventions);
+  - captures: `docs/design/portfolio_d1_1/` (20 JPGs).
+- A parallel local session works on the Ubuntu backend in this same checkout. Never stage its files with Portfolio work. Check `git status`
+  and stage by explicit path.
+
+### Current development objective
+Global UI Refinement of the **Portfolio module** on Android (Compose) and iOS (SwiftUI), display layer only. Plan: `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md`
+(Phases A–E).
+- **Done and committed:** A, B, B.1, C, C.1 (with closure and cleanup), D1.
+- **D1.1:** done (committed locally later, see §D1-1-CLOSURE-2026-10-13).
+- **Remaining:** D2 (Transactions destination) and E (QA, screen readers). Phase 5D (Learn, Daily Brief, Earnings) follows after Portfolio.
+
+### Exact task at the end of this session
+Phase D1.1 ("Transaction Form Polish & Regression Closure") is implemented, device-verified, documented and tested, and is **waiting for the owner's
+review**. Nothing is half-done in code. D2 has not started.
+
+### Work completed this session
+1. **C.1 final verification (`0fecddb`).** Re-checked all 22 C.1 issues on Android 360 dp (1.0×/1.3×/2.0×) and iPhone 16 (Large/AX5), and fixed 11
+   defects:
+   - pill selectors for the Insights allocation and index selectors;
+   - inset transaction dividers;
+   - `StockTrendChart` takes horizontal drags only, so the page scrolls;
+   - iOS Insights chart legend and axis at AX sizes;
+   - iOS `StockSegmentedControl` stacks the segments when a label word can't fit;
+   - a fixed-size "⋯" glyph, and others.
+2. **C.1 cleanup (`9a1b884`):**
+   - insight cards show the finding first, one sentence, and an accessible Show details (`PortfolioInsightCardDisplay`);
+   - insight amounts carry the reporting currency ("CAD 4,128.79"; the engine is untouched);
+   - wider gaps between stacked metric groups.
+3. **D1 (`d86c0e5`):**
+   - sectioned form (Transaction information / Amounts / More options);
+   - Material and SwiftUI date pickers storing `YYYY-MM-DD` with no time-zone shift;
+   - field-level errors from the existing rules, with iOS validating before sending;
+   - hidden fields never submitted; keyboard Next/Done;
+   - full-height Android edit sheet with Cancel (no route);
+   - read-only sample explanation with "Go to My saved accounts";
+   - iOS large-text pickers.
+4. **D1.1** (committed locally after approval):
+   - all validation problems at once (the unchanged `PortfolioEngine.validate` re-run with check-only stand-ins);
+   - two-field messages split per field;
+   - a type switch drops stale rule errors and the save banner (`retainedErrors`);
+   - selected-security line under the symbol; outlined search action;
+   - the "earlier returns" note only for opening positions;
+   - Android keyboard resize scoped to the Add screen (`KeyboardResizesContent`, reference-counted, restores pan);
+   - stacked Save/Cancel at large text.
+
+### Important decisions (and why)
+- **Validation never adds rules or changes values.** `PortfolioFormRules.check` only re-runs `PortfolioEngine.validate`. The stand-ins exist only inside
+  the check, and the transaction submitted is exactly what was typed. Unknown engine messages stay form-level and verbatim.
+- **Hidden fields are blanked before submit** (`visibleTransaction`), so a type switch can't send stale shares, price or FX.
+- **No new routes:** Android edit is a `ModalBottomSheet`.
+  - Not built because they need data or routes (owner approval): a review screen with a computed total (D-R7: the net amount is server-only), a
+    success destination, and the Transactions list (D2/Q4).
+- **Keyboard resize is scoped, not app-wide.** Other screens (Auth, Screener filters) still rely on the pan default. A manifest change would affect
+  them all.
+  - `Window.setSoftInputMode(0)` is ignored, so an "unspecified" original mode is restored as `ADJUST_PAN` (what the system resolved before; checked
+    with `dumpsys window`).
+- **Insight-card currency** comes from presenter metrics plus `InsightsView.currency`; the engine runs on the server and is unchanged.
+- **The iPhone SE is excluded** by the owner (2026-10-12).
+
+### Known bugs, blockers and risks
+- **iOS saves can't be verified.** The cached iPhone 16 session launches with `--firebase-emulators`, so Auth points at `127.0.0.1:9099`. Nothing runs
+  there, so every authenticated call fails ("Could not connect" / "Insights couldn't be loaded"). The owner declined to start the Auth emulator for
+  D1.1.
+- **The MOCK server keeps user data in memory** (`InMemoryUserDataStore`). Restarting it loses test accounts ("D1Test", "D11Test" are gone).
+- The parallel backend session once changed server code under a running MOCK, causing a `NoClassDefFoundError` mid-test. Restart the MOCK if a request
+  500s after server files change.
+- Comma decimal separators aren't converted (the ledger accepts "." only); the form explains this next to the field.
+- **Shared-component changes this session** reach other screens. Only Portfolio was re-checked:
+  - `StockTrendChart` horizontal-only drag;
+  - iOS `StockSegmentedControl` stacking;
+  - `StockInsightCard(details)`;
+  - `StockMetricGrid` stacked gap;
+  - `StockTextField(imeAction, keyboardActions)`;
+  - new `StockDateField`.
+- **Out of Portfolio scope, seen and not fixed:**
+  - the sign-in screen breaks "StockSteps?" and "Create account" mid-word on the iPhone SE at AX5;
+  - the bottom tab isn't highlighted on Portfolio sub-destinations;
+  - engine card text could still show raw amounts where a metric isn't one of the known money keys.
+- **Driving the device for tests:** on Android, `KEYCODE_ESCAPE` (111) and Back (4) leave the form once the keyboard is already closed. Use the IME
+  action or tap outside to close the keyboard.
+
+### Build and test results
+- **Verified (final sequential run after D1.1, clean test outputs, 2026-10-13):**
+  - Gradle suite: BUILD SUCCESSFUL;
+  - core: **472/0** (JVM) and **472/0** (iOS);
+  - shared: **190/0** (Android host) and **186/0** (iOS);
+  - `assembleDebug` OK;
+  - default `xcodebuild … CODE_SIGNING_ALLOWED=NO build` **BUILD SUCCEEDED**.
+- **Device-verified (local MOCK only, approved):**
+  - Android emulator-5554 at 360 dp, light, 1.0× and 2.0×: form layout, all-errors, type switch, server rejection, hidden fields on a real save, edit
+    sheet, keyboard resize, selected security via search;
+  - iPhone 16 (iOS 18.3), Large and AX5 dark: layout, all-errors, type switch, selected security, AX5 labels.
+- **NOT VERIFIED:**
+  - a successful iOS save (Auth emulator);
+  - TalkBack, VoiceOver;
+  - Android dark mode for the form;
+  - iPhone SE (excluded);
+  - physical devices;
+  - `:server:test` (no server change this session).
+
+### Device / environment state at handoff
+- **Android:** size reset, font 1.0, night mode off, app Theme Light, `adb reverse` removed.
+- **iPhone 16 (`A04A9C8B-…`):** Large/light; the ad-hoc signed MOCK build is installed.
+- **iPhone SE iOS 18.3 (`4BFB2D70-…`):** shut down; it has the MOCK build installed, with no session.
+- **MOCK server:** stopped. **Auth emulator:** never started.
+- **Device-check recipe:**
+  - `./gradlew :server:runMock`; `adb reverse tcp:8081 tcp:8081`; `adb shell wm size 1080x2400`;
+  - iOS: `xcodebuild … CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081 build`, then
+    `simctl install` and `simctl launch … --firebase-emulators`;
+  - an Android test account is created in the app ("Create portfolio"). It lives only until the MOCK stops.
+- **Approvals:** device checks need owner approval each phase. The Firebase Auth emulator needs separate approval.
+
+### Requirements discussed but not implemented
+- **Phase D2 (needs approval of the Transactions destination, Q4):**
+  - "See all transactions" from the dashboard;
+  - filter chips All · Buys · Sells · Dividends · Cash · Other (display filter of `state.transactions`, grouping in `PortfolioDisplay`);
+  - empty-filter state;
+  - dashboard preview of 3–5 rows plus a link;
+  - success confirmation after save (plan item D7).
+- **Not approved / not supported:** a review screen with an estimated total (new client calculation, D-R7); a success screen (new destination).
+- **Phase E:**
+  - TalkBack and VoiceOver passes; Android dark-mode form check;
+  - re-capture other screens that use the changed shared components;
+  - a measured iOS legend placement; the iPhone SE once un-excluded.
+- **Open owner decisions:**
+  - D1 (auto 1M history);
+  - D2 (total-return % presenter field);
+  - Q1 (save the reference sheet in the repo);
+  - Q3 (no Portfolio sub-tabs);
+  - Q4 (Transactions destination).
+
+### Exact next steps (as written at this handoff; steps 1–2 are now done, see §D1-1-CLOSURE-2026-10-13)
+1. `git status`, `git log -5 --oneline`. Expect `d86c0e5` at HEAD plus the uncommitted D1.1 files listed above, and possibly new commits from the
+   backend session.
+2. Ask the owner to review D1.1 (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md`, captures in `docs/design/portfolio_d1_1/`).
+   - On approval, commit **only the D1.1 paths** (never the backend session's files), with a title like "Polish Portfolio transaction form with
+     all-at-once field guidance, type-switch error cleanup, selected security line and scoped keyboard resize (Phase D1.1) on Android and iOS".
+   - Update this file in the same commit, naming the commit and changing "uncommitted" to "committed".
+3. Ask for D2 approval, including the Transactions destination route (Q4).
+4. When approved, implement D2 per plan §Phase D (items D5/D6/D7):
+   - Route = identity only; Scene acquires the presenter; Screen renders;
+   - filter on existing `state.transactions` only;
+   - copy in `PortfolioDisplay`; tests;
+   - full sequential suite plus both builds; captures on the local MOCK with approval;
+   - `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D2.md`.
+
+## D1-1-2026-10-13. Portfolio Phase D1.1 (form polish, regression closure) — committed locally after owner approval (see §D1-1-CLOSURE-2026-10-13)
+
+- Repository: `main`. HEAD: "Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level validation, keyboard navigation and read-only sample handling on Android and iOS" (`d86c0e5`, pushed).
+- **D1.1 paths** (uncommitted when written; now in the D1.1 commit):
+  - shared Kotlin: `PortfolioFormRules.kt`, `PortfolioDisplay.kt`, `PortfolioForms.kt`, `PortfolioScene.kt`, new `KeyboardResize.kt` with actuals in
+    `androidMain`/`iosMain`/`jvmMain`;
+  - iOS: `PortfolioForms.swift`;
+  - tests: new `PortfolioPhaseD11Test.kt`, updated `PortfolioPhaseD1Test.kt`;
+  - docs: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1_1.md`, the plan, this file, `project-status.md`;
+  - captures: `docs/design/portfolio_d1_1/` (20).
+- Done:
+  - all validation problems shown at once (unchanged `PortfolioEngine.validate`, re-run with check-only stand-ins);
+  - two-field messages split per field;
+  - type switch drops old rule errors and the rejection banner (device-verified);
+  - hidden fields excluded (unit + device);
+  - selected security named under the symbol; outlined search action;
+  - the "earlier returns" note only for opening positions;
+  - Android keyboard resize scoped to the Add screen (fixes the pan that slid the top bar under the status bar);
+  - stacked Save/Cancel at large text.
+- Validation:
+  - core 472/0 (JVM, iOS), shared 190/0 (Android) and 186/0 (iOS);
+  - `assembleDebug` OK; default unsigned `xcodebuild` BUILD SUCCEEDED;
+  - devices: Android 360 dp 1.0×/2.0×, iPhone 16 Large/AX5.
+- Unverified:
+  - a successful iOS save (the Auth emulator on 127.0.0.1:9099 isn't running; the owner declined to start it);
+  - TalkBack/VoiceOver; Android dark mode for the form; SE excluded.
+- Next: owner review → commit on request → Phase D2 after approval of the Transactions destination (Q4).
 
 ## D1-2026-10-12. Portfolio Phase D1 (transaction entry and forms) — START HERE (committed and pushed)
 
