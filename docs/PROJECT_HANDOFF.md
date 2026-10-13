@@ -1,11 +1,74 @@
-# StockSteps — session handoff (2026-10-13: Portfolio Phases D1.1, D2 (Transaction history) and D3 (Transaction details, action feedback) committed and pushed; next = Phase E)
+# StockSteps — session handoff (2026-10-13: Portfolio D1.1–D3.1 committed and pushed; next = Phase E)
 
-Read order for a new session: `CLAUDE.md` → **§D3-2026-10-13 below** → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§D3-1-2026-10-13 below** → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## D3-2026-10-13. Portfolio Phase D3 (Transaction details and action feedback) — START HERE (committed and pushed with D2)
+## D3-1-2026-10-13. Portfolio Phase D3.1 (stabilization and final polish) — START HERE (committed and pushed)
+
+### Repository state
+- Branch `main`, in sync with `origin/main` after the push. HEAD: **"Stabilize Portfolio Phase D3.1 with cash-aware allocation notes, formatted cash lines, Portfolio tab selection on sub-screens, action-specific error titles and action-free samples on Android and iOS"**, on top of "Add Portfolio Phases D2 and D3 with transaction history filters, transaction details, confirmed-only add/edit/delete feedback, reusable transaction rows and sample read-only handling on Android and iOS" (`5c3f15f`).
+- That commit holds only D3.1, staged by path:
+  - core: `portfolio/PortfolioPresenter.kt`, `PortfolioPresenterSaveTest.kt`;
+  - shared Kotlin:
+    - `presentation/portfolio/PortfolioDisplay.kt`, `PortfolioPresentation.kt`, `PortfolioAllocationDisplay.kt`, `PortfolioRoute.kt`;
+    - `PortfolioTransactionViews.kt`, `PortfolioScreen.kt`, `PortfolioTransactionsScreen.kt`, `PortfolioTransactionScreen.kt`, `PortfolioScene.kt`;
+    - `presentation/AppNavigation.kt`;
+  - iOS: `PortfolioScreen.swift`, `PortfolioTransactionsScreen.swift`, `PortfolioTransactionDetailsScreen.swift`, `PortfolioScene.swift`;
+  - tests: new `PortfolioPhaseD31Test.kt`;
+  - docs:
+    - new `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D3_1.md`, `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D3_1_PLAN.md`;
+    - edited this file, `docs/project-status.md`, `CLAUDE.md`;
+  - captures: `docs/design/portfolio_d3_1/` (14).
+- **Left out of the commit and still uncommitted** (the parallel backend session's work; never stage it with Portfolio work):
+  - `server/src/main/kotlin/.../Application.kt`, `.../fixture/FixtureMarketDataSource.kt`;
+  - `server/src/test/.../market/MockClockFreshnessTest.kt`;
+  - `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md`;
+  - a stray file named `2`.
+
+### What D3.1 does
+The owner approved the plan's recommendations on 2026-10-13. Root cause in the plan §1:
+- **Allocation 101.05%:** the engine divides by holdings + cash (documented); the list hides the negative cash share. **No calculation bug.**
+- **Negative cash:** a supported ledger state.
+
+Changes:
+- **Allocation note** under "By holding" (cash below / above zero), computed from nothing but the cash sign.
+- **Cash lines:** "USD 168.50", "-USD 51.50" + "Unfunded", with thousands separators (`moneyLine`, exact `Decimal`).
+- **Tab rule:** `PortfolioTabRoutes` (Portfolio, Transactions, details, Holding details, Insights) keeps the Portfolio tab selected on Android; iOS
+  already was.
+- **Errors titled by action:** additive presenter `errorSource`; "Couldn't save / delete transaction"; Dismiss instead of Retry for them.
+- **Success** only if the signed-in user and environment are unchanged.
+- **Samples:** no ⋯, and details say "Sample transactions can't be changed."
+
+### Validation
+- **Sequential, `--rerun`:**
+  - core 474/0 (JVM) and 474/0 (iOS);
+  - shared 217/0 (Android) and 213/0 (iOS), including `PortfolioPhaseD31Test` 7/0;
+  - server 499/0 (3 skipped), run alone;
+  - `assembleDebug` OK; unsigned `xcodebuild` OK.
+  - Server in the combined run: two infrastructure failures (`EOFException`, missing `in-progress-results-generic.bin`) while the parallel session
+    wrote the same `server/build` test results. Run alone it passed. 7 of the 499 are that session's uncommitted tests.
+- **Android device** (360 dp, local MOCK, approved), all PASS:
+  - negative and positive cash lines and notes (32.62% / 68.43% reproduced);
+  - rejected add and delete titles + Dismiss;
+  - add/edit/delete banners shown once;
+  - tab highlight on 4 screens;
+  - samples; account switch;
+  - 2.0×; dark.
+- **NOT VERIFIED:** iOS runtime; TalkBack, VoiceOver; Android 1.3×; physical devices.
+
+### Environment at handoff
+- **Android:** size reset, font 1.0, night mode off, app theme Light, `adb reverse` removed.
+- **MOCK:** stopped. **Auth emulator:** never started.
+
+### Next
+1. Phase E: QA, screen readers, the iOS runtime pass (needs approval).
+2. Phase 5D.
+
+Open owner topic: Insights vs dashboard allocation denominators (borrowed cash excluded vs included).
+
+## D3-2026-10-13. Portfolio Phase D3 (Transaction details and action feedback) — committed and pushed with D2
 
 ### Repository state
 - Branch `main`, in sync with `origin/main` after the push. HEAD: **"Add Portfolio Phases D2 and D3 with transaction history filters, transaction details, confirmed-only add/edit/delete feedback, reusable transaction rows and sample read-only handling on Android and iOS"**, on top of "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS". Both were pushed at the owner's request on

@@ -16,7 +16,7 @@ struct PortfolioTransactionDetailsScene: View {
     var body: some View {
         let state = model.state
         PortfolioTransactionDetailsScreen(state: state, transactionId: transactionId, onBack: { dismiss() }, onRefresh: model.refresh,
-                                          onSignIn: onSignIn, onEdit: { editing = $0 }, onDelete: model.deleteTransaction)
+                                          onSignIn: onSignIn, onEdit: { editing = $0 }, onDelete: model.deleteTransaction, onDismissError: model.clearError)
             .portfolioFeedback(accounts: accounts, result: state?.actionResult,
                                leaving: { $0.kind == .deleted && $0.transactionId == transactionId })
             .navigationTitle(PortfolioTransactionDetailsDisplay.shared.TITLE)
@@ -44,6 +44,7 @@ struct PortfolioTransactionDetailsScreen: View {
     let onSignIn: () -> Void
     let onEdit: (PortfolioTransaction) -> Void
     let onDelete: (String) -> Void
+    var onDismissError: () -> Void = {}
     @State private var deleting: PortfolioTransaction?
     @State private var sampleDetails = false
     @Environment(\.colorScheme) private var scheme
@@ -77,9 +78,7 @@ struct PortfolioTransactionDetailsScreen: View {
         if state.loading { ProgressView(display.LOADING).frame(maxWidth: .infinity) }
         // A rejected delete (or a sync problem) keeps the server's message, as on the dashboard.
         if state.error != nil || state.offline {
-            StockBanner(kind: state.error != nil ? .error : .warning, message: state.error ?? display.OUT_OF_DATE,
-                        title: state.offline ? display.OFFLINE_TITLE : display.REFRESH_FAILED_TITLE,
-                        actionTitle: state.error != nil ? "Retry" : nil, action: state.error != nil ? onRefresh : nil)
+            portfolioErrorBanner(state, onRefresh: onRefresh, onDismiss: onDismissError)
         }
         if !state.signedIn && state.mockScenario == nil {
             StockBanner(kind: .info, message: display.SIGN_IN_PROMPT, actionTitle: "Sign in", action: onSignIn)
@@ -117,9 +116,12 @@ struct PortfolioTransactionDetailsScreen: View {
             let edit = Button { onEdit(transaction) } label: { Text(rules.EDIT).frame(maxWidth: .infinity) }.buttonStyle(.stockSecondary)
             let delete = Button(role: .destructive) { deleting = transaction } label: { Text(rules.DELETE).frame(maxWidth: .infinity) }
                 .buttonStyle(.stockPrimary).disabled(state.busy)
-            // Side by side at normal sizes; stacked at accessibility sizes (the D1.1 rule for form actions). Samples: Edit only.
-            if large || readOnly {
-                VStack(spacing: CGFloat(space.sm)) { edit; if !readOnly { delete } }
+            // Side by side at normal sizes; stacked at accessibility sizes (the D1.1 rule for form actions). D3.1: samples can't be changed, so
+            // one plain line instead of actions (the SAMPLE banner above says why).
+            if readOnly {
+                Text(display.SAMPLE_CANNOT_CHANGE).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+            } else if large {
+                VStack(spacing: CGFloat(space.sm)) { edit; delete }
             } else {
                 HStack(spacing: CGFloat(space.sm)) { edit; delete }
             }

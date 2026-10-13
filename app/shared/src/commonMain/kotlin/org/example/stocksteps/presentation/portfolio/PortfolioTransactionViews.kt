@@ -68,11 +68,11 @@ internal fun PortfolioTransactionAvatar(transaction: PortfolioTransaction, logoU
 /**
  * Transaction row shared by the dashboard preview and Transaction history (Phase D3 refinement of the C.1 row). Normal text: avatar · type with
  * the recorded amount right-aligned on its line, security, date, price per share · ⋯. Large text: no avatar and every group on its own line, so labels and
- * amounts wrap instead of squeezing. The row opens details ([onOpen]); ⋯ stays a separate 48dp target with Edit and Delete ([onDelete] null
- * hides Delete — samples are read-only). Text comes from `PortfolioTransactionDetailsDisplay.row`: recorded values only, no totals.
+ * amounts wrap instead of squeezing. The row opens details ([onOpen]); ⋯ stays a separate 48dp target with Edit and Delete. Samples pass
+ * null for both (D3.1: read-only, so no ⋯). Text comes from `PortfolioTransactionDetailsDisplay.row`: recorded values only, no totals.
  */
 @Composable
-internal fun PortfolioTransactionRow(transaction: PortfolioTransaction, logoUrl: String?, onOpen: (() -> Unit)?, onEdit: () -> Unit, onDelete: (() -> Unit)?) {
+internal fun PortfolioTransactionRow(transaction: PortfolioTransaction, logoUrl: String?, onOpen: (() -> Unit)?, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val spacing = StockStepsTheme.spacing
@@ -105,10 +105,11 @@ internal fun PortfolioTransactionRow(transaction: PortfolioTransaction, logoUrl:
                 if (largeText) text.amount?.let { Text(it, style = typography.numberLabelStrong, color = colors.textValue) }
             }
         }
-        Box {
+        // D3.1: samples have no actions, so no ⋯ at all (the row still opens details).
+        if (onEdit != null || onDelete != null) Box {
             IconButton(onClick = { open = true }) { Icon(StockIcons.More, contentDescription = "Actions for ${text.title}${text.security?.let { ", " + it.replace(' ', ' ') } ?: ""}", tint = colors.iconSecondary) }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                DropdownMenuItem(text = { Text("Edit") }, onClick = { open = false; onEdit() })
+                onEdit?.let { edit -> DropdownMenuItem(text = { Text("Edit") }, onClick = { open = false; edit() }) }
                 onDelete?.let { delete -> DropdownMenuItem(text = { Text("Delete…", color = colors.negativeText) }, onClick = { open = false; delete() }) }
             }
         }
@@ -131,6 +132,21 @@ internal fun PortfolioDeleteTransactionDialog(transaction: PortfolioTransaction,
         },
         confirmButton = { TextButton(onClick = onConfirm) { Text(PortfolioDisplay.DELETE, color = StockStepsTheme.colors.negativeText) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(PortfolioDisplay.FORM_CANCEL) } })
+}
+
+/**
+ * Phase D3.1 status banner shared by the dashboard, history and details: offline / sync problems keep Retry (a refresh); a rejected save, delete
+ * or account change is titled by that action ("Couldn't save transaction") with the server's message unchanged, and offers Dismiss.
+ */
+@Composable
+internal fun PortfolioErrorBanner(state: PortfolioUiState, onRefresh: () -> Unit, onDismiss: () -> Unit) {
+    val retries = PortfolioDisplay.errorRetries(state)
+    StockBanner(
+        kind = if (state.error != null) StockBannerKind.ERROR else StockBannerKind.WARNING,
+        title = PortfolioDisplay.errorTitle(state),
+        message = state.error ?: PortfolioDisplay.OUT_OF_DATE,
+        actionText = when { state.error == null -> null; retries -> "Retry"; else -> PortfolioDisplay.DISMISS },
+        onAction = if (retries) onRefresh else onDismiss)
 }
 
 /**

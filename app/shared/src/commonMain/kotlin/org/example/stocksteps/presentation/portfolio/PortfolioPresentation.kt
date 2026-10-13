@@ -115,6 +115,22 @@ object PortfolioPresentation {
         return "$sign$currency ${text.removePrefix("-")}"
     }
 
+    /**
+     * D3.1: a presenter money line ("USD 168.5", "USD -51.5" — currency code + exact decimal) for display: "USD 168.50", "-USD 51.50" (the
+     * sign-before-currency convention of [signedMoney]). [negative] lets cash below zero be labelled. Unparseable text is kept verbatim.
+     */
+    data class MoneyLine(val text: String, val spoken: String, val negative: Boolean)
+
+    fun moneyLine(line: String): MoneyLine {
+        val code = line.substringBefore(' ')
+        val value = line.substringAfter(' ', "").trim()
+        val decimal = runCatching { Decimal.parse(value) }.getOrNull()
+        if (code.length != 3 || decimal == null) return MoneyLine(line, line, false)
+        val negative = decimal < Decimal.ZERO
+        val amount = PortfolioFormat.amount(value).removePrefix("-")
+        return MoneyLine(if (negative) "-$code\u00A0$amount" else "$code\u00A0$amount", if (negative) "minus $code $amount" else "$code $amount", negative)
+    }
+
     /** Holding details "Realized": the holding's realized gain/loss in its trading currency (finding A-F3 — was the raw ledger string). */
     fun holdingRealized(row: PortfolioHoldingRow): String = signedMoney(row.currency, row.realized)
 

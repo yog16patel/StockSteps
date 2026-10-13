@@ -6,6 +6,18 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-13 (Phase D3.1, committed and pushed as "Stabilize Portfolio Phase D3.1 with cash-aware allocation notes, formatted cash lines, Portfolio tab selection on sub-screens, action-specific error titles and action-free samples on Android and iOS"):** stabilization (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D3_1.md`).
+- Allocation >100% explained: not a bug; cash, including negative, is in the denominator.
+- Negative cash confirmed as a supported state.
+- Formatted cash lines ("-USD 51.50" + "Unfunded").
+- Portfolio tab stays selected on its sub-screens.
+- Errors titled by action (additive `errorSource`).
+- Samples without actions.
+- Verified: core 474/0, shared 217/0 (Android) and 213/0 (iOS), server 499/0, both builds, and Android device on local MOCK.
+- **iOS runtime, TalkBack and VoiceOver: NOT VERIFIED.**
+
+The parallel backend session has uncommitted server files in this checkout: never stage them with D3.1.
+
 **2026-10-13 (Phases D2 + D3, committed and pushed):** `main` HEAD is "Add Portfolio Phases D2 and D3 with transaction history filters, transaction details, confirmed-only add/edit/delete feedback, reusable transaction rows and sample read-only handling on Android and iOS", on top of "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS" (also pushed).
 
 Phase D3: transaction details and action feedback

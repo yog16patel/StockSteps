@@ -30,6 +30,8 @@ struct PortfolioScreen: View {
     var onTransactions: (() -> Void)? = nil
     /// Phase D3: opens Transaction details for a row; nil keeps rows without the tap.
     var onOpenTransaction: ((String) -> Void)? = nil
+    /// D3.1: dismisses a rejected save / delete / account change (Retry would only refresh).
+    var onDismissError: () -> Void = {}
     @State private var deleteAccount: PortfolioAccount?
     @State private var deleteTransaction: PortfolioTransaction?
     @State private var showAbout = false
@@ -144,9 +146,7 @@ struct PortfolioScreen: View {
         if state.loading { ProgressView(display.LOADING).frame(maxWidth: .infinity) }
         // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
         if state.error != nil || state.offline {
-            StockBanner(kind: state.error != nil ? .error : .warning, message: state.error ?? display.OUT_OF_DATE,
-                        title: state.offline ? display.OFFLINE_TITLE : display.REFRESH_FAILED_TITLE,
-                        actionTitle: state.error != nil ? "Retry" : nil, action: state.error != nil ? onRefresh : nil)
+            portfolioErrorBanner(state, onRefresh: onRefresh, onDismiss: onDismissError)
         }
         if !state.signedIn && state.mockScenario == nil {
             StockBanner(kind: .info, message: display.SIGN_IN_PROMPT, actionTitle: "Sign in", action: onSignIn)
@@ -232,7 +232,7 @@ struct PortfolioScreen: View {
             ForEach(Array(transactions.prefix(Self.recentTransactions).enumerated()), id: \.element.id) { index, transaction in
                 if index > 0 { StockDivider().padding(.horizontal, CGFloat(space.cardPadding)) } // C.1 closure: inset like the holdings rows
                 PortfolioTransactionRow(transaction: transaction, logoUrl: state.logo(for: transaction),
-                                        onOpen: onOpenTransaction.map { open in { open(transaction.id) } }, onEdit: { onEditTransaction(transaction) },
+                                        onOpen: onOpenTransaction.map { open in { open(transaction.id) } }, onEdit: readOnly ? nil : { onEditTransaction(transaction) },
                                         onDelete: readOnly ? nil : { deleteTransaction = transaction })
             }
             // D2 owner decision: the link is shown whenever there is at least one transaction (one consistent entry point).
@@ -268,7 +268,15 @@ struct PortfolioScreen: View {
         let title = Text(label).font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
         let lines = VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: CGFloat(space.xxs)) {
             if values.isEmpty { Text("None recorded").font(StockStepsTheme.font(type.small, relativeTo: .footnote)).foregroundStyle(colors.textMeta) }
-            ForEach(values, id: \.self) { Text($0).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .footnote)).foregroundStyle(colors.textValue) }
+            // D3.1: "USD 168.50" / "-USD 51.50" from the presenter's exact values (display only); cash below zero is labelled.
+            ForEach(values, id: \.self) { raw in
+                let line = present.moneyLine(line: raw)
+                Text(verbatim: line.text).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .footnote)).foregroundStyle(colors.textValue)
+                    .accessibilityLabel(line.spoken)
+                if line.negative && label == "Cash" {
+                    Text(display.CASH_UNFUNDED).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
+                }
+            }
         }
         // Phase C: at accessibility sizes the value goes under its label — side by side "Dividends received" broke as "Dividend / s" at AX5.
         return Group {
@@ -467,6 +475,10 @@ struct PortfolioScreen: View {
                     }
                 } else {
                     ForEach(Array(view.holdings.enumerated()), id: \.offset) { _, e in allocationBar(e, colors: colors) }
+                }
+                // D3.1: percentages are of account value (holdings + cash), so say why they don't add up to 100%.
+                if let note = view.cashNote {
+                    Text(note).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textSupporting)
                 }
             }
             if !view.currencies.isEmpty {

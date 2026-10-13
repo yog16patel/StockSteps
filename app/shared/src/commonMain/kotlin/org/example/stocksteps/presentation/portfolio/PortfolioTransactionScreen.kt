@@ -57,7 +57,8 @@ internal fun PortfolioTransactionScene(
                 onRefresh = { model.presenter.refresh() },
                 onSignIn = onSignIn,
                 onDelete = model.presenter::deleteTransaction,
-                onSave = { model.presenter.saveTransaction(it, true) }
+                onSave = { model.presenter.saveTransaction(it, true) },
+                onDismissError = model.presenter::clearError
             )
         }
     }
@@ -66,7 +67,7 @@ internal fun PortfolioTransactionScene(
 /**
  * Transaction details (Phase D3): summary (type, security, date, recorded amount with currency) → details (only the fields this type uses
  * and records, `PortfolioTransactionDetailsDisplay`) → notes → Edit / Delete. Edit is the existing sheet; Delete the existing confirmation;
- * samples show Edit's read-only explanation and no Delete. Missing values have no row — never "0.00".
+ * samples (D3.1) show "Sample transactions can't be changed." instead of actions. Missing values have no row — never "0.00".
  */
 @Composable
 internal fun PortfolioTransactionScreen(
@@ -78,7 +79,8 @@ internal fun PortfolioTransactionScreen(
     onRefresh: () -> Unit,
     onSignIn: () -> Unit,
     onDelete: (String) -> Unit,
-    onSave: (PortfolioTransaction) -> Unit
+    onSave: (PortfolioTransaction) -> Unit,
+    onDismissError: () -> Unit = {}
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -102,11 +104,7 @@ internal fun PortfolioTransactionScreen(
             if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             // A rejected delete (or a sync problem) keeps the server's message, as on the dashboard.
             if (state.error != null || state.offline) item {
-                StockBanner(
-                    kind = if (state.error != null) StockBannerKind.ERROR else StockBannerKind.WARNING,
-                    title = if (state.offline) PortfolioDisplay.OFFLINE_TITLE else PortfolioDisplay.REFRESH_FAILED_TITLE,
-                    message = state.error ?: PortfolioDisplay.OUT_OF_DATE,
-                    actionText = if (state.error != null) "Retry" else null, onAction = onRefresh)
+                PortfolioErrorBanner(state, onRefresh, onDismissError)
             }
             if (!state.signedIn && state.mockScenario == null) item {
                 StockBanner(StockBannerKind.INFO, PortfolioDisplay.SIGN_IN_PROMPT, actionText = "Sign in", onAction = onSignIn)
@@ -161,8 +159,10 @@ internal fun PortfolioTransactionScreen(
                 val delete: @Composable (Modifier) -> Unit = { m ->
                     StockButton(PortfolioTransactionDetailsDisplay.DELETE, { deleting = true }, m, variant = StockButtonVariant.DESTRUCTIVE, enabled = !state.busy)
                 }
-                if (largeText || readOnly) Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    edit(Modifier.fillMaxWidth()); if (!readOnly) delete(Modifier.fillMaxWidth())
+                // D3.1: samples can't be changed, so one plain line instead of actions (the SAMPLE banner above says why).
+                if (readOnly) Text(PortfolioDisplay.SAMPLE_CANNOT_CHANGE, style = typography.small, color = colors.textSupporting)
+                else if (largeText) Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    edit(Modifier.fillMaxWidth()); delete(Modifier.fillMaxWidth())
                 } else Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) { edit(Modifier.weight(1f)); delete(Modifier.weight(1f)) }
             }
         }

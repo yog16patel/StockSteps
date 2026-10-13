@@ -11,21 +11,19 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-13, Phases D2 + D3 committed)
+## Current task (as of 2026-10-13, Phase D3.1 committed)
 
-HEAD: "Add Portfolio Phases D2 and D3 with transaction history filters, transaction details, confirmed-only add/edit/delete feedback, reusable transaction rows and sample read-only handling on Android and iOS" (pushed), on top of "Close Portfolio Phase D1.1 transaction form polish with all-at-once field validation, type-switch error clearing, selected-security line, scoped Android keyboard resize and stacked large-text actions on Android and iOS" (pushed).
+HEAD: "Stabilize Portfolio Phase D3.1 with cash-aware allocation notes, formatted cash lines, Portfolio tab selection on sub-screens, action-specific error titles and action-free samples on Android and iOS" (pushed). Portfolio D1.1–D3.1 are done: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D3_1.md` is the latest report. Android was device-verified;
+iOS is build-verified only.
 
-Portfolio Phases D2 (Transaction history) and D3 (Transaction details + action feedback) are done: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D2.md`,
-`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D3.md`. Android was device-verified; iOS is build-verified only.
-
-Read `docs/PROJECT_HANDOFF.md` §D3-2026-10-13 first.
+Read `docs/PROJECT_HANDOFF.md` §D3-1-2026-10-13 first.
 
 Next:
-1. Phase E (QA, screen readers, iOS runtime pass — needs owner approval for the simulator launch and the Auth emulator; iPhone SE excluded).
+1. Phase E (QA, screen readers, iOS runtime pass; needs owner approval for the simulator and the Auth emulator).
 2. Phase 5D.
 
-A parallel "Ubuntu backend migration" session commits server work in this checkout: stage by explicit path and never stage its files. Commit or
-push only when the owner asks.
+The parallel "Ubuntu backend migration" session has uncommitted server files in this checkout (`Application.kt`, `FixtureMarketDataSource.kt`,
+`MockClockFreshnessTest.kt`, its docs, a stray file `2`): never stage them with Portfolio work. Commit or push only when the owner asks.
 
 Portfolio conventions (permanent):
 - **Forms.** Accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions` / `resolveAccountId`). Field visibility, order and labels
@@ -44,6 +42,13 @@ Portfolio conventions (permanent):
     0 / unrecorded → no amount, never "0.00".
   - Success feedback only from `PortfolioUiState.actionResult` (set after the repository returned), shown once via
     `AccountDependencies.portfolioFeedback`. Never infer success from busy/error transitions; forms close on their own confirmed result.
+- **Stabilization (D3.1).**
+  - Allocation % is of account value **including cash** (the engine's documented rule): explain with `PortfolioAllocationDisplay.cashNote`, never
+    renormalize.
+  - Negative cash is a supported state: show `PortfolioPresentation.moneyLine` ("-USD 51.50") + "Unfunded", never clamp.
+  - Error banners use `PortfolioDisplay.errorTitle` / `errorRetries` (from `PortfolioUiState.errorSource`).
+  - The Portfolio tab's destinations are listed once in `PortfolioTabRoutes`.
+  - Samples have no row actions.
 - **Android keyboard.** A screen that uses `imePadding` calls `KeyboardResizesContent()` (scoped, reference-counted; restores the previous mode). Don't
   change the manifest's soft-input mode app-wide.
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,

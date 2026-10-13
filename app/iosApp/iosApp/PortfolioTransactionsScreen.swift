@@ -44,7 +44,7 @@ struct PortfolioTransactionRow: View {
     let transaction: PortfolioTransaction
     var logoUrl: String? = nil
     var onOpen: (() -> Void)? = nil
-    let onEdit: () -> Void
+    let onEdit: (() -> Void)?
     let onDelete: (() -> Void)?
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -90,16 +90,27 @@ struct PortfolioTransactionRow: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(text.spoken)
             .accessibilityAddTraits(onOpen != nil ? .isButton : [])
-            Menu {
-                Button("Edit", systemImage: "pencil", action: onEdit)
+            // D3.1: samples have no actions, so no ⋯ at all (the row still opens details).
+            if onEdit != nil || onDelete != nil { Menu {
+                if let onEdit { Button("Edit", systemImage: "pencil", action: onEdit) }
                 if let onDelete { Button("Delete…", systemImage: "trash", role: .destructive, action: onDelete) }
             } label: {
                 // C.1 closure: fixed-size symbol inside its fixed 44 pt target (at AX5 the body-sized glyph overflowed to the card edge).
                 Image(systemName: "ellipsis").font(.system(size: CGFloat(StockStepsTheme.dimensions.icon))).foregroundStyle(colors.iconSecondary)
                     .frame(width: CGFloat(StockStepsTheme.dimensions.touchTarget), height: CGFloat(StockStepsTheme.dimensions.touchTarget))
-            }.accessibilityLabel("Actions for \(text.title)\(text.security.map { ", " + $0.replacingOccurrences(of: "\u{00A0}", with: " ") } ?? "")")
+            }.accessibilityLabel("Actions for \(text.title)\(text.security.map { ", " + $0.replacingOccurrences(of: "\u{00A0}", with: " ") } ?? "")") }
         }
     }
+}
+
+/// Phase D3.1 status banner (mirrors Compose `PortfolioErrorBanner`): sync problems keep Retry; a rejected save / delete / account change is titled
+/// by that action with the server's message unchanged, and offers Dismiss.
+@ViewBuilder func portfolioErrorBanner(_ state: PortfolioUiState, onRefresh: @escaping () -> Void, onDismiss: @escaping () -> Void) -> some View {
+    let display = PortfolioDisplay.shared
+    let retries = display.errorRetries(state: state)
+    StockBanner(kind: state.error != nil ? .error : .warning, message: state.error ?? display.OUT_OF_DATE, title: display.errorTitle(state: state),
+                actionTitle: state.error == nil ? nil : (retries ? "Retry" : display.DISMISS),
+                action: state.error == nil ? nil : (retries ? onRefresh : onDismiss))
 }
 
 /// Phase D3 success feedback (mirrors Compose `PortfolioActionBanner`): while this screen is visible it takes the presenter's newest confirmed
@@ -198,7 +209,8 @@ struct PortfolioTransactionsScene: View {
         let active = scopeCleared ? nil : PortfolioTransactionsDisplay.shared.activeSymbol(symbol: symbol, scopeAccountId: accountId, selectedAccountId: state?.selectedAccountId)
         PortfolioTransactionsScreen(state: state, symbol: active, onClearSymbol: { scopeCleared = true }, onSelectAccount: model.select,
                                     onRefresh: model.refresh, onSignIn: onSignIn,
-                                    onEdit: { editing = $0 }, onDelete: model.deleteTransaction, onOpen: { openTransactionId = $0 })
+                                    onEdit: { editing = $0 }, onDelete: model.deleteTransaction, onOpen: { openTransactionId = $0 },
+                                    onDismissError: model.clearError)
             .portfolioFeedback(accounts: accounts, result: state?.actionResult)
             .navigationTitle(PortfolioTransactionsDisplay.shared.TITLE)
             .navigationBarTitleDisplayMode(.inline)
@@ -229,6 +241,7 @@ struct PortfolioTransactionsScreen: View {
     let onEdit: (PortfolioTransaction) -> Void
     let onDelete: (String) -> Void
     var onOpen: ((String) -> Void)? = nil
+    var onDismissError: () -> Void = {}
     @State private var filter: PortfolioTransactionFilter = .all
     @State private var sampleDetails = false
     @State private var deleting: PortfolioTransaction?
@@ -266,9 +279,7 @@ struct PortfolioTransactionsScreen: View {
         }
         if state.loading { ProgressView(display.LOADING).frame(maxWidth: .infinity) }
         if state.error != nil || state.offline {
-            StockBanner(kind: state.error != nil ? .error : .warning, message: state.error ?? display.OUT_OF_DATE,
-                        title: state.offline ? display.OFFLINE_TITLE : display.REFRESH_FAILED_TITLE,
-                        actionTitle: state.error != nil ? "Retry" : nil, action: state.error != nil ? onRefresh : nil)
+            portfolioErrorBanner(state, onRefresh: onRefresh, onDismiss: onDismissError)
         }
         if !state.signedIn && state.mockScenario == nil {
             StockBanner(kind: .info, message: display.SIGN_IN_PROMPT, actionTitle: "Sign in", action: onSignIn)
@@ -319,7 +330,7 @@ struct PortfolioTransactionsScreen: View {
                     ForEach(Array(month.transactions.enumerated()), id: \.element.id) { index, transaction in
                         if index > 0 { StockDivider().padding(.horizontal, CGFloat(space.cardPadding)) }
                         PortfolioTransactionRow(transaction: transaction, logoUrl: state.logo(for: transaction),
-                                                onOpen: onOpen.map { open in { open(transaction.id) } }, onEdit: { onEdit(transaction) },
+                                                onOpen: onOpen.map { open in { open(transaction.id) } }, onEdit: readOnly ? nil : { onEdit(transaction) },
                                                 onDelete: readOnly ? nil : { deleting = transaction })
                     }
                 }.stockCard(padding: 0, bordered: false)

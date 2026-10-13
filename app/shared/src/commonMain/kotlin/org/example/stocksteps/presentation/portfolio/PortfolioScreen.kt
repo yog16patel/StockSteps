@@ -65,6 +65,8 @@ internal fun PortfolioScreen(
     onTransactions: (() -> Unit)? = null,
     /** Phase D3: opens Transaction details for a row; null keeps rows without the tap. */
     onOpenTransaction: ((String) -> Unit)? = null,
+    /** D3.1: dismisses a rejected save / delete / account change (Retry would only refresh). */
+    onDismissError: () -> Unit = {},
     /** Phase D3: shared "already announced" tracker for confirmed adds / edits / deletes; null shows no feedback. */
     feedback: PortfolioFeedbackTracker? = null
 ) {
@@ -130,11 +132,7 @@ internal fun PortfolioScreen(
             if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             // One banner for sync problems: offline (cached data) and/or the error, with Retry — never stale data presented as current.
             if (state.error != null || state.offline) item {
-                StockBanner(
-                    kind = if (state.error != null) StockBannerKind.ERROR else StockBannerKind.WARNING,
-                    title = if (state.offline) PortfolioDisplay.OFFLINE_TITLE else PortfolioDisplay.REFRESH_FAILED_TITLE,
-                    message = state.error ?: PortfolioDisplay.OUT_OF_DATE,
-                    actionText = if (state.error != null) "Retry" else null, onAction = onRefresh)
+                PortfolioErrorBanner(state, onRefresh, onDismissError)
             }
             if (!state.signedIn && state.mockScenario == null) item {
                 StockBanner(StockBannerKind.INFO, PortfolioDisplay.SIGN_IN_PROMPT, actionText = "Sign in", onAction = onSignIn)
@@ -210,7 +208,7 @@ internal fun PortfolioScreen(
                 if (listMode) item {
                     PortfolioSectionTitle("Cash and dividends")
                     StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        PortfolioValueLines("Cash", state.cash, "None recorded")
+                        PortfolioValueLines("Cash", state.cash, "None recorded", negativeCaption = PortfolioDisplay.CASH_UNFUNDED)
                         StockDivider()
                         PortfolioValueLines("Dividends received", state.dividends, "None recorded")
                     }
@@ -227,7 +225,7 @@ internal fun PortfolioScreen(
                         transactions.take(RECENT_TRANSACTIONS).forEachIndexed { index, transaction ->
                             if (index > 0) StockDivider(Modifier.padding(horizontal = spacing.cardPadding)) // C.1 closure: inset like the holdings rows
                             PortfolioTransactionRow(transaction, state.logoFor(transaction), onOpen = onOpenTransaction?.let { open -> { open(transaction.id) } },
-                                onEdit = { editingTransaction = transaction }, onDelete = if (readOnly) null else ({ deletingTransaction = transaction }))
+                                onEdit = if (readOnly) null else ({ editingTransaction = transaction }), onDelete = if (readOnly) null else ({ deletingTransaction = transaction }))
                         }
                         // D2 owner decision: the link is shown whenever there is at least one transaction (one consistent entry point).
                         if (transactions.isNotEmpty()) onTransactions?.let {
@@ -274,7 +272,10 @@ private const val SAVED_ACCOUNTS = PortfolioDisplay.SAVED_ACCOUNTS
 
 /** "Cash      CAD 1,200.00" — label left, one value per line right; [empty] when there is none (never an invented 0.00). */
 @Composable
-private fun PortfolioValueLines(label: String, values: List<String>, empty: String) {
+private fun PortfolioValueLines(label: String, raw: List<String>, empty: String, negativeCaption: String? = null) {
+    // D3.1: "USD 168.50" / "-USD 51.50" from the presenter's exact "USD 168.5" / "USD -51.5" (display only); below zero gets [negativeCaption].
+    val money = raw.map(PortfolioPresentation::moneyLine)
+    val values = money.map { it.text }
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
@@ -287,7 +288,10 @@ private fun PortfolioValueLines(label: String, values: List<String>, empty: Stri
         val lines: @Composable (Alignment.Horizontal) -> Unit = { align ->
             Column(horizontalAlignment = align) {
                 if (values.isEmpty()) Text(empty, style = typography.small, color = colors.textMeta)
-                values.forEach { Text(it, style = typography.numberLabelStrong, color = colors.textValue) }
+                money.forEach { line ->
+                    Text(line.text, Modifier.semantics { contentDescription = line.spoken }, style = typography.numberLabelStrong, color = colors.textValue)
+                    if (line.negative) negativeCaption?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
+                }
             }
         }
         if (stacked) Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
@@ -543,6 +547,8 @@ private fun PortfolioAllocationCard(state: PortfolioUiState) {
             } else {
                 view.holdings.forEach { AllocationBar(it.label, it.percent, it.amount, it.fraction, it.spoken) }
             }
+            // D3.1: percentages are of account value (holdings + cash), so say why they don't add up to 100%.
+            view.cashNote?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
         }
         if (view.currencies.isNotEmpty()) {
             if (view.holdings.isNotEmpty()) StockDivider()

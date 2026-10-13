@@ -136,4 +136,60 @@ class PortfolioPresenterSaveTest {
             assertEquals(3L, withTimeout(5_000) { presenter.state.first { it.mockScenario == null } }.actionResult?.id)
         } finally { scope.cancel(); client.close() }
     }
+
+    /** Phase D3.1: errors say which action failed; a response that lands after the signed-in user changed is never reported as a success. */
+    @Test fun errorsNameTheirActionAndSessionChangesNeverReportSuccess(): Unit = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val reject = MutableStateFlow(true)
+        val gate = MutableStateFlow(true)
+        val writes = MutableStateFlow(0)
+        val account = PortfolioAccount("acc-1", "TFSA", reportingCurrency = PortfolioCurrency.CAD)
+        val json = headersOf(HttpHeaders.ContentType, "application/json")
+        val client = HttpClient(MockEngine { request ->
+            if (request.url.encodedPath.contains("portfolio/transactions")) {
+                writes.update { it + 1 }
+                while (!gate.value) delay(5)
+                if (reject.value) return@MockEngine respond("""{"code":"REJECTED","message":"Selling more shares than owned."}""", HttpStatusCode.Conflict, json)
+            }
+            respond(Json.encodeToString(PortfolioLedger.serializer(), PortfolioLedger(listOf(account))), HttpStatusCode.OK, json)
+        }) { configureStockStepsClient() }
+        val auth = Auth()
+        val cache = InMemoryUserDataCache()
+        val repository = PortfolioRepository(auth, UserApi(client, { "http://mock" }, auth::idToken, { auth.session.value.user?.id }), cache,
+            MutableStateFlow("mock"), scope)
+        val presenter = PortfolioPresenter(repository, WatchDataRepository(StockStepsApi(client) { "http://mock" }, cache), scope)
+        suspend fun reached(count: Int) = withTimeout(5_000) { while (writes.value < count) delay(5) }
+        val deposit = PortfolioTransaction("tx-1", "acc-1", TransactionType.CASH_DEPOSIT, "2026-10-01", PortfolioCurrency.CAD, grossAmount = "100")
+        try {
+            repository.start()
+            withTimeout(5_000) { presenter.state.first { it.selectedAccountId == "acc-1" } }
+            // The mock's background valuation failure is a refresh problem.
+            withTimeoutOrNull(5_000) { presenter.state.first { it.error?.startsWith("Market valuation unavailable") == true } }
+            assertEquals(PortfolioErrorSource.REFRESH, presenter.state.value.errorSource)
+            presenter.clearError()
+            assertNull(withTimeout(5_000) { presenter.state.first { it.error == null } }.errorSource)
+
+            presenter.saveTransaction(deposit)
+            reached(1)
+            val saveFailed = withTimeout(5_000) { presenter.state.first { !it.busy && it.error == "Selling more shares than owned." } }
+            assertEquals(PortfolioErrorSource.SAVE_TRANSACTION, saveFailed.errorSource)
+
+            presenter.deleteTransaction("tx-1")
+            reached(2)
+            val deleteFailed = withTimeout(5_000) { presenter.state.first { !it.busy && it.errorSource == PortfolioErrorSource.DELETE_TRANSACTION } }
+            assertEquals("Selling more shares than owned.", deleteFailed.error) // the server's text, unchanged
+            assertNull(deleteFailed.actionResult)
+
+            reject.value = false
+            gate.value = false
+            presenter.saveTransaction(deposit)
+            reached(3)
+            auth.mutable.value = AuthSession(User("bob", "bob@example.test"), initializing = false) // signed-in user changes mid-request
+            withTimeout(5_000) { repository.state.first { it.uid == "bob" } }
+            gate.value = true
+            withTimeout(5_000) { presenter.state.first { !it.busy } }
+            delay(200)
+            assertNull(presenter.state.value.actionResult) // the response wasn't applied for bob, so no "Transaction added"
+        } finally { scope.cancel(); client.close() }
+    }
 }

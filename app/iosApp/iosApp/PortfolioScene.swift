@@ -33,7 +33,7 @@ struct PortfolioScene: View {
             onEditTransaction: { editingTransaction = $0; showTransaction = true }, onDeleteTransaction: model.deleteTransaction,
             onInsights: { showInsights = true }, onPractice: initialSymbol == nil ? onPractice : nil,
             onTransactions: { transactionsAccount = model.state?.selectedAccountId; showTransactions = true },
-            onOpenTransaction: { openTransactionId = $0 })
+            onOpenTransaction: { openTransactionId = $0 }, onDismissError: model.clearError)
         .onAppear { model.connect(accounts); model.clearError() } // D1: no stale failure from another action on a fresh form
         .portfolioFeedback(accounts: accounts, result: model.state?.actionResult) // D3: confirmed add / edit / delete
         .sheet(isPresented: $showAccount) {

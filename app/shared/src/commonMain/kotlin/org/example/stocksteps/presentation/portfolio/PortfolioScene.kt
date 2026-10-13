@@ -80,6 +80,7 @@ internal fun PortfolioScene(
                 onTransactions = { onTransactions(holding?.accountId ?: state.selectedAccountId, holding?.symbol) },
                 onOpenTransaction = onOpenTransaction,
                 feedback = accounts.portfolioFeedback,
+                onDismissError = model.presenter::clearError,
                 onDeleteTransaction = model.presenter::deleteTransaction,
                 onSaveTransaction = { model.presenter.saveTransaction(it, true) },
                 onWatchlist = { symbol ->

@@ -34,8 +34,13 @@ data class PortfolioUiState(
     val quoteAsOf: String? = null, val fxAsOf: String? = null,
     val today: String = "", val historyNotice: String = "Historical values require dated prices and FX; no estimated history is shown.",
     /** Portfolio Phase D3: the last transaction change the server confirmed (null until one succeeds); screens show feedback once per [PortfolioActionResult.id]. */
-    val actionResult: PortfolioActionResult? = null
+    val actionResult: PortfolioActionResult? = null,
+    /** Portfolio Phase D3.1: which action [error] came from, so screens can title it ("Couldn't save transaction"); null without an error. */
+    val errorSource: PortfolioErrorSource? = null
 )
+
+/** What failed (Phase D3.1). Background sync, valuation and quote problems count as [REFRESH]. */
+enum class PortfolioErrorSource { REFRESH, SAVE_TRANSACTION, DELETE_TRANSACTION, ACCOUNT }
 
 /** What a confirmed transaction change did. */
 enum class PortfolioActionKind { ADDED, UPDATED, DELETED }
@@ -54,6 +59,7 @@ class PortfolioPresenter(
 ) {
     private val quoteState = MutableStateFlow<List<WatchQuote>>(emptyList())
     private val failure = MutableStateFlow<String?>(null)
+    private val failureSource = MutableStateFlow<PortfolioErrorSource?>(null)
     private val busy = MutableStateFlow(false)
     private val result = MutableStateFlow<PortfolioActionResult?>(null)
     private val report = MutableStateFlow<PortfolioReport?>(null)
@@ -78,7 +84,7 @@ class PortfolioPresenter(
                 try { report.value = repository.report(account, key[4], expectedUid = key[0]) }
                 catch (cause: Exception) {
                     if (cause is CancellationException) throw cause
-                    failure.value = "Market valuation unavailable. Your ledger remains available."
+                    failure.value = "Market valuation unavailable. Your ledger remains available."; failureSource.value = PortfolioErrorSource.REFRESH
                 } finally { historyLoading.value = false }
             }
         }
@@ -101,13 +107,16 @@ class PortfolioPresenter(
                     quoteState.value = emptyList()
                     if (uid != null && environment != null && symbols.isNotEmpty()) {
                         try { quoteState.value = symbols.chunked(100).flatMap { quotes.load(userCacheOwner(environment, uid), it).data.quotes } }
-                        catch (cause: Exception) { if (cause is CancellationException) throw cause; failure.value = "Quotes unavailable. Your transactions are saved." }
+                        catch (cause: Exception) { if (cause is CancellationException) throw cause; failure.value = "Quotes unavailable. Your transactions are saved."; failureSource.value = PortfolioErrorSource.REFRESH }
                     }
                 }
         }
         scope.launch {
-            val base = combine(repository.snapshot, quoteState, failure, busy, result) { snapshot, prices, error, working, done ->
-                present(snapshot, prices).copy(error = error ?: snapshot.error, busy = working, actionResult = done)
+            val problem = combine(failure, failureSource) { message, source -> message to source }
+            val base = combine(repository.snapshot, quoteState, problem, busy, result) { snapshot, prices, (error, source), working, done ->
+                val shown = error ?: snapshot.error
+                present(snapshot, prices).copy(error = shown, busy = working, actionResult = done,
+                    errorSource = if (error != null) source ?: PortfolioErrorSource.REFRESH else if (shown != null) PortfolioErrorSource.REFRESH else null)
             }
             val marketState = combine(base, report, historyLoading, allReports) { base, market, loading, reports ->
                 val valid = market?.takeIf { it.accountId == base.selectedAccountId && it.revision == repository.snapshot.value.ledger.revision }
@@ -156,26 +165,37 @@ class PortfolioPresenter(
         require(period in setOf("1D", "1W", "1M", "3M", "1Y", "ALL"))
         range.value = period
     }
-    fun refresh() = command { repository.refresh(); refreshQuotes(); repository.invalidateMarketCache(); marketRefresh.value++ }
-    fun saveAccount(account: PortfolioAccount) = command { repository.saveAccount(account); repository.selectAccount(account.id) }
-    fun deleteAccount(id: String) = command { repository.deleteAccount(id) }
-    fun saveTransaction(transaction: PortfolioTransaction, edit: Boolean = false) = command {
+    fun refresh() = command(PortfolioErrorSource.REFRESH) { repository.refresh(); refreshQuotes(); repository.invalidateMarketCache(); marketRefresh.value++ }
+    fun saveAccount(account: PortfolioAccount) = command(PortfolioErrorSource.ACCOUNT) { repository.saveAccount(account); repository.selectAccount(account.id) }
+    fun deleteAccount(id: String) = command(PortfolioErrorSource.ACCOUNT) { repository.deleteAccount(id) }
+    fun saveTransaction(transaction: PortfolioTransaction, edit: Boolean = false) = command(PortfolioErrorSource.SAVE_TRANSACTION) {
+        val owner = owner()
         repository.saveTransaction(transaction, edit)
-        confirm(if (edit) PortfolioActionKind.UPDATED else PortfolioActionKind.ADDED, transaction.id)
+        confirm(owner, if (edit) PortfolioActionKind.UPDATED else PortfolioActionKind.ADDED, transaction.id)
     }
-    fun deleteTransaction(id: String) = command { repository.deleteTransaction(id); confirm(PortfolioActionKind.DELETED, id) }
-    /** Reached only when the repository call returned normally (it throws on rejection, cancellation or a changed account). */
-    private fun confirm(kind: PortfolioActionKind, transactionId: String) {
+    fun deleteTransaction(id: String) = command(PortfolioErrorSource.DELETE_TRANSACTION) {
+        val owner = owner()
+        repository.deleteTransaction(id)
+        confirm(owner, PortfolioActionKind.DELETED, id)
+    }
+    private fun owner() = repository.state.value.let { it.uid to it.environment }
+    /**
+     * Reached only when the repository call returned normally (it throws on rejection, validation failures and cancellation). D3.1: a response
+     * that arrives after the signed-in user or environment changed returns normally but isn't applied, so it is never reported as a success.
+     */
+    private fun confirm(owner: Pair<String?, String?>, kind: PortfolioActionKind, transactionId: String) {
+        if (owner() != owner) return
         result.value = PortfolioActionResult((result.value?.id ?: 0) + 1, kind, transactionId)
     }
-    fun clearError() { failure.value = null }
-    private fun command(action: suspend () -> Unit) {
+    fun clearError() { failure.value = null; failureSource.value = null }
+    private fun command(source: PortfolioErrorSource, action: suspend () -> Unit) {
         if (busy.value || scenario.value != null && repository.state.value.environment == "mock") return
         busy.value = true
         scope.launch {
-            failure.value = null
+            failure.value = null; failureSource.value = null
             try { action() } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
+                failureSource.value = source
                 failure.value = cause.message ?: "The portfolio could not be updated."
             } finally { busy.value = false }
         }

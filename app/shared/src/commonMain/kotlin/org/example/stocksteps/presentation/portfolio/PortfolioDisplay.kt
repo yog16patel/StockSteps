@@ -39,6 +39,28 @@ object PortfolioDisplay {
     const val RESTORING = "Restoring portfolio"
     const val OFFLINE_TITLE = "Offline · last saved portfolio"
     const val REFRESH_FAILED_TITLE = "Couldn't refresh your portfolio"
+    // D3.1: an error is titled by the action that failed; the server's message is shown unchanged under it.
+    const val SAVE_TRANSACTION_FAILED_TITLE = "Couldn't save transaction"
+    const val DELETE_TRANSACTION_FAILED_TITLE = "Couldn't delete transaction"
+    const val ACCOUNT_FAILED_TITLE = "Couldn't update account"
+    const val DISMISS = "Dismiss"
+    const val CASH_UNFUNDED = "Unfunded"
+    const val SAMPLE_CANNOT_CHANGE = "Sample transactions can't be changed."
+
+    /** D3.1: the banner title for [state]'s error — by the action that failed, offline first. */
+    fun errorTitle(state: org.example.stocksteps.portfolio.PortfolioUiState): String = when {
+        state.offline -> OFFLINE_TITLE
+        else -> when (state.errorSource) {
+            org.example.stocksteps.portfolio.PortfolioErrorSource.SAVE_TRANSACTION -> SAVE_TRANSACTION_FAILED_TITLE
+            org.example.stocksteps.portfolio.PortfolioErrorSource.DELETE_TRANSACTION -> DELETE_TRANSACTION_FAILED_TITLE
+            org.example.stocksteps.portfolio.PortfolioErrorSource.ACCOUNT -> ACCOUNT_FAILED_TITLE
+            else -> REFRESH_FAILED_TITLE
+        }
+    }
+
+    /** D3.1: Retry only re-runs a refresh, so it's offered for refresh problems; a rejected save/delete/account change gets Dismiss. */
+    fun errorRetries(state: org.example.stocksteps.portfolio.PortfolioUiState): Boolean =
+        state.errorSource == null || state.errorSource == org.example.stocksteps.portfolio.PortfolioErrorSource.REFRESH
     const val OUT_OF_DATE = "Values may be out of date."
     const val SIGN_IN_PROMPT = "Sign in to save your portfolio securely."
 
@@ -95,7 +117,7 @@ object PortfolioDisplay {
     const val FORM_ADD_SETTLEMENT = "Add settlement date"
     const val FORM_REMOVE_SETTLEMENT = "Remove settlement date"
     const val FORM_KEYBOARD_DONE = "Done"
-    const val FORM_SAVE_FAILED_TITLE = "Couldn't save the transaction"
+    const val FORM_SAVE_FAILED_TITLE = SAVE_TRANSACTION_FAILED_TITLE // D3.1: same wording as the screen banner
     const val FORM_READ_ONLY_TITLE = "Transactions are read-only"
     const val FORM_READ_ONLY_MESSAGE = "This is a sample portfolio. Switch to My saved accounts to add a transaction."
     const val FORM_READ_ONLY_ACTION = "Go to My saved accounts"

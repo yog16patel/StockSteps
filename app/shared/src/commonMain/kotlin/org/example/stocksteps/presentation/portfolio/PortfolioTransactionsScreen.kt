@@ -60,7 +60,8 @@ internal fun PortfolioTransactionsScene(
                 onDeleteTransaction = model.presenter::deleteTransaction,
                 onSaveTransaction = { model.presenter.saveTransaction(it, true) },
                 onOpenTransaction = onOpenTransaction,
-                feedback = accounts.portfolioFeedback
+                feedback = accounts.portfolioFeedback,
+                onDismissError = model.presenter::clearError
             )
         }
     }
@@ -84,7 +85,8 @@ internal fun PortfolioTransactionsScreen(
     onDeleteTransaction: (String) -> Unit,
     onSaveTransaction: (PortfolioTransaction) -> Unit,
     onOpenTransaction: ((String) -> Unit)? = null,
-    feedback: PortfolioFeedbackTracker? = null
+    feedback: PortfolioFeedbackTracker? = null,
+    onDismissError: () -> Unit = {}
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -110,11 +112,7 @@ internal fun PortfolioTransactionsScreen(
             }
             if (state.loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             if (state.error != null || state.offline) item {
-                StockBanner(
-                    kind = if (state.error != null) StockBannerKind.ERROR else StockBannerKind.WARNING,
-                    title = if (state.offline) PortfolioDisplay.OFFLINE_TITLE else PortfolioDisplay.REFRESH_FAILED_TITLE,
-                    message = state.error ?: PortfolioDisplay.OUT_OF_DATE,
-                    actionText = if (state.error != null) "Retry" else null, onAction = onRefresh)
+                PortfolioErrorBanner(state, onRefresh, onDismissError)
             }
             if (!state.signedIn && state.mockScenario == null) item {
                 StockBanner(StockBannerKind.INFO, PortfolioDisplay.SIGN_IN_PROMPT, actionText = "Sign in", onAction = onSignIn)
@@ -161,7 +159,7 @@ internal fun PortfolioTransactionsScreen(
                         month.transactions.forEachIndexed { index, transaction ->
                             if (index > 0) StockDivider(Modifier.padding(horizontal = spacing.cardPadding))
                             PortfolioTransactionRow(transaction, state.logoFor(transaction), onOpen = onOpenTransaction?.let { open -> { open(transaction.id) } },
-                                onEdit = { editing = transaction }, onDelete = if (readOnly) null else ({ deleting = transaction }))
+                                onEdit = if (readOnly) null else ({ editing = transaction }), onDelete = if (readOnly) null else ({ deleting = transaction }))
                         }
                     }
                 }

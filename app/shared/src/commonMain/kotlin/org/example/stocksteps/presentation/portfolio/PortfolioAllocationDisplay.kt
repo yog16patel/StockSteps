@@ -22,7 +22,9 @@ data class PortfolioAllocationView(
     val donut: Boolean,
     val holdings: List<PortfolioAllocationEntry>,
     val currencies: List<PortfolioAllocationEntry>,
-    val donutDescription: String?
+    val donutDescription: String?,
+    /** D3.1: why the holding percentages don't add up to 100% (they're of account value, which includes cash); null without cash. */
+    val cashNote: String? = null
 )
 
 /**
@@ -50,7 +52,25 @@ object PortfolioAllocationDisplay {
         }
         val donut = PortfolioDisplayRules.allocationDonutAllowed(state.allocations.map { it.percent })
         val description = if (donut) "Allocation by holding: " + holdings.joinToString("; ") { it.spoken } else null
-        return PortfolioAllocationView(donut, holdings, currencies, description)
+        return PortfolioAllocationView(donut, holdings, currencies, description, cashNote(state))
+    }
+
+    const val CASH_NEGATIVE_NOTE = "Cash is below zero (unfunded), so holdings add up to more than 100%."
+    const val CASH_POSITIVE_NOTE = "Percentages are of account value, which includes cash."
+
+    /**
+     * D3.1: the engine's percentages divide by holdings + cash (documented: "Allocation includes cash"), but the list shows holdings only. Decided
+     * from the sign of the presenter's cash values alone; nothing is computed. No note without holdings or without cash.
+     */
+    fun cashNote(state: PortfolioUiState): String? {
+        if (state.allocations.isEmpty()) return null
+        val lines = state.cash.map(PortfolioPresentation::moneyLine)
+        val values = state.cash.mapNotNull { runCatching { org.example.stocksteps.portfolio.Decimal.parse(it.substringAfter(' ').trim()) }.getOrNull() }
+        return when {
+            lines.any { it.negative } -> CASH_NEGATIVE_NOTE
+            values.any { it > org.example.stocksteps.portfolio.Decimal.ZERO } -> CASH_POSITIVE_NOTE
+            else -> null
+        }
     }
 
     private fun entry(label: String, percent: String?, amount: String?, index: Int, spokenName: String): PortfolioAllocationEntry {

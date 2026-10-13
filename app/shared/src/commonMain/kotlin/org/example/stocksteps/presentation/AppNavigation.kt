@@ -217,7 +217,7 @@ internal fun AppNavigation(
                         MainDestination.entries.forEach { tab ->
                             val selected = when (tab) {
                                 MainDestination.HOME -> isHome
-                                MainDestination.PORTFOLIO -> destination.hasRoute<PortfolioRoute>()
+                                MainDestination.PORTFOLIO -> destination.inPortfolioTab() // D3.1: one rule for every Portfolio destination
                                 MainDestination.MARKETS -> isMarkets
                                 MainDestination.WATCHLIST -> destination.hasRoute<WatchListRoute>()
                                 MainDestination.LEARN -> destination.hasRoute<LearnRoute>()
