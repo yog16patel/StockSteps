@@ -4,6 +4,10 @@ A persistent **MOCK** StockSteps backend in Docker on a LAN Ubuntu host, so Andr
 the same network) share one stable sample-data server instead of `./gradlew :server:runMock` on each laptop. Phase 5B Local; the Google Cloud
 Run staging deployment is a separate, still-deferred step (`CLOUD_RUN_DEPLOYMENT_CHECKLIST.md`).
 
+**Sample data coverage:** captured fixtures for ~25 tickers plus the sample company catalog (`server/src/main/resources/fixtures/stocks/catalog.json`,
+137 US companies: real names and sectors, simulated price/size/margin/P/E/dividend anchors). The MOCK screener covers 160 companies (152 US).
+Every catalog company has a quote, profile, 1D–5Y charts, fundamentals and comparison data, all generated deterministically and labelled sample.
+
 **What it is not:** not REAL data (no provider keys exist in it), not a shared database (MOCK state is in memory and resets on every restart),
 not reachable from the internet (published on the host's LAN address only), not a Cloud Run rehearsal (no `K_SERVICE`, no Firebase/Google
 credentials).

@@ -584,7 +584,7 @@ internal fun mockDataSources(): DataSources {
     return DataSources(fixtures, fixtures, fixtures, fixtures, NewsService(fixtures, simplification = null), earnings = fixtures,
         insights = org.example.stocksteps.news.TemplateArticleInsightGenerator(), insightVersion = "mock-template-v1",
         indexData = fixtures,
-        screenerUniverse = org.example.stocksteps.screener.FixtureScreenerUniverse(),
+        screenerUniverse = org.example.stocksteps.screener.FixtureScreenerUniverse(includeCatalog = true),
         earningsData = org.example.stocksteps.earnings.FixtureEarningsDataSource(),
         marketsLabels = org.example.stocksteps.service.MarketsSourceLabels(
             movers = "Sample: movers captured from FMP's daily lists",

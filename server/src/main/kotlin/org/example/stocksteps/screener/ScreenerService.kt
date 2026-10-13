@@ -41,13 +41,18 @@ fun interface ScreenerUniverseSource {
     suspend fun universe(): UniverseDefinition
 }
 
-/** MOCK: the symbols in `fixtures/screener/universe.json`; no network. */
-class FixtureScreenerUniverse : ScreenerUniverseSource {
+/**
+ * MOCK: the symbols in `fixtures/screener/universe.json`; no network. With [includeCatalog] (the MOCK server) the sample company
+ * catalog (`fixtures/stocks/catalog.json`, ~140 more US companies) is appended, so the screener covers about 150 US stocks.
+ */
+class FixtureScreenerUniverse(private val includeCatalog: Boolean = false) : ScreenerUniverseSource {
     @Serializable private data class File(val description: String, val symbols: List<String>)
     private val definition by lazy {
         val text = requireNotNull(javaClass.classLoader.getResource("fixtures/screener/universe.json")) { "Missing screener universe fixture" }.readText()
         val file = Json { ignoreUnknownKeys = true }.decodeFromString(File.serializer(), text)
-        UniverseDefinition(file.description, file.symbols.map { UniverseEntry(it) })
+        val catalog = if (includeCatalog) org.example.stocksteps.repositoryImpl.fixture.SampleCompanyCatalog.companies.values
+            .filter { it.symbol !in file.symbols }.map { UniverseEntry(it.symbol, it.name, it.exchange, "US", it.sector, it.industry) } else emptyList()
+        UniverseDefinition(file.description, file.symbols.map { UniverseEntry(it) } + catalog)
     }
     override suspend fun universe() = definition
 }

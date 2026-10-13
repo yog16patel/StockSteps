@@ -80,18 +80,23 @@ class FixtureMarketDataSource(
 
     private val manifest: Manifest? by lazy { load("manifest.json", Manifest.serializer()) }
     private val snapshot: MarketSnapshot? by lazy { load("market/snapshot.json", MarketSnapshot.serializer()) }
-    private val sample = SampleMarketData(now)
+    /** Catalog companies (`stocks/catalog.json`) exist only when gaps are filled; otherwise they behave like unknown tickers. */
+    private val catalog: Map<String, SampleCompany> = if (sampleFallback) SampleCompanyCatalog.companies else emptyMap()
+    private val sample = SampleMarketData(catalog, now)
 
     /** Names known from the snapshot or search fixtures, so sample values keep a real company name. */
     private val knownNames: Map<String, String> by lazy {
         val movers = snapshot?.let { it.gainers + it.losers + it.mostActive }.orEmpty().mapNotNull { m -> m.name?.let { m.symbol to it } }
         val search = load("stocks/search.json", ListSerializer(StockSearchResult.serializer())).orEmpty().map { it.symbol to it.name }
-        (search + movers).toMap()
+        (search + movers).toMap() + catalog.mapValues { it.value.name }
     }
 
     override suspend fun searchStocks(query: String): List<StockSearchResult> {
         val needle = query.trim().lowercase(Locale.ROOT)
-        return load("stocks/search.json", ListSerializer(StockSearchResult.serializer())).orEmpty().filter {
+        val stored = load("stocks/search.json", ListSerializer(StockSearchResult.serializer())).orEmpty()
+        val listed = stored.map { it.symbol }.toSet()
+        val sampled = catalog.values.filter { it.symbol !in listed }.map { StockSearchResult(it.symbol, it.name, "USD", it.exchange) }
+        return (stored + sampled).filter {
             it.symbol.lowercase(Locale.ROOT).startsWith(needle) || it.name.lowercase(Locale.ROOT).contains(needle)
         }
     }

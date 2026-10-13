@@ -14,19 +14,24 @@ import kotlin.math.round
 /**
  * MOCK-mode stand-in values for tickers without captured fixtures. Values are seeded by
  * symbol, so a ticker always gets the same numbers, and price series end at the ticker's
- * quote so charts, sparklines and the displayed price agree. Never used in REAL mode.
+ * quote so charts, sparklines and the displayed price agree. Companies in [catalog] keep their
+ * real name and classification around simulated price/size/margin anchors. Never used in REAL mode.
  */
-internal class SampleMarketData(private val now: () -> Instant) {
+internal class SampleMarketData(private val catalog: Map<String, SampleCompany> = emptyMap(), private val now: () -> Instant) {
 
     fun quote(symbol: String, name: String?): StockQuote {
         val rng = rng(symbol, "quote")
-        val price = round2(8.0 + rng.nextDouble() * 320.0)
+        val company = catalog[symbol]
+        val drawn = 8.0 + rng.nextDouble() * 320.0
+        // Catalog anchors move within ±4 % per ticker so prices don't all end in .00.
+        val price = round2(company?.let { it.price * (0.96 + (drawn - 8.0) / 320.0 * 0.08) } ?: drawn)
         val changePercent = round2((rng.nextGaussian() * 2.0).coerceIn(-6.0, 6.0))
         val previousClose = round2(price / (1 + changePercent / 100))
-        val shares = 50_000_000L + (rng.nextDouble() * 4_950_000_000L).toLong()
-        return StockQuote(
+        val drawnShares = 50_000_000L + (rng.nextDouble() * 4_950_000_000L).toLong()
+        val shares = company?.let { (it.sharesBillions * 1_000_000_000).toLong() } ?: drawnShares
+        val quote = StockQuote(
             symbol = symbol,
-            companyName = name ?: sampleName(symbol),
+            companyName = company?.name ?: name ?: sampleName(symbol),
             price = price,
             change = round2(price - previousClose),
             changePercent = changePercent,
@@ -40,12 +45,21 @@ internal class SampleMarketData(private val now: () -> Instant) {
             yearHigh = round2(maxOf(price, previousClose) * (1.08 + rng.nextDouble() * 0.4)),
             yearLow = round2(minOf(price, previousClose) * (0.55 + rng.nextDouble() * 0.35))
         )
+        // The 52-week range comes from the same generated closes the 1Y chart shows, so the two always agree.
+        val year = dailyCloses(symbol, price, previousClose, sessionDate(quote)).takeLast(TRADING_DAYS_PER_YEAR).map { it.close }
+        return quote.copy(yearHigh = maxOf(year.max(), quote.dayHigh ?: price), yearLow = minOf(year.min(), quote.dayLow ?: price))
     }
 
     fun profile(symbol: String, name: String?): CompanyProfile {
         if (symbol in SAMPLE_ETFS) return CompanyProfile(symbol, name ?: sampleName(symbol),
             "Sample profile for development. This fund holds many companies; its holdings aren't listed here.",
             country = "US", currency = "USD", exchange = "NYSE ARCA", isEtf = true)
+        catalog[symbol]?.let { c ->
+            return CompanyProfile(symbol, c.name,
+                "Sample profile for development. ${c.name} is classified here as ${c.industry} (${c.sector}). Prices and financial figures shown for it are simulated, not real data.",
+                sector = c.sector, industry = c.industry, country = "US", currency = "USD", exchange = c.exchange,
+                logoUrl = "https://images.financialmodelingprep.com/symbol/$symbol.png", isEtf = false)
+        }
         val (sector, industry) = SECTORS[rng(symbol, "profile").nextInt(SECTORS.size)]
         return CompanyProfile(
             symbol = symbol,
@@ -99,12 +113,14 @@ internal class SampleMarketData(private val now: () -> Instant) {
 
     fun fundamentals(symbol: String, period: String, quote: StockQuote): CompanyFundamentals {
         val rng = rng(symbol, "fundamentals")
+        val company = catalog[symbol]
         val quarter = period == "quarter"
         val marketCap = quote.marketCap?.toDouble() ?: 10_000_000_000.0
         val price = quote.price ?: 100.0
-        val priceSales = 1.5 + rng.nextDouble() * 10
+        val priceSales = (1.5 + rng.nextDouble() * 10).let { drawn -> company?.impliedPriceSales ?: drawn }
         val annualRevenue = marketCap / priceSales
-        val netMargin = 4.0 + rng.nextDouble() * 26
+        val netMargin = (4.0 + rng.nextDouble() * 26).let { drawn -> company?.netMargin ?: drawn }
+        // A loss-making sample has no meaningful P/E (negative earnings), as in REAL.
         val pe = marketCap / (annualRevenue * netMargin / 100)
         val year = sessionDate(quote).year - 1
         val grossMargin = netMargin + 15 + rng.nextDouble() * 35
@@ -116,7 +132,9 @@ internal class SampleMarketData(private val now: () -> Instant) {
         val annual = (5 downTo 0).fold(listOf<FinancialPeriodStatement>()) { rows, back ->
             val fiscalYear = year - back
             val revenue = annualRevenue / (1..back).fold(1.0) { total, _ -> total * (1.03 + rng.nextDouble() * 0.15) }
-            val margin = (netMargin + rng.nextGaussian() * 2) / 100
+            // The latest year uses the exact margin, so its EPS matches the P/E (price ÷ EPS); older years vary around it.
+            val noise = rng.nextGaussian() * 2
+            val margin = (netMargin + if (back == 0) 0.0 else noise) / 100
             val operating = revenue * margin * (1.1 + rng.nextDouble() * 0.4)
             val capex = operating * (0.15 + rng.nextDouble() * 0.35)
             rows + FinancialPeriodStatement(
@@ -138,8 +156,13 @@ internal class SampleMarketData(private val now: () -> Instant) {
             ?: FinancialFact(availability = FinancialAvailability.INSUFFICIENT_HISTORY, basis = b)
         fun amount(v: Double?) = FinancialFact(amount = v?.toLong(), source = FinancialSource.PROVIDER_DIRECT, availability = FinancialAvailability.AVAILABLE, basis = basis)
         fun change(get: (FinancialPeriodStatement) -> Double?) = previous?.let { p -> get(p)?.takeIf { it > 0 }?.let { (get(latest)!! - it) / it * 100 } }
-        val dividend = if (rng.nextDouble() < 0.35) FinancialFact(availability = FinancialAvailability.NO_DIVIDEND, basis = ttm)
-            else value(0.2 + rng.nextDouble() * 3, ttm)
+        val noDividend = FinancialFact(availability = FinancialAvailability.NO_DIVIDEND, basis = ttm)
+        val dividend = when {
+            company != null -> if (company.dividendYield > 0) value(company.dividendYield, ttm) else noDividend
+            rng.nextDouble() < 0.35 -> noDividend
+            else -> value(0.2 + rng.nextDouble() * 3, ttm)
+        }
+        val peFact = if (pe > 0) value(pe, ttm) else FinancialFact(availability = FinancialAvailability.NON_POSITIVE_DENOMINATOR, basis = ttm)
         val revenue = latest.revenue!!
         return CompanyFundamentals(
             symbol = symbol,
@@ -165,8 +188,8 @@ internal class SampleMarketData(private val now: () -> Instant) {
                 shareholderReturns = mapOf("dividendYield" to dividend)
             ),
             valuation = CompanyValuation(
-                metrics = mapOf("pe" to value(pe, ttm), "priceSales" to value(priceSales, ttm)),
-                historical = mapOf("pe" to peHistory(symbol, pe, year))
+                metrics = mapOf("pe" to peFact, "priceSales" to value(priceSales, ttm)),
+                historical = if (pe > 0) mapOf("pe" to peHistory(symbol, pe, year)) else emptyMap()
             ),
             datasets = mapOf("income" to FinancialAvailability.AVAILABLE, "cashFlow" to FinancialAvailability.AVAILABLE, "balance" to FinancialAvailability.AVAILABLE),
             warnings = listOf("Sample values for development; not real financial data."),
@@ -287,6 +310,7 @@ internal class SampleMarketData(private val now: () -> Instant) {
     companion object {
         const val DAILY_POINTS = 1260
         const val INTRADAY_POINTS = 78
+        private const val TRADING_DAYS_PER_YEAR = 252
         private val OPEN: LocalTime = LocalTime.of(9, 30)
         private val NEW_YORK: ZoneId = ZoneId.of("America/New_York")
         private val INTRADAY_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")

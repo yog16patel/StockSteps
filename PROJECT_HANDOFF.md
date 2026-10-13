@@ -1,6 +1,19 @@
 # StockSteps project handoff
 
-Last updated: 2026-10-12 (America/Toronto). Current commit: **Close Portfolio visual and accessibility pass with group stacking, grouped transaction rows, single headings and large-text insights fixes (Portfolio Phase C.1) on Android and iOS** on `main` (pushed):
+Last updated: 2026-10-12 (America/Toronto). Current commit: **Add a sample company catalog to the MOCK backend so the screener covers about 150 US stocks with consistent P/E, EPS and 52-week ranges (Ubuntu backend Phase B)** on `main` (pushed):
+- Ubuntu self-hosted backend migration, Phase A audit + Phase B (owner: internal LAN backend only, no Tailscale, no public endpoint):
+  - Audit finding: the MOCK provider split (`STOCKSTEPS_DATA_MODE`, `DataSources`), template AI, Dockerfile, LAN Compose project `stocksteps-local`, deploy/rollback scripts and debug-only app URLs already existed (Phase 5A/5B Local); nothing was duplicated.
+  - `server/src/main/resources/fixtures/stocks/catalog.json` + `SampleCompanyCatalog`: 137 US companies, real names/classifications, simulated price/shares/net margin/P/E/dividend anchors (labelled "Not real or current financial data"). Used only when MOCK fills gaps; captured fixtures win.
+  - `SampleMarketData`: catalog-anchored quotes/profiles/fundamentals; latest-year EPS now exactly matches P/E (price ÷ EPS) for every generated ticker; generated 52-week range comes from the same daily closes as the 1Y chart; loss-making samples (BA, CRWD, TTWO) have no P/E (`NON_POSITIVE_DENOMINATOR`).
+  - Search includes catalog companies (MOCK only); `FixtureScreenerUniverse(includeCatalog = true)` on the MOCK server: 160 companies (152 US, the 8 Canadian kept).
+- Validation: `:server:test` 492 run, 0 failed, 3 skipped (Firestore emulator), incl. new `MockCatalogTest` (7). Local MOCK server (:8082): screener 152 US of 160 in ≈ 0.3 s, COST/V/BA quote/details/fundamentals/compare 200, WMT charts 1D–5Y populated, Compare AI returns the "Sample analysis" template, zero upstream provider requests.
+- NOT RUN: core/app tests (no core/app change); no LAN redeploy — the Ubuntu host still runs `a50a2e3` (healthy; Immich/Nextcloud untouched, read-only check only).
+- Not changed (owner defaults): single `STOCKSTEPS_DATA_MODE`; MOCK user data stays in memory; MOCK still trusts unverified Firebase tokens (LAN only); no CORS; Docker files unchanged.
+- Next: Phase D LAN redeploy (`deploy/local/deploy.sh deploy`, smoke + reliability, before/after check of other services; rollback `deploy.sh rollback a50a2e3cc833`) after approval. Portfolio Phase D work in the tree is separate and not part of this commit.
+
+Previous commit: **Finish Portfolio Phase C.1 cleanup with concise insight cards, expandable details, currency on insight amounts and clearer stacked metric spacing on Android and iOS** on `main` (pushed): C.1 final cleanup (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` §8–§9).
+
+Previous commit: **Close Portfolio visual and accessibility pass with group stacking, grouped transaction rows, single headings and large-text insights fixes (Portfolio Phase C.1) on Android and iOS** on `main` (pushed):
 - Portfolio Phase C.1 (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md`, 22 issues):
   - group stacking for metrics and legends; structured holding rows; grouped transaction rows;
   - single headings on Holding details and Portfolio insights; Insights large-text fixes;
