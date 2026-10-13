@@ -19,6 +19,7 @@ final class PortfolioViewModel {
     func select(_ id: String) { accounts?.client?.selectPortfolioAccount(id: id) }
     func deleteAccount(_ id: String) { accounts?.client?.deletePortfolioAccount(id: id) }
     func deleteTransaction(_ id: String) { accounts?.client?.deletePortfolioTransaction(id: id) }
+    func clearError() { accounts?.client?.clearPortfolioError() }
     func saveAccount(id: String, name: String, category: String, currency: String, archived: Bool) {
         accounts?.client?.savePortfolioAccount(id: id, name: name, category: category, currency: currency, archived: archived)
     }

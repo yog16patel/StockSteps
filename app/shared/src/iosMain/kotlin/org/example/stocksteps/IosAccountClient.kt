@@ -154,6 +154,8 @@ class IosAccountClient(auth: PlatformAuthGateway, baseUrl: () -> String, environ
     }
     fun deletePortfolioAccount(id: String) { dependencies.portfolioPresenter.deleteAccount(id) }
     fun deletePortfolioTransaction(id: String) { dependencies.portfolioPresenter.deleteTransaction(id) }
+    /** Portfolio D1: a form opens without an earlier, unrelated failure (e.g. a rejected account name). */
+    fun clearPortfolioError() { dependencies.portfolioPresenter.clearError() }
     fun savePortfolioTransaction(id: String, accountId: String, type: String, date: String, currency: String,
         symbol: String, name: String, exchange: String, quantity: String, price: String, amount: String, fees: String, notes: String, cashCurrency: String, fxRate: String, settlementDate: String, securityCurrency: String, edit: Boolean) {
         dependencies.portfolioPresenter.saveTransaction(org.example.stocksteps.portfolio.PortfolioTransaction(

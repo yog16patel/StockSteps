@@ -257,11 +257,27 @@ internal fun PortfolioScreen(
             confirmButton = { TextButton(onClick = { onDeleteTransaction(transaction.id); deletingTransaction = null }) { Text(PortfolioDisplay.DELETE, color = StockStepsTheme.colors.negativeText) } },
             dismissButton = { TextButton(onClick = { deletingTransaction = null }) { Text(PortfolioDisplay.FORM_CANCEL) } })
     }
-    editingTransaction?.let { transaction ->
-        AlertDialog(onDismissRequest = { editingTransaction = null }, confirmButton = {}, text = {
-            PortfolioTransactionForm(state = state, initialSymbol = transaction.instrument?.symbol.orEmpty(), initialName = transaction.instrument?.name, initialExchange = transaction.instrument?.exchange,
-                initialCurrency = transaction.currency.name, existing = transaction, onSubmit = { onSaveTransaction(it); editingTransaction = null })
-        })
+    editingTransaction?.let { transaction -> PortfolioEditSheet(state, transaction, onSaveTransaction) { editingTransaction = null } }
+}
+
+/**
+ * Phase D1: editing opens the full form in a full-height sheet (it was squeezed into a dialog) with Cancel; no new route. The sheet stays open
+ * while saving and closes only after a successful save, so a server rejection ("would sell more shares than owned") is shown on the form.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PortfolioEditSheet(state: PortfolioUiState, transaction: PortfolioTransaction, onSave: (PortfolioTransaction) -> Unit, onClose: () -> Unit) {
+    var submitted by remember { mutableStateOf(false) }
+    var sawBusy by remember { mutableStateOf(false) }
+    LaunchedEffect(state.busy, state.error) {
+        if (submitted && state.busy) sawBusy = true
+        if (submitted && sawBusy && !state.busy) { submitted = false; sawBusy = false; if (state.error == null) onClose() }
+    }
+    ModalBottomSheet(onDismissRequest = { if (!state.busy) onClose() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = StockStepsTheme.colors.appBackground) {
+        PortfolioTransactionForm(state = state, modifier = Modifier.imePadding(), initialSymbol = transaction.instrument?.symbol.orEmpty(),
+            initialName = transaction.instrument?.name, initialExchange = transaction.instrument?.exchange, initialCurrency = transaction.currency.name,
+            existing = transaction, showTitle = true, onCancel = onClose, onSubmit = { submitted = true; onSave(it) })
     }
 }
 

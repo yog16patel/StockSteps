@@ -28,7 +28,7 @@ struct PortfolioScene: View {
             onWatchlist: { row in if model.state?.mockScenario == nil { watchlistInstrument = InstrumentRef(symbol: row.symbol, name: row.name, exchange: row.exchange, currency: row.currency) } },
             onEditTransaction: { editingTransaction = $0; showTransaction = true }, onDeleteTransaction: model.deleteTransaction,
             onInsights: { showInsights = true }, onPractice: initialSymbol == nil ? onPractice : nil)
-        .onAppear { model.connect(accounts) }
+        .onAppear { model.connect(accounts); model.clearError() } // D1: no stale failure from another action on a fresh form
         .sheet(isPresented: $showAccount) {
             PortfolioAccountForm(existing: editingAccount, onSave: { id, name, category, currency, archived in
                 model.saveAccount(id: id, name: name, category: category, currency: currency, archived: archived)
@@ -75,14 +75,14 @@ struct PortfolioEntryScene: View {
     @State private var searchModel = StockSearchViewModel(service: StockSearchService(baseURL: { BackendSettings.currentURL }))
     var body: some View {
         VStack {
-        if model.state?.accounts.filter({ !$0.archived }).isEmpty == true {
+        if model.state?.accounts.filter({ !$0.archived }).isEmpty == true && !PortfolioFormRules.shared.readOnly(state: model.state) {
             Button { showCreateAccount = true } label: { Text(PortfolioDisplay.shared.CREATE_ACCOUNT_FIRST).frame(maxWidth: .infinity) }
                 .buttonStyle(.stockPrimary).padding(.horizontal, CGFloat(StockStepsTheme.spacing.screen))
                 .disabled(model.state?.signedIn != true || model.state?.busy == true)
         }
-        Button(PortfolioDisplay.shared.SEARCH_SECURITY, systemImage: "magnifyingglass") { showSearch = true }
-            .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
-        PortfolioTransactionForm(state: model.state, existing: existing, instrument: selectedInstrument ?? initialInstrument) { id, account, type, date, currency, symbol, name, exchange, quantity, price, amount, fees, notes, cashCurrency, fxRate, settlementDate, securityCurrency in
+        // Phase D1: the security search sits next to the symbol field inside the form; samples get the read-only explanation instead.
+        PortfolioTransactionForm(state: model.state, existing: existing, instrument: selectedInstrument ?? initialInstrument,
+                                 onSearch: existing == nil ? { showSearch = true } : nil, onUseSavedAccounts: { model.scenario(nil) }) { id, account, type, date, currency, symbol, name, exchange, quantity, price, amount, fees, notes, cashCurrency, fxRate, settlementDate, securityCurrency in
             saving = true
             model.saveTransaction(id: id, account: account, type: type, date: date, currency: currency, symbol: symbol, name: name,
                                   exchange: exchange, quantity: quantity, price: price, amount: amount, fees: fees, notes: notes, cashCurrency: cashCurrency, fxRate: fxRate, settlementDate: settlementDate, securityCurrency: securityCurrency, edit: existing != nil)

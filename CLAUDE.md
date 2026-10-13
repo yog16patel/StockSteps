@@ -13,10 +13,10 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 ## Current task (as of 2026-10-12, end of session)
 
-HEAD: "Finish Portfolio Phase C.1 cleanup with concise insight cards, expandable details, currency on insight amounts and clearer stacked metric spacing on Android and iOS" (pushed; C.1 final cleanup, READY TO CLOSE, `docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` §8–§9), on top of `0fecddb` (C.1 closure).
+HEAD: "Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level validation, keyboard navigation and read-only sample handling on Android and iOS" (pushed; `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1.md`), on top of `231a0a1` (Ubuntu backend Phase B) and `9a1b884` (C.1 cleanup).
 The Portfolio UI refinement is committed through Phase C.1: `37d74cd` (P0 + A) → `6041e8f` (B) → `6c1d76b` (B.1) → `8a86e4e` (C) → `6a787a3` (C.1) → C.1 closure.
-Next: **Portfolio Phase D** (forms and Transactions destination, `docs/PORTFOLIO_UI_REFINEMENT_PLAN.md` §Phase D), only after approval. Read
-`docs/PROJECT_HANDOFF.md` §C1-CLEANUP-2026-10-12 first. Then Phase E (QA, screen readers; iPhone SE excluded by the owner for now), then Phase 5D.
+Phase D1 (transaction entry and forms) is done. Next: **Portfolio Phase D2** (Transactions destination, needs Q4 route approval), only after approval. Read
+`docs/PROJECT_HANDOFF.md` §D1-2026-10-12 first. Then Phase E (QA, screen readers; iPhone SE excluded by the owner for now), then Phase 5D.
 Portfolio conventions (permanent):
 - **Forms.** Accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions` / `resolveAccountId`). Field visibility, order and labels
   come from `PortfolioFormRules`; copy from `PortfolioDisplay`; never show raw enum names.

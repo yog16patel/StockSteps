@@ -158,6 +158,11 @@ small UI fixes (F1–F11). The iPhone SE was excluded by the owner, and screen r
 
 ## Phase D — Add/Edit and transactions
 
+**Phase D1 (2026-10-12, committed):** plan items D1 (date pickers), D2 (sectioned layout with More options), D3 (shared field-level validation on both platforms, iOS
+included), D4 as a full-height edit sheet (no route), keyboard/focus, read-only samples and hidden-field clearing are implemented
+(`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1.md`). Not done (need data, approval or routes): review/total screen, success screen, the Transactions destination
+(D5/Q4 → Phase D2), D7 success confirmation.
+
 | Item | Findings | Change |
 |---|---|---|
 | D1 | A-F5 | Date pickers (Material `DatePickerDialog`, SwiftUI `DatePicker(.date)`) writing the same `YYYY-MM-DD`; settlement optional; text entry kept reachable for accessibility |

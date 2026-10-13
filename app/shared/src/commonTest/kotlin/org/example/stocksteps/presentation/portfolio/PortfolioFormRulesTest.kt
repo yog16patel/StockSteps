@@ -176,8 +176,8 @@ class PortfolioFormRulesTest {
                 assertTrue(label.isNotBlank() && '_' !in label && label != field.name, "$field / $type")
             }
         }
-        assertEquals("Average cost per share", PortfolioFormRules.label(PortfolioFormField.PRICE, TransactionType.OPENING_POSITION, "USD", "USD"))
-        assertEquals("Price per share", PortfolioFormRules.label(PortfolioFormField.PRICE, TransactionType.BUY, "USD", "USD"))
+        assertEquals("Average cost per share (USD)", PortfolioFormRules.label(PortfolioFormField.PRICE, TransactionType.OPENING_POSITION, "USD", "USD"))
+        assertEquals("Price per share (USD)", PortfolioFormRules.label(PortfolioFormField.PRICE, TransactionType.BUY, "USD", "USD"))
         assertEquals("Split ratio: new / old", PortfolioFormRules.label(PortfolioFormField.SHARES, TransactionType.STOCK_SPLIT, "USD", "USD"))
         assertEquals("Security symbol", PortfolioFormRules.label(PortfolioFormField.SYMBOL, TransactionType.SELL, "USD", "USD"))
         assertEquals("Security symbol (optional for cash)", PortfolioFormRules.label(PortfolioFormField.SYMBOL, TransactionType.CASH_DEPOSIT, "CAD", "CAD"))

@@ -16,6 +16,8 @@ Verified:
 
 NOT VERIFIED: TalkBack, VoiceOver, iPhone SE, physical devices.
 
+**Portfolio Phase D1 (2026-10-12, committed and pushed as "Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level validation, keyboard navigation and read-only sample handling on Android and iOS"):** transaction entry and forms on both platforms (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1.md`). Next: Phase D2 after approval.
+
 **C.1 final cleanup (2026-10-12, committed and pushed as "Finish Portfolio Phase C.1 cleanup with concise insight cards, expandable details, currency on insight amounts and clearer stacked metric spacing on Android and iOS"):** 5 owner review items pass (C.1 doc §9).
 
 **C.1 closure (2026-10-12, committed and pushed as "Close Portfolio Phase C.1 verification with pill selectors, inset transaction dividers, vertically scrollable trend charts and large-text chart and selector fixes on Android and iOS"):** final device verification READY TO CLOSE after 11 UI fixes (`docs/PORTFOLIO_UI_REFINEMENT_PHASE_C1.md` §8); SE excluded by the owner; screen readers NOT VERIFIED.

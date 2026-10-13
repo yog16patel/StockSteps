@@ -124,6 +124,8 @@ internal fun PortfolioEntryScene(
     val revision by accounts.portfolio.state.collectAsStateWithLifecycle()
     var createAccount by rememberSaveable { mutableStateOf(false) }
     var submittedRevision by rememberSaveable { mutableStateOf<Long?>(null) }
+    // Phase D1: a fresh form never shows an earlier, unrelated failure (e.g. a rejected account name) as a save error.
+    LaunchedEffect(Unit) { if (submittedRevision == null) accounts.portfolioPresenter.clearError() }
 
     LaunchedEffect(revision.value?.revision) {
         submittedRevision?.let { submitted ->
@@ -131,12 +133,11 @@ internal fun PortfolioEntryScene(
         }
     }
     Column(Modifier.fillMaxSize().imePadding()) {
-        if (state.accounts.none { !it.archived }) {
+        if (state.accounts.none { !it.archived } && !PortfolioFormRules.readOnly(state)) {
             StockButton(PortfolioDisplay.CREATE_ACCOUNT_FIRST, { createAccount = true },
                 Modifier.padding(horizontal = StockStepsTheme.spacing.screen).fillMaxWidth(), enabled = state.signedIn && !state.busy)
         }
-        StockButton(PortfolioDisplay.SEARCH_SECURITY, onSearch, Modifier.padding(horizontal = StockStepsTheme.spacing.sm),
-            variant = StockButtonVariant.TEXT, icon = StockIcons.Search)
+        // Phase D1: the security search sits next to the symbol field inside the form; samples get the read-only explanation instead.
         PortfolioTransactionForm(
             state = state,
             modifier = Modifier.weight(1f),
@@ -144,6 +145,8 @@ internal fun PortfolioEntryScene(
             initialName = route.name,
             initialExchange = route.exchange,
             initialCurrency = route.currency,
+            onSearch = onSearch,
+            onUseSavedAccounts = { accounts.portfolioPresenter.showScenario(null) },
             onSubmit = {
                 submittedRevision = revision.value?.revision ?: 0
                 accounts.portfolioPresenter.saveTransaction(it)

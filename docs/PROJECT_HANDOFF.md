@@ -1,9 +1,40 @@
-# StockSteps — session handoff (2026-10-12: Portfolio C.1 closure + final cleanup — READY TO CLOSE, committed and pushed; next = Phase D after approval)
+# StockSteps — session handoff (2026-10-12: Portfolio Phase D1 committed and pushed; next = Phase D2 after approval)
 
-Read order for a new session: `CLAUDE.md` → **§C1-CLEANUP-2026-10-12 below** → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§D1-2026-10-12 below** → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## D1-2026-10-12. Portfolio Phase D1 (transaction entry and forms) — START HERE (committed and pushed)
+
+- Repository: `main`. Current commit: **"Add Portfolio Phase D1 transaction entry with sectioned forms, native date pickers, field-level validation, keyboard navigation and read-only sample handling on Android and iOS"** (pushed), on top of `231a0a1` (Ubuntu backend Phase B, another session) and `9a1b884` (C.1 cleanup).
+- **In that commit (D1):**
+  - shared Kotlin: `PortfolioFormRules.kt`, `PortfolioDisplay.kt`, `PortfolioForms.kt`, `PortfolioScene.kt`, `PortfolioScreen.kt`, `StockTextField.kt`
+    (+ `StockDateField`), `StockIcons.kt`, `IosAccountClient.kt`;
+  - iOS: `PortfolioForms.swift`, `PortfolioScene.swift`, `PortfolioViewModel.swift`;
+  - tests: `PortfolioPhaseD1Test.kt` (new), `PortfolioPresenterSaveTest.kt` (new, core), `PortfolioFormRulesTest.kt`;
+  - docs: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D1.md` (new), the plan, this file, `docs/project-status.md`;
+  - captures: `docs/design/portfolio_d1/` (16).
+- **Not D1, from another local session ("StockSteps Ubuntu backend migration"), never modified here:**
+  - `server/.../Application.kt`, `FixtureMarketDataSource.kt`, `SampleMarketData.kt`, `ScreenerService.kt`, `MockModeTest.kt`;
+  - new `SampleCompanyCatalog.kt`, `fixtures/stocks/catalog.json`, `MockCatalogTest.kt`;
+  - `docs/LOCAL_DEVELOPMENT_SERVER.md`.
+  That session committed them itself as `231a0a1` ("Add a sample company catalog to the MOCK backend…"); they are not in the D1 commit.
+- Done:
+  - sectioned form (More options collapsed); currency in labels;
+  - native date pickers (YYYY-MM-DD, no time-zone shift);
+  - shared field-level validation (iOS now validates before sending);
+  - hidden fields never submitted; keyboard Next/Done;
+  - save failures kept on the form; Android edit as a full-height sheet;
+  - read-only samples with "Go to My saved accounts";
+  - iOS AX pickers wrap.
+- Validation:
+  - core 472/0 (JVM, iOS), shared 183/0 (Android) and 179/0 (iOS);
+  - `assembleDebug` OK; default unsigned `xcodebuild` BUILD SUCCEEDED;
+  - devices: Android 360 dp at 1.0×/2.0× with saves on the local MOCK; iPhone 16 Large/AX5 (the cached session is offline, so no successful iOS save).
+- Not built (unsupported, see D1 §8): review/total, success screen, Transactions list (Phase D2), comma decimals.
+- Devices restored (Android size/font reset, `adb reverse` removed; iPhone 16 Large/light); MOCK stopped (its in-memory test account "D1Test" is gone).
+- Next: Phase D2 after approval of the Transactions destination (Q4).
 
 ## C1-CLEANUP-2026-10-12. Portfolio Phase C.1 final cleanup — START HERE (committed and pushed)
 
