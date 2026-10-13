@@ -275,6 +275,10 @@ struct PortfolioTransactionForm: View {
                 ToolbarItemGroup(placement: .keyboard) { Spacer(); Button(display.FORM_KEYBOARD_DONE) { focused = nil } }
             }
         }.onChange(of: state?.selectedAccountId) { _, value in if account.isEmpty { account = value ?? "" } }
+        .onChange(of: formMessage) { _, message in if let message { AccessibilityNotification.Announcement(message).post() } }
+        .onChange(of: state?.error) { _, error in
+            if attempted, let error { AccessibilityNotification.Announcement("\(display.FORM_SAVE_FAILED_TITLE). \(error)").post() }
+        }
         .onChange(of: type) { _, _ in
             // D1.1: errors from the old type's rules no longer apply; format errors stay while their field is still shown.
             errors = rules.retainedErrors(errors: errors, type: transactionType, symbol: symbol, cashDiffers: cashDiffers)
@@ -316,6 +320,7 @@ struct PortfolioTransactionForm: View {
             }
             Section {
                 if let formMessage { Text(formMessage).foregroundStyle(colors.negativeText) }
+                // Phase E (E-02): announce the form-level message and a rejected save (as Compose's live region does); field errors already move focus.
                 if attempted, let error = state?.error {
                     VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.xxs)) {
                         Text(display.FORM_SAVE_FAILED_TITLE).font(StockStepsTheme.font(StockStepsTheme.typography.bodySemiBold, relativeTo: .body))

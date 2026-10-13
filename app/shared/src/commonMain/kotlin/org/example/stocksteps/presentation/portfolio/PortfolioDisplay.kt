@@ -58,6 +58,14 @@ object PortfolioDisplay {
         }
     }
 
+    /**
+     * Phase E (E-05): whether a screen's status banner should announce [state]'s error. A rejected save is announced by the form that sent it
+     * (its own "Couldn't save transaction" message), so the screen behind the form stays quiet; delete, refresh and account problems have no
+     * other announcer.
+     */
+    fun errorAnnounced(state: org.example.stocksteps.portfolio.PortfolioUiState): Boolean =
+        state.errorSource != org.example.stocksteps.portfolio.PortfolioErrorSource.SAVE_TRANSACTION
+
     /** D3.1: Retry only re-runs a refresh, so it's offered for refresh problems; a rejected save/delete/account change gets Dismiss. */
     fun errorRetries(state: org.example.stocksteps.portfolio.PortfolioUiState): Boolean =
         state.errorSource == null || state.errorSource == org.example.stocksteps.portfolio.PortfolioErrorSource.REFRESH

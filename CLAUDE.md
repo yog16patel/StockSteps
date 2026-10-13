@@ -11,19 +11,23 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-13, Phase D3.1 committed)
+## Current task (as of 2026-10-13, Portfolio Phase E in progress)
 
-HEAD: "Stabilize Portfolio Phase D3.1 with cash-aware allocation notes, formatted cash lines, Portfolio tab selection on sub-screens, action-specific error titles and action-free samples on Android and iOS" (pushed). Portfolio D1.1–D3.1 are done: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_D3_1.md` is the latest report. Android was device-verified;
-iOS is build-verified only.
+HEAD: "Keep MOCK quotes current with the advancing MOCK market clock so practice trades and price alerts keep working on a long-running Ubuntu backend (Ubuntu backend stabilization Phase 1)" (`fa7c563`, pushed; backend session). Portfolio D3.1 = `2bb39af`.
 
-Read `docs/PROJECT_HANDOFF.md` §D3-1-2026-10-13 first.
+**Portfolio Phase E** (accessibility and cross-platform QA): fixes E-01–E-05 and the Android/iOS layout runs are committed and pushed ("Add Portfolio Phase E accessibility fixes with iOS error and rejection announcements, unbroken P/L labels, filter-only history announcements and single-announcer save errors, plus Android and iOS large-text QA");
+TalkBack, VoiceOver and the iOS signed-in flows are **blocked** — `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E.md`.
+
+Read `docs/PROJECT_HANDOFF.md` §PHASE-E-2026-10-13 first.
 
 Next:
-1. Phase E (QA, screen readers, iOS runtime pass; needs owner approval for the simulator and the Auth emulator).
-2. Phase 5D.
+1. The backend session has uncommitted edits in root `PROJECT_HANDOFF.md`,
+   `docs/project-status.md` and `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md`: never stage them with Portfolio work (`project-status.md` has no
+   Phase E entry yet for that reason).
+2. Unblock screen-reader passes (TalkBack needs real gestures; VoiceOver needs a device) and iOS sign-in on the simulator (owner).
+3. Phase 5D after Phase E closure.
 
-The parallel "Ubuntu backend migration" session has uncommitted server files in this checkout (`Application.kt`, `FixtureMarketDataSource.kt`,
-`MockClockFreshnessTest.kt`, its docs, a stray file `2`): never stage them with Portfolio work. Commit or push only when the owner asks.
+Commit or push only when the owner asks.
 
 Portfolio conventions (permanent):
 - **Forms.** Accounts are chosen and submitted by **id** (`PortfolioFormRules.accountOptions` / `resolveAccountId`). Field visibility, order and labels
@@ -49,6 +53,9 @@ Portfolio conventions (permanent):
   - Error banners use `PortfolioDisplay.errorTitle` / `errorRetries` (from `PortfolioUiState.errorSource`).
   - The Portfolio tab's destinations are listed once in `PortfolioTabRoutes`.
   - Samples have no row actions.
+- **Accessibility (Phase E).** Error and rejection messages are announced once: Compose live region / iOS `AccessibilityNotification`, with the
+  screen banner quiet for a rejected save (`PortfolioDisplay.errorAnnounced`). Draw metric labels through `PortfolioPresentation.keepTogether`
+  ("P/L" never breaks). History count announces only on a filter change.
 - **Android keyboard.** A screen that uses `imePadding` calls `KeyboardResizesContent()` (scoped, reference-counted; restores the previous mode). Don't
   change the manifest's soft-input mode app-wide.
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,

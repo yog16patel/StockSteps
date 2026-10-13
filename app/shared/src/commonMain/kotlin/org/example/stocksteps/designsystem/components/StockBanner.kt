@@ -42,7 +42,9 @@ internal fun StockBanner(
     actionText: String? = null,
     onAction: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
-    dismissLabel: String = "Dismiss"
+    dismissLabel: String = "Dismiss",
+    /** Phase E: false when the same message is already announced elsewhere (e.g. by the form that produced it); default keeps every caller unchanged. */
+    announce: Boolean = true
 ) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
@@ -53,7 +55,7 @@ internal fun StockBanner(
             .border(StockStepsTheme.dimensions.border, colors.rgb(tone.border), shape)
             .padding(start = spacing.md, top = spacing.md, bottom = spacing.md, end = if (onDismiss != null) spacing.none else spacing.md)
             .semantics(mergeDescendants = true) {
-                if (kind == StockBannerKind.ERROR || kind == StockBannerKind.WARNING) liveRegion = LiveRegionMode.Polite
+                if (announce && (kind == StockBannerKind.ERROR || kind == StockBannerKind.WARNING)) liveRegion = LiveRegionMode.Polite
             },
         horizontalArrangement = Arrangement.spacedBy(spacing.sm)
     ) {

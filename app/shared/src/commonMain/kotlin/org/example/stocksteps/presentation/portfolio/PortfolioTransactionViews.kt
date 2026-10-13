@@ -146,7 +146,7 @@ internal fun PortfolioErrorBanner(state: PortfolioUiState, onRefresh: () -> Unit
         title = PortfolioDisplay.errorTitle(state),
         message = state.error ?: PortfolioDisplay.OUT_OF_DATE,
         actionText = when { state.error == null -> null; retries -> "Retry"; else -> PortfolioDisplay.DISMISS },
-        onAction = if (retries) onRefresh else onDismiss)
+        onAction = if (retries) onRefresh else onDismiss, announce = PortfolioDisplay.errorAnnounced(state))
 }
 
 /**

@@ -197,7 +197,7 @@ struct PortfolioScreen: View {
         }
         // Holding details (Phase C): every holding metric with its currency in a responsive grid, then the actions as navigation rows.
         if holdingSymbol != nil, let row = state.holdings.first(where: { $0.symbol == holdingSymbol }) {
-            StockMetricGrid(items: PortfolioHoldingsDisplay.shared.detailMetrics(row: row).map { StockMetricItem(label: $0.label, value: $0.value, direction: $0.direction) },
+            StockMetricGrid(items: PortfolioHoldingsDisplay.shared.detailMetrics(row: row).map { StockMetricItem(label: present.keepTogether(label: $0.label), value: $0.value, direction: $0.direction) },
                             maxColumns: 2, rowsWhenNarrow: true)
                 .stockCard(bordered: false)
             sectionTitle(PortfolioHoldingsDisplay.shared.DETAILS_ACTIONS, colors)
@@ -323,7 +323,7 @@ struct PortfolioScreen: View {
             PortfolioHistorySection(state: state, requested: requestedPeriod,
                                     onPeriod: { period in requestedPeriod = period; onHistory(period) }, onRetry: onRefresh)
             StockDivider()
-            StockMetricGrid(items: overview.metrics.map { StockMetricItem(label: $0.label, value: $0.value, direction: $0.direction) }, rowsWhenNarrow: true)
+            StockMetricGrid(items: overview.metrics.map { StockMetricItem(label: present.keepTogether(label: $0.label), value: $0.value, direction: $0.direction) }, rowsWhenNarrow: true)
             if let notice = overview.notice {
                 Text(notice).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.cautionText)
             }

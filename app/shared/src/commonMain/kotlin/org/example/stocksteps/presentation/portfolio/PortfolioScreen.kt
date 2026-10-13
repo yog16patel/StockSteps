@@ -189,7 +189,7 @@ internal fun PortfolioScreen(
                 if (!listMode) state.holdings.firstOrNull { it.symbol == holdingSymbol }?.let { row -> item {
                     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                         StockCard(bordered = false) {
-                            StockMetricGrid(PortfolioHoldingsDisplay.detailMetrics(row).map { StockMetricItem(it.label, it.value, direction = it.direction) },
+                            StockMetricGrid(PortfolioHoldingsDisplay.detailMetrics(row).map { StockMetricItem(PortfolioPresentation.keepTogether(it.label), it.value, direction = it.direction) },
                                 maxColumns = 2, rowsWhenNarrow = true)
                         }
                         PortfolioSectionTitle(PortfolioHoldingsDisplay.DETAILS_ACTIONS)
@@ -417,7 +417,7 @@ private fun PortfolioOverviewCard(state: PortfolioUiState, accountCount: Int, re
         StockDivider()
         PortfolioHistorySection(state, requested, onPeriod, onRetry)
         StockDivider()
-        StockMetricGrid(overview.metrics.map { StockMetricItem(it.label, it.value, direction = it.direction) }, rowsWhenNarrow = true)
+        StockMetricGrid(overview.metrics.map { StockMetricItem(PortfolioPresentation.keepTogether(it.label), it.value, direction = it.direction) }, rowsWhenNarrow = true)
         overview.notice?.let { Text(it, style = typography.caption, color = colors.cautionText) }
         overview.freshness?.let { Text(it, style = typography.caption, color = colors.textMeta) }
     }

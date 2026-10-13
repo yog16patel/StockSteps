@@ -119,6 +119,12 @@ object PortfolioPresentation {
      * D3.1: a presenter money line ("USD 168.5", "USD -51.5" — currency code + exact decimal) for display: "USD 168.50", "-USD 51.50" (the
      * sign-before-currency convention of [signedMoney]). [negative] lets cash below zero be labelled. Unparseable text is kept verbatim.
      */
+    /**
+     * Phase E (E-03): a metric label for display with abbreviations kept on one line — "P/L" is joined with word joiners (U+2060), so a narrow
+     * label column breaks "Unrealized / P/L" between words, never "Unrealized P/ / L". Screen readers ignore the joiners; data labels are unchanged.
+     */
+    fun keepTogether(label: String): String = label.replace("P/L", "P\u2060/\u2060L")
+
     data class MoneyLine(val text: String, val spoken: String, val negative: Boolean)
 
     fun moneyLine(line: String): MoneyLine {

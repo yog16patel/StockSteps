@@ -1,11 +1,45 @@
-# StockSteps — session handoff (2026-10-13: Portfolio D1.1–D3.1 committed and pushed; next = Phase E)
+# StockSteps — session handoff (2026-10-13: Portfolio D1.1–D3.1 committed and pushed; Phase E (accessibility QA) fixes and runtime checks committed and pushed; screen-reader passes blocked)
 
-Read order for a new session: `CLAUDE.md` → **§D3-1-2026-10-13 below** → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE-E-2026-10-13 below** → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
-## D3-1-2026-10-13. Portfolio Phase D3.1 (stabilization and final polish) — START HERE (committed and pushed)
+## PHASE-E-2026-10-13. Portfolio Phase E (accessibility and cross-platform QA) — START HERE (committed and pushed; screen-reader passes blocked)
+
+### Repository state
+- `main` at "Keep MOCK quotes current with the advancing MOCK market clock so practice trades and price alerts keep working on a long-running Ubuntu backend (Ubuntu backend stabilization Phase 1)" (`fa7c563`, pushed); Portfolio D3.1 = `2bb39af`.
+- HEAD after the push: **"Add Portfolio Phase E accessibility fixes with iOS error and rejection announcements, unbroken P/L labels, filter-only history announcements and single-announcer save errors, plus Android and iOS large-text QA"**, on top of `fa7c563`. That commit holds only these Phase E paths (staged by name): shared `PortfolioPresentation.kt`, `PortfolioDisplay.kt`, `PortfolioScreen.kt`,
+  `PortfolioTransactionsScreen.kt`, `PortfolioTransactionViews.kt`, `designsystem/components/StockBanner.kt`; iOS `PortfolioTransactionsScreen.swift`,
+  `PortfolioForms.swift`, `PortfolioScreen.swift`; test `PortfolioPhaseETest.kt`; docs `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_PLAN.md`,
+  `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E.md`, this file, `CLAUDE.md`; captures `docs/design/portfolio_phase_e/` (75).
+- **Never stage with Phase E:** the backend session's uncommitted root `PROJECT_HANDOFF.md`, `docs/project-status.md`,
+  `docs/UBUNTU_BACKEND_VERIFICATION_2026-10-13.md` (Phase E did not edit them; `project-status.md` therefore has no Phase E entry yet).
+
+### Done
+- Fixes: E-01/E-02 iOS error and form-rejection announcements; E-03 "P/L" never breaks at the slash (word joiners, device-verified); E-04 Android
+  history count announced only on filter change; E-05 a rejected save announced once (form), not also by the screen banner.
+- Android 360 dp layout matrix PASS: light 1.0 / 1.3 / 2.0, dark 1.0 / 2.0 × 12 screens, keyboard resize, empty state.
+- iOS iPhone 16 PASS: Large, AX5, dark, keyboard, validation focus, delete confirmation (offline session data).
+- Tests: core 474/0 (JVM, iOS), server 499/0, shared 219/0 (Android) and 215/0 (iOS); `assembleDebug` OK; unsigned `xcodebuild` OK.
+
+### Blocked / not run (Phase E not complete)
+- **TalkBack:** enabled with speech display; only the initial announcement captured ("Portfolio. Heading."). Injected adb input (swipe, tap,
+  motionevent, Alt+Arrow) doesn't drive TalkBack on this emulator — needs real gestures.
+- **iOS signed-in flows** (add/edit/delete feedback, rejected titles, samples, account switching): the cached session is unknown to a fresh Auth
+  emulator; re-signing in means typing credentials into the simulator, which Claude doesn't do.
+- **VoiceOver:** needs a physical device. **Accessibility Inspector:** GUI only, not run.
+
+### Environment at handoff
+- Android emulator-5554: font 1.0, size reset, app theme Light, TalkBack off, speech display off, `adb reverse` removed. A second emulator
+  (`emulator-5556`) appeared during the session, not started by Claude — left untouched.
+- iPhone 16: booted, Large / light, MOCK build installed. MOCK server and Auth emulator stopped.
+
+### Next
+1. Unblock: TalkBack journeys (real gestures), iOS sign-in on the simulator (owner), VoiceOver on a device.
+2. Phase 5D only after Phase E closure.
+
+## D3-1-2026-10-13. Portfolio Phase D3.1 (stabilization and final polish) — committed and pushed
 
 ### Repository state
 - Branch `main`, in sync with `origin/main` after the push. HEAD: **"Stabilize Portfolio Phase D3.1 with cash-aware allocation notes, formatted cash lines, Portfolio tab selection on sub-screens, action-specific error titles and action-free samples on Android and iOS"**, on top of "Add Portfolio Phases D2 and D3 with transaction history filters, transaction details, confirmed-only add/edit/delete feedback, reusable transaction rows and sample read-only handling on Android and iOS" (`5c3f15f`).

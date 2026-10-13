@@ -108,9 +108,16 @@ struct PortfolioTransactionRow: View {
 @ViewBuilder func portfolioErrorBanner(_ state: PortfolioUiState, onRefresh: @escaping () -> Void, onDismiss: @escaping () -> Void) -> some View {
     let display = PortfolioDisplay.shared
     let retries = display.errorRetries(state: state)
-    StockBanner(kind: state.error != nil ? .error : .warning, message: state.error ?? display.OUT_OF_DATE, title: display.errorTitle(state: state),
+    let title = display.errorTitle(state: state)
+    let message = state.error ?? display.OUT_OF_DATE
+    // Phase E (E-01): announced when it appears or changes, like Compose's polite live region; a rejected save is announced by its form
+    // instead (E-05, `errorAnnounced`).
+    let announce = { if display.errorAnnounced(state: state) { AccessibilityNotification.Announcement("\(title). \(message)").post() } }
+    StockBanner(kind: state.error != nil ? .error : .warning, message: message, title: title,
                 actionTitle: state.error == nil ? nil : (retries ? "Retry" : display.DISMISS),
                 action: state.error == nil ? nil : (retries ? onRefresh : onDismiss))
+        .onAppear(perform: announce)
+        .onChange(of: state.error) { _, _ in announce() }
 }
 
 /// Phase D3 success feedback (mirrors Compose `PortfolioActionBanner`): while this screen is visible it takes the presenter's newest confirmed

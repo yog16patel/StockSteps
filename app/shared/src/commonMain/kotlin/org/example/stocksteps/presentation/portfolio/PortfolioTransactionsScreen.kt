@@ -92,6 +92,10 @@ internal fun PortfolioTransactionsScreen(
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     var filterName by rememberSaveable { mutableStateOf(PortfolioTransactionFilter.ALL.name) }
+    // Phase E (E-04): the count is announced when the user changes the filter only (as on iOS) — not again when a delete or sync changes it,
+    // which would follow "Transaction deleted" with a second announcement.
+    var announceFilter by remember { mutableStateOf(false) }
+    LaunchedEffect(filterName, announceFilter) { if (announceFilter) { kotlinx.coroutines.delay(1_500); announceFilter = false } }
     val filter = PortfolioTransactionFilter.valueOf(filterName)
     var sampleDetails by rememberSaveable { mutableStateOf(false) }
     var editing by remember { mutableStateOf<PortfolioTransaction?>(null) }
@@ -129,12 +133,15 @@ internal fun PortfolioTransactionsScreen(
             } }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                    StockPillSelector(PortfolioTransactionsDisplay.filters, filter, PortfolioTransactionsDisplay::label, { filterName = it.name },
+                    StockPillSelector(PortfolioTransactionsDisplay.filters, filter, PortfolioTransactionsDisplay::label, { filterName = it.name; announceFilter = true },
                         Modifier.semantics { contentDescription = PortfolioTransactionsDisplay.FILTERS_LABEL })
                     PortfolioTransactionsDisplay.note(filter)?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
                     // The count is a row count (never an amount); announced politely when the filter changes.
                     Text(PortfolioTransactionsDisplay.summary(shown.size, filter),
-                        Modifier.semantics { liveRegion = LiveRegionMode.Polite; contentDescription = PortfolioTransactionsDisplay.spokenFilter(filter, shown.size) },
+                        Modifier.semantics {
+                            if (announceFilter) liveRegion = LiveRegionMode.Polite
+                            contentDescription = PortfolioTransactionsDisplay.spokenFilter(filter, shown.size)
+                        },
                         style = typography.small, color = colors.textSupporting)
                 }
             }
