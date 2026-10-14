@@ -118,7 +118,27 @@ has no keyboard dismiss on Return (Save stays reachable by scrolling).
    - P3: Home "Markets today" mid-word break at AX5; no Return-to-dismiss on the iOS account name.
 3. Allocation A1: schedule as its own phase (proposal §7 now complete).
 
-## 5. Recommendation
+## 5. Owner decision (2026-10-13)
+
+**Accepted by the owner as PASS WITH CONDITIONS — not a full accessibility sign-off.** The gaps below stay open; none is marked PASS.
+
+**Follow-up QA (open):**
+
+| ID | Check | Status |
+|---|---|---|
+| QA-E2-1 | CAD and USD transaction round-trip on device: add each, edit (recorded currency unchanged unless edited), history and details show the recorded currency, account switching | **OPEN** (blocked by simulator input) |
+| QA-E2-2 | Android session-expiry at runtime (banner, Add disabled, Sign in again) with a non-production test account | **OPEN** (NOT RUN) |
+| QA-E2-3 | Final dark-theme checks of the changed states (currency note, session banner, AX5 account sheet) on both platforms | **OPEN** (NOT RUN) |
+| — | TalkBack, VoiceOver, Accessibility Inspector | **DEFERRED** by the owner (NOT VERIFIED) |
+
+**Optional UX improvements for a later polish pass (recorded, not implemented):**
+
+- UX-E2-1: shorten the trade-currency note without losing accuracy. It must still say which currency the amounts are in, the account's
+  reporting currency, and that conversion uses dated exchange rates.
+- UX-E2-2: make long account-form disclaimers (the moving-average / tax note) less intrusive, for example a short line plus "More", while keeping the
+  full text reachable by screen readers and at large text sizes.
+
+## 6. Recommendation (before the owner decision)
 
 **PASS WITH CONDITIONS.** Everything E.2 changed is implemented and covered by tests. All suites pass, and the device checks of the new behaviour pass on iOS and Android. One AX5 defect found in the final pass was fixed and verified.
 Conditions: the currency round-trip (add CAD/USD → edit → history/details) on device, Android session-expiry at runtime, and dark theme.

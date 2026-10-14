@@ -33,7 +33,13 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
   mid-word → fixed (stacked at accessibility sizes, iOS only, signed build OK); Save reachable above the keyboard at AX5. Currency round-trip
   (add CAD/USD, edit, history/details), account switching, dark theme: BLOCKED (simulator taps stopped registering) / NOT RUN.
   **Recommendation: PASS WITH CONDITIONS** (report §5). MOCK and the Auth emulator were left running; iPhone 16 signed in at Large.
-- **Next:** finish report §4 item 1 on device; Phase 5D (owner approved; starts with a read-only audit); schedule
+- **Owner decision (2026-10-13): E.2 accepted as PASS WITH CONDITIONS, not a full accessibility sign-off.** Open follow-up QA (report §5):
+  QA-E2-1 CAD/USD round-trip on device, QA-E2-2 Android session-expiry runtime, QA-E2-3 final dark theme. TalkBack / VoiceOver / Inspector deferred.
+  Optional polish recorded, not implemented: UX-E2-1 shorter trade-currency note; UX-E2-2 less intrusive account-form disclaimer.
+- **Phase 5D Earnings audit** (read-only; committed as "Record owner acceptance of Portfolio Phase E.2 with open follow-up checks and add the Phase 5D Earnings read-only audit with a phased proposal"): `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md`. P1: BEAT/MISS shown green/red on
+  Results but neutral on Details; estimate sentence can show "—" and iOS formats it without currency (revenue always "B"); EPS history chart
+  tooltips drop the currency. Proposal 5D.1 accuracy → 5D.2 design system → 5D.3 large text/states → 5D.4 Details vs Results roles → 5D.5 Brief/Learn.
+- **Next:** owner decisions 5D-1…5D-4 (audit §4), then 5D.1; schedule
   allocation A1; Phase 5D.
 - Dirty files not from this phase (never staged): root `PROJECT_HANDOFF.md` and the two backend hunks of `docs/project-status.md`.
 
