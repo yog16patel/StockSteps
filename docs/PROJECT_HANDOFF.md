@@ -5,6 +5,12 @@ Read order for a new session: `CLAUDE.md` → **§SESSION-END-2026-10-14 below**
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
+## PHASE-5D-4-2-2026-10-14 — committed and pushed as "Polish Global UI Refinement Phase 5D.4.2 Earnings with borderless content sections, a compact header, one-row Show details and Learn more, the comparison-unavailable badge below the title and quieter secondary metrics on Android and iOS"
+- Borderless Earnings polish on top of `a4f35c4`: borderless content surfaces (per call site), 20 dp section rhythm, compact header (20 sp name), Show details +
+  Learn more on one row, Comparison-unavailable badge below the title, quiet secondary metrics (`StockMetric(quiet)`), reaction % on its own line, width-based
+  history chart. Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_2.md`. Shared 244/0 and 240/0, both builds PASS; Android light 1.0/1.3/2.0× and dark PASS.
+  iOS runtime NOT RUN (simulator taps stopped again; needs a restart); iOS Details BLOCKED (owner sign-in).
+
 ## PHASE-5D-4-1-2026-10-14 — committed and pushed as "Polish Global UI Refinement Phase 5D.4 Earnings with one collapsed Show details per card, No estimate for missing estimates, separate Reported and Next header lines, dated reaction prices and compact insight rows on Android and iOS"
 - Polish on top of `e965618`: one collapsed "Show details" per card, "No estimate", labelled Reported / Next header lines, Before/After dates as detail lines, Results
   takeaway first, compact insight rows. See `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4.md` §5D.4.1. Suites: core 502/0 ×2, shared 243/0 and 239/0; builds PASS.

@@ -131,4 +131,7 @@ object EarningsDisplay {
         val parts = listOfNotNull(date, session, dateStatus.takeIf { !reported })
         return parts.takeIf { it.isNotEmpty() }?.let { (if (reported) listOf("Reported") + it else it).joinToString(" · ") }
     }
+
+    /** 5D.4.2: "Comparison unavailable" sits below a card title (compact); Beat / Met / Missed stay beside it. */
+    fun badgeBelowTitle(classification: Classification): Boolean = classification == Classification.UNAVAILABLE
 }

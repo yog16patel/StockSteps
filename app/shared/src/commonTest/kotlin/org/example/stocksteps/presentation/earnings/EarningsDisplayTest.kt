@@ -149,4 +149,11 @@ class EarningsDisplayTest {
             EarningsDisplay.reportedLine(org.example.stocksteps.earnings.EarningsStatus.UPCOMING, "Thu, Oct 22", "After market close", "Estimated"))
         assertNull(EarningsDisplay.reportedLine(reported, null, null, null))
     }
+
+    // ---------- Phase 5D.4.2 ----------
+
+    @Test fun onlyAnUnavailableComparisonMovesBelowTheTitle() {
+        assertTrue(EarningsDisplay.badgeBelowTitle(Classification.UNAVAILABLE))
+        for (c in listOf(Classification.BEAT, Classification.MET, Classification.MISS)) assertFalse(EarningsDisplay.badgeBelowTitle(c), "$c")
+    }
 }

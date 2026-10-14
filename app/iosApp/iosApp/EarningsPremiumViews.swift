@@ -164,7 +164,7 @@ private struct UnderstandSection: View {
                 if let overview = state.overview { content(overview, colors) }
             }
         }
-        .stockCard()
+        .stockCard(bordered: false)
     }
 
     @ViewBuilder private func content(_ overview: PremiumEarningsOverview, _ colors: StockColors) -> some View {
@@ -280,7 +280,7 @@ private struct AskSection: View {
                 if state.plus, let usage = state.askUsage { Caption(text: usage) }
             }
         }
-        .stockCard()
+        .stockCard(bordered: false)
         .onChange(of: state.reportId) { _, _ in text = "" }
     }
 }
@@ -336,7 +336,7 @@ private struct HistorySection: View {
                 if let error = state.historyError { PremiumErrorView(error: error) { onAction(.loadHistory) } }
             }
         }
-        .stockCard()
+        .stockCard(bordered: false)
     }
 }
 

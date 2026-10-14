@@ -121,7 +121,7 @@ internal fun LazyListScope.premiumEarningsItems(state: EarningsPremiumState, onA
 private fun UnderstandCard(state: EarningsPremiumState, onAction: (PremiumAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
-    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         SectionTitle(PremiumCopy.TITLE, PremiumCopy.SUBTITLE)
         if (state.sampleData) Row(Modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             PremiumCopy.SCENARIOS.forEach { (id, label) -> StockChip(label, state.scenario == id, onClick = { onAction(PremiumAction.Scenario(id)) }) }
@@ -193,7 +193,7 @@ private fun AskCard(state: EarningsPremiumState, onAction: (PremiumAction) -> Un
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     var text by rememberSaveable(state.reportId) { mutableStateOf("") }
-    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         SectionTitle("Ask About These Results", "Answers use this report's verified figures and StockSteps lessons.")
         if (state.signedIn && state.overview == null) return@StockCard
         FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
@@ -235,7 +235,7 @@ private fun AskCard(state: EarningsPremiumState, onAction: (PremiumAction) -> Un
 private fun HistoryCard(state: EarningsPremiumState, onAction: (PremiumAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
-    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+    StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
         SectionTitle("Historical Earnings", "Revenue and EPS over recent fiscal quarters, with plain-English observations.")
         val h = state.history
         if (h == null) {

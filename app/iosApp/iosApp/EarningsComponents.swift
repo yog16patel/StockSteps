@@ -12,7 +12,7 @@ struct EarningsKeyMetrics: View {
     var body: some View {
         if !metrics.isEmpty {
             // 5D.4: aligned label/value rows when the three can't share a row (as Compose), instead of three tall stacked blocks.
-            StockMetricGrid(items: metrics.map { StockMetricItem(label: $0.label, value: $0.value, helper: $0.detail) }, maxColumns: 3, rowsWhenNarrow: true)
+            StockMetricGrid(items: metrics.enumerated().map { i, m in StockMetricItem(label: m.label, value: m.value, helper: m.detail, quiet: i > 0) }, maxColumns: 3, rowsWhenNarrow: true)
         }
     }
 }
@@ -91,6 +91,8 @@ func earningsInsightSymbol(_ category: String) -> String {
 struct EarningsShowDetails<Content: View>: View {
     let explanation: String?
     let hasMore: Bool
+    /// 5D.4.2: an action sharing the toggle's row (e.g. "Learn more"); moves below it when they don't fit.
+    var trailing: AnyView? = nil
     @ViewBuilder var content: () -> Content
     @State private var open = false
     @Environment(\.colorScheme) private var scheme
@@ -106,8 +108,20 @@ struct EarningsShowDetails<Content: View>: View {
                 Text(open && rest != nil ? "\(first) \(rest!)" : first).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textBody)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if rest != nil || hasMore {
-                if open { content() }
+            let toggle = rest != nil || hasMore
+            if toggle && open { content() }
+            if toggle || trailing != nil {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: CGFloat(space.md)) { toggleButton(toggle, colors); trailing }
+                    VStack(alignment: .leading, spacing: 0) { toggleButton(toggle, colors); trailing }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private func toggleButton(_ shown: Bool, _ colors: StockColors) -> some View {
+        if shown {
                 Button { open.toggle() } label: {
                     HStack(spacing: CGFloat(space.xxs)) {
                         Text(open ? "Hide details" : "Show details")
@@ -118,9 +132,7 @@ struct EarningsShowDetails<Content: View>: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityValue(open ? "Expanded" : "Collapsed")
-            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -138,8 +150,9 @@ struct EarningsInsightRow: View {
         let _ = typeSize
         let colors = StockStepsTheme.colors(scheme)
         HStack(alignment: .top, spacing: CGFloat(space.sm)) {
+            // 5D.4.2: the icon lines up with the title (below the period caption).
             Image(systemName: earningsInsightSymbol(category)).font(StockStepsTheme.font(type.body, relativeTo: .body)).foregroundStyle(colors.primaryText)
-                .frame(width: CGFloat(StockStepsTheme.dimensions.icon)).accessibilityHidden(true)
+                .frame(width: CGFloat(StockStepsTheme.dimensions.icon)).padding(.top, period == nil ? 0 : CGFloat(space.lg + space.xxs)).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                 if let period { Text(period).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary) }
                 Text(title).font(StockStepsTheme.font(type.bodySemiBold, relativeTo: .subheadline)).foregroundStyle(colors.textTitle)

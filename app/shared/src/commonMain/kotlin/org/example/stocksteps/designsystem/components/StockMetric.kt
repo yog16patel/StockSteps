@@ -37,9 +37,12 @@ internal fun StockMetric(
     helper: String? = null,
     direction: PriceDirection? = null,
     onClick: (() -> Unit)? = null,
-    onClickLabel: String? = null
+    onClickLabel: String? = null,
+    /** 5D.4.2: a secondary metric in a group (e.g. an estimate beside the reported value): same size, medium weight, body colour. Default unchanged. */
+    quiet: Boolean = false
 ) {
     val colors = StockStepsTheme.colors
+    val valueStyle = if (quiet) StockStepsTheme.typography.numberEmphasis.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) else StockStepsTheme.typography.numberEmphasis
     Column(
         modifier = modifier
             .heightIn(min = StockStepsTheme.dimensions.touchTarget)
@@ -49,9 +52,9 @@ internal fun StockMetric(
     ) {
         Text(label, style = StockStepsTheme.typography.label, color = colors.textSecondary)
         if (direction != null && direction != PriceDirection.UNAVAILABLE) {
-            StockPriceChange(value, direction, style = StockStepsTheme.typography.numberEmphasis, maxLines = Int.MAX_VALUE)
+            StockPriceChange(value, direction, style = valueStyle, maxLines = Int.MAX_VALUE)
         } else {
-            Text(value, style = StockStepsTheme.typography.numberEmphasis, color = colors.textPrimary)
+            Text(value, style = valueStyle, color = if (quiet) colors.textBody else colors.textPrimary)
         }
         if (helper != null) Text(helper, style = StockStepsTheme.typography.caption, color = colors.textTertiary)
     }
@@ -64,7 +67,9 @@ internal data class StockMetricItem(
     val helper: String? = null,
     val direction: PriceDirection? = null,
     val onClick: (() -> Unit)? = null,
-    val onClickLabel: String? = null
+    val onClickLabel: String? = null,
+    /** 5D.4.2: see [StockMetric] `quiet`; default unchanged. */
+    val quiet: Boolean = false
 )
 
 /**
@@ -128,7 +133,7 @@ internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = 
             items.chunked(columns).forEach { row ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {
                     row.forEach { item ->
-                        StockMetric(item.label, item.value, Modifier.weight(1f), item.helper, item.direction, item.onClick, item.onClickLabel)
+                        StockMetric(item.label, item.value, Modifier.weight(1f), item.helper, item.direction, item.onClick, item.onClickLabel, item.quiet)
                     }
                     repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }

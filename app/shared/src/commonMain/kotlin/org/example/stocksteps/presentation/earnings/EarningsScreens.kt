@@ -351,7 +351,7 @@ internal fun EarningsDetailsScreen(
             item(key = "summary") {
                 // 5D.3 takeaway: quarter, the EPS headline from the server's classification (the server summary when there is none), badge,
                 // reported vs estimated EPS, one explanation, one lesson.
-                StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     state.headerPeriod?.let { Text(it, style = typography.label, color = colors.primaryText) }
                     StockTitleWithBadge(title = { Text(state.headline ?: summary, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary) },
                         badge = { state.eps?.let { ClassificationBadge(it.classification) } })
@@ -361,14 +361,15 @@ internal fun EarningsDetailsScreen(
                     else EarningsKeyMetrics(EarningsDisplay.takeawayMetrics(eps))
                     EarningsDisplay.visibleCaveat(eps?.note)?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
                     // 5D.4.1: one "Show details" (rest of the explanation, Difference/Basis, the note, the lesson) instead of three controls.
-                    EarningsShowDetails(d.summaryExplanation, hasMore = eps != null && (eps.secondary.isNotEmpty() || EarningsDisplay.hiddenNote(eps.note) != null)) {
+                    // 5D.4.2: "Learn more" shares the toggle's row (wraps under it at large text) instead of a second 48 dp row.
+                    val learnMore: (@Composable () -> Unit)? = EarningsEducation.topic("eps")?.let { topic -> { StockButton("Learn more", onClick = { education = topic }, variant = StockButtonVariant.TEXT, icon = StockIcons.ArrowForward) } }
+                    EarningsShowDetails(d.summaryExplanation, hasMore = eps != null && (eps.secondary.isNotEmpty() || EarningsDisplay.hiddenNote(eps.note) != null), trailing = learnMore) {
                         if (eps != null) {
                             EarningsLines(eps.secondary)
                             EarningsDisplay.hiddenNote(eps.note)?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
                             EarningsDisplay.cardTopic(eps.title)?.let { topic -> StockButton(topic.title, onClick = { education = topic }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb) }
                         }
                     }
-                    EarningsEducation.topic("eps")?.let { topic -> StockButton("Learn more", onClick = { education = topic }, variant = StockButtonVariant.TEXT, icon = StockIcons.ArrowForward) }
                 }
             }
         }
@@ -378,7 +379,7 @@ internal fun EarningsDetailsScreen(
         }
         val upcoming = d?.next
         if (d != null && state.eps == null && upcoming != null) item(key = "upcoming") {
-            StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 Text("Not reported yet", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
                 // 5D.1 (E-02): the shared sentence names only the estimates that exist.
                 state.nextEstimate?.let { Text(it, style = typography.small, color = colors.textBody) }
@@ -386,9 +387,10 @@ internal fun EarningsDetailsScreen(
         }
         if (state.reaction.isNotEmpty() || state.reactionSentence != null) item(key = "reaction") {
             // 5D.3: the measured change first, then Before/After, the non-causal sentence; window, source and method folded below.
-            StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                StockTitleWithBadge(title = { Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary) },
-                    badge = { state.reactionHeadline?.let { EarningsReactionHeadline(it, state.reactionDirection) } })
+            StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                // 5D.4.2: the measured change on its own line under the title.
+                Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+                state.reactionHeadline?.let { EarningsReactionHeadline(it, state.reactionDirection) }
                 EarningsLines(state.reactionKey.ifEmpty { state.reaction.takeIf { state.reactionHeadline == null }.orEmpty() })
                 state.reactionSentence?.let { Text(it, style = typography.small, color = colors.textBody) }
                 if (state.reactionDetails.isNotEmpty()) EarningsDisclosure(EarningsDisplay.REACTION_DETAILS_TITLE) {
@@ -400,10 +402,10 @@ internal fun EarningsDetailsScreen(
             }
         }
         if (d != null && d.insights.isNotEmpty() || (d?.lockedInsights ?: 0) > 0) item(key = "insights") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Column(Modifier.padding(top = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 Text("Insights", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
                 // 5D.4.1 (option a): compact rows in one card — icon, period, title; the explanation and lesson behind "Show details".
-                if (d!!.insights.isNotEmpty()) StockCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
+                if (d!!.insights.isNotEmpty()) StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
                     d.insights.forEachIndexed { index, insight ->
                         if (index > 0) HorizontalDivider(color = colors.borderSubtle)
                         // A lesson link only where a lesson exists.
@@ -416,12 +418,14 @@ internal fun EarningsDetailsScreen(
         }
         if (state.history.isNotEmpty()) {
             item(key = "history-title") {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Column(Modifier.padding(top = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     Text("Earnings history", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
                     state.historyNote?.let { Text(it, style = typography.caption, color = colors.textSecondary) } // 5D.1B
                     val reported = state.epsChart.firstOrNull()?.values.orEmpty()
                     if (EarningsDisplay.historyChartShown(reported)) {
-                        StockTrendChart(
+                        // 5D.4.2: plot height from the shared width rule (≈ 0.45 × width, 120–200), ≈ 130 dp at 360 dp instead of a fixed 150.
+                        BoxWithConstraints(Modifier.fillMaxWidth()) { StockTrendChart(
+                            height = org.example.stocksteps.theme.StockChartLayout.height(maxWidth.value).dp,
                             values = reported,
                             details = state.epsChartDetails, // 5D.1 (E-03): with the quarter's currency, like the history rows
                             // 5D.4: every quarter when they fit, and the EPS scale (highest / middle / lowest of the shown values).
@@ -429,7 +433,7 @@ internal fun EarningsDetailsScreen(
                             yLabels = state.epsChartYLabels,
                             description = "Reported EPS versus estimate for ${state.chartLabels.size} quarters.",
                             seriesLabel = "Reported EPS", additional = listOf("Estimate" to state.epsChart[1].values)
-                        )
+                        ) }
                     } else Text(EarningsDisplay.HISTORY_CHART_TOO_SHORT, style = typography.caption, color = colors.textSecondary)
                 }
             }
@@ -439,7 +443,7 @@ internal fun EarningsDetailsScreen(
             }
         }
         item(key = "ai") {
-            StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 StockTitleWithBadge(title = { Text("Ask about these earnings", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary) },
                     badge = { if (!state.plus) StockStatusBadge("StockSteps+", org.example.stocksteps.theme.StockBadgeKind.PREMIUM) })
                 Text("Answers use only the verified figures above and say when the data can't explain a cause.", style = typography.caption, color = colors.textSecondary)
@@ -455,10 +459,10 @@ internal fun EarningsDetailsScreen(
             }
         }
         item(key = "learn") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            Column(Modifier.padding(top = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 Text("Learn", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
                 // E-19: the Watchlist/Portfolio grouped navigation rows instead of a column of text buttons (same topics, same dialogs).
-                StockCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = StockStepsTheme.spacing.md)) {
+                StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = StockStepsTheme.spacing.md)) {
                     EarningsEducation.topics.forEachIndexed { index, topic ->
                         if (index > 0) HorizontalDivider(color = colors.borderSubtle)
                         StockNavigationRow(topic.title, onClick = { education = topic }, actionLabel = "Opens ${topic.title}")
@@ -535,9 +539,10 @@ private fun DetailsHeader(state: EarningsDetailsState, onRemind: () -> Unit, onC
     val d = state.details
     Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            StockTickerAvatar(state.symbol, logoUrl = d?.event?.logoUrl, size = StockStepsTheme.dimensions.logo)
+            StockTickerAvatar(state.symbol, logoUrl = d?.event?.logoUrl, size = StockStepsTheme.dimensions.logoCompact)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                Text(d?.name ?: state.symbol, Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
+                // 5D.4.2 (5D42-2): section size — the bar already titles the screen; long names wrap.
+                Text(d?.name ?: state.symbol, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
                 // The quarter is the summary card's eyebrow when there is one, so it isn't repeated here.
                 Text(listOfNotNull(state.symbol, d?.event?.exchange, state.headerPeriod.takeIf { d?.summary == null }).joinToString(" · "),
                     style = typography.small, color = colors.textSecondary)
@@ -562,7 +567,7 @@ private fun DetailsHeader(state: EarningsDetailsState, onRemind: () -> Unit, onC
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
         val remind = d?.next != null
         val labels = listOfNotNull("Remind me".takeIf { remind }, "Company details")
-        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = spacing.xs)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = spacing.xxs)) {
             val widths = labels.map { with(density) { measurer.measure(it, typography.bodySemiBold).size.width.toDp().value } + (if (it == "Remind me") StockStepsTheme.dimensions.icon.value + spacing.sm.value else 0f) }
             val sideBySide = labels.size > 1 && org.example.stocksteps.theme.StockActionLayout.sideBySide(widths, maxWidth.value, spacing.lg.value, spacing.sm.value,
                 accessibilityText = density.fontScale >= StockStepsTheme.dimensions.largeFontScale)
@@ -606,10 +611,9 @@ private fun HistoryRow(row: HistoryRowView, open: Boolean, onToggle: () -> Unit)
 @Composable
 private fun ResultCardView(card: ResultCard, onLearn: () -> Unit) {
     val colors = StockStepsTheme.colors
-    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+    StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
         Column(Modifier.semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
-            StockTitleWithBadge(title = { Text(EarningsDisplay.cardTitle(card.title), Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary) },
-                badge = { ClassificationBadge(card.classification) })
+            EarningsCardTitle(EarningsDisplay.cardTitle(card.title), card.classification)
             // 5D.3: the three key numbers first; the rest (difference, basis, quarter-over-quarter) smaller below.
             if (card.keyMetrics.isNotEmpty()) EarningsKeyMetrics(card.keyMetrics) else EarningsLines(card.lines)
             EarningsDisplay.visibleCaveat(card.note)?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
@@ -668,10 +672,10 @@ internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifi
             // Phase 5 (StockSteps+): after every free section, so nothing free is pushed down or hidden.
             if (premium != null && !state.offline) premiumEarningsItems(premium, onPremium)
             item(key = "learn") {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Column(Modifier.padding(top = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     Text(EarningsDisplay.LEARN_TITLE, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
                     // 5D.3: grouped navigation rows (same lessons; a missing one still falls back to the Learn tab, never a broken link).
-                    StockCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = spacing.md)) {
+                    StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = spacing.md)) {
                         state.learn.forEachIndexed { index, link ->
                             if (index > 0) HorizontalDivider(color = colors.borderSubtle)
                             StockNavigationRow(link.title, onClick = { if (link.body != null) lesson = link else onAction(ResultsAction.Learn) },
@@ -720,12 +724,9 @@ private fun EarningsResultHeader(state: EarningsResultsState) {
 private fun FinancialComparisonCard(card: ComparisonCardView, expanded: Boolean, comparisonNotes: List<String> = emptyList(), onToggle: () -> Unit) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+    StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
         Column(Modifier.semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(card.title, Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
-                ClassificationBadge(card.classification)
-            }
+            EarningsCardTitle(card.title, card.classification)
             if (card.keyMetrics.isNotEmpty()) EarningsKeyMetrics(card.keyMetrics) else EarningsLines(card.lines)
             EarningsDisplay.visibleCaveat(card.basisNote)?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
         }
@@ -739,6 +740,20 @@ private fun FinancialComparisonCard(card: ComparisonCardView, expanded: Boolean,
         }
         FinancialTermInfo(card.infoTitle, card.infoBody, expanded, onToggle)
     }
+}
+
+/**
+ * 5D.4.2: a result card's title and classification badge. "Comparison unavailable" (NEUTRAL, no estimate) goes below the title in the compact size so
+ * it never competes with the title; a Beat / Met / Missed badge stays beside it while both fit (`StockTitleWithBadge`). Rule: `EarningsDisplay.badgeBelowTitle`.
+ */
+@Composable
+private fun EarningsCardTitle(title: String, classification: Classification) {
+    val titleText: @Composable () -> Unit = { Text(title, Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = StockStepsTheme.colors.textPrimary) }
+    if (EarningsDisplay.badgeBelowTitle(classification)) Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        titleText()
+        val shown = EarningsDisplay.classification(classification)
+        StockStatusBadge(shown.label, shown.kind, size = StockBadgeSize.COMPACT, contentDescription = shown.spoken)
+    } else StockTitleWithBadge(title = titleText, badge = { ClassificationBadge(classification) })
 }
 
 /** 5D.1 (E-01): the classification as the shared status badge: the words carry the meaning; colour is secondary. */
@@ -765,7 +780,7 @@ private fun FinancialTermInfo(title: String, body: String, expanded: Boolean, on
 @Composable
 private fun RevenueGrowthCard(card: GrowthCardView) {
     val colors = StockStepsTheme.colors
-    StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+    StockCard(bordered = false, modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
         Text(card.title, Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
         EarningsLines(card.lines)
         Text(card.explanation, style = StockStepsTheme.typography.small, color = colors.textBody)
@@ -800,9 +815,10 @@ private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (R
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        StockTitleWithBadge(title = { Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary) },
-            badge = { state.headline?.let { EarningsReactionHeadline(it, state.direction) } })
+    StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        // 5D.4.2: the measured change on its own line under the title.
+        Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+        state.headline?.let { EarningsReactionHeadline(it, state.direction) }
         Row(Modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             ReactionWindow.entries.forEach { w ->
                 val pending = state.windows.firstOrNull { it.window == w }?.status == ReactionStatus.WINDOW_INCOMPLETE

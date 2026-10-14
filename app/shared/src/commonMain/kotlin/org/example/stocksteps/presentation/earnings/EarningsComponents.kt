@@ -27,7 +27,8 @@ import org.example.stocksteps.earnings.MetricLine
 internal fun EarningsKeyMetrics(metrics: List<MetricLine>, modifier: Modifier = Modifier) {
     if (metrics.isEmpty()) return
     // 5D.4: when the three can't share a row (narrow, large text), aligned label/value rows instead of three tall stacked blocks.
-    StockMetricGrid(metrics.map { StockMetricItem(it.label, it.value, helper = it.detail) }, modifier, maxColumns = 3, rowsWhenNarrow = true)
+    // 5D.4.2: the reported/actual value is the loud one; estimate and surprise are quieter (same size, medium weight).
+    StockMetricGrid(metrics.mapIndexed { i, it -> StockMetricItem(it.label, it.value, helper = it.detail, quiet = i > 0) }, modifier, maxColumns = 3, rowsWhenNarrow = true)
 }
 
 /** The measured price change with the app's arrow and gain/loss style; the sign and arrow carry the meaning, colour is secondary. */
@@ -79,21 +80,27 @@ internal fun earningsInsightIcon(category: String): ImageVector = when (Earnings
  * of the sentence and [content] (secondary lines, notes, lesson link). Without anything to reveal there is no toggle.
  */
 @Composable
-internal fun EarningsShowDetails(explanation: String?, hasMore: Boolean, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit = {}) {
+@OptIn(ExperimentalLayoutApi::class)
+internal fun EarningsShowDetails(explanation: String?, hasMore: Boolean, modifier: Modifier = Modifier,
+                                 /** 5D.4.2: an action sharing the toggle's row (e.g. "Learn more"); wraps below it when they don't fit. */
+                                 trailing: (@Composable () -> Unit)? = null,
+                                 content: @Composable ColumnScope.() -> Unit = {}) {
     val (first, rest) = remember(explanation) { explanation?.let { EarningsDisplay.firstSentence(it) } ?: ("" to null) }
     var open by rememberSaveable(explanation, hasMore) { mutableStateOf(false) }
     val colors = StockStepsTheme.colors
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
         if (first.isNotEmpty()) Text(if (open && rest != null) "$first $rest" else first, style = StockStepsTheme.typography.small, color = colors.textBody)
-        if (rest != null || hasMore) {
-            if (open) content()
-            Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
+        val toggle = rest != null || hasMore
+        if (toggle && open) content()
+        if (toggle || trailing != null) FlowRow(horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md), itemVerticalAlignment = Alignment.CenterVertically) {
+            if (toggle) Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
                 .clickable(role = Role.Button, onClickLabel = if (open) "Hide details" else "Show details") { open = !open }
                 .semantics { stateDescription = if (open) "Expanded" else "Collapsed" },
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
                 Text(if (open) "Hide details" else "Show details", style = StockStepsTheme.typography.label, color = colors.primaryText)
                 Icon(StockIcons.ChevronDown, null, Modifier.size(StockStepsTheme.dimensions.iconSmall).rotate(if (open) 180f else 0f), tint = colors.primaryText)
             }
+            trailing?.invoke()
         }
     }
 }
@@ -104,7 +111,8 @@ internal fun EarningsInsightRow(category: String, period: String?, title: String
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     Row(Modifier.fillMaxWidth().padding(vertical = spacing.sm), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        Icon(earningsInsightIcon(category), null, Modifier.size(StockStepsTheme.dimensions.icon), tint = colors.primaryText)
+        // 5D.4.2: the icon lines up with the title (below the period caption), not with the caption.
+        Icon(earningsInsightIcon(category), null, Modifier.padding(top = if (period != null) spacing.lg + spacing.xxs else spacing.none).size(StockStepsTheme.dimensions.icon), tint = colors.primaryText)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
             period?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
             Text(title, Modifier.semantics { heading() }, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)

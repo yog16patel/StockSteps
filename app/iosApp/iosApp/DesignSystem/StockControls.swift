@@ -80,14 +80,18 @@ struct StockMetric: View {
     let value: String
     var helper: String?
     var direction: PriceDirection?
+    /// 5D.4.2: a secondary metric in a group: same size, medium weight, body colour (as Compose). Default unchanged.
+    var quiet = false
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
+        let valueStyle = type.numberEmphasis
         VStack(alignment: .leading, spacing: CGFloat(space.labelValueGap)) {
             Text(label).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
             if let direction, direction != .unavailable {
-                StockPriceChange(percentage: value, direction: direction, style: type.numberEmphasis, lineLimit: nil)
+                StockPriceChange(percentage: value, direction: direction, style: valueStyle, lineLimit: nil)
             } else {
-                Text(value).font(StockStepsTheme.font(type.numberEmphasis)).foregroundStyle(colors.textPrimary)
+                Text(value).font(quiet ? StockStepsTheme.font(valueStyle).weight(.medium) : StockStepsTheme.font(valueStyle))
+                    .foregroundStyle(quiet ? colors.textBody : colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let helper {
@@ -108,6 +112,8 @@ struct StockMetricItem: Identifiable {
     /// Opens an explanation (like Compose `StockMetricItem.onClick`); `hint` is what VoiceOver says the tap does.
     var action: (() -> Void)? = nil
     var hint: String? = nil
+    /// 5D.4.2: see `StockMetric.quiet`; default unchanged.
+    var quiet = false
 }
 
 /// Metric row/grid: up to `maxColumns` equal columns, fewer (one at large text) instead of truncating — the same
@@ -180,14 +186,14 @@ struct StockMetricGrid: View {
                     ForEach(items[start..<min(start + columns, items.count)]) { item in
                         if let action = item.action {
                             Button(action: action) {
-                                StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction)
+                                StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet)
                                     .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget), alignment: .topLeading)
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityHint(item.hint ?? "")
                         } else {
-                            StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction)
+                            StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet)
                         }
                     }
                     ForEach(0..<(columns - min(columns, items.count - start)), id: \.self) { _ in Color.clear.frame(height: 0) }
