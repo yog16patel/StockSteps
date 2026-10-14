@@ -55,7 +55,7 @@ class EarningsPhase5D3Test {
         assertEquals(listOf("Reported" to "C$1.94", "Estimate" to "C$2.00", "Surprise" to "−3.0%"), s.eps!!.keyMetrics.map { it.label to it.value })
         assertEquals(listOf("Difference", "Basis"), s.eps!!.secondary.map { it.label })
         // Revenue: no estimate stays "—" (never 0.00), the third number is the YoY growth, quarter-over-quarter is secondary.
-        assertEquals(listOf("Reported" to "C$4.45B", "Estimate" to "—", "YoY growth" to "+3.0%"), s.revenue!!.keyMetrics.map { it.label to it.value })
+        assertEquals(listOf("Reported" to "C$4.45B", "Estimate" to "No estimate", "YoY growth" to "+3.0%"), s.revenue!!.keyMetrics.map { it.label to it.value })
         assertEquals(listOf("Growth vs last quarter"), s.revenue!!.secondary.map { it.label })
         // Every original line is still in `lines` (accessibility and fallbacks unchanged).
         assertEquals(s.eps!!.lines.toSet(), (s.eps!!.keyMetrics + s.eps!!.secondary).toSet())
@@ -72,12 +72,15 @@ class EarningsPhase5D3Test {
         assertEquals(s.reaction.first { it.label == "Change" }.value, s.reactionHeadline)
         assertEquals(PriceDirection.UP, s.reactionDirection)
         assertEquals(listOf("Before", "After"), s.reactionKey.map { it.label })
+        // 5D.4.1: price as the value, the observation date as its detail (same strings as before, split).
+        assertEquals(Triple("C$132.64", "Wed, Jul 22", "C$132.97"), Triple(s.reactionKey[0].value, s.reactionKey[0].detail, s.reactionKey[1].value))
+        assertEquals("Next · Q3 FY2026 · Thu, Oct 22", details(cnr.copy(next = event().copy(id = "CNR.TO:2026-Q3", fiscalQuarter = 3, date = "2026-10-22"))).nextLine)
         assertEquals(listOf("Window", "Source"), s.reactionDetails.map { it.label })
     }
 
     @Test fun resultsKeyMetricsKeepMissingEstimatesMissing() {
         val card = EarningsResultsFormat.card("revenue", MetricComparison(actual = "4450000000", explanation = "x", currency = "CAD"), false)
-        assertEquals(listOf("Actual" to "C$4.45B", "Estimate" to "—", "Surprise" to "—"), card.keyMetrics.map { it.label to it.value })
+        assertEquals(listOf("Actual" to "C$4.45B", "Estimate" to "No estimate", "Surprise" to "—"), card.keyMetrics.map { it.label to it.value })
         val folded = EarningsResultsFormat.foldGrowth(card, GrowthComparison("4450000000", "4320000000", "Q2 FY2026", "Q2 FY2025", "3.009", "x", currency = "CAD"))!!
         assertEquals(listOf("Actual", "Estimate", "YoY growth"), folded.keyMetrics.map { it.label })
         assertEquals("Year ago (Q2 FY2025)", folded.secondary.last().label)

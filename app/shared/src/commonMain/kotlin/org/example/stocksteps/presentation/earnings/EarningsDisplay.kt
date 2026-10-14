@@ -2,6 +2,7 @@ package org.example.stocksteps.presentation.earnings
 
 import org.example.stocksteps.earnings.Classification
 import org.example.stocksteps.earnings.EarningsEducation
+import org.example.stocksteps.earnings.EarningsFormatter
 import org.example.stocksteps.earnings.HistoryRowView
 import org.example.stocksteps.earnings.MetricLine
 import org.example.stocksteps.theme.StockBadgeKind
@@ -90,8 +91,6 @@ object EarningsDisplay {
 
     // ---------- Phase 5D.4: less scrolling, same content ----------
 
-    const val EPS_DETAILS_TITLE = "EPS details"
-    const val COMPARISONS_TITLE = "About these comparisons"
     const val DETAILS_NOT_ADVICE = "Not investment advice. Earnings results don't predict how a stock will move."
 
     /**
@@ -103,10 +102,6 @@ object EarningsDisplay {
         val end = match.range.first + 1
         return text.substring(0, end) to text.substring(match.range.last + 1).trim().ifEmpty { null }
     }
-
-    /** Secondary metric lines as one caption ("Growth vs last quarter: +4.2% · Can reflect seasonality."), instead of a two-column row. */
-    fun secondaryCaption(lines: List<MetricLine>): String? =
-        lines.takeIf { it.isNotEmpty() }?.joinToString("\n") { l -> "${l.label}: ${l.value}" + (l.detail?.let { " · $it" } ?: "") }
 
     /** Details notes folded like Results: the server notes, the sample sentence for sample data, the disclaimer — each once. */
     fun detailsDisclosures(notes: List<String>, sampleData: Boolean): List<String> =
@@ -121,4 +116,19 @@ object EarningsDisplay {
 
     /** Results title without the repeated word: "Q2 FY2026 Earnings Results" → "Q2 FY2026 results" (the screen is already "Earnings results"). */
     fun resultsTitle(title: String): String = title.removeSuffix(" Earnings Results").let { if (it == title) title else "$it results" }
+
+    // ---------- Phase 5D.4.1: one "Show details" per card ----------
+
+    /** A caveat that must stay visible outside "Show details": the unknown-currency caption (5D.1B), when [note] contains it. */
+    fun visibleCaveat(note: String?): String? = note?.takeIf { EarningsFormatter.UNKNOWN_CURRENCY in it }?.let { EarningsFormatter.UNKNOWN_CURRENCY }
+
+    /** [note] without the visible caveat (it is shown once, outside the details). */
+    fun hiddenNote(note: String?): String? = note?.replace(EarningsFormatter.UNKNOWN_CURRENCY, "")?.trim()?.ifEmpty { null }
+
+    /** Header line for the reported (or scheduled) quarter: "Reported · Wed, Jul 22 · After market close". */
+    fun reportedLine(status: org.example.stocksteps.earnings.EarningsStatus?, date: String?, session: String?, dateStatus: String?): String? {
+        val reported = status == org.example.stocksteps.earnings.EarningsStatus.REPORTED || status == org.example.stocksteps.earnings.EarningsStatus.PARTIALLY_REPORTED
+        val parts = listOfNotNull(date, session, dateStatus.takeIf { !reported })
+        return parts.takeIf { it.isNotEmpty() }?.let { (if (reported) listOf("Reported") + it else it).joinToString(" · ") }
+    }
 }

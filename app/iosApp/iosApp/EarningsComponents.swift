@@ -86,22 +86,28 @@ func earningsInsightSymbol(_ category: String) -> String {
     }
 }
 
-/// 5D4-2 (option A): the first sentence of a server explanation, the rest behind "Show details" (shared `EarningsDisplay.firstSentence`).
-struct EarningsExpandableText: View {
-    let text: String
+/// 5D.4.1: the one "Show details" of a card (as Compose `EarningsShowDetails`). Visible: the first sentence of `explanation`. Collapsed by default:
+/// the rest of the sentence and `content` (secondary lines, notes, lesson). No toggle when there is nothing to reveal.
+struct EarningsShowDetails<Content: View>: View {
+    let explanation: String?
+    let hasMore: Bool
+    @ViewBuilder var content: () -> Content
     @State private var open = false
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         let _ = typeSize
         let colors = StockStepsTheme.colors(scheme)
-        let parts = EarningsDisplay.shared.firstSentence(text: text)
-        let first = parts.first as? String ?? text
-        let rest = parts.second as? String
-        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-            Text(open && rest != nil ? "\(first) \(rest!)" : first).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textBody)
-                .fixedSize(horizontal: false, vertical: true)
-            if rest != nil {
+        let parts = explanation.map { EarningsDisplay.shared.firstSentence(text: $0) }
+        let first = parts?.first as? String
+        let rest = parts?.second as? String
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            if let first {
+                Text(open && rest != nil ? "\(first) \(rest!)" : first).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textBody)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if rest != nil || hasMore {
+                if open { content() }
                 Button { open.toggle() } label: {
                     HStack(spacing: CGFloat(space.xxs)) {
                         Text(open ? "Hide details" : "Show details")
@@ -114,5 +120,41 @@ struct EarningsExpandableText: View {
                 .accessibilityValue(open ? "Expanded" : "Collapsed")
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// 5D.4.1 (option a): a compact insight row — small neutral icon, period, title; the server explanation behind "Show details", unchanged.
+struct EarningsInsightRow: View {
+    let category: String
+    let period: String?
+    let title: String
+    let explanation: String
+    let lessonTitle: String?
+    let onLesson: (() -> Void)?
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
+    var body: some View {
+        let _ = typeSize
+        let colors = StockStepsTheme.colors(scheme)
+        HStack(alignment: .top, spacing: CGFloat(space.sm)) {
+            Image(systemName: earningsInsightSymbol(category)).font(StockStepsTheme.font(type.body, relativeTo: .body)).foregroundStyle(colors.primaryText)
+                .frame(width: CGFloat(StockStepsTheme.dimensions.icon)).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                if let period { Text(period).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary) }
+                Text(title).font(StockStepsTheme.font(type.bodySemiBold, relativeTo: .subheadline)).foregroundStyle(colors.textTitle)
+                    .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+                EarningsShowDetails(explanation: nil, hasMore: true) {
+                    Text(explanation).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                    if let lessonTitle, let onLesson {
+                        Button(action: onLesson) { Label(lessonTitle, systemImage: "lightbulb").multilineTextAlignment(.leading) }
+                            .buttonStyle(.plain).font(StockStepsTheme.font(type.bodyMedium, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
+                            .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, CGFloat(space.sm))
     }
 }

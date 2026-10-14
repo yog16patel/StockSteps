@@ -359,11 +359,14 @@ internal fun EarningsDetailsScreen(
                     val eps = state.eps
                     if (eps != null && eps.keyMetrics.isNotEmpty()) EarningsKeyMetrics(eps.keyMetrics, Modifier.semantics(mergeDescendants = true) { contentDescription = eps.accessibility })
                     else EarningsKeyMetrics(EarningsDisplay.takeawayMetrics(eps))
-                    d.summaryExplanation?.let { EarningsExpandableText(it) }
-                    if (eps != null && (eps.secondary.isNotEmpty() || eps.note != null)) EarningsDisclosure(EarningsDisplay.EPS_DETAILS_TITLE) {
-                        EarningsLines(eps.secondary)
-                        eps.note?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
-                        EarningsDisplay.cardTopic(eps.title)?.let { topic -> StockButton(topic.title, onClick = { education = topic }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb) }
+                    EarningsDisplay.visibleCaveat(eps?.note)?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+                    // 5D.4.1: one "Show details" (rest of the explanation, Difference/Basis, the note, the lesson) instead of three controls.
+                    EarningsShowDetails(d.summaryExplanation, hasMore = eps != null && (eps.secondary.isNotEmpty() || EarningsDisplay.hiddenNote(eps.note) != null)) {
+                        if (eps != null) {
+                            EarningsLines(eps.secondary)
+                            EarningsDisplay.hiddenNote(eps.note)?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+                            EarningsDisplay.cardTopic(eps.title)?.let { topic -> StockButton(topic.title, onClick = { education = topic }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb) }
+                        }
                     }
                     EarningsEducation.topic("eps")?.let { topic -> StockButton("Learn more", onClick = { education = topic }, variant = StockButtonVariant.TEXT, icon = StockIcons.ArrowForward) }
                 }
@@ -399,13 +402,14 @@ internal fun EarningsDetailsScreen(
         if (d != null && d.insights.isNotEmpty() || (d?.lockedInsights ?: 0) > 0) item(key = "insights") {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 Text("Insights", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
-                d!!.insights.forEach { insight ->
-                    // A "Learn more" only where a lesson exists (it used to be shown even when it opened nothing).
-                    val topic = EarningsEducation.topic(insight.methodology)
-                    // 5D4-2 (A): the first sentence; the rest of the server text behind "Show details".
-                    val (first, rest) = EarningsDisplay.firstSentence(insight.explanation)
-                    StockInsightCard(insight.title, first, Modifier.fillMaxWidth(), eyebrow = insight.period, actionText = topic?.let { "Learn more" },
-                        onClick = topic?.let { t -> { education = t } }, leading = { Icon(earningsInsightIcon(insight.category), null) }, details = rest)
+                // 5D.4.1 (option a): compact rows in one card — icon, period, title; the explanation and lesson behind "Show details".
+                if (d!!.insights.isNotEmpty()) StockCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
+                    d.insights.forEachIndexed { index, insight ->
+                        if (index > 0) HorizontalDivider(color = colors.borderSubtle)
+                        // A lesson link only where a lesson exists.
+                        val topic = EarningsEducation.topic(insight.methodology)
+                        EarningsInsightRow(insight.category, insight.period, insight.title, insight.explanation, topic?.title, topic?.let { t -> { education = t } })
+                    }
                 }
                 if (d.lockedInsights > 0) Text("${d.lockedInsights} more trend insight${if (d.lockedInsights == 1) "" else "s"} with StockSteps+.", style = typography.caption, color = colors.textSecondary)
             }
@@ -545,10 +549,14 @@ private fun DetailsHeader(state: EarningsDetailsState, onRemind: () -> Unit, onC
             if (d.sampleData) StockStatusBadge(EarningsDisplay.SAMPLE_BADGE, org.example.stocksteps.theme.StockBadgeKind.SAMPLE,
                 contentDescription = EarningsDisplay.SAMPLE_SENTENCE)
         }
-        listOfNotNull(state.headerDate, state.headerSession, state.headerDateStatus).takeIf { it.isNotEmpty() }?.let {
-            Text(it.joinToString(" · "), style = typography.small, color = colors.textBody)
+        // 5D.4.1: the reported quarter and the next report on separate labelled lines.
+        EarningsDisplay.reportedLine(d?.status, state.headerDate, state.headerSession, state.headerDateStatus)?.let { Text(it, style = typography.small, color = colors.textBody) }
+        state.nextLine?.let { line ->
+            Column(Modifier.semantics(mergeDescendants = true) { state.next?.let { contentDescription = it } }) {
+                Text(line, style = typography.small, color = colors.primaryText)
+                state.nextDetail?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+            }
         }
-        state.next?.let { Text(it, style = typography.small, color = colors.primaryText) }
         if (d?.stale == true) StockBanner(org.example.stocksteps.theme.StockBannerKind.WARNING, "The next date hasn't been updated recently and may have changed.")
         val density = androidx.compose.ui.platform.LocalDensity.current
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
@@ -603,15 +611,17 @@ private fun ResultCardView(card: ResultCard, onLearn: () -> Unit) {
             StockTitleWithBadge(title = { Text(EarningsDisplay.cardTitle(card.title), Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary) },
                 badge = { ClassificationBadge(card.classification) })
             // 5D.3: the three key numbers first; the rest (difference, basis, quarter-over-quarter) smaller below.
-            if (card.keyMetrics.isNotEmpty()) {
-                EarningsKeyMetrics(card.keyMetrics)
-                // 5D.4: secondary lines as one caption (was a two-column row that stayed side by side while the key numbers stacked).
-                EarningsDisplay.secondaryCaption(card.secondary)?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
-            } else EarningsLines(card.lines)
-            card.note?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
+            if (card.keyMetrics.isNotEmpty()) EarningsKeyMetrics(card.keyMetrics) else EarningsLines(card.lines)
+            EarningsDisplay.visibleCaveat(card.note)?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
         }
-        // The label is the title of the lesson it opens (was "What does this mean?").
-        EarningsDisplay.cardTopic(card.title)?.let { topic -> StockButton(topic.title, onClick = onLearn, variant = StockButtonVariant.TEXT, icon = StockIcons.Info) }
+        // 5D.4.1: secondary lines, the no-estimate reason and the lesson behind one "Show details" (key numbers stay visible).
+        val secondary = if (card.keyMetrics.isNotEmpty()) card.secondary else emptyList()
+        EarningsShowDetails(null, hasMore = true) {
+            EarningsLines(secondary)
+            EarningsDisplay.hiddenNote(card.note)?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
+            // The label is the title of the lesson it opens (was "What does this mean?").
+            EarningsDisplay.cardTopic(card.title)?.let { topic -> StockButton(topic.title, onClick = onLearn, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb) }
+        }
     }
 }
 
@@ -646,13 +656,14 @@ internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifi
         else state.error?.let { item(key = "error") { StockErrorState(it, { onAction(ResultsAction.Retry) }) } }
         if (state.response != null) {
             item(key = "header") { EarningsResultHeader(state) }
+            // 5D.4.1: the quarter's one-line answer right under the header (first sentence; the rest behind "Show details").
+            state.takeaway?.let { takeaway -> item(key = "takeaway") { EarningsTakeawayCard(takeaway, state.warnings) } }
             state.eps?.let { item(key = "eps") { FinancialComparisonCard(it, it.key in state.expanded) { onAction(ResultsAction.Toggle(it.key)) } } }
             state.revenue?.let { item(key = "revenue") { FinancialComparisonCard(it, it.key in state.expanded, state.comparisonNotes) { onAction(ResultsAction.Toggle(it.key)) } } }
             // 5D.3: the YoY growth is revenue's third key metric when available; the card only remains for its "not available" reason.
             state.yearOverYear?.takeIf { !state.yearOverYearFolded }?.let { item(key = "yoy") { RevenueGrowthCard(it) } }
             // 5D.4: the previous-quarter comparison is a secondary revenue row when available; the card only remains for its reason.
             state.quarterOverQuarter?.takeIf { !state.quarterOverQuarterFolded }?.let { item(key = "qoq") { RevenueGrowthCard(it) } }
-            state.takeaway?.let { takeaway -> item(key = "takeaway") { EarningsTakeawayCard(takeaway, state.warnings) } }
             reaction?.let { r -> item(key = "reaction") { PriceReactionSection(r, onAction) { lesson = it } } }
             // Phase 5 (StockSteps+): after every free section, so nothing free is pushed down or hidden.
             if (premium != null && !state.offline) premiumEarningsItems(premium, onPremium)
@@ -716,13 +727,16 @@ private fun FinancialComparisonCard(card: ComparisonCardView, expanded: Boolean,
                 ClassificationBadge(card.classification)
             }
             if (card.keyMetrics.isNotEmpty()) EarningsKeyMetrics(card.keyMetrics) else EarningsLines(card.lines)
-            card.explanation?.let { EarningsExpandableText(it) } // 5D4-2 (A)
-            card.reason?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
-            card.basisNote?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
-            if (card.keyMetrics.isNotEmpty()) EarningsLines(card.secondary)
+            EarningsDisplay.visibleCaveat(card.basisNote)?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
         }
-        // 5D.4: the folded growth cards' explanations (unchanged), one tap away.
-        if (comparisonNotes.isNotEmpty()) EarningsDisclosure(EarningsDisplay.COMPARISONS_TITLE) { EarningsNotes(comparisonNotes) }
+        // 5D.4.1: one "Show details", collapsed: rest of the explanation, reason, basis, difference / prior periods, comparison notes.
+        val secondary = if (card.keyMetrics.isNotEmpty()) card.secondary else emptyList()
+        EarningsShowDetails(card.explanation, hasMore = card.reason != null || card.basisNote != null || secondary.isNotEmpty() || comparisonNotes.isNotEmpty()) {
+            card.reason?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+            EarningsDisplay.hiddenNote(card.basisNote)?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+            EarningsLines(secondary)
+            EarningsNotes(comparisonNotes)
+        }
         FinancialTermInfo(card.infoTitle, card.infoBody, expanded, onToggle)
     }
 }
@@ -764,7 +778,7 @@ private fun EarningsTakeawayCard(takeaway: String, warnings: List<String>) {
     val colors = StockStepsTheme.colors
     StockCard(Modifier.fillMaxWidth(), containerColor = colors.educationContainer, bordered = false, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
         Text(EarningsDisplay.TAKEAWAY_TITLE, Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
-        Text(takeaway, style = StockStepsTheme.typography.body, color = colors.textBody)
+        EarningsShowDetails(takeaway, hasMore = false)
         if (warnings.isNotEmpty()) StockBanner(org.example.stocksteps.theme.StockBannerKind.WARNING, warnings.joinToString("\n"))
     }
 }

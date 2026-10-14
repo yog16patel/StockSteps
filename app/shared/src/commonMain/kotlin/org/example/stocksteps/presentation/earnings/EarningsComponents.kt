@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import org.example.stocksteps.companydetail.PriceDirection
@@ -27,24 +28,6 @@ internal fun EarningsKeyMetrics(metrics: List<MetricLine>, modifier: Modifier = 
     if (metrics.isEmpty()) return
     // 5D.4: when the three can't share a row (narrow, large text), aligned label/value rows instead of three tall stacked blocks.
     StockMetricGrid(metrics.map { StockMetricItem(it.label, it.value, helper = it.detail) }, modifier, maxColumns = 3, rowsWhenNarrow = true)
-}
-
-/** 5D4-2 (option A): the first sentence of a server explanation, the rest behind "Show details" (nothing removed, wording unchanged). */
-@Composable
-internal fun EarningsExpandableText(text: String, modifier: Modifier = Modifier, style: androidx.compose.ui.text.TextStyle = StockStepsTheme.typography.small) {
-    val (first, rest) = remember(text) { EarningsDisplay.firstSentence(text) }
-    var open by rememberSaveable(text) { mutableStateOf(false) }
-    val colors = StockStepsTheme.colors
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-        Text(if (open && rest != null) "$first $rest" else first, style = style, color = colors.textBody)
-        if (rest != null) Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
-            .clickable(role = Role.Button, onClickLabel = if (open) "Hide details" else "Show details") { open = !open }
-            .semantics { stateDescription = if (open) "Expanded" else "Collapsed" },
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-            Text(if (open) "Hide details" else "Show details", style = StockStepsTheme.typography.label, color = colors.primaryText)
-            Icon(StockIcons.ChevronDown, null, Modifier.size(StockStepsTheme.dimensions.iconSmall).rotate(if (open) 180f else 0f), tint = colors.primaryText)
-        }
-    }
 }
 
 /** The measured price change with the app's arrow and gain/loss style; the sign and arrow carry the meaning, colour is secondary. */
@@ -89,4 +72,46 @@ internal fun earningsInsightIcon(category: String): ImageVector = when (Earnings
     "layers" -> StockIcons.Layers
     "info" -> StockIcons.Info
     else -> StockIcons.Lightbulb
+}
+
+/**
+ * 5D.4.1: the one "Show details" of a card. Always visible: the first sentence of [explanation]. Behind the toggle (collapsed by default): the rest
+ * of the sentence and [content] (secondary lines, notes, lesson link). Without anything to reveal there is no toggle.
+ */
+@Composable
+internal fun EarningsShowDetails(explanation: String?, hasMore: Boolean, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit = {}) {
+    val (first, rest) = remember(explanation) { explanation?.let { EarningsDisplay.firstSentence(it) } ?: ("" to null) }
+    var open by rememberSaveable(explanation, hasMore) { mutableStateOf(false) }
+    val colors = StockStepsTheme.colors
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        if (first.isNotEmpty()) Text(if (open && rest != null) "$first $rest" else first, style = StockStepsTheme.typography.small, color = colors.textBody)
+        if (rest != null || hasMore) {
+            if (open) content()
+            Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
+                .clickable(role = Role.Button, onClickLabel = if (open) "Hide details" else "Show details") { open = !open }
+                .semantics { stateDescription = if (open) "Expanded" else "Collapsed" },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+                Text(if (open) "Hide details" else "Show details", style = StockStepsTheme.typography.label, color = colors.primaryText)
+                Icon(StockIcons.ChevronDown, null, Modifier.size(StockStepsTheme.dimensions.iconSmall).rotate(if (open) 180f else 0f), tint = colors.primaryText)
+            }
+        }
+    }
+}
+
+/** 5D.4.1 (option a): a compact insight row — small neutral icon, period, title; the server explanation behind "Show details", unchanged. */
+@Composable
+internal fun EarningsInsightRow(category: String, period: String?, title: String, explanation: String, lessonTitle: String?, onLesson: (() -> Unit)?) {
+    val colors = StockStepsTheme.colors
+    val spacing = StockStepsTheme.spacing
+    Row(Modifier.fillMaxWidth().padding(vertical = spacing.sm), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        Icon(earningsInsightIcon(category), null, Modifier.size(StockStepsTheme.dimensions.icon), tint = colors.primaryText)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            period?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
+            Text(title, Modifier.semantics { heading() }, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
+            EarningsShowDetails(null, hasMore = true) {
+                Text(explanation, style = StockStepsTheme.typography.small, color = colors.textBody)
+                if (lessonTitle != null && onLesson != null) StockButton(lessonTitle, onClick = onLesson, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb)
+            }
+        }
+    }
 }

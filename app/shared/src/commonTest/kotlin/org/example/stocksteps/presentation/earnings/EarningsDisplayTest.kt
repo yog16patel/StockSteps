@@ -112,11 +112,6 @@ class EarningsDisplayTest {
         assertEquals("One line" to null, EarningsDisplay.firstSentence("One line"))
     }
 
-    @Test fun secondaryCaptionKeepsEveryLine() {
-        assertEquals("Growth vs last quarter: +4.2% · Can reflect seasonality.", EarningsDisplay.secondaryCaption(listOf(MetricLine("Growth vs last quarter", "+4.2%", "Can reflect seasonality."))))
-        assertNull(EarningsDisplay.secondaryCaption(emptyList()))
-    }
-
     @Test fun detailsNotesFoldEachOnce() {
         val notes = EarningsDisplay.detailsDisclosures(listOf("Estimates are analysts' consensus.", EarningsDisplay.SAMPLE_SENTENCE), sampleData = true)
         assertEquals(1, notes.count { it == EarningsDisplay.SAMPLE_SENTENCE })
@@ -134,5 +129,24 @@ class EarningsDisplayTest {
     @Test fun resultsTitleDropsTheRepeatedWords() {
         assertEquals("Q2 FY2026 results", EarningsDisplay.resultsTitle("Q2 FY2026 Earnings Results"))
         assertEquals("Something else", EarningsDisplay.resultsTitle("Something else"))
+    }
+
+    // ---------- Phase 5D.4.1 ----------
+
+    @Test fun unknownCurrencyCaveatStaysVisibleAndIsNotRepeatedInDetails() {
+        val note = "No analyst revenue estimate is available. " + org.example.stocksteps.earnings.EarningsFormatter.UNKNOWN_CURRENCY
+        assertEquals(org.example.stocksteps.earnings.EarningsFormatter.UNKNOWN_CURRENCY, EarningsDisplay.visibleCaveat(note))
+        assertEquals("No analyst revenue estimate is available.", EarningsDisplay.hiddenNote(note))
+        assertNull(EarningsDisplay.visibleCaveat("No analyst revenue estimate is available."))
+        assertNull(EarningsDisplay.hiddenNote(org.example.stocksteps.earnings.EarningsFormatter.UNKNOWN_CURRENCY))
+    }
+
+    @Test fun reportedLineSeparatesTheReportedQuarterFromTheNext() {
+        val reported = org.example.stocksteps.earnings.EarningsStatus.REPORTED
+        assertEquals("Reported · Wed, Jul 22 · After market close", EarningsDisplay.reportedLine(reported, "Wed, Jul 22", "After market close", "Confirmed"))
+        // An upcoming report keeps its date status (confirmed vs estimated matters before it happens).
+        assertEquals("Thu, Oct 22 · After market close · Estimated",
+            EarningsDisplay.reportedLine(org.example.stocksteps.earnings.EarningsStatus.UPCOMING, "Thu, Oct 22", "After market close", "Estimated"))
+        assertNull(EarningsDisplay.reportedLine(reported, null, null, null))
     }
 }

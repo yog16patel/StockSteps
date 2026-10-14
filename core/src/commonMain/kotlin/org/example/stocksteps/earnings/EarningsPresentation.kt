@@ -132,6 +132,9 @@ object EarningsFormatter {
      * Phase 5D.3: the Details takeaway headline from the server's EPS classification and surprise — never inferred: UNAVAILABLE (e.g. no
      * estimate) gives null, and a beat/miss without a surprise percent omits the amount.
      */
+    /** 5D.4.1: the key-metric value for a missing analyst estimate. */
+    const val NO_ESTIMATE = "No estimate"
+
     fun epsHeadline(r: SurpriseResult?): String? {
         val by = r?.percent?.let { p -> percent(abs(p))?.removePrefix("+")?.let { " by $it" } }.orEmpty()
         return when (r?.classification) {
@@ -188,6 +191,9 @@ data class EarningsDetailsState(
     val headerSession: String? = null,
     val headerDateStatus: String? = null,
     val next: String? = null,
+    /** 5D.4.1: "Next · Q3 FY2026 · Thu, Oct 22" and "After market close · Confirmed" (the header's second and third lines). */
+    val nextLine: String? = null,
+    val nextDetail: String? = null,
     val eps: ResultCard? = null,
     val revenue: ResultCard? = null,
     val reaction: List<MetricLine> = emptyList(),
@@ -265,7 +271,8 @@ class EarningsDetailsPresenter(
 
     private fun card(title: String, r: SurpriseResult, money: (Double?, String?) -> String, extra: List<MetricLine> = emptyList(), third: MetricLine? = null): ResultCard {
         val reported = MetricLine("Reported", money(r.actual, r.currency))
-        val estimate = MetricLine("Estimate", money(r.estimate, r.currency))
+        // 5D.4.1: a missing estimate reads "No estimate" in the key metric (never 0, never a beat/miss); the reason stays in the card note.
+        val estimate = MetricLine("Estimate", r.estimate?.let { money(it, r.currency) } ?: EarningsFormatter.NO_ESTIMATE)
         val difference = r.absolute?.let { MetricLine("Difference", (if (it > 0) "+" else "") + money(it, r.currency)) }
         val surprise = r.percent?.let { MetricLine("Surprise", EarningsFormatter.percent(it)!!) }
         val basis = r.basis?.let { MetricLine("Basis", it) }
@@ -284,8 +291,9 @@ class EarningsDetailsPresenter(
         val growth = listOfNotNull(yoy, d.revenueGrowthQoQ?.let { MetricLine("Growth vs last quarter", EarningsFormatter.percent(it)!!, "Can reflect seasonality.") })
         val reaction = d.reaction?.takeIf { it.available }?.let { r ->
             listOfNotNull(
-                MetricLine("Before", "${EarningsFormatter.eps(r.baselineClose, r.currency)} · ${EarningsFormatter.date(r.baselineDate!!)}"),
-                MetricLine("After", "${EarningsFormatter.eps(r.endClose, r.currency)} · ${EarningsFormatter.date(r.endDate!!)}"),
+                // 5D.4.1: the observation date is the line's detail (same text), so the price never wraps around the date at large text.
+                MetricLine("Before", EarningsFormatter.eps(r.baselineClose, r.currency), EarningsFormatter.date(r.baselineDate!!)),
+                MetricLine("After", EarningsFormatter.eps(r.endClose, r.currency), EarningsFormatter.date(r.endDate!!)),
                 MetricLine("Change", EarningsFormatter.percent(r.changePercent)!! + if (r.approximate) " (approximate)" else ""),
                 r.marketChangePercent?.let { MetricLine(r.marketLabel ?: "Market", EarningsFormatter.percent(it)!!, "Same window") },
                 MetricLine("Window", r.window.orEmpty()),
@@ -302,6 +310,9 @@ class EarningsDetailsPresenter(
             headerPeriod = e?.period, headerDate = e?.let { EarningsFormatter.date(it.date) }, headerSession = e?.let { EarningsFormatter.session(it.session) },
             headerDateStatus = e?.let { EarningsFormatter.dateStatus(it.dateStatus) },
             next = d.next?.takeIf { it.id != e?.id }?.let { n -> "Next: ${n.period} · ${EarningsFormatter.date(n.date)} · ${EarningsFormatter.session(n.session)} · ${EarningsFormatter.dateStatus(n.dateStatus)}" },
+            // 5D.4.1: the header's two labelled lines (the full `next` sentence stays for screen readers).
+            nextLine = d.next?.takeIf { it.id != e?.id }?.let { n -> "Next · ${n.period} · ${EarningsFormatter.date(n.date)}" },
+            nextDetail = d.next?.takeIf { it.id != e?.id }?.let { n -> "${EarningsFormatter.session(n.session)} · ${EarningsFormatter.dateStatus(n.dateStatus)}" },
             eps = e?.let { card("EPS", d.eps, EarningsFormatter::eps) },
             revenue = e?.let { card("Revenue", d.revenue, EarningsFormatter::revenue, growth, yoy) },
             reaction = reaction, reactionSentence = sentence,

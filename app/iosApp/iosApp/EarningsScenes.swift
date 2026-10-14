@@ -639,9 +639,17 @@ struct EarningsDetailsScreen: View {
                     if d.sampleData { StockStatusBadge(text: EarningsDisplay.shared.SAMPLE_BADGE, kind: .sample, accessibilityText: EarningsDisplay.shared.SAMPLE_SENTENCE) }
                 }
             }
-            let header = [state.headerDate, state.headerSession, state.headerDateStatus].compactMap { $0 }
-            if !header.isEmpty { Text(header.joined(separator: " · ")).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody) }
-            if let next = state.next { Text(next).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.primaryText) }
+            // 5D.4.1: the reported quarter and the next report on separate labelled lines.
+            if let reported = EarningsDisplay.shared.reportedLine(status: d?.status, date: state.headerDate, session: state.headerSession, dateStatus: state.headerDateStatus) {
+                Text(reported).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
+            }
+            if let nextLine = state.nextLine {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(nextLine).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
+                    if let detail = state.nextDetail { Text(detail).font(StockStepsTheme.font(type.caption, relativeTo: .subheadline)).foregroundStyle(colors.textSecondary) }
+                }
+                .accessibilityElement(children: .ignore).accessibilityLabel(state.next ?? nextLine)
+            }
             if d?.stale == true { StockBanner(kind: .warning, message: "The next date hasn't been updated recently and may have changed.") }
             headerActions(remind: d?.next != nil).padding(.top, CGFloat(space.xs))
         }
@@ -661,11 +669,14 @@ struct EarningsDetailsScreen: View {
                 } else {
                     EarningsKeyMetrics(metrics: EarningsDisplay.shared.takeawayMetrics(eps: state.eps))
                 }
-                if let explanation = d?.summaryExplanation { EarningsExpandableText(text: explanation) }
-                if let eps = state.eps, !eps.secondary.isEmpty || eps.note != nil {
-                    EarningsDisclosure(title: EarningsDisplay.shared.EPS_DETAILS_TITLE) {
+                if let caveat = EarningsDisplay.shared.visibleCaveat(note: state.eps?.note) { EarningsNotes(lines: [caveat]) }
+                // 5D.4.1: one "Show details" (rest of the explanation, Difference/Basis, the note, the lesson) instead of three controls.
+                let eps = state.eps
+                EarningsShowDetails(explanation: d?.summaryExplanation,
+                                    hasMore: eps != nil && (!(eps!.secondary.isEmpty) || EarningsDisplay.shared.hiddenNote(note: eps!.note) != nil)) {
+                    if let eps {
                         EarningsLines(lines: eps.secondary)
-                        if let note = eps.note { EarningsNotes(lines: [note]) }
+                        if let note = EarningsDisplay.shared.hiddenNote(note: eps.note) { EarningsNotes(lines: [note]) }
                         if let lesson = EarningsDisplay.shared.cardTopic(title: eps.title) { learnLink(lesson.title, systemImage: "lightbulb") { topic = lesson } }
                     }
                 }
@@ -683,19 +694,18 @@ struct EarningsDetailsScreen: View {
                         earningsClassificationBadge(card.classification)
                     }
                     // 5D.3: the three key numbers first; the rest (difference, basis, quarter-over-quarter) smaller below.
-                    if card.keyMetrics.isEmpty { EarningsLines(lines: card.lines) } else {
-                        EarningsKeyMetrics(metrics: card.keyMetrics)
-                        // 5D.4: secondary lines as one caption (was a two-column row beside stacked key numbers).
-                        if let caption = EarningsDisplay.shared.secondaryCaption(lines: card.secondary) {
-                            Text(caption).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
-                        }
-                    }
-                    if let note = card.note { Text(note).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary) }
+                    if card.keyMetrics.isEmpty { EarningsLines(lines: card.lines) } else { EarningsKeyMetrics(metrics: card.keyMetrics) }
+                    if let caveat = EarningsDisplay.shared.visibleCaveat(note: card.note) { EarningsNotes(lines: [caveat]) }
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(card.accessibility)
-                // The label is the title of the lesson it opens (was "What does this mean?").
-                if let lesson = EarningsDisplay.shared.cardTopic(title: card.title) { learnLink(lesson.title) { topic = lesson } }
+                // 5D.4.1: secondary lines, the no-estimate reason and the lesson behind one "Show details" (key numbers stay visible).
+                EarningsShowDetails(explanation: nil, hasMore: true) {
+                    if !card.keyMetrics.isEmpty { EarningsLines(lines: card.secondary) }
+                    if let note = EarningsDisplay.shared.hiddenNote(note: card.note) { EarningsNotes(lines: [note]) }
+                    // The label is the title of the lesson it opens (was "What does this mean?").
+                    if let lesson = EarningsDisplay.shared.cardTopic(title: card.title) { learnLink(lesson.title, systemImage: "lightbulb") { topic = lesson } }
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading).stockCard()
         }
@@ -724,14 +734,18 @@ struct EarningsDetailsScreen: View {
         }
         if let d, !d.insights.isEmpty || d.lockedInsights > 0 {
             Text("Insights").font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).accessibilityAddTraits(.isHeader)
-            ForEach(d.insights, id: \.id) { insight in
-                // A "Learn more" only where a lesson exists (it used to be shown even when it opened nothing).
-                let lesson = client.topic(key: insight.methodology)
-                // 5D4-2 (A): the first sentence; the rest of the server text behind "Show details".
-                let parts = EarningsDisplay.shared.firstSentence(text: insight.explanation)
-                StockInsightCard(title: insight.title, message: parts.first as? String ?? insight.explanation, actionTitle: lesson == nil ? nil : "Learn more",
-                                 systemImage: earningsInsightSymbol(insight.category), action: lesson.map { t in { topic = t } }, eyebrow: insight.period,
-                                 details: parts.second as? String)
+            // 5D.4.1 (option a): compact rows in one card — icon, period, title; the explanation and lesson behind "Show details".
+            if !d.insights.isEmpty {
+                VStack(spacing: 0) {
+                    ForEach(Array(d.insights.enumerated()), id: \.element.id) { index, insight in
+                        if index > 0 { StockDivider() }
+                        let lesson = client.topic(key: insight.methodology)
+                        EarningsInsightRow(category: insight.category, period: insight.period, title: insight.title, explanation: insight.explanation,
+                                           lessonTitle: lesson?.title, onLesson: lesson.map { t in { topic = t } })
+                    }
+                }
+                .padding(.horizontal, CGFloat(space.md))
+                .stockCard(padding: 0)
             }
             if d.lockedInsights > 0 {
                 Text("\(d.lockedInsights) more trend insight\(d.lockedInsights == 1 ? "" : "s") with StockSteps+.").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
@@ -997,22 +1011,23 @@ struct EarningsResultsScreen: View {
             // E-06: data caveats are banners (icon + words), not bare caution captions.
             if let f = state.freshnessText { StockBanner(kind: .warning, message: f) }
         }
-        if let eps = state.eps { comparison(eps, expanded: state.expanded.contains(eps.key), colors) }
-        if let revenue = state.revenue { comparison(revenue, expanded: state.expanded.contains(revenue.key), comparisonNotes: state.comparisonNotes, colors) }
-        // 5D.3: YoY growth is revenue's third key metric when available; the card only remains for its "not available" reason.
-        if let yoy = state.yearOverYear, !state.yearOverYearFolded { growth(yoy, colors) }
-        // 5D.4: the previous-quarter comparison is a secondary revenue row when available; the card only remains for its reason.
-        if let qoq = state.quarterOverQuarter, !state.quarterOverQuarterFolded { growth(qoq, colors) }
+        // 5D.4.1: the quarter's one-line answer right under the header (first sentence; the rest behind "Show details").
         if let takeaway = state.takeaway {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 Text(EarningsDisplay.shared.TAKEAWAY_TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).accessibilityAddTraits(.isHeader)
-                Text(takeaway).stockFont(type.body, relativeTo: .body).foregroundStyle(colors.textBody)
+                EarningsShowDetails(explanation: takeaway, hasMore: false) { EmptyView() }
                 if !state.warnings.isEmpty { StockBanner(kind: .warning, message: state.warnings.joined(separator: "\n")) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(CGFloat(space.cardPadding))
             .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
         }
+        if let eps = state.eps { comparison(eps, expanded: state.expanded.contains(eps.key), colors) }
+        if let revenue = state.revenue { comparison(revenue, expanded: state.expanded.contains(revenue.key), comparisonNotes: state.comparisonNotes, colors) }
+        // 5D.3: YoY growth is revenue's third key metric when available; the card only remains for its "not available" reason.
+        if let yoy = state.yearOverYear, !state.yearOverYearFolded { growth(yoy, colors) }
+        // 5D.4: the previous-quarter comparison is a secondary revenue row when available; the card only remains for its reason.
+        if let qoq = state.quarterOverQuarter, !state.quarterOverQuarterFolded { growth(qoq, colors) }
         if let reaction { PriceReactionSection(state: reaction, onWindow: onWindow, onRetry: onRetryReaction, onToggleChart: onToggleChart, onLesson: { lesson = $0 }) }
         // Phase 5 (StockSteps+): after every free section, so nothing free is pushed down or hidden.
         if let premium, let client, !state.offline { PremiumEarningsSections(state: premium, client: client, onAction: onPremium) }
@@ -1046,15 +1061,16 @@ struct EarningsResultsScreen: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(card.accessibility)
-            // 5D4-2 (A): first sentence + "Show details" (outside the combined element so the toggle stays reachable).
-            if let e = card.explanation { EarningsExpandableText(text: e) }
-            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                if let r = card.reason { Text(r).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary) }
-                if let b = card.basisNote { Text(b).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary) }
-                if !card.keyMetrics.isEmpty && !card.secondary.isEmpty { EarningsLines(lines: card.secondary) }
+            if let caveat = EarningsDisplay.shared.visibleCaveat(note: card.basisNote) { EarningsNotes(lines: [caveat]) }
+            // 5D.4.1: one "Show details", collapsed: rest of the explanation, reason, basis, difference / prior periods, comparison notes.
+            let secondary: [MetricLine] = card.keyMetrics.isEmpty ? [] : card.secondary
+            EarningsShowDetails(explanation: card.explanation,
+                                hasMore: card.reason != nil || card.basisNote != nil || !secondary.isEmpty || !comparisonNotes.isEmpty) {
+                if let r = card.reason { EarningsNotes(lines: [r]) }
+                if let b = EarningsDisplay.shared.hiddenNote(note: card.basisNote) { EarningsNotes(lines: [b]) }
+                EarningsLines(lines: secondary)
+                EarningsNotes(lines: comparisonNotes)
             }
-            // 5D.4: the folded growth cards' explanations (unchanged), one tap away.
-            if !comparisonNotes.isEmpty { EarningsDisclosure(title: EarningsDisplay.shared.COMPARISONS_TITLE) { EarningsNotes(lines: comparisonNotes) } }
             Button { onToggle(card.key) } label: {
                 HStack { Image(systemName: "info.circle"); Text(card.infoTitle).multilineTextAlignment(.leading); Spacer(); Image(systemName: expanded ? "chevron.down" : "chevron.right") }
                     .font(StockStepsTheme.font(type.label, relativeTo: .subheadline))

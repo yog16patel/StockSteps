@@ -49,3 +49,35 @@ Seen outside scope: the iOS Home brand "StockSteps" breaks mid-word at accessibi
 
 ## Recommendation
 **PASS WITH CONDITIONS.** Conditions: iOS Details (D-3), a live Dynamic Type re-check on iOS, and Android dark on this build.
+
+## 5D.4.1 polish (2026-10-14, after `e965618`) — committed and pushed as "Polish Global UI Refinement Phase 5D.4 Earnings with one collapsed Show details per card, No estimate for missing estimates, separate Reported and Next header lines, dated reaction prices and compact insight rows on Android and iOS"
+
+Owner approval: "Go ahead with your recommendation". That covers plan items 1–6 and 8–9, insights option (a) compact rows only (no insight hidden), the header split, and
+D-3 (start the Auth emulator).
+
+| # | Change (display only; Android + iOS) |
+|---|---|
+| 1 | **One "Show details" per card, collapsed by default** (`EarningsShowDetails`). Results EPS and Revenue keep their key metrics and badge visible. Behind the toggle: the rest of the server sentence, reason, basis, Difference, Year ago / Previous quarter and the comparison notes (previously always visible under a toggle that only expanded the sentence). The unknown-currency caption stays visible (`EarningsDisplay.visibleCaveat`) |
+| 2 | Details takeaway: one "Show details" (rest of the explanation, Difference/Basis, note, lesson) plus "Learn more". The separate "EPS details" toggle is gone |
+| 3 | A missing estimate reads **"No estimate"** (`EarningsFormatter.NO_ESTIMATE`, core) in the Estimate metric on Details and Results. The reason moves into Show details; the "Comparison unavailable" badge is unchanged. Never 0, never a beat/miss |
+| 4 | Details header: "Reported · Wed, Jul 22 · After market close", then "Next · Q3 FY2026 · Thu, Oct 22" with "After market close · Confirmed" beneath (the full sentence is the line's spoken label). The approved move into the reminder sheet was **not done**: a caption line keeps the date status visible without touching the reminder UI |
+| 5 | Reaction Before/After: price as the value, observation date as its detail line (same strings, split; core `MetricLine.detail`) |
+| 6 | Results "Beginner takeaway" sits right under the header, first sentence + Show details |
+| 7 (a) | Details insights: compact rows in one card (neutral icon, period, title). The unchanged server explanation and lesson sit behind Show details. No insight is hidden |
+| — | Removed helpers the change replaced (`EarningsExpandableText` on both platforms, `secondaryCaption`, two titles) |
+
+**Verification**
+| Check | Result |
+|---|---|
+| core JVM / iOS | **PASS** 502/0 / 502/0 |
+| shared Android / iOS | **PASS** 243/0 / 239/0 (+2 tests: visible caveat, reported line; 5D.3 tests updated for "No estimate" and the split reaction date) |
+| `assembleDebug`, `xcodebuild` (iPhone 16) | **PASS** |
+| Android 360 dp light 1.0× / 1.3× / 2.0× | **PASS** (`after-5d41-a360-details-*.png`). Long name wraps, header lines, buttons stack at 2.0×, No estimate, reaction dates, compact insights, chart |
+| Android dark | **PASS** (`after-5d41-a360-details-dark.png`, `-results-dark.png`); theme restored to Light |
+| iOS Results light | **PASS** (`after-5d41-ios-results-top.png`: collapsed by default, takeaway first; `…-eps-expanded.png`: Show details reveals the sentence, GAAP basis, Difference) |
+| iOS dark / AX for 5D.4.1 | NOT RUN (5D.4 iOS dark and AX XL fresh-launch PASS) |
+| **iOS Earnings Details** | **BLOCKED**. The Auth emulator was started (approved) and is running empty; the app's saved session reports "Your session has ended. Sign in again". Signing in or creating an account is the owner's to do. The emulator was stopped afterwards |
+| Loading / empty / error states | NOT RUN (no MOCK scenario for them on Details) |
+| Server tests, TalkBack/VoiceOver | NOT RUN / NOT VERIFIED |
+
+**Recommendation: PASS WITH CONDITIONS.** Conditions: iOS Details after the owner signs in on the Auth emulator, and iOS dark/AX for 5D.4.1.

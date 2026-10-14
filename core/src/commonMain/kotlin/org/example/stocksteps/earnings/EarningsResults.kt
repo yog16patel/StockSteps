@@ -515,7 +515,7 @@ object EarningsResultsFormat {
             percent(m.surprisePercent)?.let { MetricLine("Surprise %", it) }
         )
         val surprisePercent = percent(m.surprisePercent)
-        val keyMetrics = listOf(MetricLine("Actual", money(m.actual, m.currency)), MetricLine("Estimate", money(m.estimate, m.currency)),
+        val keyMetrics = listOf(MetricLine("Actual", money(m.actual, m.currency)), MetricLine("Estimate", m.estimate?.let { money(it, m.currency) } ?: EarningsFormatter.NO_ESTIMATE),
             MetricLine("Surprise", surprisePercent ?: "—"))
         val secondary = listOfNotNull(m.surpriseAmount?.let { MetricLine("Difference", signed(it, money, m.currency)!!) })
         return ComparisonCardView(key, if (eps) "Earnings per share (EPS)" else "Revenue", m.classification, text, lines,
