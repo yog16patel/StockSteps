@@ -19,8 +19,18 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
   running and are **not recorded**. Device checks **NOT RUN**. TalkBack / VoiceOver / Accessibility Inspector **NOT VERIFIED** (deferred).
 - **Not changed (by decision):** engine, Decimal, ledger, FX, API, fixtures, existing transactions, default currency. MOCK's synthetic TD.TO profile
   (USD / NASDAQ) is recorded for the backend session (D-5). Typed-symbol currency metadata contract deferred (D-3).
-- **Next:** record the suite + build; run plan §6 device rows 1–9 on local MOCK (Auth emulator for row 6); add after captures to
-  `docs/design/portfolio_phase_e_2/`; then owner decision on scheduling allocation A1; Phase 5D.
+- **Update after `8e90dc8` (committed and pushed as "Record Portfolio Phase E.2 verification with all suites passing, session-expired and currency device checks, and keep Session expired after dismissing a change rejected by an ended session"):**
+  - Suite on the committed code: core JVM 478/0, core iOS 478/0, shared Android 226/0, shared iOS 222/0, server 499/0 (3 skipped),
+    `assembleDebug` OK, `xcodebuild` OK.
+  - C5: a change rejected because the session ended re-runs the sync, so Dismiss leads to "Session expired" + "Sign in again". Test added;
+    core JVM and shared Android re-run 478/0 and 226/0.
+  - Device (report §3): iOS title/label, currency note, cash following, session-expired banner, Add disabled, Sign in again → sign-in screen with no
+    loop: PASS. Android title wrap, currency note at 1.0×/2.0×, offline + Retry: PASS. Re-sign-in, iOS AX5 title, edit/history currency and the
+    small-screen review: BLOCKED or NOT RUN. After captures are in `docs/design/portfolio_phase_e_2/`.
+  - Environment: MOCK and the Auth emulator are stopped. The iPhone 16 is **signed out** (by the Sign in again test) at Large. Android
+    `emulator-5554` (Pixel_9_Pro) is running, restored (size reset, font 1.0, no `adb reverse`), still signed in. `emulator-5556` untouched.
+- **Next:** owner signs in again on the iPhone 16 (local Auth emulator) to finish report §4 item 1; schedule
+  allocation A1; Phase 5D.
 - Dirty files not from this phase (never staged): root `PROJECT_HANDOFF.md` and the two backend hunks of `docs/project-status.md`.
 
 ## SESSION-END-2026-10-13-PORTFOLIO. Portfolio session end-of-session handoff — START HERE

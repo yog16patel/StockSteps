@@ -218,6 +218,8 @@ class PortfolioPresenter(
         failureKind.value = kind
         failureSource.value = source
         failure.value = if (kind == UserDataErrorKind.SESSION && source == PortfolioErrorSource.REFRESH) userDataError(cause) else message
+        // A change rejected because the session ended re-checks the sync, so "Session expired" + "Sign in again" stays after its Dismiss.
+        if (kind == UserDataErrorKind.SESSION && source != PortfolioErrorSource.REFRESH) scope.launch { repository.refresh() }
     }
     private suspend fun refreshQuotes() {
         val resource = repository.state.value

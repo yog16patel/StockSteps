@@ -109,6 +109,12 @@ class PortfolioSessionStateTest {
             assertTrue(failed.sessionExpired)
             assertEquals(UserDataErrorKind.SESSION, failed.errorKind)
             assertEquals("Your session has ended. Sign in again to continue.", failed.error)
+            // Dismissing the rejected save keeps the session state: the sync was re-checked and is SESSION too.
+            withTimeout(5_000) { repository.state.first { it.errorKind == UserDataErrorKind.SESSION } }
+            presenter.clearError()
+            val after = withTimeout(5_000) { presenter.state.first { it.errorSource == PortfolioErrorSource.REFRESH } }
+            assertTrue(after.sessionExpired)
+            assertEquals(UserDataErrorKind.SESSION, after.errorKind)
         } finally { scope.cancel(); client.close() }
     }
 }

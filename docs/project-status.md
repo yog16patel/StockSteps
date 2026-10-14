@@ -9,7 +9,8 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 **2026-10-13 — Portfolio Phase E.2 (committed and pushed as "Add Portfolio Phase E.2 with a readable iOS account title, the trade currency shown with the amounts, and a Session expired banner with Sign in again on Android and iOS"; verification in progress).**
 - "New investment account" (inline iOS title), Trade currency in Amounts with a reporting-currency note, "Session expired" + "Sign in again",
   Add unavailable only for an expired session. Report `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2.md`.
-- At commit: core JVM 478/0, shared Android 226/0; other suites, final iOS build and device checks not recorded yet. Screen readers NOT VERIFIED.
+- Suite after the commit: core 478/0 (JVM, iOS), shared 226/0 (Android) and 222/0 (iOS), server 499/0; both builds OK. Device checks mostly
+  PASS (report §3). Re-sign-in, iOS AX5 title, edit/history currency: BLOCKED or NOT RUN. Follow-up C5 + report committed as "Record Portfolio Phase E.2 verification with all suites passing, session-expired and currency device checks, and keep Session expired after dismissing a change rejected by an ended session". Screen readers NOT VERIFIED.
 
 **2026-10-13 — Portfolio session end (Portfolio D1.1 → E.1 committed and pushed).**
 - HEAD `82fd22e`: "Record Portfolio Phase E.1 iOS signed-in verification with all add, edit, delete, rejection, sample, account-switch and navigation
