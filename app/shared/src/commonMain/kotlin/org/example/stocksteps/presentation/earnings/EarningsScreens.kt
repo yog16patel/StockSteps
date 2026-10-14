@@ -351,7 +351,7 @@ internal fun EarningsDetailsScreen(
             item(key = "summary") {
                 // 5D.3 takeaway: quarter, the EPS headline from the server's classification (the server summary when there is none), badge,
                 // reported vs estimated EPS, one explanation, one lesson.
-                StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                StockCard(bordered = false, contentPadding = EarningsSectionPadding, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     state.headerPeriod?.let { Text(it, style = typography.label, color = colors.primaryText) }
                     StockTitleWithBadge(title = { Text(state.headline ?: summary, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary) },
                         badge = { state.eps?.let { ClassificationBadge(it.classification) } })
@@ -387,7 +387,7 @@ internal fun EarningsDetailsScreen(
         }
         if (state.reaction.isNotEmpty() || state.reactionSentence != null) item(key = "reaction") {
             // 5D.3: the measured change first, then Before/After, the non-causal sentence; window, source and method folded below.
-            StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            StockCard(bordered = false, contentPadding = EarningsSectionPadding, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 // 5D.4.2: the measured change on its own line under the title.
                 Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
                 state.reactionHeadline?.let { EarningsReactionHeadline(it, state.reactionDirection) }
@@ -538,24 +538,31 @@ private fun DetailsHeader(state: EarningsDetailsState, onRemind: () -> Unit, onC
     val typography = StockStepsTheme.typography
     val d = state.details
     Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            StockTickerAvatar(state.symbol, logoUrl = d?.event?.logoUrl, size = StockStepsTheme.dimensions.logoCompact)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                // 5D.4.2 (5D42-2): section size — the bar already titles the screen; long names wrap.
-                Text(d?.name ?: state.symbol, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
-                // The quarter is the summary card's eyebrow when there is one, so it isn't repeated here.
-                Text(listOfNotNull(state.symbol, d?.event?.exchange, state.headerPeriod.takeIf { d?.summary == null }).joinToString(" · "),
-                    style = typography.small, color = colors.textSecondary)
-            }
+        // 5D.4.2 (5D42-2): section size — the bar already titles the screen; long names wrap.
+        val name: @Composable () -> Unit = { Text(d?.name ?: state.symbol, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary) }
+        val logo: @Composable () -> Unit = { StockTickerAvatar(state.symbol, logoUrl = d?.event?.logoUrl, size = StockStepsTheme.dimensions.logoCompact) }
+        // The quarter is the summary card's eyebrow when there is one, so it isn't repeated here.
+        val ticker: @Composable (Modifier) -> Unit = { m -> Text(listOfNotNull(state.symbol, d?.event?.exchange, state.headerPeriod.takeIf { d?.summary == null }).joinToString(" · "),
+            m, style = typography.small, color = colors.textSecondary) }
+        if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale) {
+            // 5D.4.3 (Q-02): at large text the name gets the full width; the logo moves onto the ticker line.
+            name()
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) { logo(); ticker(Modifier.weight(1f)) }
+        } else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            logo()
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) { name(); ticker(Modifier) }
         }
         // D-1 (owner-approved, 5D.3): status + a compact Sample badge; the full sample sentence stays in the page notes and the app strip.
-        if (d != null) Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            StockStatusBadge(d.status.label, org.example.stocksteps.theme.StockBadgeKind.NEUTRAL)
+        val reportedLine = EarningsDisplay.reportedLine(d?.status, state.headerDate, state.headerSession, state.headerDateStatus)
+        // 5D.4.3 (Q-01): no "Reported" badge when the date line already starts with "Reported" (the status stays in words).
+        val statusBadge = d != null && EarningsDisplay.statusBadgeShown(reportedLine)
+        if (d != null && (statusBadge || d.sampleData)) Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            if (statusBadge) StockStatusBadge(d.status.label, org.example.stocksteps.theme.StockBadgeKind.NEUTRAL)
             if (d.sampleData) StockStatusBadge(EarningsDisplay.SAMPLE_BADGE, org.example.stocksteps.theme.StockBadgeKind.SAMPLE,
                 contentDescription = EarningsDisplay.SAMPLE_SENTENCE)
         }
         // 5D.4.1: the reported quarter and the next report on separate labelled lines.
-        EarningsDisplay.reportedLine(d?.status, state.headerDate, state.headerSession, state.headerDateStatus)?.let { Text(it, style = typography.small, color = colors.textBody) }
+        reportedLine?.let { Text(it, style = typography.small, color = colors.textBody) }
         state.nextLine?.let { line ->
             Column(Modifier.semantics(mergeDescendants = true) { state.next?.let { contentDescription = it } }) {
                 Text(line, style = typography.small, color = colors.primaryText)
@@ -611,7 +618,7 @@ private fun HistoryRow(row: HistoryRowView, open: Boolean, onToggle: () -> Unit)
 @Composable
 private fun ResultCardView(card: ResultCard, onLearn: () -> Unit) {
     val colors = StockStepsTheme.colors
-    StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+    StockCard(bordered = false, contentPadding = EarningsSectionPadding, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
         Column(Modifier.semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
             EarningsCardTitle(EarningsDisplay.cardTitle(card.title), card.classification)
             // 5D.3: the three key numbers first; the rest (difference, basis, quarter-over-quarter) smaller below.
@@ -724,7 +731,7 @@ private fun EarningsResultHeader(state: EarningsResultsState) {
 private fun FinancialComparisonCard(card: ComparisonCardView, expanded: Boolean, comparisonNotes: List<String> = emptyList(), onToggle: () -> Unit) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+    StockCard(bordered = false, contentPadding = EarningsSectionPadding, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
         Column(Modifier.semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
             EarningsCardTitle(card.title, card.classification)
             if (card.keyMetrics.isNotEmpty()) EarningsKeyMetrics(card.keyMetrics) else EarningsLines(card.lines)
@@ -815,15 +822,14 @@ private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (R
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    StockCard(bordered = false, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+    StockCard(bordered = false, contentPadding = EarningsSectionPadding, modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         // 5D.4.2: the measured change on its own line under the title.
         Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
         state.headline?.let { EarningsReactionHeadline(it, state.direction) }
-        Row(Modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            ReactionWindow.entries.forEach { w ->
-                val pending = state.windows.firstOrNull { it.window == w }?.status == ReactionStatus.WINDOW_INCOMPLETE
-                StockChip(w.label + if (pending) " · not yet" else "", state.window == w, onClick = { onAction(ResultsAction.Window(w)) })
-            }
+        // 5D.4.3: the shared fading scroll row (CLAUDE.md rule) — at large text a chip cut at the edge now fades as a "more" cue.
+        StockFadingScrollRow(ReactionWindow.entries, state.window, Modifier.selectableGroup(), spacing.xs) { w, itemModifier ->
+            val pending = state.windows.firstOrNull { it.window == w }?.status == ReactionStatus.WINDOW_INCOMPLETE
+            StockChip(w.label + if (pending) " · not yet" else "", state.window == w, onClick = { onAction(ResultsAction.Window(w)) }, modifier = itemModifier)
         }
         if (state.loading || state.refreshing) LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading price reaction" })
         state.error?.let { StockErrorState(it, { onAction(ResultsAction.RetryReaction) }) }
@@ -856,3 +862,8 @@ private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (R
         }
     }
 }
+
+/** 5D.4.3 (Q-03): sections that end in a 48 dp toggle row use a smaller bottom padding (the row's own height already gives the space). */
+private val EarningsSectionPadding: PaddingValues
+    @Composable get() = PaddingValues(start = StockStepsTheme.spacing.cardPadding, top = StockStepsTheme.spacing.cardPadding,
+        end = StockStepsTheme.spacing.cardPadding, bottom = StockStepsTheme.spacing.sm)

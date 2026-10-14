@@ -11,9 +11,9 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-14, Earnings Phase 5D.4.2 committed)
+## Current task (as of 2026-10-14, Earnings Phase 5D.4.3 committed)
 
-Phases 5D.2 (`3d7b000`), 5D.3 (`91961a2`), 5D.4.2 ("Polish Global UI Refinement Phase 5D.4.2 Earnings with borderless content sections, a compact header, one-row Show details and Learn more, the comparison-unavailable badge below the title and quieter secondary metrics on Android and iOS"), 5D.4.1 ("Polish Global UI Refinement Phase 5D.4 Earnings with one collapsed Show details per card, No estimate for missing estimates, separate Reported and Next header lines, dated reaction prices and compact insight rows on Android and iOS") and 5D.4 ("Add Global UI Refinement Phase 5D.4 Earnings UX refinement with EPS merged into the takeaway, compact metric rows, first-sentence explanations, a labelled EPS history chart and folded comparisons and notes on Android and iOS") are committed and pushed, each PASS WITH CONDITIONS. Reports
+Phases 5D.2 (`3d7b000`), 5D.3 (`91961a2`), 5D.4.3 ("Stabilize Global UI Refinement Phase 5D.4.3 Earnings with one Reported status in the header, a full-width company name at large text, tighter section bottoms and a fading session-chip row on Android and iOS"), 5D.4.2 ("Polish Global UI Refinement Phase 5D.4.2 Earnings with borderless content sections, a compact header, one-row Show details and Learn more, the comparison-unavailable badge below the title and quieter secondary metrics on Android and iOS"), 5D.4.1 ("Polish Global UI Refinement Phase 5D.4 Earnings with one collapsed Show details per card, No estimate for missing estimates, separate Reported and Next header lines, dated reaction prices and compact insight rows on Android and iOS") and 5D.4 ("Add Global UI Refinement Phase 5D.4 Earnings UX refinement with EPS merged into the takeaway, compact metric rows, first-sentence explanations, a labelled EPS history chart and folded comparisons and notes on Android and iOS") are committed and pushed, each PASS WITH CONDITIONS. Reports
 `docs/GLOBAL_UI_REFINEMENT_PHASE5D_2.md`, `_5D_3.md`, `_5D_4.md`. **Next: iOS Earnings Details needs the owner to sign in on the local Auth emulator (approved to start; it runs empty); then
 Daily Brief / Learn (5D.5) after owner approval.** iPhone 16 input works after a simulator restart (shutdown + boot, no erase).
 
@@ -82,6 +82,8 @@ Portfolio conventions (permanent):
 - **Earnings visual polish (5D.3).** Key numbers come from the presenters' `keyMetrics` (drawn with `EarningsKeyMetrics` / `StockMetricGrid`); the
   Details headline only from `EarningsFormatter.epsHeadline` (server classification, else the server summary); methodology, sources and disclaimers fold
   into `EarningsDisclosure` (each note once, `EarningsDisplay.resultsDisclosures`); sample data shows a SAMPLE badge (D-1), never removed.
+- **iOS simulator tool:** tap/swipe coordinates are device **points** (screenshot pixels ÷ 3 on iPhone 16), not image pixels; wrong units looked like
+  "taps not registering" in 5D.4–5D.4.2.
 - **Earnings surfaces (5D.4.2).** Earnings content sections are borderless per call site (`StockCard(bordered = false)` / `.stockCard(bordered: false)`);
   never change the global card default. "Comparison unavailable" sits below card titles (`EarningsDisplay.badgeBelowTitle`); secondary key metrics use
   `StockMetricItem(quiet = true)`.

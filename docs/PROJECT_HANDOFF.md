@@ -5,6 +5,12 @@ Read order for a new session: `CLAUDE.md` → **§SESSION-END-2026-10-14 below**
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
+## PHASE-5D-4-3-2026-10-14 — committed and pushed as "Stabilize Global UI Refinement Phase 5D.4.3 Earnings with one Reported status in the header, a full-width company name at large text, tighter section bottoms and a fading session-chip row on Android and iOS"
+- On top of `93aac9c`: one status in words in the header (no duplicate Reported badge), full-width company name at large text, 8 dp bottom padding under toggle
+  rows, fading scroll row for the Results session chips. Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md`. Shared 245/0 and 241/0; builds PASS.
+- Android 1.0/1.3/2.0× PASS; iOS Results light/dark/live AX PASS. The iOS "tap failures" were a coordinate-unit mistake (use device points), not the simulator.
+  iOS Details BLOCKED (owner sign-in). Out of scope: iOS Home live Dynamic Type issue.
+
 ## PHASE-5D-4-2-2026-10-14 — committed and pushed as "Polish Global UI Refinement Phase 5D.4.2 Earnings with borderless content sections, a compact header, one-row Show details and Learn more, the comparison-unavailable badge below the title and quieter secondary metrics on Android and iOS"
 - Borderless Earnings polish on top of `a4f35c4`: borderless content surfaces (per call site), 20 dp section rhythm, compact header (20 sp name), Show details +
   Learn more on one row, Comparison-unavailable badge below the title, quiet secondary metrics (`StockMetric(quiet)`), reaction % on its own line, width-based

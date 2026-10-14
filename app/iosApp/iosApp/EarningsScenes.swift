@@ -622,26 +622,33 @@ struct EarningsDetailsScreen: View {
     @ViewBuilder private func content(_ state: EarningsDetailsState, _ colors: StockColors) -> some View {
         let d = state.details
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            HStack(spacing: CGFloat(space.sm)) {
-                StockTickerAvatar(symbol: state.symbol, logoUrl: d?.event?.logoUrl, size: CGFloat(StockStepsTheme.dimensions.logoCompact))
-                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                    // 5D.4.2 (5D42-2): section size — the bar already titles the screen; long names wrap.
-                    Text(d?.name ?? state.symbol).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).foregroundStyle(colors.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-                    // The quarter is the summary card's eyebrow when there is one, so it isn't repeated here.
-                    Text([state.symbol, d?.event?.exchange, d?.summary == nil ? state.headerPeriod : nil].compactMap { $0 }.joined(separator: " · "))
-                        .font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSecondary)
+            // 5D.4.2 (5D42-2): section size — the bar already titles the screen; long names wrap.
+            let name = Text(d?.name ?? state.symbol).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).foregroundStyle(colors.textPrimary)
+                .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+            let logo = StockTickerAvatar(symbol: state.symbol, logoUrl: d?.event?.logoUrl, size: CGFloat(StockStepsTheme.dimensions.logoCompact))
+            // The quarter is the summary card's eyebrow when there is one, so it isn't repeated here.
+            let ticker = Text([state.symbol, d?.event?.exchange, d?.summary == nil ? state.headerPeriod : nil].compactMap { $0 }.joined(separator: " · "))
+                .font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSecondary)
+            if typeSize >= .xxxLarge {
+                // 5D.4.3 (Q-02): at large text the name gets the full width; the logo moves onto the ticker line.
+                name
+                HStack(spacing: CGFloat(space.sm)) { logo; ticker }
+            } else {
+                HStack(spacing: CGFloat(space.sm)) {
+                    logo
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { name; ticker }
                 }
             }
-            // D-1 (owner-approved, 5D.3): status + a compact Sample badge; the full sample sentence stays in the page notes and the app strip.
-            if let d {
+            // D-1 (owner-approved, 5D.3): status + a compact Sample badge; 5D.4.3 (Q-01): no "Reported" badge when the date line says Reported.
+            let reportedLine = EarningsDisplay.shared.reportedLine(status: d?.status, date: state.headerDate, session: state.headerSession, dateStatus: state.headerDateStatus)
+            if let d, EarningsDisplay.shared.statusBadgeShown(reportedLine: reportedLine) || d.sampleData {
                 HStack(spacing: CGFloat(space.xs)) {
-                    StockStatusBadge(text: d.status.label, kind: .neutral)
+                    if EarningsDisplay.shared.statusBadgeShown(reportedLine: reportedLine) { StockStatusBadge(text: d.status.label, kind: .neutral) }
                     if d.sampleData { StockStatusBadge(text: EarningsDisplay.shared.SAMPLE_BADGE, kind: .sample, accessibilityText: EarningsDisplay.shared.SAMPLE_SENTENCE) }
                 }
             }
             // 5D.4.1: the reported quarter and the next report on separate labelled lines.
-            if let reported = EarningsDisplay.shared.reportedLine(status: d?.status, date: state.headerDate, session: state.headerSession, dateStatus: state.headerDateStatus) {
+            if let reported = reportedLine {
                 Text(reported).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
             }
             if let nextLine = state.nextLine {
@@ -683,7 +690,7 @@ struct EarningsDetailsScreen: View {
                         if let lesson = EarningsDisplay.shared.cardTopic(title: eps.title) { learnLink(lesson.title, systemImage: "lightbulb") { topic = lesson } }
                     }
                 }
-            }.frame(maxWidth: .infinity, alignment: .leading).stockCard(bordered: false)
+            }.frame(maxWidth: .infinity, alignment: .leading).earningsSection()
         }
         // 5D4-3: with a takeaway card, EPS lives there; the separate EPS card only remains without one.
         ForEach([d?.summary == nil ? state.eps : nil, state.revenue].compactMap { $0 }, id: \.title) { card in
@@ -704,7 +711,7 @@ struct EarningsDetailsScreen: View {
                     if let lesson = EarningsDisplay.shared.cardTopic(title: card.title) { learnLink(lesson.title, systemImage: "lightbulb") { topic = lesson } }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading).stockCard(bordered: false)
+            .frame(maxWidth: .infinity, alignment: .leading).earningsSection()
         }
         if state.eps == nil, d?.next != nil {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
@@ -727,7 +734,7 @@ struct EarningsDetailsScreen: View {
                         if let label = EarningsDisplay.shared.topicAction(key: "reaction") { learnLink(label, systemImage: "lightbulb") { topic = client.topic(key: "reaction") } }
                     }
                 }
-            }.frame(maxWidth: .infinity, alignment: .leading).stockCard(bordered: false)
+            }.frame(maxWidth: .infinity, alignment: .leading).earningsSection()
         }
         if let d, !d.insights.isEmpty || d.lockedInsights > 0 {
             Text("Insights").font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).accessibilityAddTraits(.isHeader).padding(.top, CGFloat(space.sm))
@@ -1076,7 +1083,7 @@ struct EarningsResultsScreen: View {
             if expanded { Text(card.infoBody).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textBody) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .stockCard(bordered: false)
+        .earningsSection()
     }
 
     private func growth(_ card: GrowthCardView, _ colors: StockColors) -> some View {
@@ -1114,13 +1121,10 @@ struct PriceReactionSection: View {
             // 5D.4.2: the measured change on its own line under the title.
             Text(EarningsDisplay.shared.REACTION_TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).accessibilityAddTraits(.isHeader)
             if let headline = state.headline { EarningsReactionHeadline(headline: headline, direction: state.direction) }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack {
-                    ForEach(ReactionWindow.entries, id: \.name) { w in
-                        let pending = state.windows.first { $0.window.name == w.name }?.status.name == "WINDOW_INCOMPLETE"
-                        StockChip(title: w.label + (pending ? " · not yet" : ""), selected: state.window.name == w.name) { onWindow(w.name) }
-                    }
-                }
+            // 5D.4.3: the shared fading scroll row (as Compose).
+            StockFadingScrollRow(items: ReactionWindow.entries, selected: state.window) { w in
+                let pending = state.windows.first { $0.window.name == w.name }?.status.name == "WINDOW_INCOMPLETE"
+                StockChip(title: w.label + (pending ? " · not yet" : ""), selected: state.window.name == w.name) { onWindow(w.name) }
             }
             if state.loading || state.refreshing { ProgressView().accessibilityLabel("Loading price reaction") }
             if let error = state.error { StockSectionMessage(message: error, actionTitle: "Try again", action: onRetry) }
@@ -1157,7 +1161,7 @@ struct PriceReactionSection: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .stockCard(bordered: false)
+        .earningsSection()
     }
 }
 
@@ -1402,5 +1406,13 @@ struct EarningsCardTitle: View {
         } else {
             StockTitleWithBadge { titleText.accessibilityAddTraits(.isHeader) } badge: { earningsClassificationBadge(classification) }
         }
+    }
+}
+
+extension View {
+    /// 5D.4.3 (Q-03, as Compose `EarningsSectionPadding`): a borderless Earnings section that ends in a 48 pt toggle row gets a smaller bottom padding.
+    func earningsSection() -> some View {
+        let p = CGFloat(space.cardPadding)
+        return padding(EdgeInsets(top: p, leading: p, bottom: CGFloat(space.sm), trailing: p)).stockCard(padding: 0, bordered: false)
     }
 }

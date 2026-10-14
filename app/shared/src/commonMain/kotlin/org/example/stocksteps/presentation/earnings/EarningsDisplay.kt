@@ -134,4 +134,7 @@ object EarningsDisplay {
 
     /** 5D.4.2: "Comparison unavailable" sits below a card title (compact); Beat / Met / Missed stay beside it. */
     fun badgeBelowTitle(classification: Classification): Boolean = classification == Classification.UNAVAILABLE
+
+    /** 5D.4.3 (Q-01): the status badge is shown unless the header's date line already states "Reported". */
+    fun statusBadgeShown(reportedLine: String?): Boolean = reportedLine?.startsWith("Reported") != true
 }

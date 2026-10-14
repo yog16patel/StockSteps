@@ -156,4 +156,16 @@ class EarningsDisplayTest {
         assertTrue(EarningsDisplay.badgeBelowTitle(Classification.UNAVAILABLE))
         for (c in listOf(Classification.BEAT, Classification.MET, Classification.MISS)) assertFalse(EarningsDisplay.badgeBelowTitle(c), "$c")
     }
+
+    // ---------- Phase 5D.4.3 ----------
+
+    @Test fun statusIsAlwaysShownInWordsOnce() {
+        val reported = EarningsDisplay.reportedLine(org.example.stocksteps.earnings.EarningsStatus.REPORTED, "Wed, Jul 22", "After market close", "Confirmed")
+        assertFalse(EarningsDisplay.statusBadgeShown(reported), "the line says Reported; no second Reported badge")
+        for (status in org.example.stocksteps.earnings.EarningsStatus.entries.filter { it != org.example.stocksteps.earnings.EarningsStatus.REPORTED && it != org.example.stocksteps.earnings.EarningsStatus.PARTIALLY_REPORTED }) {
+            assertTrue(EarningsDisplay.statusBadgeShown(EarningsDisplay.reportedLine(status, "Thu, Oct 22", "After market close", "Estimated")), "$status keeps its badge")
+        }
+        // Reported but no date: the line is absent, so the badge stays.
+        assertTrue(EarningsDisplay.statusBadgeShown(EarningsDisplay.reportedLine(org.example.stocksteps.earnings.EarningsStatus.REPORTED, null, null, null)))
+    }
 }
