@@ -87,4 +87,38 @@ object EarningsDisplay {
     fun resultsDisclosures(publication: String?, sources: List<String>, sampleData: Boolean): List<String> =
         // distinct(): the server's notes may already carry the sample sentence; each note appears once.
         (listOfNotNull(publication) + sources + listOfNotNull(SAMPLE_SENTENCE.takeIf { sampleData }) + EDUCATION_NOT_ADVICE + PRICE_CAUSES).distinct()
+
+    // ---------- Phase 5D.4: less scrolling, same content ----------
+
+    const val EPS_DETAILS_TITLE = "EPS details"
+    const val COMPARISONS_TITLE = "About these comparisons"
+    const val DETAILS_NOT_ADVICE = "Not investment advice. Earnings results don't predict how a stock will move."
+
+    /**
+     * 5D4-2 (option A): a long server explanation shows its first sentence; the rest stays one tap away ("Show details"). Splits only at ". ",
+     * "? " or "! " followed by a capital letter, so amounts ("C$1.94", "3.0%") and abbreviations never split. Returns (first, rest or null).
+     */
+    fun firstSentence(text: String): Pair<String, String?> {
+        val match = Regex("""[.?!]\s+(?=[A-Z])""").find(text) ?: return text to null
+        val end = match.range.first + 1
+        return text.substring(0, end) to text.substring(match.range.last + 1).trim().ifEmpty { null }
+    }
+
+    /** Secondary metric lines as one caption ("Growth vs last quarter: +4.2% · Can reflect seasonality."), instead of a two-column row. */
+    fun secondaryCaption(lines: List<MetricLine>): String? =
+        lines.takeIf { it.isNotEmpty() }?.joinToString("\n") { l -> "${l.label}: ${l.value}" + (l.detail?.let { " · $it" } ?: "") }
+
+    /** Details notes folded like Results: the server notes, the sample sentence for sample data, the disclaimer — each once. */
+    fun detailsDisclosures(notes: List<String>, sampleData: Boolean): List<String> =
+        (notes + listOfNotNull(SAMPLE_SENTENCE.takeIf { sampleData }) + DETAILS_NOT_ADVICE).distinct()
+
+    /**
+     * History chart quarter labels: every quarter while up to 5 (3 at large text) fit, else first and last only — labels are spread evenly, so
+     * they sit under their points only when all or just the ends are shown (a middle label would point at the wrong quarter).
+     */
+    fun historyXLabels(labels: List<String>, largeText: Boolean): List<String> =
+        if (labels.size <= (if (largeText) 3 else 5)) labels else listOfNotNull(labels.firstOrNull(), labels.lastOrNull())
+
+    /** Results title without the repeated word: "Q2 FY2026 Earnings Results" → "Q2 FY2026 results" (the screen is already "Earnings results"). */
+    fun resultsTitle(title: String): String = title.removeSuffix(" Earnings Results").let { if (it == title) title else "$it results" }
 }

@@ -11,12 +11,11 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-14, Earnings Phase 5D.3 committed)
+## Current task (as of 2026-10-14, Earnings Phase 5D.4 committed)
 
-Phase 5D.2 (`3d7b000`) and Phase 5D.3 ("Add Global UI Refinement Phase 5D.3 Earnings visual polish with an EPS headline, key metric groups, a reaction headline with folded methodology, a Sample badge and collapsed sources on Android and iOS") are committed and pushed, both PASS WITH CONDITIONS. Reports
-`docs/GLOBAL_UI_REFINEMENT_PHASE5D_2.md` and `_5D_3.md`. **Next: owner decision D-3 (Firebase Auth emulator) for the iOS Earnings runtime check, then
-5D.4 (Details vs Results roles).** iOS Earnings Details needs the Auth emulator because the simulator holds a signed-in session; iPhone 16 taps work
-about half the time.
+Phases 5D.2 (`3d7b000`), 5D.3 (`91961a2`) and 5D.4 ("Add Global UI Refinement Phase 5D.4 Earnings UX refinement with EPS merged into the takeaway, compact metric rows, first-sentence explanations, a labelled EPS history chart and folded comparisons and notes on Android and iOS") are committed and pushed, each PASS WITH CONDITIONS. Reports
+`docs/GLOBAL_UI_REFINEMENT_PHASE5D_2.md`, `_5D_3.md`, `_5D_4.md`. **Next: owner decision D-3 (Firebase Auth emulator) to verify iOS Earnings Details; then
+Daily Brief / Learn (5D.5) after owner approval.** iPhone 16 input works after a simulator restart (shutdown + boot, no erase).
 
 Earlier (Portfolio Phase E.2):
 
@@ -83,6 +82,8 @@ Portfolio conventions (permanent):
 - **Earnings visual polish (5D.3).** Key numbers come from the presenters' `keyMetrics` (drawn with `EarningsKeyMetrics` / `StockMetricGrid`); the
   Details headline only from `EarningsFormatter.epsHeadline` (server classification, else the server summary); methodology, sources and disclaimers fold
   into `EarningsDisclosure` (each note once, `EarningsDisplay.resultsDisclosures`); sample data shows a SAMPLE badge (D-1), never removed.
+- **Earnings UX (5D.4).** Long server explanations show `EarningsDisplay.firstSentence` + "Show details" (never reword server text in the UI); key
+  metric groups use `StockMetricGrid(rowsWhenNarrow = true)`; chart axis labels only from values already shown (`epsChartYLabels`).
 - **Earnings layout (5D.2).** Earnings label/value groups draw through `EarningsLines` (Compose and SwiftUI) with the shared
   `StockLayout.labelColumn` rule (one decision per group; never a weighted label beside an unweighted value). Learn links are named after the lesson
   they open (`EarningsDisplay.cardTopic` / `topicAction`).

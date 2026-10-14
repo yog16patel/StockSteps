@@ -5,6 +5,17 @@ Read order for a new session: `CLAUDE.md` → **§SESSION-END-2026-10-14 below**
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
+## PHASE-5D-4-2026-10-14 — committed and pushed as "Add Global UI Refinement Phase 5D.4 Earnings UX refinement with EPS merged into the takeaway, compact metric rows, first-sentence explanations, a labelled EPS history chart and folded comparisons and notes on Android and iOS"
+- Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4.md` (audit `…_5D_4_AUDIT.md`). Merged EPS takeaway, compact metric rows, first sentence + "Show details",
+  chart y and quarter labels, previous quarter folded into Results revenue, folded notes. Suites: core 502/0 ×2, shared 242/0 and 238/0, both builds PASS.
+- Devices: Android 1.0×/2.0× PASS. iOS Results PASS (Large light/dark, AX XL fresh launch) after the approved simulator restart. iOS Details BLOCKED (D-3).
+  Simulator restored to Large and light; emulator restored.
+
+## PHASE-5D-3-CLOSURE-2026-10-14 — committed with 5D.4
+- `91961a2` (5D.3) and `3d7b000` (5D.2) are pushed. Closure: disclosure de-duplication PASS on device; Android 360 dp 1.3×/2.0×/dark PASS (2.0× Revenue card
+  and footer notes are tall → 5D.4). iOS runtime BLOCKED by simulator input (taps late or ignored after a few screens); no simulator data erased.
+  Verdict: ready for acceptance as PASS WITH CONDITIONS. See `docs/GLOBAL_UI_REFINEMENT_PHASE5D_3.md` §8. Next: owner approval of the 5D.4 plan.
+
 ## PHASE-5D-3-2026-10-14. Earnings visual polish — committed as "Add Global UI Refinement Phase 5D.3 Earnings visual polish with an EPS headline, key metric groups, a reaction headline with folded methodology, a Sample badge and collapsed sources on Android and iOS"
 
 - Commit on top of `3d7b000` (5D.2); both pushed. Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_3.md`; captures `docs/design/earnings_phase5d_3/`.

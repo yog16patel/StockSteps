@@ -11,7 +11,8 @@ struct EarningsKeyMetrics: View {
     let metrics: [MetricLine]
     var body: some View {
         if !metrics.isEmpty {
-            StockMetricGrid(items: metrics.map { StockMetricItem(label: $0.label, value: $0.value, helper: $0.detail) }, maxColumns: 3)
+            // 5D.4: aligned label/value rows when the three can't share a row (as Compose), instead of three tall stacked blocks.
+            StockMetricGrid(items: metrics.map { StockMetricItem(label: $0.label, value: $0.value, helper: $0.detail) }, maxColumns: 3, rowsWhenNarrow: true)
         }
     }
 }
@@ -82,5 +83,36 @@ func earningsInsightSymbol(_ category: String) -> String {
     case "layers": "square.stack.3d.up"
     case "info": "info.circle"
     default: "lightbulb"
+    }
+}
+
+/// 5D4-2 (option A): the first sentence of a server explanation, the rest behind "Show details" (shared `EarningsDisplay.firstSentence`).
+struct EarningsExpandableText: View {
+    let text: String
+    @State private var open = false
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
+    var body: some View {
+        let _ = typeSize
+        let colors = StockStepsTheme.colors(scheme)
+        let parts = EarningsDisplay.shared.firstSentence(text: text)
+        let first = parts.first as? String ?? text
+        let rest = parts.second as? String
+        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            Text(open && rest != nil ? "\(first) \(rest!)" : first).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textBody)
+                .fixedSize(horizontal: false, vertical: true)
+            if rest != nil {
+                Button { open.toggle() } label: {
+                    HStack(spacing: CGFloat(space.xxs)) {
+                        Text(open ? "Hide details" : "Show details")
+                        Image(systemName: open ? "chevron.up" : "chevron.down").accessibilityHidden(true)
+                    }
+                    .font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
+                    .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget)).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(open ? "Expanded" : "Collapsed")
+            }
+        }
     }
 }

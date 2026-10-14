@@ -123,3 +123,20 @@ pattern, SF Symbols mapped from the same icon keys. Native differences that rema
 ## 7. Recommendation
 **PASS WITH CONDITIONS.** The hierarchy matches the reference's intent and is verified on Android in light, dark and at 2.0×. All suites pass and both
 apps build. Conditions: iOS runtime check (D-3) and an on-device re-capture of the de-duplicated disclosures.
+
+## 8. Closure verification (2026-10-14, after commit `91961a2`; committed with 5D.4)
+
+| Check | Result |
+|---|---|
+| Disclosure de-duplication on device | **PASS**: `after-a360-results-disclosures-deduped.png`. The sample sentence appears once (UI dump count 1); publication, sources, fetch time and the education and price-cause notes are kept |
+| Android 360 dp Details, 1.0× light | PASS (earlier captures) |
+| Android 360 dp Details, 1.3× light | **PASS**: `after-a360-details-revenue-1.3x.png` (Revenue and reaction readable, nothing clipped) |
+| Android 360 dp Details, 2.0× light | **PASS, layout heavy**: `after-a360-details-revenue-2.0x.png` + `-cont.png`. Nothing clipped or broken mid-word, but the Revenue card takes about 1.5 screens, and "Growth vs last quarter" stays side by side while the key metrics stack. The Details footer notes at 2.0× fill a screen (`after-a360-details-notes-2.0x.png`). Both go to 5D.4 |
+| Android Details dark 1.0× | **PASS**: `after-a360-details-dark-top.png`, `-dark-cards.png` |
+| Android Results dark 1.0× | PASS (`after-a360-results-dark.png`) |
+| iOS runtime | **BLOCKED (input)**. The 5D.3 build (`MOCK` URL, ad-hoc signed) was installed and launched on the iPhone 16 without erasing data or signing out. Search → Apple → Company Details worked, but taps then landed late or not at all: "View Results" opened the Earnings Calendar, and Back was ignored three times. No Earnings Details/Results capture. Details would also still need D-3 (Auth emulator). Not claimed |
+| Tests | Unchanged since `91961a2`: core 500/0 (JVM, iOS), shared 237/0 and 233/0, `assembleDebug`, `xcodebuild` all PASS. No code changed during closure |
+| TalkBack / VoiceOver | NOT VERIFIED |
+
+**5D.3 closure verdict: ready for owner acceptance as PASS WITH CONDITIONS.** Android is fully verified (1.0×/1.3×/2.0×, light/dark, de-duplication). The condition
+is the iOS runtime check, which needs a working simulator input (restart the iPhone 16 simulator, approval 5D4-1) and, for Details, D-3.

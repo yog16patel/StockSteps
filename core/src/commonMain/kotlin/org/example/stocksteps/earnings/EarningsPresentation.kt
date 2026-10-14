@@ -205,6 +205,11 @@ data class EarningsDetailsState(
     val chartLabels: List<String> = emptyList(),
     /** Phase 5D.1 (E-03): one tooltip per [chartLabels] slot, with the quarter's currency (`EarningsFormatter.historyPoint`). */
     val epsChartDetails: List<String> = emptyList(),
+    /**
+     * Phase 5D.4: the history chart's y-axis labels, top to bottom (highest, middle, lowest of the shown reported and estimated EPS — the same
+     * range the chart already scales to), in the quarters' currency. Empty with fewer than two reported values or mixed currencies.
+     */
+    val epsChartYLabels: List<String> = emptyList(),
     /** Phase 5D.1B: [EarningsFormatter.UNKNOWN_CURRENCY] once for the history chart and rows when a shown quarter has no currency. */
     val historyNote: String? = null,
     /** Phase 5D.1 (E-02): the next report's estimate sentence (`EarningsFormatter.estimateSentence`); null without a next report. */
@@ -323,8 +328,19 @@ class EarningsDetailsPresenter(
             chartLabels = chronological.map { "Q${it.event.fiscalQuarter} ${it.event.fiscalYear % 100}" },
             epsChartDetails = chronological.map { EarningsFormatter.historyPoint("Q${it.event.fiscalQuarter} ${it.event.fiscalYear % 100}", it.eps.actual, it.eps.estimate, it.eps.currency) },
             nextEstimate = d.next?.let { EarningsFormatter.estimateSentence(it.estimate) },
-            historyNote = EarningsFormatter.currencyNote(*d.history.map { it.eps.currency }.toTypedArray())
+            historyNote = EarningsFormatter.currencyNote(*d.history.map { it.eps.currency }.toTypedArray()),
+            epsChartYLabels = epsAxis(chronological.map { it.eps.actual }, chronological.map { it.eps.estimate }, d.history.map { it.eps.currency })
         )
+    }
+
+    /** Phase 5D.4: display-only axis labels from values already shown (no new data); see [EarningsDetailsState.epsChartYLabels]. */
+    internal fun epsAxis(reported: List<Double?>, estimate: List<Double?>, currencies: List<String?>): List<String> {
+        if (reported.count { it != null } < 2 || currencies.distinct().size > 1) return emptyList()
+        val all = (reported + estimate).filterNotNull()
+        val high = all.max(); val low = all.min()
+        val currency = currencies.firstOrNull()
+        return if (high == low) listOf(EarningsFormatter.eps(high, currency))
+        else listOf(high, (high + low) / 2, low).map { EarningsFormatter.eps(it, currency) }
     }
 
     fun refresh() { refreshes.value++ }

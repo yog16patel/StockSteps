@@ -7,6 +7,7 @@ import org.example.stocksteps.theme.StockBadgeKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Phase 5D.1 (E-01): one classification presentation for Earnings Results and Details on both platforms. */
@@ -96,5 +97,42 @@ class EarningsDisplayTest {
         // The server's notes can already contain the sample sentence (seen on device): still shown once.
         val withNote = EarningsDisplay.resultsDisclosures(null, listOf("Results: Sample", EarningsDisplay.SAMPLE_SENTENCE), sampleData = true)
         assertEquals(1, withNote.count { it == EarningsDisplay.SAMPLE_SENTENCE })
+    }
+
+    // ---------- Phase 5D.4 ----------
+
+    @Test fun firstSentenceNeverSplitsAmountsOrPercents() {
+        val text = "The company earned less per share than analysts expected. This is called an EPS miss. It does not guarantee that the stock price will fall."
+        val (first, rest) = EarningsDisplay.firstSentence(text)
+        assertEquals("The company earned less per share than analysts expected.", first)
+        assertEquals(text, "$first $rest", "nothing is lost")
+        assertEquals("EPS was C$1.94 against an estimate of C$2.00 (GAAP diluted)." to null,
+            EarningsDisplay.firstSentence("EPS was C$1.94 against an estimate of C$2.00 (GAAP diluted)."))
+        assertEquals("Revenue rose 3.0% year over year." to "It can reflect seasonality.", EarningsDisplay.firstSentence("Revenue rose 3.0% year over year. It can reflect seasonality."))
+        assertEquals("One line" to null, EarningsDisplay.firstSentence("One line"))
+    }
+
+    @Test fun secondaryCaptionKeepsEveryLine() {
+        assertEquals("Growth vs last quarter: +4.2% · Can reflect seasonality.", EarningsDisplay.secondaryCaption(listOf(MetricLine("Growth vs last quarter", "+4.2%", "Can reflect seasonality."))))
+        assertNull(EarningsDisplay.secondaryCaption(emptyList()))
+    }
+
+    @Test fun detailsNotesFoldEachOnce() {
+        val notes = EarningsDisplay.detailsDisclosures(listOf("Estimates are analysts' consensus.", EarningsDisplay.SAMPLE_SENTENCE), sampleData = true)
+        assertEquals(1, notes.count { it == EarningsDisplay.SAMPLE_SENTENCE })
+        assertTrue(EarningsDisplay.DETAILS_NOT_ADVICE in notes)
+        assertFalse(EarningsDisplay.SAMPLE_SENTENCE in EarningsDisplay.detailsDisclosures(emptyList(), sampleData = false))
+    }
+
+    @Test fun quarterLabelsNeverPointAtTheWrongQuarter() {
+        val four = listOf("Q3 25", "Q4 25", "Q1 26", "Q2 26")
+        assertEquals(four, EarningsDisplay.historyXLabels(four, largeText = false))
+        assertEquals(listOf("Q3 25", "Q2 26"), EarningsDisplay.historyXLabels(four, largeText = true))
+        assertEquals(listOf("Q1 25", "Q2 26"), EarningsDisplay.historyXLabels(listOf("Q1 25", "Q2 25", "Q3 25", "Q4 25", "Q1 26", "Q2 26"), largeText = false))
+    }
+
+    @Test fun resultsTitleDropsTheRepeatedWords() {
+        assertEquals("Q2 FY2026 results", EarningsDisplay.resultsTitle("Q2 FY2026 Earnings Results"))
+        assertEquals("Something else", EarningsDisplay.resultsTitle("Something else"))
     }
 }

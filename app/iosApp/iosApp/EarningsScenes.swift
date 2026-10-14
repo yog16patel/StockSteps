@@ -655,12 +655,25 @@ struct EarningsDetailsScreen: View {
                 StockTitleWithBadge {
                     Text(state.headline ?? summary).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
                 } badge: { if let eps = state.eps { earningsClassificationBadge(eps.classification) } }
-                EarningsKeyMetrics(metrics: EarningsDisplay.shared.takeawayMetrics(eps: state.eps))
-                if let explanation = d?.summaryExplanation { Text(explanation).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textBody) }
+                // 5D4-3: the EPS card merged here — Reported · Estimate · Surprise, then the rest of the EPS lines folded (nothing removed).
+                if let eps = state.eps, !eps.keyMetrics.isEmpty {
+                    EarningsKeyMetrics(metrics: eps.keyMetrics).accessibilityElement(children: .ignore).accessibilityLabel(eps.accessibility)
+                } else {
+                    EarningsKeyMetrics(metrics: EarningsDisplay.shared.takeawayMetrics(eps: state.eps))
+                }
+                if let explanation = d?.summaryExplanation { EarningsExpandableText(text: explanation) }
+                if let eps = state.eps, !eps.secondary.isEmpty || eps.note != nil {
+                    EarningsDisclosure(title: EarningsDisplay.shared.EPS_DETAILS_TITLE) {
+                        EarningsLines(lines: eps.secondary)
+                        if let note = eps.note { EarningsNotes(lines: [note]) }
+                        if let lesson = EarningsDisplay.shared.cardTopic(title: eps.title) { learnLink(lesson.title, systemImage: "lightbulb") { topic = lesson } }
+                    }
+                }
                 if let lesson = client.topic(key: "eps") { learnLink("Learn more", systemImage: "arrow.right") { topic = lesson } }
             }.frame(maxWidth: .infinity, alignment: .leading).stockCard()
         }
-        ForEach([state.eps, state.revenue].compactMap { $0 }, id: \.title) { card in
+        // 5D4-3: with a takeaway card, EPS lives there; the separate EPS card only remains without one.
+        ForEach([d?.summary == nil ? state.eps : nil, state.revenue].compactMap { $0 }, id: \.title) { card in
             VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                 VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                     StockTitleWithBadge {
@@ -672,7 +685,10 @@ struct EarningsDetailsScreen: View {
                     // 5D.3: the three key numbers first; the rest (difference, basis, quarter-over-quarter) smaller below.
                     if card.keyMetrics.isEmpty { EarningsLines(lines: card.lines) } else {
                         EarningsKeyMetrics(metrics: card.keyMetrics)
-                        if !card.secondary.isEmpty { EarningsLines(lines: card.secondary) }
+                        // 5D.4: secondary lines as one caption (was a two-column row beside stacked key numbers).
+                        if let caption = EarningsDisplay.shared.secondaryCaption(lines: card.secondary) {
+                            Text(caption).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
+                        }
                     }
                     if let note = card.note { Text(note).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary) }
                 }
@@ -711,8 +727,11 @@ struct EarningsDetailsScreen: View {
             ForEach(d.insights, id: \.id) { insight in
                 // A "Learn more" only where a lesson exists (it used to be shown even when it opened nothing).
                 let lesson = client.topic(key: insight.methodology)
-                StockInsightCard(title: insight.title, message: insight.explanation, actionTitle: lesson == nil ? nil : "Learn more",
-                                 systemImage: earningsInsightSymbol(insight.category), action: lesson.map { t in { topic = t } }, eyebrow: insight.period)
+                // 5D4-2 (A): the first sentence; the rest of the server text behind "Show details".
+                let parts = EarningsDisplay.shared.firstSentence(text: insight.explanation)
+                StockInsightCard(title: insight.title, message: parts.first as? String ?? insight.explanation, actionTitle: lesson == nil ? nil : "Learn more",
+                                 systemImage: earningsInsightSymbol(insight.category), action: lesson.map { t in { topic = t } }, eyebrow: insight.period,
+                                 details: parts.second as? String)
             }
             if d.lockedInsights > 0 {
                 Text("\(d.lockedInsights) more trend insight\(d.lockedInsights == 1 ? "" : "s") with StockSteps+.").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
@@ -727,7 +746,8 @@ struct EarningsDetailsScreen: View {
                     // Phase 5D.2: the chart Compose already draws, with the same tooltips (5D.1 E-03 currency) and legend.
                     EarningsHistoryChart(reported: reported,
                                          estimate: (state.epsChart.count > 1 ? state.epsChart[1].values : []).map { ($0 as? NSNumber)?.doubleValue },
-                                         details: state.epsChartDetails, labels: state.chartLabels,
+                                         details: state.epsChartDetails, labels: EarningsDisplay.shared.historyXLabels(labels: state.chartLabels, largeText: typeSize >= .xxxLarge),
+                                         yLabels: state.epsChartYLabels,
                                          description: "Reported EPS versus estimate for \(state.chartLabels.count) quarters.")
                 } else {
                     Text(EarningsDisplay.shared.HISTORY_CHART_TOO_SHORT).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
@@ -763,8 +783,12 @@ struct EarningsDetailsScreen: View {
         }
         .padding(.horizontal, CGFloat(space.md))
         .stockCard(padding: 0)
-        ForEach(d?.notes ?? [], id: \.self) { Text($0).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary) }
-        Text("Not investment advice. Earnings results don't predict how a stock will move.").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
+        // 5D.4: the notes and disclaimer folded like Results (each once; the Sample badge stays in the header).
+        if let d {
+            EarningsDisclosure(title: EarningsDisplay.shared.DISCLOSURES_TITLE, systemImage: "doc.text") {
+                EarningsNotes(lines: EarningsDisplay.shared.detailsDisclosures(notes: d.notes, sampleData: d.sampleData))
+            }
+        }
     }
 
     /// Remind me (secondary) and Company details (primary) share a row only while both labels fit their equal share (shared `StockActionLayout`,
@@ -928,9 +952,12 @@ struct EarningsResultsScreen: View {
     var onPremium: (PremiumAction) -> Void = { _ in }
     @Environment(\.colorScheme) private var scheme
     @State private var lesson: LearnLink?
+    /// 5D.4: read in `body` so a live Dynamic Type change re-resolves every token font on this screen (seen on device: cards kept the old size).
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
+        let _ = typeSize
         ScrollView {
             LazyVStack(alignment: .leading, spacing: CGFloat(space.md)) {
                 if let state {
@@ -962,7 +989,8 @@ struct EarningsResultsScreen: View {
                     Text(state.symbolLine).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
                 }
             }
-            Text(state.title).font(StockStepsTheme.font(type.screenTitle, relativeTo: .title1)).accessibilityAddTraits(.isHeader)
+            // 5D.4: "Q2 FY2026 results" at section size (the bar already says "Earnings results").
+            Text(EarningsDisplay.shared.resultsTitle(title: state.title)).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title2)).accessibilityAddTraits(.isHeader)
             ForEach(state.periodLines, id: \.self) { Text($0).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary) }
             // D-1 (owner-approved, 5D.3): a compact Sample badge; the full sentence is in "Sources and disclosures" and the app strip stays.
             if state.sampleData { StockStatusBadge(text: EarningsDisplay.shared.SAMPLE_BADGE, kind: .sample, accessibilityText: EarningsDisplay.shared.SAMPLE_SENTENCE) }
@@ -970,10 +998,11 @@ struct EarningsResultsScreen: View {
             if let f = state.freshnessText { StockBanner(kind: .warning, message: f) }
         }
         if let eps = state.eps { comparison(eps, expanded: state.expanded.contains(eps.key), colors) }
-        if let revenue = state.revenue { comparison(revenue, expanded: state.expanded.contains(revenue.key), colors) }
+        if let revenue = state.revenue { comparison(revenue, expanded: state.expanded.contains(revenue.key), comparisonNotes: state.comparisonNotes, colors) }
         // 5D.3: YoY growth is revenue's third key metric when available; the card only remains for its "not available" reason.
         if let yoy = state.yearOverYear, !state.yearOverYearFolded { growth(yoy, colors) }
-        if let qoq = state.quarterOverQuarter { growth(qoq, colors) }
+        // 5D.4: the previous-quarter comparison is a secondary revenue row when available; the card only remains for its reason.
+        if let qoq = state.quarterOverQuarter, !state.quarterOverQuarterFolded { growth(qoq, colors) }
         if let takeaway = state.takeaway {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 Text(EarningsDisplay.shared.TAKEAWAY_TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).accessibilityAddTraits(.isHeader)
@@ -1007,20 +1036,25 @@ struct EarningsResultsScreen: View {
     }
 
     /// One card for EPS and revenue; the classification is a word, colour is secondary.
-    private func comparison(_ card: ComparisonCardView, expanded: Bool, _ colors: StockColors) -> some View {
+    private func comparison(_ card: ComparisonCardView, expanded: Bool, comparisonNotes: [String] = [], _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 StockTitleWithBadge {
                     Text(card.title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
                 } badge: { earningsClassificationBadge(card.classification) } // 5D.1 (E-01)
                 if card.keyMetrics.isEmpty { EarningsLines(lines: card.lines) } else { EarningsKeyMetrics(metrics: card.keyMetrics) }
-                if let e = card.explanation { Text(e).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textBody) }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(card.accessibility)
+            // 5D4-2 (A): first sentence + "Show details" (outside the combined element so the toggle stays reachable).
+            if let e = card.explanation { EarningsExpandableText(text: e) }
+            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 if let r = card.reason { Text(r).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary) }
                 if let b = card.basisNote { Text(b).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary) }
                 if !card.keyMetrics.isEmpty && !card.secondary.isEmpty { EarningsLines(lines: card.secondary) }
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(card.accessibility)
+            // 5D.4: the folded growth cards' explanations (unchanged), one tap away.
+            if !comparisonNotes.isEmpty { EarningsDisclosure(title: EarningsDisplay.shared.COMPARISONS_TITLE) { EarningsNotes(lines: comparisonNotes) } }
             Button { onToggle(card.key) } label: {
                 HStack { Image(systemName: "info.circle"); Text(card.infoTitle).multilineTextAlignment(.leading); Spacer(); Image(systemName: expanded ? "chevron.down" : "chevron.right") }
                     .font(StockStepsTheme.font(type.label, relativeTo: .subheadline))
@@ -1060,9 +1094,11 @@ struct PriceReactionSection: View {
     let onToggleChart: () -> Void
     let onLesson: (LearnLink) -> Void
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
+        let _ = typeSize
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             StockTitleWithBadge {
                 Text(EarningsDisplay.shared.REACTION_TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).accessibilityAddTraits(.isHeader)
@@ -1090,7 +1126,6 @@ struct PriceReactionSection: View {
                 if let missing = chart.missingNote { Text(missing).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.cautionText) }
                 Button(state.expandedChart ? "Smaller chart" : "Larger chart", action: onToggleChart).font(StockStepsTheme.font(type.bodyMedium, relativeTo: .subheadline)).frame(minHeight: 48)
             }
-            if let explanation = state.explanation { Text(explanation).stockFont(type.body, relativeTo: .body).foregroundStyle(colors.textBody) }
             if let mixed = state.mixedNote { Text(mixed).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textSecondary) }
             // E-06: one warning banner for the section's caveats (the words are unchanged).
             let caveats = state.warnings + (state.stale ? ["Showing saved price data; the price provider isn't responding."] : [])
@@ -1102,6 +1137,8 @@ struct PriceReactionSection: View {
                     EarningsNotes(lines: ["Dashed line: \(chart.eventLabel). Rings: baseline and endpoint closes. Daily closes only, so the marker shows the session, not the exact time."])
                 }
                 if let context = state.contextLine { EarningsNotes(lines: [context]) }
+                // 5D.4 (R4-04): the server's reaction explanation moved here from between the numbers and the chart (unchanged text).
+                if let explanation = state.explanation { Text(explanation).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textBody) }
                 ForEach(state.learn, id: \.title) { link in
                     Button(link.title, systemImage: "lightbulb") { onLesson(link) }.font(StockStepsTheme.font(type.bodyMedium, relativeTo: .subheadline)).frame(minHeight: 48)
                 }
@@ -1245,6 +1282,8 @@ struct EarningsHistoryChart: View {
     let estimate: [Double?]
     let details: [String]
     let labels: [String]
+    /// 5D.4: highest / middle / lowest of the shown values (`EarningsDetailsState.epsChartYLabels`); empty draws no axis.
+    var yLabels: [String] = []
     let description: String
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -1266,6 +1305,7 @@ struct EarningsHistoryChart: View {
             }
             Text(details.indices.contains(focus) ? details[focus] : "").font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: CGFloat(space.sm)) {
             GeometryReader { proxy in
                 let size = proxy.size
                 let step = count > 1 ? size.width / CGFloat(count - 1) : 0
@@ -1288,11 +1328,22 @@ struct EarningsHistoryChart: View {
                     selected = min(max(Int((g.location.x / max(step, 1)).rounded()), 0), count - 1)
                 })
             }
+            if !yLabels.isEmpty {
+                VStack(alignment: .trailing) {
+                    ForEach(Array(yLabels.enumerated()), id: \.offset) { index, label in
+                        if index > 0 { Spacer(minLength: 0) }
+                        Text(label)
+                    }
+                }
+                .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)
+            }
+            }
             .frame(height: 140)
             HStack {
-                Text(labels.first ?? "")
-                Spacer(minLength: CGFloat(space.sm))
-                Text(labels.last ?? "")
+                ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
+                    if index > 0 { Spacer(minLength: CGFloat(space.xs)) }
+                    Text(label).lineLimit(1)
+                }
             }
             .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)
         }

@@ -466,6 +466,10 @@ data class EarningsResultsState(
     val publication: String? = null,
     /** Phase 5D.3: true when [revenue]'s key metrics already show the year-over-year growth, so the separate card isn't repeated. */
     val yearOverYearFolded: Boolean = false,
+    /** Phase 5D.4: true when [revenue] carries the previous-quarter comparison as a secondary row, so the separate card isn't repeated. */
+    val quarterOverQuarterFolded: Boolean = false,
+    /** Phase 5D.4: the folded growth cards' explanations (unchanged server text), shown under "About these comparisons". */
+    val comparisonNotes: List<String> = emptyList(),
     val eps: ComparisonCardView? = null,
     val revenue: ComparisonCardView? = null,
     val yearOverYear: GrowthCardView? = null,
@@ -539,6 +543,12 @@ object EarningsResultsFormat {
         percent(g.percent)?.let { MetricLine(if (key == "yoy") "Year-over-year growth" else "Change from previous quarter", it) }
     ), g.explanation, g.reason)
 
+    /** Phase 5D.4: the previous-quarter comparison as one secondary revenue row ("Previous quarter (Q1 FY2026)": "C$4.28B · +4.2%"). */
+    internal fun foldQuarter(revenue: ComparisonCardView, g: GrowthComparison): ComparisonCardView? = percent(g.percent)?.let { qoq ->
+        revenue.copy(secondary = revenue.secondary + MetricLine("Previous quarter" + (g.priorLabel?.let { " ($it)" } ?: ""),
+            (g.prior?.let { revenue(it, g.currency) + " · " } ?: "") + qoq))
+    }
+
     fun learn(): List<LearnLink> = listOf(
         org.example.stocksteps.learning.BeginnerEducation.entry("eps").let { LearnLink("What is EPS?", it?.let { e -> "${e.short} ${e.why}" }) },
         org.example.stocksteps.learning.BeginnerEducation.entry("netIncome").let { LearnLink("Revenue vs profit", it?.let { e ->
@@ -562,7 +572,11 @@ object EarningsResultsFormat {
             ),
             publication = report.publishedAt?.let { "Published by the source ${EarningsFormatter.date(it.take(10))}, ${it.drop(11).take(5)} UTC" } ?: "Publication time not provided by the source",
             yearOverYearFolded = foldGrowth(card("revenue", i.revenue, false), i.yearOverYear) != null,
-            eps = card("eps", i.eps, true), revenue = card("revenue", i.revenue, false).let { foldGrowth(it, i.yearOverYear) ?: it },
+            quarterOverQuarterFolded = percent(i.quarterOverQuarter.percent) != null,
+            comparisonNotes = listOfNotNull(i.yearOverYear.explanation.takeIf { percent(i.yearOverYear.percent) != null },
+                i.quarterOverQuarter.explanation.takeIf { percent(i.quarterOverQuarter.percent) != null }),
+            eps = card("eps", i.eps, true),
+            revenue = card("revenue", i.revenue, false).let { foldGrowth(it, i.yearOverYear) ?: it }.let { foldQuarter(it, i.quarterOverQuarter) ?: it },
             yearOverYear = growth("yoy", "Is the business growing?", i.yearOverYear),
             quarterOverQuarter = growth("qoq", "Compared with the previous quarter", i.quarterOverQuarter),
             takeaway = i.takeaway, warnings = i.comparisonWarnings, learn = learn(),

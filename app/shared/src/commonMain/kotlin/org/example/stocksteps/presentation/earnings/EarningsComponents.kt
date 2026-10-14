@@ -25,7 +25,26 @@ import org.example.stocksteps.earnings.MetricLine
 @Composable
 internal fun EarningsKeyMetrics(metrics: List<MetricLine>, modifier: Modifier = Modifier) {
     if (metrics.isEmpty()) return
-    StockMetricGrid(metrics.map { StockMetricItem(it.label, it.value, helper = it.detail) }, modifier, maxColumns = 3)
+    // 5D.4: when the three can't share a row (narrow, large text), aligned label/value rows instead of three tall stacked blocks.
+    StockMetricGrid(metrics.map { StockMetricItem(it.label, it.value, helper = it.detail) }, modifier, maxColumns = 3, rowsWhenNarrow = true)
+}
+
+/** 5D4-2 (option A): the first sentence of a server explanation, the rest behind "Show details" (nothing removed, wording unchanged). */
+@Composable
+internal fun EarningsExpandableText(text: String, modifier: Modifier = Modifier, style: androidx.compose.ui.text.TextStyle = StockStepsTheme.typography.small) {
+    val (first, rest) = remember(text) { EarningsDisplay.firstSentence(text) }
+    var open by rememberSaveable(text) { mutableStateOf(false) }
+    val colors = StockStepsTheme.colors
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+        Text(if (open && rest != null) "$first $rest" else first, style = style, color = colors.textBody)
+        if (rest != null) Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
+            .clickable(role = Role.Button, onClickLabel = if (open) "Hide details" else "Show details") { open = !open }
+            .semantics { stateDescription = if (open) "Expanded" else "Collapsed" },
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+            Text(if (open) "Hide details" else "Show details", style = StockStepsTheme.typography.label, color = colors.primaryText)
+            Icon(StockIcons.ChevronDown, null, Modifier.size(StockStepsTheme.dimensions.iconSmall).rotate(if (open) 180f else 0f), tint = colors.primaryText)
+        }
+    }
 }
 
 /** The measured price change with the app's arrow and gain/loss style; the sign and arrow carry the meaning, colour is secondary. */
