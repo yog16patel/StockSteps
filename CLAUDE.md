@@ -11,7 +11,14 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-13, Portfolio Phase E.2)
+## Current task (as of 2026-10-14, Earnings Phase 5D.3 plan awaiting approval)
+
+Phase 5D.2 is committed as "Add Global UI Refinement Phase 5D.2 Earnings layout refinement with whole price-reaction labels from a shared label and value rule, design-system badges, banners and buttons, lesson-named links and an iOS EPS history chart on Android and iOS" (PASS WITH CONDITIONS: iOS runtime of 5D.2, Android dark theme, owner decision D-1). Report
+`docs/GLOBAL_UI_REFINEMENT_PHASE5D_2.md`. **Next: Earnings visual polish (proposed 5D.3) from the owner's reference — the plan was presented in chat;
+wait for owner approval before code.** iOS Earnings Details needs the Firebase Auth emulator (owner approval) because the simulator holds a signed-in
+session; iPhone 16 taps now work about half the time.
+
+Earlier (Portfolio Phase E.2):
 
 **Phase E.2** ("Add Portfolio Phase E.2 with a readable iOS account title, the trade currency shown with the amounts, and a Session expired banner
 with Sign in again on Android and iOS") is committed and pushed, and its verification is recorded (all suites pass; device checks mostly PASS). Closed as PASS WITH CONDITIONS (report §5): the
@@ -73,6 +80,9 @@ Portfolio conventions (permanent):
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,
   `PortfolioAllocationDisplay`). History loads on demand only; the chart is "Account value", never performance. No UI-computed return %. The donut
   only when `allocationDonutAllowed` (`StockAllocationLayout` geometry). Missing stays missing.
+- **Earnings layout (5D.2).** Earnings label/value groups draw through `EarningsLines` (Compose and SwiftUI) with the shared
+  `StockLayout.labelColumn` rule (one decision per group; never a weighted label beside an unweighted value). Learn links are named after the lesson
+  they open (`EarningsDisplay.cardTopic` / `topicAction`).
 - **Earnings display (5D.1).** BEAT/MET/MISS come only from `EarningsDisplay.classification` (label + `StockBadgeKind`, drawn with `StockStatusBadge`) on
   every Earnings screen. Amounts use `EarningsFormatter` with the source currency: a null currency shows no symbol (never "$") plus
   `EarningsFormatter.UNKNOWN_CURRENCY` once per card or section; never infer a currency from the ticker or exchange.

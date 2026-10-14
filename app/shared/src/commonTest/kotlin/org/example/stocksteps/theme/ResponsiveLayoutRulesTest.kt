@@ -127,4 +127,24 @@ class ResponsiveLayoutRulesTest {
         assertEquals(0.6f, StockHeadingFit.scale(longestWord = 1000f, available = 100f), "never below the floor")
         assertEquals(1f, StockHeadingFit.scale(0f, 260f))
     }
+
+    @Test
+    fun earningsLabelValueRowsNeverSqueezeALabelIntoLetters() {
+        // Android 360 dp, 1.0×: card text width ≈ 296 dp. "Window" / "Source" (≈ 48 dp) beside wrapping values ("StockSteps" ≈ 75 dp).
+        val column = StockLayout.labelColumn(widestLabel = 48f, longestLabelWord = 48f, longestValueWord = 75f, availableWidth = 296f)
+        assertEquals(48f, column, "side by side: the label keeps its full one-line width; values wrap in the rest")
+        // A long market label ("S&P/TSX Composite" ≈ 120 dp) still fits beside the values at 1.0×.
+        assertEquals(120f, StockLayout.labelColumn(120f, 64f, 75f, 296f))
+        // 2.0×: widths double. With a long market label the capped label column (≥ its longest word "Composite" ≈ 140) leaves the values
+        // 144 dp, less than the longest value word ("StockSteps" ≈ 150), so the whole group stacks.
+        assertEquals(null, StockLayout.labelColumn(240f, 140f, 150f, 296f))
+        // 2.0× with short labels ("Window" ≈ 96): side by side is still readable, values wrap between words.
+        assertEquals(96f, StockLayout.labelColumn(96f, 96f, 150f, 296f))
+        // A very long label is capped at 45 % of the row (it wraps between words) but never narrower than its longest word.
+        assertEquals(296f * StockLayout.LABEL_COLUMN_MAX_SHARE, StockLayout.labelColumn(200f, 60f, 60f, 296f))
+        assertEquals(null, StockLayout.labelColumn(200f, 190f, 60f, 296f), "an unbreakable label word leaves too little for values: stack")
+        // A single value word wider than the value column stacks instead of breaking the word.
+        assertEquals(null, StockLayout.labelColumn(48f, 48f, 250f, 296f))
+        assertEquals(null, StockLayout.labelColumn(48f, 48f, 75f, 0f), "unmeasured: stacked (never squeezed)")
+    }
 }

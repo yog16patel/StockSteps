@@ -1,10 +1,20 @@
 # StockSteps — project status
 
-Last reviewed: 2026-10-13 against the repository (`main`, HEAD "Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend" (docs only), on top of `3d91ef3` (Portfolio Phase E) and `fa7c563` (backend Phase 1); the working tree also holds uncommitted parallel-session work). Verify with
+Last reviewed: 2026-10-14 against the repository (`main`, HEAD `a15cd5f` "Add Global UI Refinement Phase 5D.1 Earnings accuracy …"; earlier: "Record the Ubuntu MOCK backend deployment and Phase 3B Android and iOS connectivity verification against the LAN backend" (docs only), on top of `3d91ef3` (Portfolio Phase E) and `fa7c563` (backend Phase 1); the working tree also holds uncommitted parallel-session work). Verify with
 `git log`/`git status` before relying on this file. Per-feature details live in `docs/*.md`; the
 milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
+
+**2026-10-14 — Phase 5D.2 Earnings design-system and layout refinement (committed as "Add Global UI Refinement Phase 5D.2 Earnings layout refinement with whole price-reaction labels from a shared label and value rule, design-system badges, banners and buttons, lesson-named links and an iOS EPS history chart on Android and iOS").** The price-reaction "Window"/"Source" break is fixed by the
+shared `StockLayout.labelColumn` + `EarningsLines` (both platforms), along with design-system badges, banners and buttons, sentence case and an iOS history chart.
+All suites pass and both builds succeed; Android device PASS; iOS runtime NOT RUN (Details BLOCKED by the signed-in session). Report
+`docs/GLOBAL_UI_REFINEMENT_PHASE5D_2.md`. Recommendation: PASS WITH CONDITIONS. Next: visual-polish plan (5D.3) awaits owner approval.
+
+**2026-10-14 — Session end.** HEAD `a15cd5f` (pushed). Portfolio refinement closed (E.2 accepted PASS WITH CONDITIONS; follow-ups QA-E2-1…3 open).
+Earnings Phase 5D.1 (+1A/1B currency) committed, PASS WITH CONDITIONS (iOS runtime blocked by simulator taps; unknown currency and E-02 unit-tested only;
+dark theme not run). **Next: Phase 5D.2 Earnings design-system alignment — plan first, owner approval before code.** Full handoff:
+`docs/PROJECT_HANDOFF.md` §SESSION-END-2026-10-14. Tests at HEAD: core 492/0 (JVM, iOS), shared 229/0 / 225/0, server 501/0 (3 skipped), both builds OK.
 
 **2026-10-13 — Global UI Refinement Phase 5D.1 Earnings accuracy (committed and pushed as "Add Global UI Refinement Phase 5D.1 Earnings accuracy with one BEAT, MET and MISS badge, placeholder-free estimate sentences, currency-correct history tooltips and Insights, and no invented dollar sign for a missing currency on Android and iOS"; PASS WITH CONDITIONS).** One BEAT/MET/MISS badge on Results and
 Details (`EarningsDisplay`), one estimate sentence and currency-correct history tooltips from core. Suites pass; Android device PASS; iOS runtime BLOCKED.

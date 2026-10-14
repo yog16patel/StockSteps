@@ -268,9 +268,8 @@ internal fun EarningsEventScreen(state: EarningsEventState, watched: Boolean, wa
             item(key = "event") {
                 StockCard(Modifier.fillMaxWidth()) {
                     Text("Earnings report", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
-                    Line(MetricLine("Date", state.dateText.orEmpty()))
-                    Line(MetricLine("Expected timing", state.timingText.orEmpty()))
-                    Line(MetricLine("Status", state.statusText.orEmpty()))
+                    EarningsLines(listOf(MetricLine("Date", state.dateText.orEmpty()), MetricLine("Expected timing", state.timingText.orEmpty()),
+                        MetricLine("Status", state.statusText.orEmpty())))
                     state.previousDate?.let { Text("Date moved from ${EarningsFormatter.date(it)}", style = typography.caption, color = colors.cautionText) }
                     state.statusExplanation?.let { Text(it, style = typography.small, color = colors.textBody) }
                     // Only a verified report links to Earnings Results; never a placeholder.
@@ -311,8 +310,8 @@ internal fun EarningsEventScreen(state: EarningsEventState, watched: Boolean, wa
 
 @Composable
 private fun Badge(text: String) {
-    Text(text, Modifier.clip(StockStepsTheme.shapes.pill).background(StockStepsTheme.colors.surfaceSecondary).padding(horizontal = StockStepsTheme.spacing.sm, vertical = StockStepsTheme.spacing.xxs),
-        style = StockStepsTheme.typography.tiny, color = StockStepsTheme.colors.textPrimary)
+    // E-07: the shared status badge (colours and the no-wrap rule from `StockSemanticStyles` / `StockBadgeLayout`).
+    StockStatusBadge(text, org.example.stocksteps.theme.StockBadgeKind.NEUTRAL, size = StockBadgeSize.COMPACT)
 }
 
 @Composable
@@ -344,124 +343,101 @@ internal fun EarningsDetailsScreen(
     var question by rememberSaveable { mutableStateOf("") }
     LazyColumn(modifier.background(colors.appBackground), contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-        item(key = "header") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    StockTickerAvatar(state.symbol, logoUrl = d?.event?.logoUrl, size = StockStepsTheme.dimensions.logo)
-                    Column(Modifier.weight(1f)) {
-                        Text(d?.name ?: state.symbol, Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary, maxLines = 2)
-                        Text(listOfNotNull(state.symbol, d?.event?.exchange, state.headerPeriod).joinToString(" · "), style = typography.small, color = colors.textSecondary)
-                    }
-                }
-                d?.let { Badge(it.status.label) }
-                listOfNotNull(state.headerDate, state.headerSession, state.headerDateStatus).takeIf { it.isNotEmpty() }?.let {
-                    Text(it.joinToString(" · "), style = typography.small, color = colors.textSecondary)
-                }
-                state.next?.let { Text(it, style = typography.caption, color = colors.primary) }
-                if (d?.sampleData == true) StockSampleDataBanner("Sample earnings data for development, not real results.")
-                if (d?.stale == true) Text("The next date hasn't been updated recently and may have changed.", style = typography.caption, color = colors.cautionText)
-                Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                    if (d?.next != null) OutlinedButton(onClick = onRemind) { Text("Remind me") }
-                    TextButton(onClick = onCompany) { Text("Company details") }
-                }
-            }
-        }
+        // Phase 5D.2 hierarchy: company → status and dates → the quarter's answer (summary + EPS/revenue) → reaction → insights → history.
+        item(key = "header") { DetailsHeader(state, onRemind, onCompany) }
         if (state.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading earnings" }) }
         state.error?.let { item(key = "error") { StockErrorState(it, onRetry) } }
         d?.summary?.let { summary ->
             item(key = "summary") {
-                StockCard {
-                    Text(summary, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+                StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    state.headerPeriod?.let { Text(it, style = typography.label, color = colors.primaryText) }
+                    StockTitleWithBadge(title = { Text(summary, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary) },
+                        badge = { state.eps?.let { ClassificationBadge(it.classification) } })
                     d.summaryExplanation?.let { Text(it, style = typography.small, color = colors.textBody) }
                 }
             }
         }
         listOfNotNull(state.eps, state.revenue).forEach { card ->
-            item(key = "card-${card.title}") { ResultCardView(card) { education = EarningsEducation.topic(if (card.title == "EPS") "surprise" else "revenue") } }
+            item(key = "card-${card.title}") { ResultCardView(card) { education = EarningsDisplay.cardTopic(card.title) } }
         }
         val upcoming = d?.next
         if (d != null && state.eps == null && upcoming != null) item(key = "upcoming") {
-            StockCard {
-                Text("Not reported yet", style = typography.cardTitle)
+            StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text("Not reported yet", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
                 // 5D.1 (E-02): the shared sentence names only the estimates that exist.
-                state.nextEstimate?.let { Text(it, style = typography.small) }
+                state.nextEstimate?.let { Text(it, style = typography.small, color = colors.textBody) }
             }
         }
         if (state.reaction.isNotEmpty() || state.reactionSentence != null) item(key = "reaction") {
-            StockCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Price reaction", Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle)
-                    TextButton(onClick = { education = EarningsEducation.topic("reaction") }) { Text("How it's measured") }
-                }
-                state.reaction.forEach { Line(it) }
+            StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+                EarningsLines(state.reaction)
                 state.reactionSentence?.let { Text(it, style = typography.small, color = colors.textBody) }
+                EarningsDisplay.topicAction("reaction")?.let { label ->
+                    StockButton(label, onClick = { education = EarningsEducation.topic("reaction") }, variant = StockButtonVariant.TEXT, icon = StockIcons.Info)
+                }
             }
         }
         if (d != null && d.insights.isNotEmpty() || (d?.lockedInsights ?: 0) > 0) item(key = "insights") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Text("Insights", Modifier.semantics { heading() }, style = typography.sectionTitle)
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                Text("Insights", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
                 d!!.insights.forEach { insight ->
-                    StockInsightCard(insight.title, insight.explanation, eyebrow = insight.period, actionText = "Learn more",
-                        onClick = { education = EarningsEducation.topic(insight.methodology) })
+                    // A "Learn more" only where a lesson exists (it used to be shown even when it opened nothing).
+                    val topic = EarningsEducation.topic(insight.methodology)
+                    StockInsightCard(insight.title, insight.explanation, Modifier.fillMaxWidth(), eyebrow = insight.period, actionText = topic?.let { "Learn more" },
+                        onClick = topic?.let { t -> { education = t } })
                 }
                 if (d.lockedInsights > 0) Text("${d.lockedInsights} more trend insight${if (d.lockedInsights == 1) "" else "s"} with StockSteps+.", style = typography.caption, color = colors.textSecondary)
             }
         }
         if (state.history.isNotEmpty()) {
             item(key = "history-title") {
-                Column {
-                    Text("Earnings history", Modifier.semantics { heading() }, style = typography.sectionTitle)
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                    Text("Earnings history", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
                     state.historyNote?.let { Text(it, style = typography.caption, color = colors.textSecondary) } // 5D.1B
-                    if (state.epsChart.firstOrNull()?.values?.count { it != null } ?: 0 >= 2) {
+                    val reported = state.epsChart.firstOrNull()?.values.orEmpty()
+                    if (EarningsDisplay.historyChartShown(reported)) {
                         StockTrendChart(
-                            values = state.epsChart[0].values,
+                            values = reported,
                             details = state.epsChartDetails, // 5D.1 (E-03): with the quarter's currency, like the history rows
                             xLabels = listOf(state.chartLabels.first(), state.chartLabels.last()), yLabels = emptyList(),
                             description = "Reported EPS versus estimate for ${state.chartLabels.size} quarters.",
                             seriesLabel = "Reported EPS", additional = listOf("Estimate" to state.epsChart[1].values)
                         )
-                    }
+                    } else Text(EarningsDisplay.HISTORY_CHART_TOO_SHORT, style = typography.caption, color = colors.textSecondary)
                 }
             }
-            items(state.history, key = { it.id }) { row ->
-                val open = row.id in expanded
-                Column(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
-                    .clickable(onClickLabel = if (open) "Collapse" else "Expand") { expanded = if (open) expanded - row.id else expanded + row.id }
-                    .semantics(mergeDescendants = true) { contentDescription = row.accessibility; stateDescription = if (open) "Expanded" else "Collapsed" }) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(row.period, Modifier.weight(1f), style = typography.bodySemiBold)
-                        Text("EPS ${row.eps}", style = typography.caption, color = colors.textSecondary)
-                    }
-                    Text("Revenue ${row.revenue}" + (row.growth?.let { " · $it YoY" } ?: ""), style = typography.caption, color = colors.textSecondary)
-                    if (open) row.lines.forEach { Line(it) }
-                    HorizontalDivider(Modifier.padding(top = StockStepsTheme.spacing.xs), color = colors.borderSubtle)
-                }
-            }
+            items(state.history, key = { it.id }) { row -> HistoryRow(row, row.id in expanded) { expanded = if (row.id in expanded) expanded - row.id else expanded + row.id } }
             if (d?.historyLocked == true) item(key = "history-locked") {
                 Text("Older quarters are available with StockSteps+.", style = typography.caption, color = colors.textSecondary)
             }
         }
         item(key = "ai") {
-            StockCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Ask about these earnings", Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle)
-                    if (!state.plus) Badge("StockSteps+")
-                }
+            StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                StockTitleWithBadge(title = { Text("Ask about these earnings", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary) },
+                    badge = { if (!state.plus) StockStatusBadge("StockSteps+", org.example.stocksteps.theme.StockBadgeKind.PREMIUM) })
                 Text("Answers use only the verified figures above and say when the data can't explain a cause.", style = typography.caption, color = colors.textSecondary)
-                OutlinedTextField(question, { question = it.take(500) }, Modifier.fillMaxWidth(), label = { Text("e.g. Explain this earnings report") })
-                Button(onClick = { onAsk(question) }, enabled = question.isNotBlank() && !state.asking) { Text(if (state.plus) "Ask" else "Ask with StockSteps+") }
-                if (state.asking) LinearProgressIndicator(Modifier.fillMaxWidth())
+                StockTextField(question, { question = it.take(500) }, "Your question", Modifier.fillMaxWidth(), placeholder = "e.g. Explain this earnings report", singleLine = false)
+                StockButton(if (state.plus) "Ask" else "Ask with StockSteps+", onClick = { onAsk(question) }, modifier = Modifier.fillMaxWidth(),
+                    enabled = question.isNotBlank() && !state.asking)
+                if (state.asking) LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Asking" })
                 state.answer?.let { answer ->
                     Text(answer.answer, style = typography.small, color = colors.textBody)
                     if (answer.sources.isNotEmpty()) Text("Sources: " + answer.sources.joinToString(), style = typography.caption, color = colors.textSecondary)
-                    answer.remainingToday?.let { Text("$it questions left today.", style = typography.caption, color = colors.textTertiary) }
+                    answer.remainingToday?.let { Text("$it questions left today.", style = typography.caption, color = colors.textSecondary) }
                 }
             }
         }
         item(key = "learn") {
-            Column {
-                Text("Learn", Modifier.semantics { heading() }, style = typography.sectionTitle)
-                EarningsEducation.topics.forEach { topic -> TextButton(onClick = { education = topic }) { Text(topic.title) } }
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text("Learn", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
+                // E-19: the Watchlist/Portfolio grouped navigation rows instead of a column of text buttons (same topics, same dialogs).
+                StockCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = StockStepsTheme.spacing.md)) {
+                    EarningsEducation.topics.forEachIndexed { index, topic ->
+                        if (index > 0) HorizontalDivider(color = colors.borderSubtle)
+                        StockNavigationRow(topic.title, onClick = { education = topic }, actionLabel = "Opens ${topic.title}")
+                    }
+                }
                 d?.notes?.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
                 Text("Not investment advice. Earnings results don't predict how a stock will move.", style = typography.caption, color = colors.textTertiary)
             }
@@ -474,14 +450,119 @@ internal fun EarningsDetailsScreen(
     state.message?.let { message -> AlertDialog(onDismissRequest = onDismissMessage, text = { Text(message) }, confirmButton = { TextButton(onClick = onDismissMessage) { Text("OK") } }) }
 }
 
+/**
+ * Phase 5D.2: one group of label/value rows (a card's lines) with one shared layout decision (`StockLayout.labelColumn`, same rule as SwiftUI).
+ * Side by side, labels keep the group's widest label on one line (aligned values) and long values wrap between words in the rest; when that
+ * doesn't fit — narrow screens, large text — every row stacks (value under its label). Replaces the 5D.1 `Line`, whose weighted label beside an
+ * unweighted value broke "Window" / "Source" into one letter per line when the value was wider than the row. Nothing is truncated.
+ */
 @Composable
-private fun Line(line: MetricLine) {
-    Row(Modifier.fillMaxWidth().padding(vertical = StockStepsTheme.spacing.xxs).semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
-        Text(line.label, Modifier.weight(1f), style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textSecondary)
-        Column(horizontalAlignment = Alignment.End) {
-            Text(line.value, style = StockStepsTheme.typography.numberLabel, color = StockStepsTheme.colors.textPrimary)
-            line.detail?.let { Text(it, style = StockStepsTheme.typography.tiny, color = StockStepsTheme.colors.textTertiary) }
+private fun EarningsLines(lines: List<MetricLine>, modifier: Modifier = Modifier) {
+    if (lines.isEmpty()) return
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val typography = StockStepsTheme.typography
+    val colors = StockStepsTheme.colors
+    val labelStyle = typography.small
+    val valueStyle = typography.small.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+    val gap = StockStepsTheme.spacing.md
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        fun width(text: String, style: androidx.compose.ui.text.TextStyle) = with(density) { measurer.measure(text, style).size.width.toDp().value }
+        fun longestWord(text: String, style: androidx.compose.ui.text.TextStyle) = text.split(' ').maxOfOrNull { width(it, style) } ?: 0f
+        val column = org.example.stocksteps.theme.StockLayout.labelColumn(
+            widestLabel = lines.maxOf { width(it.label, labelStyle) },
+            longestLabelWord = lines.maxOf { longestWord(it.label, labelStyle) },
+            longestValueWord = lines.maxOf { maxOf(longestWord(it.value, valueStyle), it.detail?.let { d -> longestWord(d, typography.caption) } ?: 0f) },
+            availableWidth = maxWidth.value, gap = gap.value)
+        Column(verticalArrangement = Arrangement.spacedBy(if (column == null) StockStepsTheme.spacing.sm else StockStepsTheme.spacing.xs)) {
+            lines.forEach { line ->
+                val value: @Composable (TextAlign) -> Unit = { align ->
+                    Text(line.value, Modifier.fillMaxWidth(), style = valueStyle, color = colors.textPrimary, textAlign = align)
+                    line.detail?.let { Text(it, Modifier.fillMaxWidth(), style = typography.caption, color = colors.textSecondary, textAlign = align) }
+                }
+                if (column == null) {
+                    Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+                        Text(line.label, style = labelStyle, color = colors.textSecondary)
+                        value(TextAlign.Start)
+                    }
+                } else Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    // +1 dp: the measured width rounds to whole pixels, so the label never wraps by a fraction.
+                    Text(line.label, Modifier.width((column + 1f).dp), style = labelStyle, color = colors.textSecondary)
+                    Column(Modifier.weight(1f)) { value(TextAlign.End) }
+                }
+            }
         }
+    }
+}
+
+/**
+ * Details header (Phase 5D.2): logo, the full company name (wraps, never cut), ticker · exchange, the status as a `StockStatusBadge`, the report
+ * date and the next report, then one primary and one secondary action (side by side only while both labels fit, `StockActionLayout`).
+ */
+@Composable
+private fun DetailsHeader(state: EarningsDetailsState, onRemind: () -> Unit, onCompany: () -> Unit) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    val d = state.details
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            StockTickerAvatar(state.symbol, logoUrl = d?.event?.logoUrl, size = StockStepsTheme.dimensions.logo)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text(d?.name ?: state.symbol, Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
+                // The quarter is the summary card's eyebrow when there is one, so it isn't repeated here.
+                Text(listOfNotNull(state.symbol, d?.event?.exchange, state.headerPeriod.takeIf { d?.summary == null }).joinToString(" · "),
+                    style = typography.small, color = colors.textSecondary)
+            }
+        }
+        d?.let { StockStatusBadge(it.status.label, org.example.stocksteps.theme.StockBadgeKind.NEUTRAL) }
+        listOfNotNull(state.headerDate, state.headerSession, state.headerDateStatus).takeIf { it.isNotEmpty() }?.let {
+            Text(it.joinToString(" · "), style = typography.small, color = colors.textBody)
+        }
+        state.next?.let { Text(it, style = typography.small, color = colors.primaryText) }
+        if (d?.sampleData == true) StockSampleDataBanner("Sample earnings data for development, not real results.")
+        if (d?.stale == true) StockBanner(org.example.stocksteps.theme.StockBannerKind.WARNING, "The next date hasn't been updated recently and may have changed.")
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+        val remind = d?.next != null
+        val labels = listOfNotNull("Remind me".takeIf { remind }, "Company details")
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = spacing.xs)) {
+            val widths = labels.map { with(density) { measurer.measure(it, typography.bodySemiBold).size.width.toDp().value } + (if (it == "Remind me") StockStepsTheme.dimensions.icon.value + spacing.sm.value else 0f) }
+            val sideBySide = labels.size > 1 && org.example.stocksteps.theme.StockActionLayout.sideBySide(widths, maxWidth.value, spacing.lg.value, spacing.sm.value,
+                accessibilityText = density.fontScale >= StockStepsTheme.dimensions.largeFontScale)
+            val remindButton: @Composable (Modifier) -> Unit = { m -> StockButton("Remind me", onRemind, m, variant = StockButtonVariant.OUTLINED, icon = StockIcons.Bell) }
+            val companyButton: @Composable (Modifier) -> Unit = { m -> StockButton("Company details", onCompany, m) }
+            if (sideBySide) Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) { remindButton(Modifier.weight(1f)); companyButton(Modifier.weight(1f)) }
+            else Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                if (remind) remindButton(Modifier.fillMaxWidth())
+                companyButton(Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+/** One history quarter (Phase 5D.2): period + classification badge, "EPS C$1.94 vs C$2.00 est. · −3.0%" (the chart tooltip's amounts), revenue, expandable details. */
+@Composable
+private fun HistoryRow(row: HistoryRowView, open: Boolean, onToggle: () -> Unit) {
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    Column(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
+        .clickable(onClickLabel = if (open) "Collapse" else "Expand", onClick = onToggle)
+        .semantics(mergeDescendants = true) { contentDescription = row.accessibility; stateDescription = if (open) "Expanded" else "Collapsed" }
+        .padding(top = StockStepsTheme.spacing.xs), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+                StockTitleWithBadge(title = { Text(row.period, style = typography.bodySemiBold, color = colors.textPrimary) }, badge = {
+                    val shown = EarningsDisplay.classification(row.classification)
+                    StockStatusBadge(shown.label, shown.kind, size = StockBadgeSize.COMPACT, contentDescription = shown.spoken)
+                })
+                Text(EarningsDisplay.historyEpsLine(row), style = typography.small, color = colors.textBody)
+                Text(EarningsDisplay.historyRevenueLine(row), style = typography.caption, color = colors.textSecondary)
+            }
+            Icon(StockIcons.ChevronRight, null, Modifier.rotate(if (open) 90f else 0f).size(StockStepsTheme.dimensions.icon), tint = colors.iconSecondary)
+        }
+        if (open) EarningsLines(EarningsDisplay.historyDetailLines(row), Modifier.padding(top = StockStepsTheme.spacing.xs))
+        HorizontalDivider(Modifier.padding(top = StockStepsTheme.spacing.xs), color = colors.borderSubtle)
     }
 }
 
@@ -489,14 +570,15 @@ private fun Line(line: MetricLine) {
 @Composable
 private fun ResultCardView(card: ResultCard, onLearn: () -> Unit) {
     val colors = StockStepsTheme.colors
-    StockCard(Modifier.semantics(mergeDescendants = true) { contentDescription = card.accessibility }) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(card.title, Modifier.weight(1f), style = StockStepsTheme.typography.cardTitle)
-            ClassificationBadge(card.classification)
+    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+        Column(Modifier.semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+            StockTitleWithBadge(title = { Text(EarningsDisplay.cardTitle(card.title), Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary) },
+                badge = { ClassificationBadge(card.classification) })
+            EarningsLines(card.lines)
+            card.note?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
         }
-        card.lines.forEach { Line(it) }
-        card.note?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
-        TextButton(onClick = onLearn) { Text("What does this mean?") }
+        // The label is the title of the lesson it opens (was "What does this mean?").
+        EarningsDisplay.cardTopic(card.title)?.let { topic -> StockButton(topic.title, onClick = onLearn, variant = StockButtonVariant.TEXT, icon = StockIcons.Info) }
     }
 }
 
@@ -541,12 +623,12 @@ internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifi
             if (premium != null && !state.offline) premiumEarningsItems(premium, onPremium)
             item(key = "learn") {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                    Text("Learn More", Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
+                    Text(EarningsDisplay.LEARN_TITLE, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
                     state.learn.forEach { link ->
                         // An existing lesson opens in place; a missing one falls back to the Learn tab (never a broken link).
                         StockButton(link.title, onClick = { if (link.body != null) lesson = link else onAction(ResultsAction.Learn) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb)
                     }
-                    StockButton("View Company Details", onClick = { onAction(ResultsAction.Company) }, variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth())
+                    StockButton(EarningsDisplay.COMPANY_ACTION, onClick = { onAction(ResultsAction.Company) }, variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth())
                 }
             }
             item(key = "sources") { EarningsSourceFooter(state.sources) }
@@ -571,7 +653,8 @@ private fun EarningsResultHeader(state: EarningsResultsState) {
         Text(state.title, Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
         state.periodLines.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
         if (state.sampleData) StockSampleDataBanner("Sample earnings data for development, not real results.")
-        state.freshnessText?.let { Text(it, style = typography.caption, color = colors.cautionText) }
+        // E-06: data caveats are banners (icon + words, announced), not bare caution captions.
+        state.freshnessText?.let { StockBanner(org.example.stocksteps.theme.StockBannerKind.WARNING, it) }
     }
 }
 
@@ -586,10 +669,10 @@ private fun FinancialComparisonCard(card: ComparisonCardView, expanded: Boolean,
                 Text(card.title, Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
                 ClassificationBadge(card.classification)
             }
-            card.lines.forEach { Line(it) }
+            EarningsLines(card.lines)
             card.explanation?.let { Text(it, style = typography.small, color = colors.textBody) }
             card.reason?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
-            card.basisNote?.let { Text(it, style = typography.caption, color = colors.textTertiary) }
+            card.basisNote?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
         }
         FinancialTermInfo(card.infoTitle, card.infoBody, expanded, onToggle)
     }
@@ -621,7 +704,7 @@ private fun RevenueGrowthCard(card: GrowthCardView) {
     val colors = StockStepsTheme.colors
     StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
         Text(card.title, Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
-        card.lines.forEach { Line(it) }
+        EarningsLines(card.lines)
         Text(card.explanation, style = StockStepsTheme.typography.small, color = colors.textBody)
         card.reason?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
     }
@@ -631,9 +714,9 @@ private fun RevenueGrowthCard(card: GrowthCardView) {
 private fun EarningsTakeawayCard(takeaway: String, warnings: List<String>) {
     val colors = StockStepsTheme.colors
     StockCard(Modifier.fillMaxWidth(), containerColor = colors.educationContainer, bordered = false, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-        Text("Beginner Takeaway", Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
+        Text(EarningsDisplay.TAKEAWAY_TITLE, Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
         Text(takeaway, style = StockStepsTheme.typography.body, color = colors.textBody)
-        warnings.forEach { Text(it, style = StockStepsTheme.typography.caption, color = colors.cautionText) }
+        if (warnings.isNotEmpty()) StockBanner(org.example.stocksteps.theme.StockBannerKind.WARNING, warnings.joinToString("\n"))
         Text("This is education, not investment advice.", style = StockStepsTheme.typography.caption, color = colors.textSecondary)
     }
 }
@@ -648,7 +731,7 @@ private fun EarningsSourceFooter(lines: List<String>) {
 
 @Composable
 private fun EarningsUnavailableState(message: String, onCompany: () -> Unit) {
-    StockEmptyState(message, actionText = "View Company Details", onAction = onCompany)
+    StockEmptyState(message, actionText = EarningsDisplay.COMPANY_ACTION, onAction = onCompany)
 }
 
 // ---------- Post-earnings price reaction (Phase 3) ----------
@@ -664,7 +747,7 @@ private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (R
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        Text("How Did the Stock React?", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+        Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
         Row(Modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             ReactionWindow.entries.forEach { w ->
                 val pending = state.windows.firstOrNull { it.window == w }?.status == ReactionStatus.WINDOW_INCOMPLETE
@@ -675,7 +758,7 @@ private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (R
         state.error?.let { StockErrorState(it, { onAction(ResultsAction.RetryReaction) }) }
         state.contextLine?.let { Text(it, style = typography.label, color = colors.textPrimary) }
         if (state.lines.isNotEmpty()) Column(Modifier.semantics(mergeDescendants = true) { contentDescription = state.accessibility }) {
-            state.lines.forEach { Line(it) }
+            EarningsLines(state.lines)
         }
         state.statusText?.let { Text(it, style = typography.small, color = colors.textSecondary) }
         state.summary?.let { Text(it, style = typography.small, color = colors.textBody) }
@@ -690,10 +773,11 @@ private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (R
         }
         state.explanation?.let { Text(it, style = typography.body, color = colors.textBody) }
         state.mixedNote?.let { Text(it, style = typography.small, color = colors.textSecondary) }
-        state.warnings.forEach { Text(it, style = typography.caption, color = colors.cautionText) }
-        if (state.stale) Text("Showing saved price data; the price provider isn't responding.", style = typography.caption, color = colors.cautionText)
+        // E-06: one warning banner for the section's caveats (the words are unchanged).
+        val caveats = state.warnings + listOfNotNull("Showing saved price data; the price provider isn't responding.".takeIf { state.stale })
+        if (caveats.isNotEmpty()) StockBanner(org.example.stocksteps.theme.StockBannerKind.WARNING, caveats.joinToString("\n"))
         state.learn.forEach { link -> StockButton(link.title, onClick = { onLesson(link) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb) }
-        state.sources.forEach { Text("Prices: $it · regular-session closes, split-adjusted", style = typography.caption, color = colors.textTertiary) }
+        state.sources.forEach { Text("Prices: $it · regular-session closes, split-adjusted", style = typography.caption, color = colors.textSecondary) }
         Text("Price moves have many causes. This shows what happened, not why, and isn't investment advice.", style = typography.caption, color = colors.textTertiary)
     }
 }

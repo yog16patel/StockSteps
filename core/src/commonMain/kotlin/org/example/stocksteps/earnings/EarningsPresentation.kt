@@ -146,7 +146,15 @@ data class ResultCard(
     val accessibility: String get() = "$title: $headline. " + lines.joinToString(" ") { "${it.label} ${it.value}." } + (note?.let { " $it" } ?: "")
 }
 
-data class HistoryRowView(val id: String, val period: String, val date: String, val eps: String, val revenue: String, val growth: String?, val lines: List<MetricLine>) {
+data class HistoryRowView(
+    val id: String, val period: String, val date: String, val eps: String, val revenue: String, val growth: String?, val lines: List<MetricLine>,
+    /** Phase 5D.2: the server's EPS classification for the row's badge (`EarningsDisplay.classification`); never recomputed. */
+    val classification: Classification = Classification.UNAVAILABLE,
+    /** Phase 5D.2: "C$1.94 vs C$2.00 est." — the same amounts and currency as the chart tooltip for this quarter. */
+    val epsVsEstimate: String? = null,
+    /** Phase 5D.2: the EPS surprise percent ("-3.0%"), when the server provided one. */
+    val surprise: String? = null
+) {
     val accessibility get() = "$period, reported ${EarningsFormatter.spokenDate(date)}. EPS $eps. Revenue $revenue." + (growth?.let { " Revenue growth $it year over year." } ?: "")
 }
 
@@ -268,7 +276,10 @@ class EarningsDetailsPresenter(
                     h.revenueGrowthYoY?.let { EarningsFormatter.percent(it) },
                     listOf(MetricLine("EPS", "${EarningsFormatter.eps(h.eps.actual, h.eps.currency)} vs ${EarningsFormatter.eps(h.eps.estimate, h.eps.currency)} est."),
                         MetricLine("Revenue", "${EarningsFormatter.revenue(h.revenue.actual, h.revenue.currency)} vs ${EarningsFormatter.revenue(h.revenue.estimate, h.revenue.currency)} est."),
-                        MetricLine("Reported", EarningsFormatter.date(h.event.date) + " · " + EarningsFormatter.session(h.event.session))))
+                        MetricLine("Reported", EarningsFormatter.date(h.event.date) + " · " + EarningsFormatter.session(h.event.session))),
+                    classification = h.eps.classification,
+                    epsVsEstimate = "${EarningsFormatter.eps(h.eps.actual, h.eps.currency)} vs ${EarningsFormatter.eps(h.eps.estimate, h.eps.currency)} est.",
+                    surprise = EarningsFormatter.percent(h.eps.percent))
             },
             epsChart = listOf(ChartSeries("Reported EPS", chronological.map { it.eps.actual }), ChartSeries("Estimate", chronological.map { it.eps.estimate })),
             chartLabels = chronological.map { "Q${it.event.fiscalQuarter} ${it.event.fiscalYear % 100}" },

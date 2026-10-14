@@ -149,4 +149,25 @@ object StockLayout {
      */
     fun metricRowStacked(longestLabelWord: Float, valueWidth: Float, availableWidth: Float, gap: Float = 12f): Boolean =
         availableWidth > 0f && longestLabelWord + gap + valueWidth > availableWidth
+
+    /** Widest share of a row the label column may take before long labels wrap between words ([labelColumn]). */
+    const val LABEL_COLUMN_MAX_SHARE = 0.45f
+    /** Narrowest share of a row a wrapping value column may get before the group stacks ([labelColumn]). */
+    const val VALUE_COLUMN_MIN_SHARE = 0.35f
+
+    /**
+     * Label/value rows whose values can be long and wrap (Earnings, Phase 5D.2: "Window" → "Close on Jul 22 → close on Jul 23", "Source" →
+     * "StockSteps sample price history · 2026-10-07"). Returns the label column width for a side-by-side group, or null when every row in the
+     * group should stack (value under its label). The label column is the group's widest label, capped at [LABEL_COLUMN_MAX_SHARE] of the row
+     * (longer labels wrap between words) but never narrower than the longest label word; the values wrap in the rest. Stacks when that value
+     * column is narrower than [VALUE_COLUMN_MIN_SHARE] of the row or than the longest single value word, and when the width is unmeasured.
+     * One decision per group, so neighbouring rows read the same way. Fixes the 5D.1 defect: an unweighted value took the whole row and the
+     * label column collapsed to one letter per line. Widths are font-independent text measurements (never the row's own frame).
+     */
+    fun labelColumn(widestLabel: Float, longestLabelWord: Float, longestValueWord: Float, availableWidth: Float, gap: Float = 12f): Float? {
+        if (availableWidth <= 0f) return null
+        val label = maxOf(longestLabelWord, minOf(widestLabel, availableWidth * LABEL_COLUMN_MAX_SHARE))
+        val value = availableWidth - label - gap
+        return if (value < maxOf(longestValueWord, availableWidth * VALUE_COLUMN_MIN_SHARE)) null else label
+    }
 }

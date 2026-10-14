@@ -1,6 +1,9 @@
 package org.example.stocksteps.presentation.earnings
 
 import org.example.stocksteps.earnings.Classification
+import org.example.stocksteps.earnings.EarningsEducation
+import org.example.stocksteps.earnings.HistoryRowView
+import org.example.stocksteps.earnings.MetricLine
 import org.example.stocksteps.theme.StockBadgeKind
 
 /** How one estimate comparison is shown: the words, the badge style and the spoken text. */
@@ -24,4 +27,35 @@ object EarningsDisplay {
         Classification.MISS -> EarningsClassificationDisplay(MISSED, StockBadgeKind.NEGATIVE, "Result: missed the estimate")
         Classification.UNAVAILABLE -> EarningsClassificationDisplay(UNAVAILABLE, StockBadgeKind.NEUTRAL, "Comparison with the estimate unavailable")
     }
+
+    // ---------- Phase 5D.2: shared copy and display choices for Earnings Details / Results (both platforms) ----------
+
+    /** One heading for the price-reaction section on Details and Results (was "Price reaction" vs "How Did the Stock React?"). */
+    const val REACTION_TITLE = "How did the stock react?"
+    const val TAKEAWAY_TITLE = "Beginner takeaway"
+    const val LEARN_TITLE = "Learn more"
+    const val COMPANY_ACTION = "View company details"
+    /** Shown instead of the EPS history chart while fewer than two quarters have a reported EPS (the rows stay below). */
+    const val HISTORY_CHART_TOO_SHORT = "The chart appears once at least two quarters have reported EPS."
+
+    /** Card heading: "EPS" is spelled out once for beginners; other titles are unchanged. */
+    fun cardTitle(title: String): String = if (title == "EPS") "Earnings per share (EPS)" else title
+
+    /** The education topic a Details result card already opens (unchanged destinations: EPS → surprise, revenue → revenue). */
+    fun cardTopic(title: String): EarningsEducation.Topic? = EarningsEducation.topic(if (title == "EPS") "surprise" else "revenue")
+
+    /** A link's label is the title of the topic it opens, so the words match the destination ("What is earnings surprise?"). */
+    fun topicAction(key: String): String? = EarningsEducation.topic(key)?.title
+
+    /** The EPS chart is drawn only with at least two reported values; otherwise [HISTORY_CHART_TOO_SHORT]. */
+    fun historyChartShown(reported: List<Double?>): Boolean = reported.count { it != null } >= 2
+
+    /** Collapsed history row: "EPS C$1.94 vs C$2.00 est. · −3.0%", the same amounts as the chart tooltip; falls back to the row's EPS text. */
+    fun historyEpsLine(row: HistoryRowView): String = "EPS " + (row.epsVsEstimate ?: row.eps) + (row.surprise?.let { " · $it" } ?: "")
+
+    /** Collapsed history row: "Revenue C$4.45B · +3.0% YoY". */
+    fun historyRevenueLine(row: HistoryRowView): String = "Revenue ${row.revenue}" + (row.growth?.let { " · $it YoY" } ?: "")
+
+    /** Expanded history row: the lines not already shown collapsed (the EPS comparison is on the collapsed row). */
+    fun historyDetailLines(row: HistoryRowView): List<MetricLine> = if (row.epsVsEstimate != null) row.lines.filterNot { it.label == "EPS" } else row.lines
 }

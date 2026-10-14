@@ -44,8 +44,8 @@ internal sealed interface PremiumAction {
 /** "StockSteps+" marker in words (never colour alone). */
 @Composable
 internal fun PlusBadge(modifier: Modifier = Modifier) {
-    Text("StockSteps+", modifier.clip(StockStepsTheme.shapes.pill).background(StockStepsTheme.colors.primaryContainer)
-        .padding(horizontal = StockStepsTheme.spacing.sm, vertical = StockStepsTheme.spacing.xxs), style = StockStepsTheme.typography.label, color = StockStepsTheme.colors.primaryText)
+    // Phase 5D.2 (E-07): the shared PREMIUM status badge (same words; colours and no-wrap rule from `StockSemanticStyles`).
+    StockStatusBadge("StockSteps+", org.example.stocksteps.theme.StockBadgeKind.PREMIUM, modifier)
 }
 
 @Composable
@@ -67,7 +67,7 @@ private fun Caption(text: String, caution: Boolean = false) =
 private fun PremiumErrorLine(error: PremiumError, onRetry: (() -> Unit)?) {
     Column(Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
         Text(error.message, style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.cautionText)
-        if (error.retryable && onRetry != null) StockButton("Try Again", onClick = onRetry, variant = StockButtonVariant.TEXT)
+        if (error.retryable && onRetry != null) StockButton("Try again", onClick = onRetry, variant = StockButtonVariant.TEXT)
     }
 }
 
@@ -128,7 +128,7 @@ private fun UnderstandCard(state: EarningsPremiumState, onAction: (PremiumAction
         }
         if (!state.signedIn) {
             Text("An explanation of what was reported, how it compared with expectations and what's still uncertain.", style = StockStepsTheme.typography.small, color = colors.textBody)
-            StockButton("Sign In to Explain With AI", onClick = { onAction(PremiumAction.SignIn) }, variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth())
+            StockButton("Sign in to explain with AI", onClick = { onAction(PremiumAction.SignIn) }, variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth())
             return@StockCard
         }
         if (state.loading && state.overview == null) LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading StockSteps+ features" })
@@ -140,7 +140,7 @@ private fun UnderstandCard(state: EarningsPremiumState, onAction: (PremiumAction
             Text(overview.preview, style = StockStepsTheme.typography.small, color = colors.textBody)
             if (overview.explanation == ExplanationAvailability.STALE) Caption("An earlier explanation used figures that have since changed. A new one will use the current data.", caution = true)
             if (!state.plus) Caption("Explanations use only the verified figures on this screen. Part of StockSteps+.")
-            StockButton(if (state.plus) "Explain With AI" else "Explain With AI · StockSteps+", onClick = { onAction(PremiumAction.Explain) },
+            StockButton(if (state.plus) "Explain with AI" else "Explain with AI · StockSteps+", onClick = { onAction(PremiumAction.Explain) },
                 variant = if (state.plus) StockButtonVariant.PRIMARY else StockButtonVariant.OUTLINED, enabled = !state.explaining && overview.aiAvailable,
                 icon = StockIcons.Lightbulb, modifier = Modifier.fillMaxWidth())
             if (state.explaining) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs),
@@ -159,7 +159,7 @@ private fun UnderstandCard(state: EarningsPremiumState, onAction: (PremiumAction
         // Key Takeaways stay visible; the detail is behind "Show full explanation" (progressive disclosure).
         Column(Modifier.fillMaxWidth().clip(StockStepsTheme.shapes.card).background(colors.educationContainer).padding(spacing.cardPadding),
             verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Text("Key Takeaways", Modifier.semantics { heading() }, style = StockStepsTheme.typography.label, color = colors.textPrimary)
+            Text("Key takeaways", Modifier.semantics { heading() }, style = StockStepsTheme.typography.label, color = colors.textPrimary)
             e.beginnerTakeaways.forEach { Text("• $it", style = StockStepsTheme.typography.small, color = colors.textBody) }
         }
         StockButton(if (state.expanded) "Show less" else "Show full explanation", onClick = { onAction(PremiumAction.ToggleExplanation) }, variant = StockButtonVariant.TEXT,
@@ -225,7 +225,7 @@ private fun AskCard(state: EarningsPremiumState, onAction: (PremiumAction) -> Un
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs), verticalAlignment = Alignment.CenterVertically) {
             StockButton(if (state.plus || !state.signedIn) "Ask" else "Ask · StockSteps+", onClick = { onAction(PremiumAction.Ask(text)); if (state.plus) text = "" },
                 enabled = text.isNotBlank() && !state.asking, variant = StockButtonVariant.SECONDARY)
-            if (state.conversation.isNotEmpty()) StockButton("Start Over", onClick = { onAction(PremiumAction.ResetConversation) }, variant = StockButtonVariant.TEXT)
+            if (state.conversation.isNotEmpty()) StockButton("Start over", onClick = { onAction(PremiumAction.ResetConversation) }, variant = StockButtonVariant.TEXT)
         }
         if (state.plus) state.askUsage?.let { Caption(it) }
     }
@@ -240,7 +240,7 @@ private fun HistoryCard(state: EarningsPremiumState, onAction: (PremiumAction) -
         val h = state.history
         if (h == null) {
             state.overview?.historyQuarters?.takeIf { it > 0 }?.let { Caption("$it reported quarter${if (it == 1) "" else "s"} available (up to ${HistoricalEarningsEngine.MAX_QUARTERS} shown).") }
-            StockButton(if (state.plus || !state.signedIn) "Show Historical Earnings" else "Show Historical Earnings · StockSteps+",
+            StockButton(if (state.plus || !state.signedIn) "Show historical earnings" else "Show historical earnings · StockSteps+",
                 onClick = { onAction(if (state.signedIn) PremiumAction.LoadHistory else PremiumAction.SignIn) }, variant = StockButtonVariant.OUTLINED,
                 enabled = !state.historyLoading, modifier = Modifier.fillMaxWidth())
             if (state.historyLoading) LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading historical earnings" })
@@ -270,7 +270,7 @@ private fun HistoryCard(state: EarningsPremiumState, onAction: (PremiumAction) -
             }
         }
         h.dataWarnings.forEach { Caption(it, caution = true) }
-        h.nextCursor?.let { StockButton("Show Earlier Quarters", onClick = { onAction(PremiumAction.LoadHistory) }, variant = StockButtonVariant.TEXT) }
+        h.nextCursor?.let { StockButton("Show earlier quarters", onClick = { onAction(PremiumAction.LoadHistory) }, variant = StockButtonVariant.TEXT) }
         Caption(h.disclaimer)
         h.sources.forEach { Caption(it) }
     }

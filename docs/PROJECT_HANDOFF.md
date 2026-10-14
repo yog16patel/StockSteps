@@ -1,9 +1,170 @@
-# StockSteps — session handoff (2026-10-13 Portfolio session end: D1.1–E.1 committed and pushed at `82fd22e`; Phase E.1 NOT READY FOR SIGN-OFF — TalkBack deferred by owner, VoiceOver/Inspector not verified; allocation-denominator decision pending)
+# StockSteps — session handoff (2026-10-14 session end: Portfolio E.2 closed PASS WITH CONDITIONS; Global UI Refinement Phase 5D.1 Earnings accuracy committed at `a15cd5f`; next: Phase 5D.2 after owner approval)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE-E-2-2026-10-13 below** → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§SESSION-END-2026-10-14 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PHASE-5D-2-2026-10-14. Earnings design-system and layout refinement — committed as "Add Global UI Refinement Phase 5D.2 Earnings layout refinement with whole price-reaction labels from a shared label and value rule, design-system badges, banners and buttons, lesson-named links and an iOS EPS history chart on Android and iOS"
+
+- Commit on top of `a15cd5f` (this commit; not pushed). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_2.md`; captures `docs/design/earnings_phase5d_2/`.
+- **P0 fixed:** the price-reaction "Window"/"Source" letter-per-line break. Cause: the old `Line` weighted the label and not the value, so a long
+  value took the whole row. New shared rule `StockLayout.labelColumn` (`app/shared/.../theme/Spacing.kt`), drawn by `EarningsLines` on Compose and
+  SwiftUI for every Earnings label/value group.
+- Also done:
+  - `StockStatusBadge` / `StockBanner` / `StockButton` / `StockTextField` (iOS `.stockPrimary`/`.stockSecondary`) on Details, Results and StockSteps+.
+  - Sentence-case labels; lesson-named learn links; one "How did the stock react?" title.
+  - History rows with the classification badge and the same amounts as the tooltip; a new iOS history chart; Learn as navigation rows.
+  - iOS theme fonts on Details, Results and the price reaction.
+- Tests (sequential): core 495/0 (JVM, iOS); shared 234/0 (Android) and 230/0 (iOS); `assembleDebug` OK; unsigned `xcodebuild` OK. Server not run
+  (no server change).
+- Devices: Android emulator-5554 (360 dp, light) PASS at 1.0×/1.3×/2.0×. Android dark NOT RUN. iOS runtime of the 5D.2 build NOT RUN.
+  iOS Details BLOCKED: the cached signed-in session needs the Auth emulator.
+- Owner decisions: D-1 sample-disclosure badge (proposal only), D-2 Details vs Results roles (5D.4), D-3 the Auth emulator for iOS checks.
+- Recommendation: PASS WITH CONDITIONS. Next: the Earnings visual-polish plan (proposed 5D.3) awaits owner approval.
+
+## SESSION-END-2026-10-14. End-of-session handoff (Portfolio E.2 → Earnings 5D.1) — START HERE
+
+### 0. Repository state (verified with `git fetch`, `git status`, `git log`)
+- Branch `main`, in sync with `origin/main`. HEAD **`a15cd5f`** "Add Global UI Refinement Phase 5D.1 Earnings accuracy with one BEAT, MET and MISS
+  badge, placeholder-free estimate sentences, currency-correct history tooltips and Insights, and no invented dollar sign for a missing currency on
+  Android and iOS" (pushed).
+- **Dirty, NOT ours — never stage, revert or overwrite:** root `PROJECT_HANDOFF.md` (Ubuntu backend session, 2 lines) and the two older hunks of
+  `docs/project-status.md` (`~/.gradle/gradle.properties` / Android LAN-build notes). This handoff also edits `docs/PROJECT_HANDOFF.md` and the top
+  §0 hunk of `docs/project-status.md`, so the status file holds both sessions' edits. To commit only ours: `git diff docs/project-status.md`, keep
+  only the hunk mentioning 5D / E.2, `git apply --cached` it. Never `git add .`, `reset`, `clean`.
+- Application code is unchanged since `a15cd5f`.
+
+### 1. Current development objective
+Global UI Refinement plan step 6 (**Phase 5D: Learn, Daily Brief, Earnings**), Earnings first. Portfolio refinement (Phases A–E.2) is closed
+(E.2 accepted by the owner as PASS WITH CONDITIONS, not a full accessibility sign-off).
+
+### 2. Exact task at the end of this session
+Phase **5D.1** (Earnings accuracy, findings E-01/E-02/E-03) plus follow-ups **5D.1A** (investigation) and **5D.1B** (approved currency fixes) are
+committed (`a15cd5f`). Verdict **PASS WITH CONDITIONS**. **Next: Phase 5D.2, design-system alignment, which needs owner approval before any
+code.** Nothing is in progress or uncommitted on our side.
+
+### 3. Commits this session (oldest first; all pushed)
+| Commit | Content |
+|---|---|
+| `8e90dc8` | Portfolio E.2: "New investment account" inline iOS title, Trade currency in Amounts + reporting-currency note, iOS cash follows trade currency, SESSION/NETWORK/SERVER failure kinds, "Session expired" + "Sign in again", Add disabled only for an expired session, `AccountConnectionException` |
+| `095005d` | E.2 verification record + C5 fix (a change rejected by an ended session re-runs the sync → banner stays "Session expired" after Dismiss) |
+| `24e197f` | E.2 closure: iOS account-sheet pickers stack labels at AX5 (were "Ac-count cate-gory" / "P…l") |
+| `c224890` | Owner acceptance of E.2 (follow-ups QA-E2-1…3, polish UX-E2-1/2) + the Phase 5D Earnings read-only audit |
+| `a15cd5f` | Phase 5D.1 + 5D.1A + 5D.1B (below) |
+
+### 4. Work completed (what exists now)
+**Portfolio E.2** (reports `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2_PLAN.md`, `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2.md`): see the CLAUDE.md
+"Session recovery (E.2)" convention. The allocation-denominator proposal got the 5 clarifications (§7 of
+`docs/PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md`); A1 itself is **not implemented** (separate future phase).
+
+**Earnings 5D.1** (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md`):
+- E-01: `app/shared/.../presentation/earnings/EarningsDisplay.kt`, `classification(Classification)` → `EarningsClassificationDisplay(label, kind,
+  spoken)`: BEAT "Beat estimate" POSITIVE, MET "Met estimate" NEUTRAL, MISS "Missed estimate" NEGATIVE, UNAVAILABLE "Comparison unavailable"
+  NEUTRAL. Drawn with `StockStatusBadge` on Results **and** Details: Compose `ClassificationBadge` in `EarningsScreens.kt`, iOS
+  `earningsClassificationBadge` in `EarningsScenes.swift`.
+- E-02: `EarningsFormatter.estimateSentence(EarningsEstimate?)` (core `EarningsPresentation.kt`): names only the estimates that exist ("Analysts
+  expect EPS of C$1.90 and revenue of C$4.50B." / EPS only / revenue only / "Analyst estimates aren't available yet."); exposed as
+  `EarningsDetailsState.nextEstimate`; iOS no longer formats estimates itself.
+- E-03: `EarningsFormatter.historyPoint(label, actual, estimate, currency)` → `EarningsDetailsState.epsChartDetails` (Android Details EPS chart
+  tooltips now carry each quarter's currency, the same as the rows).
+
+**5D.1A** (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_1A.md`): root causes. (A) the server-run `EarningsInsightEngine` had a private `money()` hard-coding
+"$"; (B) `EarningsFormatter.symbol(null)` returned "$", and REAL Finnhub calendar estimates/actuals **always** have `currency = null`
+(`server/.../EarningsSources.kt:77-79`).
+
+**5D.1B** (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_1B.md`, owner decisions 5D1A-1 approved, 5D1A-2 approved as B1, 5D1A-3 deferred):
+- `EarningsInsightEngine` uses `EarningsFormatter.eps(value, eps.currency)` ("EPS was C$1.94 against an estimate of C$2.00"); a null currency
+  appends the caption.
+- `symbol(null)` → no symbol; `EarningsFormatter.UNKNOWN_CURRENCY` = "Currency not provided by the source."; `currencyNote(vararg)`. The caption is
+  shown once per card or section: Details `ResultCard.note`, Results `ComparisonCardView.basisNote`, `EarningsPriceReactionState.warnings`, Details
+  reaction sentence, `EarningsDetailsState.historyNote` (rendered on both platforms), StockSteps+ history chart note, estimate sentence.
+- Server `EarningsGrounding.UNKNOWN_CURRENCY_FACT` added to the AI context's unavailable list when a grounded amount has no currency. No
+  prompt/model/validator/entitlement change. The weekly digest shows no amounts (reviewed; no change).
+
+### 5. Files created or modified this session (all committed)
+- Portfolio E.2: core `UserDataRepositories.kt`, `PortfolioRepository.kt`, `PortfolioPresenter.kt`, `AuthRepository.kt`, `DefaultAuthRepository.kt`;
+  shared `PortfolioDisplay.kt`, `PortfolioFormRules.kt`, `PortfolioForms.kt`, `PortfolioScene.kt`, `PortfolioScreen.kt`,
+  `PortfolioTransactionScreen.kt`, `PortfolioTransactionViews.kt`, `PortfolioTransactionsScreen.kt`; Android `AndroidAuthGateway.kt`; iOS
+  `FirebaseAccountAdapters.swift`, `PortfolioForms.swift`, `PortfolioScene.swift`, `PortfolioScreen.swift`, `PortfolioTransactionDetailsScreen.swift`,
+  `PortfolioTransactionsScreen.swift`; tests `PortfolioSessionStateTest.kt` (new), `DefaultAuthRepositoryTest.kt`, `PortfolioPhaseE2Test.kt` (new),
+  `PortfolioPhaseD1Test.kt`; docs `PORTFOLIO_UI_REFINEMENT_PHASE_E_2_PLAN.md`, `…_E_2.md`, `PORTFOLIO_ALLOCATION_DENOMINATOR_PROPOSAL.md`;
+  captures `docs/design/portfolio_phase_e_2/`.
+- Earnings 5D.1/1B: core `EarningsPresentation.kt`, `EarningsCalculations.kt`, `EarningsResults.kt`, `EarningsPriceReaction.kt`,
+  `EarningsPremiumPresentation.kt`; shared `EarningsDisplay.kt` (new), `EarningsScreens.kt`; iOS `EarningsScenes.swift`; server `EarningsAi.kt`;
+  tests `EarningsPhase5D1Test.kt`, `EarningsPhase5D1BTest.kt`, shared `EarningsDisplayTest.kt`, server `EarningsGroundingCurrencyTest.kt` (all new);
+  docs `GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md`, `…_5D_1.md`, `…_5D_1A.md`, `…_5D_1B.md`; captures `docs/design/earnings_phase5d_1/`.
+- `CLAUDE.md`: conventions "Session recovery (E.2)" and "Earnings display (5D.1)" + current-task block.
+
+### 6. Important decisions (and why)
+- **Owner E.2 decisions:** D-1 "New investment account"; D-2 failure kinds + "Session expired" (not "Signed out" while a user exists) + Sign in
+  again = sign out then Login (avoids login loops; only device cache cleared, server data untouched); D-2b Add stays enabled during ordinary
+  outages; D-3 typed-symbol currency metadata deferred; D-4 persistent Account name label; D-5 MOCK TD.TO USD/NASDAQ profile left for the backend
+  session; D-6 allocation proposal clarified only.
+- **E.2 accepted** as PASS WITH CONDITIONS, not an accessibility sign-off. Follow-ups open: QA-E2-1 CAD/USD transaction round-trip on device,
+  QA-E2-2 Android session-expiry runtime, QA-E2-3 dark theme. Optional polish (not built): UX-E2-1 shorter trade-currency note, UX-E2-2 less
+  intrusive account-form disclaimer.
+- **5D order (audit §3):** 5D.1 accuracy → 5D.2 design-system alignment → 5D.3 large text and states → 5D.4 Details vs Results roles → 5D.5 Daily
+  Brief/Learn. Owner chose coloured badges with words (MET neutral).
+- `EarningsDisplay` lives in `app/shared` (it needs `StockBadgeKind`, a UI type); sentences and tooltips live in core next to `EarningsFormatter`.
+- 5D.1A/1B: Insights are **server-generated** deterministic text, so the client never rewrites "$" (no string substitution). Unknown currency = no
+  symbol + one caption, applied to the server's AI grounding text too, so AI answers can't assert USD.
+- **REAL currency enrichment (5D1A-3) deferred.** REAL Finnhub figures now show without a symbol plus the caption.
+
+### 7. Known bugs, blockers and risks
+- **iPhone 16 simulator tap injection is unreliable**: scrolling and typing work, but taps on buttons often don't register, even after
+  `simctl shutdown/boot`. Blocked iOS runtime checks for E.2 (QA-E2-1) and 5D.1. Next fix to try (owner approval): quit/reopen Simulator.app, or
+  erase the device (loses app data and the local test account).
+- **Local Auth emulator starts empty**: iOS sign-in needs the owner to **Create account** each time (Claude never types credentials). Android signs
+  in via the default (non-emulator) Firebase project, so session-expiry tests on Android would touch a real account: not done.
+- MOCK search doesn't index `CNR.TO`; on Android, reach CNR.TO via `am start -n org.example.stocksteps/.MainActivity --es type earnings-results
+  --es reportId CNR.TO:2026-Q2` → "View Company Details" → "Earnings history".
+- No MOCK company produces the Details "Not reported yet" estimate sentence (E-02) or a null currency, so both are unit-tested only (fixtures must
+  not be changed for screenshots).
+- Out of scope, seen on device (for 5D.2/5D.3): price-reaction labels "Window" and "Source" wrap mid-word at 1.0×; Company Details summary
+  "EPS Miss" / "EPS Beat · Revenue Miss" and history rows "EPS Beat (+5.1%)" are server text, not badges; Home "Markets today" breaks
+  mid-word at AX5; Home portfolio card says "Offline" for an expired session; Edit/Delete on transaction details stay enabled when expired.
+- Shared devices: `emulator-5556` belongs to the backend session; a physical phone `28121FDH2001YN` was attached. Use only `emulator-5554`
+  (Pixel_9_Pro AVD) and the iPhone 16 (`A04A9C8B-…`). The Android app follows its own theme setting (Light), so system dark mode doesn't change it.
+- `~/.gradle/gradle.properties` sets the Ubuntu MOCK URL for every Android debug build: build local-MOCK APKs with
+  `-PstockstepsMockBackendUrl=http://127.0.0.1:8081` and `adb reverse tcp:8081 tcp:8081`.
+- Run `:server:test` alone (shared build dirs with the backend session).
+
+### 8. Build and test results
+**Verified, last full sequential run on the code committed in `a15cd5f` (`--rerun`):** core 492/0 (JVM) and 492/0 (iOS); shared 229/0 (Android
+host) and 225/0 (iOS); server 501/0, 3 skipped; `:app:androidApp:assembleDebug` OK; unsigned `xcodebuild` BUILD SUCCEEDED.
+
+**Verified on device (Android `emulator-5554`, 360 dp, 1.0×, light, local MOCK):** Results "Beat estimate" (SSRV), "Missed estimate" + "Comparison
+unavailable" (CNR.TO, C$); Details uses the same badge; EPS chart tooltip "Q4 25 · reported C$1.86 · est. C$1.77" equals the expanded row; CNR.TO
+Insights "EPS was C$1.94 against an estimate of C$2.00 (GAAP diluted)."
+
+**NOT verified:** iOS runtime for 5D.1 (BLOCKED); E-02 sentence and unknown-currency caption on any device (no data); dark theme; large text for
+Earnings; TalkBack / VoiceOver / Accessibility Inspector (deferred by the owner).
+
+### 9. How to run
+- MOCK: `./gradlew :server:runMock` (restart after server/core changes); stop `./gradlew :server:stopMock`.
+- Auth emulator (owner-approved, local only): `cd firebase && node_modules/.bin/firebase emulators:start --only auth --project stocksteps --config ../firebase.json`.
+- iOS: `xcodebuild … -destination "platform=iOS Simulator,id=A04A9C8B-D9D1-4910-B0C0-BEC042629EDA" CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES
+  STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081 build`, then `simctl install` + `simctl launch … org.example.stocksteps --firebase-emulators`.
+- Android: boot `emulator -avd Pixel_9_Pro`, `./gradlew :app:androidApp:assembleDebug -PstockstepsMockBackendUrl=http://127.0.0.1:8081`, `adb -s
+  emulator-5554 install -r …`, `adb reverse tcp:8081 tcp:8081`, 360 dp via `wm size 1080x2400`. Restore: `wm size reset`, `reverse --remove-all`.
+
+### 10. Exact next steps
+1. **Phase 5D.2 (design-system alignment), plan first, owner approval before code** (audit `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` E-06…E-09,
+   E-12, E-13): warnings/caveats → `StockBanner`; remaining custom chips (`Badge`, `PlusBadge`) → `StockStatusBadge`; Details raw Material
+   `Button`/`OutlinedButton`/`TextButton`/`OutlinedTextField` → `StockButton`/`StockTextField`; iOS `.bordered` → `.stockPrimary`/`.stockSecondary`;
+   sentence-case labels; iOS Earnings fonts (150 of 156 system styles) → `StockStepsTheme.font(…, relativeTo:)`; StockSteps+ supporting copy
+   `textPrimary` → muted tokens; low-contrast `textTertiary` disclaimers. Consider the server-text badges (Company Details summary, history rows) as
+   an owner decision.
+2. Then 5D.3 (large text + states: stacked label/value rows incl. the "Window"/"Source" break, truncation, loading line, Details empty state),
+   5D.4 (Details vs Results roles, one disclaimer per screen), 5D.5 (Daily Brief, Learn).
+3. Open conditions to clear when tooling allows: iOS runtime for 5D.1 and E.2 (fix the simulator first), QA-E2-1…3, dark theme.
+4. Later, separate phases (owner decisions): allocation A1 (gross long value); REAL currency enrichment for Finnhub (5D1A-3); typed-symbol
+   currency metadata (E.2 D-3).
+
+### 11. Requirements discussed but not implemented
+UX-E2-1 / UX-E2-2 polish; allocation A1; 5D1A-3 REAL currency enrichment; E.2 D-3 instrument-currency contract; E.2 "Sign in" on Home's portfolio
+card; disabling Edit/Delete on details for an expired session; Phases 5D.2–5D.5; screen-reader passes; physical-device checks.
 
 ## PHASE-E-2-2026-10-13. Portfolio Phase E.2 (title, trade-currency visibility, session recovery) — committed and pushed; verification in progress
 

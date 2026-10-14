@@ -68,13 +68,8 @@ final class EarningsPremiumModel {
 
 /// "StockSteps+" in words (never colour alone).
 struct PlusBadge: View {
-    @Environment(\.colorScheme) private var scheme
-    var body: some View {
-        let colors = StockStepsTheme.colors(scheme)
-        Text("StockSteps+").font(StockStepsTheme.font(type.label, relativeTo: .caption1)).foregroundStyle(colors.primaryText)
-            .padding(.horizontal, CGFloat(space.sm)).padding(.vertical, CGFloat(space.xxs))
-            .background(colors.primaryContainer, in: Capsule())
-    }
+    /// Phase 5D.2 (E-07): the shared PREMIUM status badge (same words; colours and no-wrap rule from `StockSemanticStyles`), as Compose.
+    var body: some View { StockStatusBadge(text: "StockSteps+", kind: .premium) }
 }
 
 private struct PremiumTitle: View {
@@ -85,12 +80,14 @@ private struct PremiumTitle: View {
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-            HStack {
-                Text(title).font(.headline).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
-                Spacer()
-                if plus { PlusBadge() }
+            if plus {
+                StockTitleWithBadge {
+                    Text(title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
+                } badge: { PlusBadge() }
+            } else {
+                Text(title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
             }
-            if let subtitle { Text(subtitle).font(.subheadline).foregroundStyle(colors.textSecondary) }
+            if let subtitle { Text(subtitle).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSecondary) }
         }
     }
 }
@@ -101,7 +98,7 @@ private struct Caption: View {
     @Environment(\.colorScheme) private var scheme
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
-        Text(text).font(.caption).foregroundStyle(caution ? colors.cautionText : colors.textSecondary)
+        Text(text).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(caution ? colors.cautionText : colors.textSecondary)
     }
 }
 
@@ -111,7 +108,7 @@ private struct PremiumErrorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Caption(text: error.message, caution: true)
-            if error.retryable { Button("Try Again", action: onRetry).frame(minHeight: 48) }
+            if error.retryable { Button("Try again", action: onRetry).frame(minHeight: 48) }
         }
         .accessibilityElement(children: .combine)
     }
@@ -160,7 +157,7 @@ private struct UnderstandSection: View {
             }
             if !state.signedIn {
                 Text("An explanation of what was reported, how it compared with expectations and what's still uncertain.").font(.subheadline).foregroundStyle(colors.textBody)
-                Button { onAction(.signIn) } label: { Text("Sign In to Explain With AI").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.bordered)
+                Button { onAction(.signIn) } label: { Text("Sign in to explain with AI").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.stockSecondary)
             } else {
                 if state.loading && state.overview == nil { ProgressView().accessibilityLabel("Loading StockSteps+ features") }
                 if let error = state.overviewError { PremiumErrorView(error: error) { onAction(.retry) } }
@@ -177,7 +174,7 @@ private struct UnderstandSection: View {
             if e.cached { Caption(text: "Saved explanation from \(String(e.generatedAt.prefix(10))); it matches the current data.") }
             Text(e.summary.text).foregroundStyle(colors.textBody)
             VStack(alignment: .leading, spacing: 4) {
-                Text("Key Takeaways").font(.subheadline.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                Text("Key takeaways").font(.subheadline.weight(.semibold)).accessibilityAddTraits(.isHeader)
                 ForEach(e.beginnerTakeaways, id: \.self) { Text("• \($0)").font(.subheadline).foregroundStyle(colors.textBody) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -212,7 +209,7 @@ private struct UnderstandSection: View {
             if overview.explanation == .stale { Caption(text: "An earlier explanation used figures that have since changed. A new one will use the current data.", caution: true) }
             if !state.plus { Caption(text: "Explanations use only the verified figures on this screen. Part of StockSteps+.") }
             Button { onAction(.explain) } label: {
-                Label(state.plus ? "Explain With AI" : "Explain With AI · StockSteps+", systemImage: "lightbulb").frame(maxWidth: .infinity, minHeight: 48)
+                Label(state.plus ? "Explain with AI" : "Explain with AI · StockSteps+", systemImage: "lightbulb").frame(maxWidth: .infinity, minHeight: 48)
             }
             .buttonStyle(.stockPrimary)
             .disabled(state.explaining || !overview.aiAvailable)
@@ -249,7 +246,7 @@ private struct AskSection: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack {
                         ForEach(state.chips, id: \.id) { chip in
-                            Button(chip.text) { onAction(state.signedIn ? .ask(chip.text) : .signIn) }.buttonStyle(.bordered).frame(minHeight: 48).disabled(state.asking)
+                            Button(chip.text) { onAction(state.signedIn ? .ask(chip.text) : .signIn) }.buttonStyle(.stockSecondary).frame(minHeight: 48).disabled(state.asking)
                         }
                     }
                 }
@@ -278,7 +275,7 @@ private struct AskSection: View {
                     Button(state.plus || !state.signedIn ? "Ask" : "Ask · StockSteps+") { onAction(.ask(text)); if state.plus { text = "" } }
                         .buttonStyle(.stockPrimary).frame(minHeight: 48)
                         .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty || state.asking)
-                    if !state.conversation.isEmpty { Button("Start Over") { onAction(.resetConversation) }.frame(minHeight: 48) }
+                    if !state.conversation.isEmpty { Button("Start over") { onAction(.resetConversation) }.frame(minHeight: 48) }
                 }
                 if state.plus, let usage = state.askUsage { Caption(text: usage) }
             }
@@ -326,15 +323,15 @@ private struct HistorySection: View {
                     .accessibilityLabel(row.accessibility)
                 }
                 ForEach(h.dataWarnings, id: \.self) { Caption(text: $0, caution: true) }
-                if h.nextCursor != nil { Button("Show Earlier Quarters") { onAction(.loadHistory) }.frame(minHeight: 48) }
+                if h.nextCursor != nil { Button("Show earlier quarters") { onAction(.loadHistory) }.frame(minHeight: 48) }
                 Caption(text: h.disclaimer)
                 ForEach(h.sources, id: \.self) { Caption(text: $0) }
             } else {
                 if let n = state.overview?.historyQuarters, n > 0 { Caption(text: "\(n) reported quarter\(n == 1 ? "" : "s") available (up to 8 shown).") }
                 Button { onAction(state.signedIn ? .loadHistory : .signIn) } label: {
-                    Text(state.plus || !state.signedIn ? "Show Historical Earnings" : "Show Historical Earnings · StockSteps+").frame(maxWidth: .infinity, minHeight: 48)
+                    Text(state.plus || !state.signedIn ? "Show historical earnings" : "Show historical earnings · StockSteps+").frame(maxWidth: .infinity, minHeight: 48)
                 }
-                .buttonStyle(.bordered).disabled(state.historyLoading)
+                .buttonStyle(.stockSecondary).disabled(state.historyLoading)
                 if state.historyLoading { ProgressView().accessibilityLabel("Loading historical earnings") }
                 if let error = state.historyError { PremiumErrorView(error: error) { onAction(.loadHistory) } }
             }
@@ -571,7 +568,7 @@ struct EarningsDigestScreen: View {
                     Caption(text: "Education, not investment advice.")
                 } else {
                     Button { presenter.explain() } label: { Label("Summarize With AI", systemImage: "lightbulb").frame(minHeight: 48) }
-                        .buttonStyle(.bordered).disabled(state.aiLoading)
+                        .buttonStyle(.stockSecondary).disabled(state.aiLoading)
                     if state.aiLoading { ProgressView() }
                 }
                 if let error = state.aiError { PremiumErrorView(error: error) { presenter.explain() } }
@@ -580,7 +577,7 @@ struct EarningsDigestScreen: View {
             .stockCard()
         }
         ForEach(d.dataNotes, id: \.self) { Caption(text: $0) }
-        Button { onSettings() } label: { Label("Digest Settings", systemImage: "bell").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.bordered)
+        Button { onSettings() } label: { Label("Digest Settings", systemImage: "bell").frame(maxWidth: .infinity, minHeight: 48) }.buttonStyle(.stockSecondary)
         Button("Recent Earnings From Your Watchlist", action: onRecentWatchlist).frame(minHeight: 48)
         if let h = state.history {
             Text("Earlier Digests").font(.subheadline.weight(.semibold)).accessibilityAddTraits(.isHeader)
@@ -656,7 +653,7 @@ struct EarningsDigestSettingsScene: View {
                 Toggle("Include upcoming earnings", isOn: Binding(get: { p.includeUpcoming }, set: { client.setDigestUpcoming(presenter: presenter, include: $0) })).frame(minHeight: 48)
                 Caption(text: "Delivered around \(s.deliveryTime) (\(s.timeZone))" + (s.quietHours.map { ", outside quiet hours \($0)" } ?? "") + ". Time and quiet hours are set in Earnings Reminders.")
                 if let onReminders { Button("Earnings Reminders Settings", systemImage: "bell", action: onReminders).frame(minHeight: 48) }
-                if !s.plus { Button { onUpgrade() } label: { Text("See StockSteps+").frame(minHeight: 48) }.buttonStyle(.bordered) }
+                if !s.plus { Button { onUpgrade() } label: { Text("See StockSteps+").frame(minHeight: 48) }.buttonStyle(.stockSecondary) }
                 if let error = state.settingsError { Caption(text: error.message, caution: true) }
             }
             .stockCard()

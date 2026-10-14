@@ -50,7 +50,7 @@ struct ReminderControlButton: View {
         default: compact ? "Remind" : "Remind Me"
         }
         Button(action: action) { Label(label, systemImage: control == "ON" ? "bell.fill" : "bell").frame(minHeight: 44) }
-            .buttonStyle(.bordered)
+            .buttonStyle(.stockSecondary)
             .disabled(control == "SAVING")
             .accessibilityValue(label)
     }

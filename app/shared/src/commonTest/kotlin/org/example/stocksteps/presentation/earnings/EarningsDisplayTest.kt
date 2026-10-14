@@ -1,6 +1,8 @@
 package org.example.stocksteps.presentation.earnings
 
 import org.example.stocksteps.earnings.Classification
+import org.example.stocksteps.earnings.HistoryRowView
+import org.example.stocksteps.earnings.MetricLine
 import org.example.stocksteps.theme.StockBadgeKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,5 +31,43 @@ class EarningsDisplayTest {
     @Test fun sameDisplayForTheSameClassification() {
         assertEquals(4, Classification.entries.map { EarningsDisplay.classification(it).label }.toSet().size)
         Classification.entries.forEach { assertEquals(EarningsDisplay.classification(it), EarningsDisplay.classification(it)) }
+    }
+
+    // ---------- Phase 5D.2 ----------
+
+    @Test fun learnLinksAreNamedAfterTheLessonTheyOpen() {
+        // Destinations are unchanged (EPS → surprise, revenue → revenue); only the words now match them.
+        assertEquals("What is earnings surprise?", EarningsDisplay.cardTopic("EPS")?.title)
+        assertEquals("What is revenue?", EarningsDisplay.cardTopic("Revenue")?.title)
+        assertEquals("How is the price reaction measured?", EarningsDisplay.topicAction("reaction"))
+        assertEquals(null, EarningsDisplay.topicAction("no-such-lesson"))
+    }
+
+    @Test fun sentenceCaseHeadingsAndOneReactionTitle() {
+        for (title in listOf(EarningsDisplay.REACTION_TITLE, EarningsDisplay.TAKEAWAY_TITLE, EarningsDisplay.LEARN_TITLE, EarningsDisplay.COMPANY_ACTION)) {
+            val words = title.split(' ')
+            assertTrue(words.drop(1).none { it.first().isUpperCase() }, title)
+        }
+        assertEquals("Earnings per share (EPS)", EarningsDisplay.cardTitle("EPS"))
+        assertEquals("Revenue", EarningsDisplay.cardTitle("Revenue"))
+    }
+
+    @Test fun historyChartNeedsTwoReportedQuarters() {
+        assertFalse(EarningsDisplay.historyChartShown(listOf(null, 1.2, null)))
+        assertTrue(EarningsDisplay.historyChartShown(listOf(1.1, null, 1.2)))
+        assertFalse(EarningsDisplay.historyChartShown(emptyList()))
+    }
+
+    @Test fun historyRowsShowTheTooltipAmountsAndDoNotRepeatThemWhenExpanded() {
+        val lines = listOf(MetricLine("EPS", "C$1.94 vs C$2.00 est."), MetricLine("Revenue", "C$4.45B vs C$4.32B est."), MetricLine("Reported", "Jul 22, 2026"))
+        val row = HistoryRowView("CNR.TO:2026-Q2", "Q2 FY2026", "2026-07-22", "Miss (−3.0%)", "C$4.45B", "+3.0%", lines,
+            Classification.MISS, "C$1.94 vs C$2.00 est.", "−3.0%")
+        assertEquals("EPS C$1.94 vs C$2.00 est. · −3.0%", EarningsDisplay.historyEpsLine(row))
+        assertEquals("Revenue C$4.45B · +3.0% YoY", EarningsDisplay.historyRevenueLine(row))
+        assertEquals(listOf("Revenue", "Reported"), EarningsDisplay.historyDetailLines(row).map { it.label })
+        // Older data without the comparison keeps the previous text and every expanded line.
+        val legacy = row.copy(epsVsEstimate = null, surprise = null)
+        assertEquals("EPS Miss (−3.0%)", EarningsDisplay.historyEpsLine(legacy))
+        assertEquals(3, EarningsDisplay.historyDetailLines(legacy).size)
     }
 }
