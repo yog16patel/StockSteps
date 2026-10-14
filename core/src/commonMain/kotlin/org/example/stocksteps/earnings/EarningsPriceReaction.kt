@@ -239,7 +239,13 @@ data class EarningsPriceReactionState(
     val stale: Boolean = false,
     val offline: Boolean = false,
     val learn: List<LearnLink> = emptyList(),
-    val accessibility: String = ""
+    val accessibility: String = "",
+    /** Phase 5D.3: the measured change ("+0.2%") and its direction for the arrow; null without a change. */
+    val headline: String? = null,
+    val direction: org.example.stocksteps.companydetail.PriceDirection? = null,
+    /** Phase 5D.3: Before, After and Price change shown up front; [detailLines] (the measured window) go in "How to read this". */
+    val keyLines: List<MetricLine> = emptyList(),
+    val detailLines: List<MetricLine> = emptyList()
 ) {
     val available: Boolean get() = response?.reaction?.hasChange == true
 }
@@ -300,6 +306,11 @@ object PriceReactionFormat {
             // 5D.1B: prices without a currency say so once for the section.
             warnings = r.warnings + listOfNotNull(EarningsFormatter.currencyNote(r.currency).takeIf { r.hasChange || response.history.points.any { it.close != null } }), sources = r.sources, chart = chart(response.history, r),
             stale = r.freshness == DataFreshness.STALE, learn = learn,
+            headline = lines.firstOrNull { it.label == "Reaction" }?.value,
+            direction = EarningsMath.decimal(r.percentChange)?.takeIf { r.hasChange }?.let {
+                when { it > Decimal.ZERO -> org.example.stocksteps.companydetail.PriceDirection.UP; it < Decimal.ZERO -> org.example.stocksteps.companydetail.PriceDirection.DOWN
+                    else -> org.example.stocksteps.companydetail.PriceDirection.UNCHANGED } },
+            keyLines = lines.filter { it.label != "Reaction" && it.label != "Measured" }, detailLines = lines.filter { it.label == "Measured" },
             accessibility = "How did the stock react? " + (if (r.hasChange) lines.joinToString(" ") { "${it.label}: ${it.value}." } else statusText.orEmpty()) + " $context.")
     }
 }

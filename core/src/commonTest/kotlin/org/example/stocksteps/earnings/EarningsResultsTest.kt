@@ -192,7 +192,7 @@ class EarningsResultsTest {
         assertTrue(s.takeaway!!.startsWith("The company reported EPS and revenue above expectations."))
         assertEquals(5, s.learn.size); assertTrue(s.learn.all { it.body != null })              // existing lessons exist
         assertTrue(s.sources.any { it.startsWith("Fetched Wed, Oct 7") } && s.sampleData)
-        assertTrue(s.eps!!.accessibility.startsWith("Earnings Per Share (EPS). EPS Beat. Actual: $1.45."))
+        assertTrue(s.eps!!.accessibility.startsWith("Earnings per share (EPS). EPS Beat. Actual: $1.45."))
         assertNotNull(cache.saved["X:2026-Q3"])
         p.toggle("eps"); assertEquals(setOf("eps"), p.state.value.expanded); p.toggle("eps"); assertTrue(p.state.value.expanded.isEmpty())
     }

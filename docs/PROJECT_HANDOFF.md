@@ -5,9 +5,28 @@ Read order for a new session: `CLAUDE.md` → **§SESSION-END-2026-10-14 below**
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
+## PHASE-5D-3-2026-10-14. Earnings visual polish — committed as "Add Global UI Refinement Phase 5D.3 Earnings visual polish with an EPS headline, key metric groups, a reaction headline with folded methodology, a Sample badge and collapsed sources on Android and iOS"
+
+- Commit on top of `3d7b000` (5D.2); both pushed. Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_3.md`; captures `docs/design/earnings_phase5d_3/`.
+- Owner decisions approved in chat: built EPS headline (server summary fallback), tinted reaction headline with arrow, no history on Results, no ⋮ menu,
+  D-1 Sample badge.
+- Details:
+  - takeaway "EPS missed estimates by 3.0%." with Reported/Estimated EPS;
+  - three key metrics per EPS/revenue card;
+  - reaction "↑ +0.2%" + Before/After with the details collapsed;
+  - icon insights.
+- Results:
+  - Actual · Estimate · Surprise, and Actual · Estimate · YoY (YoY folded);
+  - reaction headline with the method collapsed;
+  - Learn rows plus a collapsed "Sources and disclosures" (each note once).
+- New components: `EarningsComponents.kt` / `.swift`.
+- Tests: core 500/0 (JVM, iOS), shared 237/0 and 233/0; `assembleDebug` OK; `xcodebuild` OK.
+- Devices: Android PASS (light 1.0×, 2.0×, dark). iOS NOT RUN; iOS Details BLOCKED (Auth emulator, D-3).
+- Recommendation: PASS WITH CONDITIONS. Next: D-3 (Auth emulator) for the iOS runtime check, then 5D.4.
+
 ## PHASE-5D-2-2026-10-14. Earnings design-system and layout refinement — committed as "Add Global UI Refinement Phase 5D.2 Earnings layout refinement with whole price-reaction labels from a shared label and value rule, design-system badges, banners and buttons, lesson-named links and an iOS EPS history chart on Android and iOS"
 
-- Commit on top of `a15cd5f` (this commit; not pushed). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_2.md`; captures `docs/design/earnings_phase5d_2/`.
+- Commit `3d7b000` on top of `a15cd5f` (pushed with 5D.3). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_2.md`; captures `docs/design/earnings_phase5d_2/`.
 - **P0 fixed:** the price-reaction "Window"/"Source" letter-per-line break. Cause: the old `Line` weighted the label and not the value, so a long
   value took the whole row. New shared rule `StockLayout.labelColumn` (`app/shared/.../theme/Spacing.kt`), drawn by `EarningsLines` on Compose and
   SwiftUI for every Earnings label/value group.

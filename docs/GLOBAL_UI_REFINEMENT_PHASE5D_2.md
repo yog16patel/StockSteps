@@ -1,6 +1,6 @@
 # Global UI Refinement Phase 5D.2 — Earnings design-system and layout refinement
 
-Date: 2026-10-14. Status: **committed** as "Add Global UI Refinement Phase 5D.2 Earnings layout refinement with whole price-reaction labels from a shared label and value rule, design-system badges, banners and buttons, lesson-named links and an iOS EPS history chart on Android and iOS" (not pushed). Base: `a15cd5f` (Phase 5D.1 + 5D.1A/1B). UI and display-only changes.
+Date: 2026-10-14. Status: **committed and pushed** as "Add Global UI Refinement Phase 5D.2 Earnings layout refinement with whole price-reaction labels from a shared label and value rule, design-system badges, banners and buttons, lesson-named links and an iOS EPS history chart on Android and iOS". Base: `a15cd5f` (Phase 5D.1 + 5D.1A/1B). UI and display-only changes.
 Nothing changed in calculations, classification, currency rules (5D.1B), provider mappings, server insights, API contracts, AI grounding or prompts,
 Firebase/auth, entitlements, reminder scheduling or navigation destinations. No server code changed.
 Visual direction: the owner's Earnings Details mock-up (attached to the request), used as a direction, not a pixel specification.

@@ -128,6 +128,20 @@ object EarningsFormatter {
         "$label · " + (actual?.let { "reported ${eps(it, currency)}" } ?: "not reported") + " · " + (estimate?.let { "est. ${eps(it, currency)}" } ?: "no estimate")
 
     /** "Beat (+5.9%)" — text, so meaning never depends on color. */
+    /**
+     * Phase 5D.3: the Details takeaway headline from the server's EPS classification and surprise — never inferred: UNAVAILABLE (e.g. no
+     * estimate) gives null, and a beat/miss without a surprise percent omits the amount.
+     */
+    fun epsHeadline(r: SurpriseResult?): String? {
+        val by = r?.percent?.let { p -> percent(abs(p))?.removePrefix("+")?.let { " by $it" } }.orEmpty()
+        return when (r?.classification) {
+            Classification.BEAT -> "EPS beat estimates$by."
+            Classification.MISS -> "EPS missed estimates$by."
+            Classification.MET -> "EPS met estimates."
+            else -> null
+        }
+    }
+
     fun result(r: SurpriseResult?): String? = r?.let { if (it.classification == Classification.UNAVAILABLE) null else it.classification.label + (percent(it.percent)?.let { p -> " ($p)" } ?: "") }
 }
 
@@ -141,7 +155,11 @@ data class ResultCard(
     val headline: String,
     val classification: Classification,
     val lines: List<MetricLine>,
-    val note: String?
+    val note: String?,
+    /** Phase 5D.3: the three numbers a beginner scans first (EPS: reported, estimate, surprise; revenue: reported, estimate, YoY growth). */
+    val keyMetrics: List<MetricLine> = emptyList(),
+    /** Phase 5D.3: the remaining [lines] (difference, basis, quarter-over-quarter), shown smaller below [keyMetrics]. */
+    val secondary: List<MetricLine> = emptyList()
 ) {
     val accessibility: String get() = "$title: $headline. " + lines.joinToString(" ") { "${it.label} ${it.value}." } + (note?.let { " $it" } ?: "")
 }
@@ -174,6 +192,13 @@ data class EarningsDetailsState(
     val revenue: ResultCard? = null,
     val reaction: List<MetricLine> = emptyList(),
     val reactionSentence: String? = null,
+    /** Phase 5D.3: the measured change first ("+0.2%"), its direction for the arrow, Before/After, and the window/source details (collapsed). */
+    val reactionHeadline: String? = null,
+    val reactionDirection: org.example.stocksteps.companydetail.PriceDirection? = null,
+    val reactionKey: List<MetricLine> = emptyList(),
+    val reactionDetails: List<MetricLine> = emptyList(),
+    /** Phase 5D.3: "EPS missed estimates by 3.0%." from the server's EPS classification; the server summary when there is none. */
+    val headline: String? = null,
     val history: List<HistoryRowView> = emptyList(),
     /** Oldest → newest, aligned: EPS actual vs estimate, and revenue growth. */
     val epsChart: List<ChartSeries> = emptyList(),
@@ -233,19 +258,25 @@ class EarningsDetailsPresenter(
         }
     }
 
-    private fun card(title: String, r: SurpriseResult, money: (Double?, String?) -> String, extra: List<MetricLine> = emptyList()) = ResultCard(
-        title, EarningsFormatter.result(r) ?: Classification.UNAVAILABLE.label, r.classification,
-        listOfNotNull(MetricLine("Reported", money(r.actual, r.currency)), MetricLine("Estimate", money(r.estimate, r.currency)),
-            r.absolute?.let { MetricLine("Difference", (if (it > 0) "+" else "") + money(it, r.currency)) },
-            r.percent?.let { MetricLine("Surprise", EarningsFormatter.percent(it)!!) }, r.basis?.let { MetricLine("Basis", it) }) + extra,
-        // 5D.1B: one currency caption per card when its amounts have no currency.
-        listOfNotNull(r.reason, EarningsFormatter.currencyNote(r.currency).takeIf { r.actual != null || r.estimate != null }).joinToString(" ").ifEmpty { null }
-    )
+    private fun card(title: String, r: SurpriseResult, money: (Double?, String?) -> String, extra: List<MetricLine> = emptyList(), third: MetricLine? = null): ResultCard {
+        val reported = MetricLine("Reported", money(r.actual, r.currency))
+        val estimate = MetricLine("Estimate", money(r.estimate, r.currency))
+        val difference = r.absolute?.let { MetricLine("Difference", (if (it > 0) "+" else "") + money(it, r.currency)) }
+        val surprise = r.percent?.let { MetricLine("Surprise", EarningsFormatter.percent(it)!!) }
+        val basis = r.basis?.let { MetricLine("Basis", it) }
+        // 5D.3: the third key number is the surprise ("—" when the server gave none), or [third] (revenue: YoY growth) when given.
+        val key = listOf(reported, estimate, third ?: surprise ?: MetricLine("Surprise", "—"))
+        val all = listOfNotNull(reported, estimate, difference, surprise, basis) + extra
+        return ResultCard(title, EarningsFormatter.result(r) ?: Classification.UNAVAILABLE.label, r.classification, all,
+            // 5D.1B: one currency caption per card when its amounts have no currency.
+            listOfNotNull(r.reason, EarningsFormatter.currencyNote(r.currency).takeIf { r.actual != null || r.estimate != null }).joinToString(" ").ifEmpty { null },
+            key, all.filterNot { line -> key.any { it === line } })
+    }
 
     private fun build(state: EarningsDetailsState, d: EarningsDetails): EarningsDetailsState {
         val e = d.event
-        val growth = listOfNotNull(d.revenueGrowthYoY?.let { MetricLine("Growth vs a year ago", EarningsFormatter.percent(it)!!) },
-            d.revenueGrowthQoQ?.let { MetricLine("Growth vs last quarter", EarningsFormatter.percent(it)!!, "Can reflect seasonality.") })
+        val yoy = d.revenueGrowthYoY?.let { MetricLine("YoY growth", EarningsFormatter.percent(it)!!) }
+        val growth = listOfNotNull(yoy, d.revenueGrowthQoQ?.let { MetricLine("Growth vs last quarter", EarningsFormatter.percent(it)!!, "Can reflect seasonality.") })
         val reaction = d.reaction?.takeIf { it.available }?.let { r ->
             listOfNotNull(
                 MetricLine("Before", "${EarningsFormatter.eps(r.baselineClose, r.currency)} · ${EarningsFormatter.date(r.baselineDate!!)}"),
@@ -267,8 +298,15 @@ class EarningsDetailsPresenter(
             headerDateStatus = e?.let { EarningsFormatter.dateStatus(it.dateStatus) },
             next = d.next?.takeIf { it.id != e?.id }?.let { n -> "Next: ${n.period} · ${EarningsFormatter.date(n.date)} · ${EarningsFormatter.session(n.session)} · ${EarningsFormatter.dateStatus(n.dateStatus)}" },
             eps = e?.let { card("EPS", d.eps, EarningsFormatter::eps) },
-            revenue = e?.let { card("Revenue", d.revenue, EarningsFormatter::revenue, growth) },
+            revenue = e?.let { card("Revenue", d.revenue, EarningsFormatter::revenue, growth, yoy) },
             reaction = reaction, reactionSentence = sentence,
+            reactionHeadline = reaction.firstOrNull { it.label == "Change" }?.value,
+            reactionDirection = d.reaction?.takeIf { it.available }?.changePercent?.let {
+                when { it > 0 -> org.example.stocksteps.companydetail.PriceDirection.UP; it < 0 -> org.example.stocksteps.companydetail.PriceDirection.DOWN
+                    else -> org.example.stocksteps.companydetail.PriceDirection.UNCHANGED } },
+            reactionKey = reaction.filter { it.label == "Before" || it.label == "After" },
+            reactionDetails = reaction.filterNot { it.label == "Before" || it.label == "After" || it.label == "Change" },
+            headline = EarningsFormatter.epsHeadline(d.eps) ?: d.summary,
             history = d.history.map { h ->
                 HistoryRowView(h.event.id, h.event.period, h.event.date,
                     EarningsFormatter.result(h.eps) ?: EarningsFormatter.eps(h.eps.actual, h.eps.currency),

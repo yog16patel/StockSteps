@@ -70,4 +70,31 @@ class EarningsDisplayTest {
         assertEquals("EPS Miss (−3.0%)", EarningsDisplay.historyEpsLine(legacy))
         assertEquals(3, EarningsDisplay.historyDetailLines(legacy).size)
     }
+
+    // ---------- Phase 5D.3 ----------
+
+    @Test fun insightIconsAreNeutralPerCategory() {
+        assertEquals("percent", EarningsDisplay.insightIcon("surprise"))
+        assertEquals("chart", EarningsDisplay.insightIcon("growth"))
+        assertEquals("layers", EarningsDisplay.insightIcon("trend"))
+        assertEquals("lightbulb", EarningsDisplay.insightIcon("anything-new"))
+    }
+
+    @Test fun takeawayShowsReportedAndEstimatedEpsOnly() {
+        val card = org.example.stocksteps.earnings.ResultCard("EPS", "Miss (−3.0%)", Classification.MISS, emptyList(), null,
+            listOf(MetricLine("Reported", "C$1.94"), MetricLine("Estimate", "C$2.00"), MetricLine("Surprise", "−3.0%")))
+        assertEquals(listOf("Reported EPS" to "C$1.94", "Estimated EPS" to "C$2.00"), EarningsDisplay.takeawayMetrics(card).map { it.label to it.value })
+        assertTrue(EarningsDisplay.takeawayMetrics(null).isEmpty())
+    }
+
+    /** Folding disclosures away never drops one: every note appears exactly once, the sample sentence only for sample data. */
+    @Test fun resultsDisclosuresKeepEveryNoteOnce() {
+        val notes = EarningsDisplay.resultsDisclosures("Published by the source Wed, Jul 22, 21:00 UTC", listOf("Results: Sample"), sampleData = true)
+        assertEquals(notes.size, notes.toSet().size)
+        assertTrue(EarningsDisplay.SAMPLE_SENTENCE in notes && EarningsDisplay.EDUCATION_NOT_ADVICE in notes && EarningsDisplay.PRICE_CAUSES in notes)
+        assertFalse(EarningsDisplay.SAMPLE_SENTENCE in EarningsDisplay.resultsDisclosures(null, emptyList(), sampleData = false))
+        // The server's notes can already contain the sample sentence (seen on device): still shown once.
+        val withNote = EarningsDisplay.resultsDisclosures(null, listOf("Results: Sample", EarningsDisplay.SAMPLE_SENTENCE), sampleData = true)
+        assertEquals(1, withNote.count { it == EarningsDisplay.SAMPLE_SENTENCE })
+    }
 }

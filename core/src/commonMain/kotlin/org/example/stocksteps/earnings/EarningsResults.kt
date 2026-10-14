@@ -431,7 +431,11 @@ data class ComparisonCardView(
     val reason: String?,
     val basisNote: String?,
     val infoTitle: String,
-    val infoBody: String
+    val infoBody: String,
+    /** Phase 5D.3: Actual | Estimate | Surprise % (revenue: Actual | Estimate | YoY growth); "—" where the server has no value. */
+    val keyMetrics: List<MetricLine> = emptyList(),
+    /** Phase 5D.3: the surprise amount (and prior-year revenue when YoY is folded in), shown smaller. */
+    val secondary: List<MetricLine> = emptyList()
 ) {
     val accessibility: String get() = "$title. $classificationText. " + lines.joinToString(" ") { "${it.label}: ${it.value}." } +
         (explanation?.let { " $it" } ?: "") + (reason?.takeIf { it != explanation }?.let { " $it" } ?: "")
@@ -458,6 +462,10 @@ data class EarningsResultsState(
     /** "Q3 FY2026 Earnings Results". */
     val title: String = "",
     val periodLines: List<String> = emptyList(),
+    /** Phase 5D.3: the source's publication time, shown with the sources instead of the header. */
+    val publication: String? = null,
+    /** Phase 5D.3: true when [revenue]'s key metrics already show the year-over-year growth, so the separate card isn't repeated. */
+    val yearOverYearFolded: Boolean = false,
     val eps: ComparisonCardView? = null,
     val revenue: ComparisonCardView? = null,
     val yearOverYear: GrowthCardView? = null,
@@ -502,14 +510,27 @@ object EarningsResultsFormat {
             m.surpriseAmount?.let { MetricLine("Surprise", signed(it, money, m.currency)!!) },
             percent(m.surprisePercent)?.let { MetricLine("Surprise %", it) }
         )
-        return ComparisonCardView(key, if (eps) "Earnings Per Share (EPS)" else "Revenue", m.classification, text, lines,
+        val surprisePercent = percent(m.surprisePercent)
+        val keyMetrics = listOf(MetricLine("Actual", money(m.actual, m.currency)), MetricLine("Estimate", money(m.estimate, m.currency)),
+            MetricLine("Surprise", surprisePercent ?: "—"))
+        val secondary = listOfNotNull(m.surpriseAmount?.let { MetricLine("Difference", signed(it, money, m.currency)!!) })
+        return ComparisonCardView(key, if (eps) "Earnings per share (EPS)" else "Revenue", m.classification, text, lines,
             m.explanation.takeIf { m.classification != Classification.UNAVAILABLE }, m.reason,
             // 5D.1B: one currency caption per card when its amounts have no currency (never a default "$").
             listOfNotNull(if (eps) m.basis?.let { "Measured as $it EPS." } else null,
                 EarningsFormatter.currencyNote(m.currency).takeIf { m.actual != null || m.estimate != null }).joinToString(" ").ifEmpty { null },
             if (eps) "What is EPS?" else "What is revenue?",
             if (eps) "EPS stands for Earnings Per Share. It represents a company's profit attributable to each share under the relevant accounting measure. Diluted EPS counts shares that could be created (for example from stock options); adjusted EPS leaves out items the company considers one-time. StockSteps only compares an estimate and a result measured the same way."
-            else "Revenue is the money a company earns from selling its products and services, before any expenses are taken out. Profit is what's left after expenses.")
+            else "Revenue is the money a company earns from selling its products and services, before any expenses are taken out. Profit is what's left after expenses.",
+            keyMetrics, secondary)
+    }
+
+    /** Phase 5D.3: revenue's third key metric becomes the YoY growth (the same formatted value as the YoY card); its prior-year revenue moves to secondary. */
+    internal fun foldGrowth(revenue: ComparisonCardView, g: GrowthComparison): ComparisonCardView? = percent(g.percent)?.let { yoy ->
+        revenue.copy(keyMetrics = revenue.keyMetrics.take(2) + MetricLine("YoY growth", yoy),
+            // The revenue surprise % (when there is one) stays visible as a secondary line.
+            secondary = listOfNotNull(revenue.keyMetrics[2].takeIf { it.value != "—" }) + revenue.secondary +
+                listOfNotNull(g.priorLabel?.let { MetricLine("Year ago ($it)", revenue(g.prior, g.currency)) }))
     }
 
     fun growth(key: String, title: String, g: GrowthComparison): GrowthCardView = GrowthCardView(key, title, listOfNotNull(
@@ -520,11 +541,11 @@ object EarningsResultsFormat {
 
     fun learn(): List<LearnLink> = listOf(
         org.example.stocksteps.learning.BeginnerEducation.entry("eps").let { LearnLink("What is EPS?", it?.let { e -> "${e.short} ${e.why}" }) },
-        org.example.stocksteps.learning.BeginnerEducation.entry("netIncome").let { LearnLink("Revenue vs Profit", it?.let { e ->
+        org.example.stocksteps.learning.BeginnerEducation.entry("netIncome").let { LearnLink("Revenue vs profit", it?.let { e ->
             "Revenue is money from sales before expenses. ${e.short} ${e.why}" }) },
-        org.example.stocksteps.learning.BeginnerEducation.entry("earningsBeat").let { LearnLink("What is an Earnings Beat?", it?.let { e -> "${e.short} ${e.limitations}" }) },
-        org.example.stocksteps.learning.BeginnerEducation.entry("revenueGrowth").let { LearnLink("Understanding Revenue Growth", it?.let { e -> "${e.short} ${e.why}" }) },
-        LearnLink("Why Stock Prices React to Earnings", EarningsEducation.topic("fall-after-beat")?.body)
+        org.example.stocksteps.learning.BeginnerEducation.entry("earningsBeat").let { LearnLink("What is an earnings beat?", it?.let { e -> "${e.short} ${e.limitations}" }) },
+        org.example.stocksteps.learning.BeginnerEducation.entry("revenueGrowth").let { LearnLink("Understanding revenue growth", it?.let { e -> "${e.short} ${e.why}" }) },
+        LearnLink("Why stock prices react to earnings", EarningsEducation.topic("fall-after-beat")?.body)
     )
 
     fun state(base: EarningsResultsState, r: EarningsResultsResponse): EarningsResultsState {
@@ -537,12 +558,13 @@ object EarningsResultsFormat {
             periodLines = listOfNotNull(
                 "Fiscal Q${report.fiscalQuarter} of fiscal year ${report.fiscalYear}" + (report.fiscalPeriodEnd?.let { " · period ended ${EarningsFormatter.date(it)}, ${it.take(4)}" } ?: ""),
                 "Reported ${EarningsFormatter.date(report.reportDate)}, ${report.reportDate.take(4)}",
-                report.publishedAt?.let { "Published by the source ${EarningsFormatter.date(it.take(10))}, ${it.drop(11).take(5)} UTC" } ?: "Publication time not provided by the source",
                 if (report.revised) "Revised by the source after first publication" else null
             ),
-            eps = card("eps", i.eps, true), revenue = card("revenue", i.revenue, false),
-            yearOverYear = growth("yoy", "Is the Business Growing?", i.yearOverYear),
-            quarterOverQuarter = growth("qoq", "Compared with the Previous Quarter", i.quarterOverQuarter),
+            publication = report.publishedAt?.let { "Published by the source ${EarningsFormatter.date(it.take(10))}, ${it.drop(11).take(5)} UTC" } ?: "Publication time not provided by the source",
+            yearOverYearFolded = foldGrowth(card("revenue", i.revenue, false), i.yearOverYear) != null,
+            eps = card("eps", i.eps, true), revenue = card("revenue", i.revenue, false).let { foldGrowth(it, i.yearOverYear) ?: it },
+            yearOverYear = growth("yoy", "Is the business growing?", i.yearOverYear),
+            quarterOverQuarter = growth("qoq", "Compared with the previous quarter", i.quarterOverQuarter),
             takeaway = i.takeaway, warnings = i.comparisonWarnings, learn = learn(),
             sources = report.sources.map { s ->
                 "${if (s.role == "actual") "Results" else "Estimates"}: ${s.provider}" + (s.basis?.let { " · $it" } ?: "") + (s.currency?.let { " · $it" } ?: "") +

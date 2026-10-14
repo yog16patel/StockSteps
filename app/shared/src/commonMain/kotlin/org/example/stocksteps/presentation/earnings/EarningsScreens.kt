@@ -349,11 +349,15 @@ internal fun EarningsDetailsScreen(
         state.error?.let { item(key = "error") { StockErrorState(it, onRetry) } }
         d?.summary?.let { summary ->
             item(key = "summary") {
-                StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                // 5D.3 takeaway: quarter, the EPS headline from the server's classification (the server summary when there is none), badge,
+                // reported vs estimated EPS, one explanation, one lesson.
+                StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                     state.headerPeriod?.let { Text(it, style = typography.label, color = colors.primaryText) }
-                    StockTitleWithBadge(title = { Text(summary, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary) },
+                    StockTitleWithBadge(title = { Text(state.headline ?: summary, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary) },
                         badge = { state.eps?.let { ClassificationBadge(it.classification) } })
+                    EarningsKeyMetrics(EarningsDisplay.takeawayMetrics(state.eps))
                     d.summaryExplanation?.let { Text(it, style = typography.small, color = colors.textBody) }
+                    EarningsEducation.topic("eps")?.let { topic -> StockButton("Learn more", onClick = { education = topic }, variant = StockButtonVariant.TEXT, icon = StockIcons.ArrowForward) }
                 }
             }
         }
@@ -369,12 +373,17 @@ internal fun EarningsDetailsScreen(
             }
         }
         if (state.reaction.isNotEmpty() || state.reactionSentence != null) item(key = "reaction") {
+            // 5D.3: the measured change first, then Before/After, the non-causal sentence; window, source and method folded below.
             StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
-                EarningsLines(state.reaction)
+                StockTitleWithBadge(title = { Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary) },
+                    badge = { state.reactionHeadline?.let { EarningsReactionHeadline(it, state.reactionDirection) } })
+                EarningsLines(state.reactionKey.ifEmpty { state.reaction.takeIf { state.reactionHeadline == null }.orEmpty() })
                 state.reactionSentence?.let { Text(it, style = typography.small, color = colors.textBody) }
-                EarningsDisplay.topicAction("reaction")?.let { label ->
-                    StockButton(label, onClick = { education = EarningsEducation.topic("reaction") }, variant = StockButtonVariant.TEXT, icon = StockIcons.Info)
+                if (state.reactionDetails.isNotEmpty()) EarningsDisclosure(EarningsDisplay.REACTION_DETAILS_TITLE) {
+                    EarningsLines(state.reactionDetails)
+                    EarningsDisplay.topicAction("reaction")?.let { label ->
+                        StockButton(label, onClick = { education = EarningsEducation.topic("reaction") }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb)
+                    }
                 }
             }
         }
@@ -385,7 +394,7 @@ internal fun EarningsDetailsScreen(
                     // A "Learn more" only where a lesson exists (it used to be shown even when it opened nothing).
                     val topic = EarningsEducation.topic(insight.methodology)
                     StockInsightCard(insight.title, insight.explanation, Modifier.fillMaxWidth(), eyebrow = insight.period, actionText = topic?.let { "Learn more" },
-                        onClick = topic?.let { t -> { education = t } })
+                        onClick = topic?.let { t -> { education = t } }, leading = { Icon(earningsInsightIcon(insight.category), null) })
                 }
                 if (d.lockedInsights > 0) Text("${d.lockedInsights} more trend insight${if (d.lockedInsights == 1) "" else "s"} with StockSteps+.", style = typography.caption, color = colors.textSecondary)
             }
@@ -457,7 +466,7 @@ internal fun EarningsDetailsScreen(
  * unweighted value broke "Window" / "Source" into one letter per line when the value was wider than the row. Nothing is truncated.
  */
 @Composable
-private fun EarningsLines(lines: List<MetricLine>, modifier: Modifier = Modifier) {
+internal fun EarningsLines(lines: List<MetricLine>, modifier: Modifier = Modifier) {
     if (lines.isEmpty()) return
     val density = androidx.compose.ui.platform.LocalDensity.current
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
@@ -515,12 +524,16 @@ private fun DetailsHeader(state: EarningsDetailsState, onRemind: () -> Unit, onC
                     style = typography.small, color = colors.textSecondary)
             }
         }
-        d?.let { StockStatusBadge(it.status.label, org.example.stocksteps.theme.StockBadgeKind.NEUTRAL) }
+        // D-1 (owner-approved, 5D.3): status + a compact Sample badge; the full sample sentence stays in the page notes and the app strip.
+        if (d != null) Row(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            StockStatusBadge(d.status.label, org.example.stocksteps.theme.StockBadgeKind.NEUTRAL)
+            if (d.sampleData) StockStatusBadge(EarningsDisplay.SAMPLE_BADGE, org.example.stocksteps.theme.StockBadgeKind.SAMPLE,
+                contentDescription = EarningsDisplay.SAMPLE_SENTENCE)
+        }
         listOfNotNull(state.headerDate, state.headerSession, state.headerDateStatus).takeIf { it.isNotEmpty() }?.let {
             Text(it.joinToString(" · "), style = typography.small, color = colors.textBody)
         }
         state.next?.let { Text(it, style = typography.small, color = colors.primaryText) }
-        if (d?.sampleData == true) StockSampleDataBanner("Sample earnings data for development, not real results.")
         if (d?.stale == true) StockBanner(org.example.stocksteps.theme.StockBannerKind.WARNING, "The next date hasn't been updated recently and may have changed.")
         val density = androidx.compose.ui.platform.LocalDensity.current
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
@@ -574,7 +587,11 @@ private fun ResultCardView(card: ResultCard, onLearn: () -> Unit) {
         Column(Modifier.semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
             StockTitleWithBadge(title = { Text(EarningsDisplay.cardTitle(card.title), Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary) },
                 badge = { ClassificationBadge(card.classification) })
-            EarningsLines(card.lines)
+            // 5D.3: the three key numbers first; the rest (difference, basis, quarter-over-quarter) smaller below.
+            if (card.keyMetrics.isNotEmpty()) {
+                EarningsKeyMetrics(card.keyMetrics)
+                EarningsLines(card.secondary)
+            } else EarningsLines(card.lines)
             card.note?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
         }
         // The label is the title of the lesson it opens (was "What does this mean?").
@@ -615,23 +632,33 @@ internal fun EarningsResultsScreen(state: EarningsResultsState, modifier: Modifi
             item(key = "header") { EarningsResultHeader(state) }
             state.eps?.let { item(key = "eps") { FinancialComparisonCard(it, it.key in state.expanded) { onAction(ResultsAction.Toggle(it.key)) } } }
             state.revenue?.let { item(key = "revenue") { FinancialComparisonCard(it, it.key in state.expanded) { onAction(ResultsAction.Toggle(it.key)) } } }
-            state.yearOverYear?.let { item(key = "yoy") { RevenueGrowthCard(it) } }
+            // 5D.3: the YoY growth is revenue's third key metric when available; the card only remains for its "not available" reason.
+            state.yearOverYear?.takeIf { !state.yearOverYearFolded }?.let { item(key = "yoy") { RevenueGrowthCard(it) } }
             state.quarterOverQuarter?.let { item(key = "qoq") { RevenueGrowthCard(it) } }
             state.takeaway?.let { takeaway -> item(key = "takeaway") { EarningsTakeawayCard(takeaway, state.warnings) } }
             reaction?.let { r -> item(key = "reaction") { PriceReactionSection(r, onAction) { lesson = it } } }
             // Phase 5 (StockSteps+): after every free section, so nothing free is pushed down or hidden.
             if (premium != null && !state.offline) premiumEarningsItems(premium, onPremium)
             item(key = "learn") {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                     Text(EarningsDisplay.LEARN_TITLE, Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textPrimary)
-                    state.learn.forEach { link ->
-                        // An existing lesson opens in place; a missing one falls back to the Learn tab (never a broken link).
-                        StockButton(link.title, onClick = { if (link.body != null) lesson = link else onAction(ResultsAction.Learn) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb)
+                    // 5D.3: grouped navigation rows (same lessons; a missing one still falls back to the Learn tab, never a broken link).
+                    StockCard(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = spacing.md)) {
+                        state.learn.forEachIndexed { index, link ->
+                            if (index > 0) HorizontalDivider(color = colors.borderSubtle)
+                            StockNavigationRow(link.title, onClick = { if (link.body != null) lesson = link else onAction(ResultsAction.Learn) },
+                                icon = StockIcons.Lightbulb, actionLabel = "Opens ${link.title}")
+                        }
                     }
                     StockButton(EarningsDisplay.COMPANY_ACTION, onClick = { onAction(ResultsAction.Company) }, variant = StockButtonVariant.OUTLINED, modifier = Modifier.fillMaxWidth())
                 }
             }
-            item(key = "sources") { EarningsSourceFooter(state.sources) }
+            // 5D.3: sources, publication time, the sample sentence and the education/price notes, once, in one collapsed section.
+            item(key = "sources") {
+                EarningsDisclosure(EarningsDisplay.DISCLOSURES_TITLE, icon = StockIcons.Document) {
+                    EarningsNotes(EarningsDisplay.resultsDisclosures(state.publication, state.sources, state.sampleData))
+                }
+            }
         }
     }
     lesson?.let { l -> AlertDialog(onDismissRequest = { lesson = null }, title = { Text(l.title) }, text = { Text(l.body.orEmpty()) },
@@ -652,7 +679,8 @@ private fun EarningsResultHeader(state: EarningsResultsState) {
         }
         Text(state.title, Modifier.semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
         state.periodLines.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
-        if (state.sampleData) StockSampleDataBanner("Sample earnings data for development, not real results.")
+        // D-1 (owner-approved, 5D.3): a compact Sample badge; the full sentence is in "Sources and disclosures" and the app strip stays.
+        if (state.sampleData) StockStatusBadge(EarningsDisplay.SAMPLE_BADGE, org.example.stocksteps.theme.StockBadgeKind.SAMPLE, contentDescription = EarningsDisplay.SAMPLE_SENTENCE)
         // E-06: data caveats are banners (icon + words, announced), not bare caution captions.
         state.freshnessText?.let { StockBanner(org.example.stocksteps.theme.StockBannerKind.WARNING, it) }
     }
@@ -669,10 +697,11 @@ private fun FinancialComparisonCard(card: ComparisonCardView, expanded: Boolean,
                 Text(card.title, Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
                 ClassificationBadge(card.classification)
             }
-            EarningsLines(card.lines)
+            if (card.keyMetrics.isNotEmpty()) EarningsKeyMetrics(card.keyMetrics) else EarningsLines(card.lines)
             card.explanation?.let { Text(it, style = typography.small, color = colors.textBody) }
             card.reason?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
             card.basisNote?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
+            if (card.keyMetrics.isNotEmpty()) EarningsLines(card.secondary)
         }
         FinancialTermInfo(card.infoTitle, card.infoBody, expanded, onToggle)
     }
@@ -717,15 +746,6 @@ private fun EarningsTakeawayCard(takeaway: String, warnings: List<String>) {
         Text(EarningsDisplay.TAKEAWAY_TITLE, Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
         Text(takeaway, style = StockStepsTheme.typography.body, color = colors.textBody)
         if (warnings.isNotEmpty()) StockBanner(org.example.stocksteps.theme.StockBannerKind.WARNING, warnings.joinToString("\n"))
-        Text("This is education, not investment advice.", style = StockStepsTheme.typography.caption, color = colors.textSecondary)
-    }
-}
-
-@Composable
-private fun EarningsSourceFooter(lines: List<String>) {
-    Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-        Text("Sources", style = StockStepsTheme.typography.label, color = StockStepsTheme.colors.textSecondary)
-        lines.forEach { Text(it, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary) }
     }
 }
 
@@ -747,7 +767,8 @@ private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (R
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+        StockTitleWithBadge(title = { Text(EarningsDisplay.REACTION_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary) },
+            badge = { state.headline?.let { EarningsReactionHeadline(it, state.direction) } })
         Row(Modifier.horizontalScroll(rememberScrollState()).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             ReactionWindow.entries.forEach { w ->
                 val pending = state.windows.firstOrNull { it.window == w }?.status == ReactionStatus.WINDOW_INCOMPLETE
@@ -756,9 +777,8 @@ private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (R
         }
         if (state.loading || state.refreshing) LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading price reaction" })
         state.error?.let { StockErrorState(it, { onAction(ResultsAction.RetryReaction) }) }
-        state.contextLine?.let { Text(it, style = typography.label, color = colors.textPrimary) }
         if (state.lines.isNotEmpty()) Column(Modifier.semantics(mergeDescendants = true) { contentDescription = state.accessibility }) {
-            EarningsLines(state.lines)
+            EarningsLines(state.keyLines.ifEmpty { state.lines })
         }
         state.statusText?.let { Text(it, style = typography.small, color = colors.textSecondary) }
         state.summary?.let { Text(it, style = typography.small, color = colors.textBody) }
@@ -766,8 +786,6 @@ private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (R
             StockTrendChart(chart.values, chart.details, chart.xLabels, chart.yLabels, chart.description,
                 markers = listOf(chart.eventIndex).filter { it >= 0 }, highlights = listOf(chart.baselineIndex, chart.endpointIndex).filter { it >= 0 },
                 height = if (state.expandedChart) 240.dp else 150.dp)
-            Text("Dashed line: ${chart.eventLabel}. Rings: baseline and endpoint closes. Daily closes only, so the marker shows the session, not the exact time.",
-                style = typography.caption, color = colors.textSecondary)
             chart.missingNote?.let { Text(it, style = typography.caption, color = colors.cautionText) }
             StockButton(if (state.expandedChart) "Smaller chart" else "Larger chart", onClick = { onAction(ResultsAction.ToggleChart) }, variant = StockButtonVariant.TEXT)
         }
@@ -776,8 +794,13 @@ private fun PriceReactionSection(state: EarningsPriceReactionState, onAction: (R
         // E-06: one warning banner for the section's caveats (the words are unchanged).
         val caveats = state.warnings + listOfNotNull("Showing saved price data; the price provider isn't responding.".takeIf { state.stale })
         if (caveats.isNotEmpty()) StockBanner(org.example.stocksteps.theme.StockBannerKind.WARNING, caveats.joinToString("\n"))
-        state.learn.forEach { link -> StockButton(link.title, onClick = { onLesson(link) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb) }
-        state.sources.forEach { Text("Prices: $it · regular-session closes, split-adjusted", style = typography.caption, color = colors.textSecondary) }
-        Text("Price moves have many causes. This shows what happened, not why, and isn't investment advice.", style = typography.caption, color = colors.textTertiary)
+        // 5D.3: the measured window, the chart key, the context line, lessons and price sources, folded (nothing removed).
+        EarningsDisclosure(EarningsDisplay.RESULTS_REACTION_DETAILS_TITLE) {
+            EarningsLines(state.detailLines)
+            state.chart?.let { chart -> EarningsNotes(listOf("Dashed line: ${chart.eventLabel}. Rings: baseline and endpoint closes. Daily closes only, so the marker shows the session, not the exact time.")) }
+            state.contextLine?.let { EarningsNotes(listOf(it)) }
+            state.learn.forEach { link -> StockButton(link.title, onClick = { onLesson(link) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb) }
+            EarningsNotes(state.sources.map { "Prices: $it · regular-session closes, split-adjusted" })
+        }
     }
 }

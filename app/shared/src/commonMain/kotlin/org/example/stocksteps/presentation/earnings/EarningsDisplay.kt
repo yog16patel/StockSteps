@@ -58,4 +58,33 @@ object EarningsDisplay {
 
     /** Expanded history row: the lines not already shown collapsed (the EPS comparison is on the collapsed row). */
     fun historyDetailLines(row: HistoryRowView): List<MetricLine> = if (row.epsVsEstimate != null) row.lines.filterNot { it.label == "EPS" } else row.lines
+
+    // ---------- Phase 5D.3: visual polish (shared copy and choices; display only) ----------
+
+    /** D-1 (owner-approved): a compact "Sample" badge beside the status replaces the in-page sample strip; the full sentence stays in the notes. */
+    const val SAMPLE_BADGE = "Sample"
+    const val SAMPLE_SENTENCE = "Sample earnings data for development, not real results."
+    const val REACTION_DETAILS_TITLE = "How it's measured and source"
+    const val RESULTS_REACTION_DETAILS_TITLE = "How to read this"
+    const val DISCLOSURES_TITLE = "Sources and disclosures"
+    const val EDUCATION_NOT_ADVICE = "This is education, not investment advice."
+    const val PRICE_CAUSES = "Price moves have many causes. This shows what happened, not why, and isn't investment advice."
+
+    /** Neutral icon per server insight category (never a direction cue): "percent", "chart", "layers", "info", else "lightbulb". */
+    fun insightIcon(category: String): String = when (category) {
+        "surprise" -> "percent"
+        "growth" -> "chart"
+        "trend" -> "layers"
+        "mixed" -> "info"
+        else -> "lightbulb"
+    }
+
+    /** The two numbers the Details takeaway shows (reported and estimated EPS), from the EPS card's key metrics. */
+    fun takeawayMetrics(eps: org.example.stocksteps.earnings.ResultCard?): List<MetricLine> =
+        eps?.keyMetrics?.take(2)?.map { MetricLine(if (it.label == "Reported") "Reported EPS" else "Estimated EPS", it.value) }.orEmpty()
+
+    /** Results "Sources and disclosures": publication, sources, the sample sentence when sample data, then the education and price notes. */
+    fun resultsDisclosures(publication: String?, sources: List<String>, sampleData: Boolean): List<String> =
+        // distinct(): the server's notes may already carry the sample sentence; each note appears once.
+        (listOfNotNull(publication) + sources + listOfNotNull(SAMPLE_SENTENCE.takeIf { sampleData }) + EDUCATION_NOT_ADVICE + PRICE_CAUSES).distinct()
 }

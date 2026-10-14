@@ -6,6 +6,10 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-14 — Phase 5D.3 Earnings visual polish (committed as "Add Global UI Refinement Phase 5D.3 Earnings visual polish with an EPS headline, key metric groups, a reaction headline with folded methodology, a Sample badge and collapsed sources on Android and iOS", on top of `3d7b000` = 5D.2; both pushed).** Details and Results now lead with key metrics, a built
+EPS headline, a reaction headline with the details collapsed, a Sample badge and a collapsed sources section. All suites pass; Android device PASS;
+iOS NOT RUN. Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_3.md`. Recommendation: PASS WITH CONDITIONS.
+
 **2026-10-14 — Phase 5D.2 Earnings design-system and layout refinement (committed as "Add Global UI Refinement Phase 5D.2 Earnings layout refinement with whole price-reaction labels from a shared label and value rule, design-system badges, banners and buttons, lesson-named links and an iOS EPS history chart on Android and iOS").** The price-reaction "Window"/"Source" break is fixed by the
 shared `StockLayout.labelColumn` + `EarningsLines` (both platforms), along with design-system badges, banners and buttons, sentence case and an iOS history chart.
 All suites pass and both builds succeed; Android device PASS; iOS runtime NOT RUN (Details BLOCKED by the signed-in session). Report
