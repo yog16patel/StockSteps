@@ -29,7 +29,11 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
     small-screen review: BLOCKED or NOT RUN. After captures are in `docs/design/portfolio_phase_e_2/`.
   - Environment: MOCK and the Auth emulator are stopped. The iPhone 16 is **signed out** (by the Sign in again test) at Large. Android
     `emulator-5554` (Pixel_9_Pro) is running, restored (size reset, font 1.0, no `adb reverse`), still signed in. `emulator-5556` untouched.
-- **Next:** owner signs in again on the iPhone 16 (local Auth emulator) to finish report §4 item 1; schedule
+- **Final pass (committed as "Close Portfolio Phase E.2 with an AX5 fix that stacks the iOS account sheet pickers and a final verification pass recommending pass with conditions"):** owner re-signed in (local Auth emulator); portfolio reloads; AX5 account title PASS; AX5 pickers broke
+  mid-word → fixed (stacked at accessibility sizes, iOS only, signed build OK); Save reachable above the keyboard at AX5. Currency round-trip
+  (add CAD/USD, edit, history/details), account switching, dark theme: BLOCKED (simulator taps stopped registering) / NOT RUN.
+  **Recommendation: PASS WITH CONDITIONS** (report §5). MOCK and the Auth emulator were left running; iPhone 16 signed in at Large.
+- **Next:** finish report §4 item 1 on device; Phase 5D (owner approved; starts with a read-only audit); schedule
   allocation A1; Phase 5D.
 - Dirty files not from this phase (never staged): root `PROJECT_HANDOFF.md` and the two backend hunks of `docs/project-status.md`.
 

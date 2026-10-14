@@ -84,12 +84,42 @@ no portfolio request is sent, so server data is untouched. Not verified against 
 
 **Not verified:** TalkBack, VoiceOver, Accessibility Inspector (deferred by the owner).
 
+### 3b. Final verification pass (2026-10-13, after `095005d`; owner signed in with a local Auth-emulator account; committed as "Close Portfolio Phase E.2 with an AX5 fix that stacks the iOS account sheet pickers and a final verification pass recommending pass with conditions")
+
+| Scenario | Result | Evidence |
+|---|---|---|
+| Re-sign-in: portfolio loads and editing is available after session recovery (fresh local account, iPhone 16) | **PASS** (account created, dashboard loaded with Add enabled) | — |
+| "New investment account" sheet at **AX5**: title inline and complete | **PASS** | `after-i16-ax5-account-sheet-stacked` |
+| AX5 sheet fields: Account category / Reporting currency pickers | **FAIL → FIXED (E2-F1, P2)**: label beside value broke "Ac-count cate-gory" mid-word with the value cut to "P…l"; now stacked at accessibility sizes like the D1 transaction form | before `before-i16-ax5-account-pickers-squeezed`, after `after-i16-ax5-account-sheet-stacked` |
+| AX5 keyboard visible: Save account reachable above the keyboard; save succeeds | **PASS** | `after-i16-ax5-account-save-above-keyboard` |
+| Large: Trade currency first in Amounts with the note, layout clear of the home indicator | **PASS** (re-confirmed) | — |
+| Add CAD and USD transactions; edit keeps the recorded currency; history/details show it; account switching | **BLOCKED**: simulator tap injection stopped reaching the app (app alive; scroll works; taps on the enabled Add button repeatedly ignored) | — |
+| Session-expiry re-test after re-sign-in (C5 Dismiss path, Sign in again) | **NOT RUN** this pass (verified in §3 rows 6; C5 covered by `PortfolioSessionStateTest`) | — |
+| Dark theme, small screens (iOS SE excluded by the owner) | **NOT RUN** | — |
+| Android | **NOT RUN** this pass: `emulator-5554` was stopped; Android signs in to the default Firebase project, so session-expiry there would act on a real account (not attempted) | — |
+
+**Fix E2-F1** (`app/iosApp/iosApp/PortfolioForms.swift`, iOS only): the account sheet reads `dynamicTypeSize` and, at accessibility sizes,
+puts each picker's label above its value (`stacked`, same pattern as the transaction form). Below AX sizes the layout is unchanged. Validation:
+ad-hoc signed simulator `xcodebuild` **BUILD SUCCEEDED** and the after capture. No shared/Kotlin code changed, so the Kotlin suites were not
+re-run. The unsigned `xcodebuild` was not run separately (the signed build compiles the same sources).
+
+**New P3 observations (not fixed, out of scope):** Home "Markets today" breaks mid-word ("Market / s today") at AX5; the iOS account-name field
+has no keyboard dismiss on Return (Save stays reachable by scrolling).
+
 ## 4. Remaining
 
-1. Owner: sign in again on the iPhone 16 (local Auth emulator), then: row 1b (AX5 title), rows 4–5 (edit keeps currency, history currency), row 9.
+1. Owner/tooling: finish add CAD + USD, edit currency, history/details currency and account switching on the iPhone 16 (simulator input
+   stopped working in the final pass); dark theme.
 2. Known gaps (not changed):
    - Home's portfolio card still says "Offline · last saved portfolio" for an ended session (`HomeDashboardPresentation`; outside E.2 scope).
    - Edit / Delete on transaction details stay enabled while the session is expired; they fail with the session message.
    - A server 401 shows the server's text ("Sign in to use watchlists and alerts.") as the message, under "Session expired".
    - Typed-symbol currency is never looked up (D-3); MOCK's synthetic TD.TO profile is USD / NASDAQ (D-5, backend session).
+   - P3: Home "Markets today" mid-word break at AX5; no Return-to-dismiss on the iOS account name.
 3. Allocation A1: schedule as its own phase (proposal §7 now complete).
+
+## 5. Recommendation
+
+**PASS WITH CONDITIONS.** Everything E.2 changed is implemented and covered by tests. All suites pass, and the device checks of the new behaviour pass on iOS and Android. One AX5 defect found in the final pass was fixed and verified.
+Conditions: the currency round-trip (add CAD/USD → edit → history/details) on device, Android session-expiry at runtime, and dark theme.
+TalkBack, VoiceOver and Accessibility Inspector remain **NOT VERIFIED** (deferred by the owner). Not a full accessibility sign-off.

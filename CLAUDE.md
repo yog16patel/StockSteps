@@ -14,8 +14,8 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 ## Current task (as of 2026-10-13, Portfolio Phase E.2)
 
 **Phase E.2** ("Add Portfolio Phase E.2 with a readable iOS account title, the trade currency shown with the amounts, and a Session expired banner
-with Sign in again on Android and iOS") is committed and pushed, and its verification is recorded (all suites pass; device checks mostly PASS). Remaining: the owner signs in again on
-the iPhone 16 to finish report §4 item 1 (AX5 title, edit/history currency). Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2.md`.
+with Sign in again on Android and iOS") is committed and pushed, and its verification is recorded (all suites pass; device checks mostly PASS). Closed as PASS WITH CONDITIONS (report §5): the
+on-device currency round-trip and dark theme remain. **Next: Phase 5D** (Learn, Daily Brief, Earnings), starting with a read-only audit. Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2.md`.
 
 Earlier context (Phase E.1):
 

@@ -6,6 +6,7 @@ struct PortfolioAccountForm: View {
     let onSave: (String, String, String, String, Bool) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var name = ""
     @State private var category = "PERSONAL"
     @State private var currency = "CAD"
@@ -25,11 +26,15 @@ struct PortfolioAccountForm: View {
                 }
                 .padding(.vertical, CGFloat(StockStepsTheme.spacing.xxs))
                 // Readable category labels; the tag stays the enum name the bridge expects (A-F2).
-                Picker(display.ACCOUNT_CATEGORY, selection: $category) {
-                    ForEach(rules.categoryOptions, id: \.name) { Text(present.categoryLabel(category: $0)).tag($0.name) }
+                stacked(display.ACCOUNT_CATEGORY, colors) {
+                    Picker(display.ACCOUNT_CATEGORY, selection: $category) {
+                        ForEach(rules.categoryOptions, id: \.name) { Text(present.categoryLabel(category: $0)).tag($0.name) }
+                    }
                 }
-                Picker(display.ACCOUNT_CURRENCY, selection: $currency) {
-                    ForEach(rules.currencyOptions, id: \.name) { Text(verbatim: $0.name).tag($0.name) }
+                stacked(display.ACCOUNT_CURRENCY, colors) {
+                    Picker(display.ACCOUNT_CURRENCY, selection: $currency) {
+                        ForEach(rules.currencyOptions, id: \.name) { Text(verbatim: $0.name).tag($0.name) }
+                    }
                 }
                 if existing != nil { Toggle(display.ACCOUNT_ARCHIVE, isOn: $archived) }
                 Text(display.ACCOUNT_NOTE).font(StockStepsTheme.font(StockStepsTheme.typography.caption, relativeTo: .footnote)).foregroundStyle(colors.textMeta)
@@ -45,6 +50,19 @@ struct PortfolioAccountForm: View {
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button(display.FORM_CANCEL) { dismiss() } } }
         }.onAppear {
             if let existing { name = existing.name; category = existing.category.name; currency = existing.reportingCurrency.name; archived = existing.archived }
+        }
+    }
+    /// E.2 (as the transaction form's D1 `stacked`): at accessibility sizes the label goes above the picker, so neither is squeezed
+    /// ("Ac-count cate-gory" beside "P…l" at AX5).
+    @ViewBuilder private func stacked<Control: View>(_ label: String, _ colors: StockColors, @ViewBuilder _ control: () -> Control) -> some View {
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.xxs)) {
+                Text(label).font(StockStepsTheme.font(StockStepsTheme.typography.label, relativeTo: .footnote))
+                    .foregroundStyle(colors.textSecondary).accessibilityHidden(true)
+                control().labelsHidden().accessibilityLabel(label)
+            }
+        } else {
+            control()
         }
     }
 }
