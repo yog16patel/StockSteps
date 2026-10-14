@@ -88,7 +88,17 @@ object EarningsFormatter {
         val cents = round(abs(value) * 100).toLong()
         return "${cents / 100}.${(cents % 100).toString().padStart(2, '0')}"
     }
-    private fun symbol(currency: String?) = when (currency) { null, "USD" -> "$"; "CAD" -> "C$"; else -> "$currency " }
+    /**
+     * Phase 5D.1B (owner decision 5D1A-2): a null currency means the source didn't provide one, so no symbol is shown: never "$" by default.
+     * Pair a currency-less amount with [UNKNOWN_CURRENCY] once per card or section ([currencyNote]).
+     */
+    private fun symbol(currency: String?) = when (currency) { null -> ""; "USD" -> "$"; "CAD" -> "C$"; else -> "$currency " }
+
+    /** Phase 5D.1B: shown once per card / section that has an amount without a currency. */
+    const val UNKNOWN_CURRENCY = "Currency not provided by the source."
+
+    /** [UNKNOWN_CURRENCY] when any of [currencies] belonging to a shown amount is null; null otherwise. */
+    fun currencyNote(vararg currencies: String?): String? = UNKNOWN_CURRENCY.takeIf { currencies.isNotEmpty() && currencies.any { it == null } }
     fun eps(value: Double?, currency: String?) = value?.let { (if (it < 0) "−" else "") + symbol(currency) + two(it) } ?: "—"
     fun revenue(value: Double?, currency: String?): String = value?.let {
         val a = abs(it)
@@ -96,6 +106,26 @@ object EarningsFormatter {
         (if (it < 0) "−" else "") + symbol(currency) + text
     } ?: "—"
     fun percent(value: Double?) = value?.let { (if (it > 0) "+" else if (it < 0) "−" else "") + (round(abs(it) * 10) / 10).toString() + "%" }
+
+    /**
+     * Phase 5D.1 (E-02): the "not reported yet" estimate sentence, the same on both platforms. Only the estimates that exist are named, so a
+     * missing one is never shown as "—" inside the sentence (or as zero); a zero or negative estimate is a real value and is shown. Amounts use
+     * [eps] / [revenue] with the estimate's own currency.
+     */
+    fun estimateSentence(estimate: EarningsEstimate?): String {
+        val eps = estimate?.eps?.takeIf { it.isFinite() }?.let { "EPS of ${eps(it, estimate.currency)}" }
+        val revenue = estimate?.revenue?.takeIf { it.isFinite() }?.let { "revenue of ${revenue(it, estimate.currency)}" }
+        val parts = listOfNotNull(eps, revenue)
+        return if (parts.isEmpty()) "Analyst estimates aren't available yet."
+            else "Analysts expect ${parts.joinToString(" and ")}." + (currencyNote(estimate?.currency)?.let { " $it" } ?: "")
+    }
+
+    /**
+     * Phase 5D.1 (E-03): one history-chart tooltip, "Q4 25 · reported $1.20 · est. $1.10", in the same [currency] and formatter as that
+     * quarter's history row. A missing value says "not reported" / "no estimate" instead of a dash; numbers are only formatted, never changed.
+     */
+    fun historyPoint(label: String, actual: Double?, estimate: Double?, currency: String?): String =
+        "$label · " + (actual?.let { "reported ${eps(it, currency)}" } ?: "not reported") + " · " + (estimate?.let { "est. ${eps(it, currency)}" } ?: "no estimate")
 
     /** "Beat (+5.9%)" — text, so meaning never depends on color. */
     fun result(r: SurpriseResult?): String? = r?.let { if (it.classification == Classification.UNAVAILABLE) null else it.classification.label + (percent(it.percent)?.let { p -> " ($p)" } ?: "") }
@@ -140,6 +170,12 @@ data class EarningsDetailsState(
     /** Oldest → newest, aligned: EPS actual vs estimate, and revenue growth. */
     val epsChart: List<ChartSeries> = emptyList(),
     val chartLabels: List<String> = emptyList(),
+    /** Phase 5D.1 (E-03): one tooltip per [chartLabels] slot, with the quarter's currency (`EarningsFormatter.historyPoint`). */
+    val epsChartDetails: List<String> = emptyList(),
+    /** Phase 5D.1B: [EarningsFormatter.UNKNOWN_CURRENCY] once for the history chart and rows when a shown quarter has no currency. */
+    val historyNote: String? = null,
+    /** Phase 5D.1 (E-02): the next report's estimate sentence (`EarningsFormatter.estimateSentence`); null without a next report. */
+    val nextEstimate: String? = null,
     val signedIn: Boolean = false,
     val reminder: AlertRule? = null,
     val reminderBusy: Boolean = false,
@@ -194,7 +230,8 @@ class EarningsDetailsPresenter(
         listOfNotNull(MetricLine("Reported", money(r.actual, r.currency)), MetricLine("Estimate", money(r.estimate, r.currency)),
             r.absolute?.let { MetricLine("Difference", (if (it > 0) "+" else "") + money(it, r.currency)) },
             r.percent?.let { MetricLine("Surprise", EarningsFormatter.percent(it)!!) }, r.basis?.let { MetricLine("Basis", it) }) + extra,
-        r.reason
+        // 5D.1B: one currency caption per card when its amounts have no currency.
+        listOfNotNull(r.reason, EarningsFormatter.currencyNote(r.currency).takeIf { r.actual != null || r.estimate != null }).joinToString(" ").ifEmpty { null }
     )
 
     private fun build(state: EarningsDetailsState, d: EarningsDetails): EarningsDetailsState {
@@ -212,7 +249,8 @@ class EarningsDetailsPresenter(
             )
         }.orEmpty()
         val sentence = d.reaction?.let { r -> if (r.available) r.changePercent?.let { c ->
-            "The stock ${if (c >= 0) "rose" else "fell"} ${EarningsFormatter.percent(abs(c))!!.removePrefix("+")} over the measured earnings window${if (r.approximate) " (approximate)" else ""}. Other news and market moves can also affect the price."
+            "The stock ${if (c >= 0) "rose" else "fell"} ${EarningsFormatter.percent(abs(c))!!.removePrefix("+")} over the measured earnings window${if (r.approximate) " (approximate)" else ""}. Other news and market moves can also affect the price." +
+                (EarningsFormatter.currencyNote(r.currency)?.let { " $it" } ?: "")
         } else r.reason }
         val chronological = d.history.reversed()
         return state.copy(
@@ -233,7 +271,10 @@ class EarningsDetailsPresenter(
                         MetricLine("Reported", EarningsFormatter.date(h.event.date) + " · " + EarningsFormatter.session(h.event.session))))
             },
             epsChart = listOf(ChartSeries("Reported EPS", chronological.map { it.eps.actual }), ChartSeries("Estimate", chronological.map { it.eps.estimate })),
-            chartLabels = chronological.map { "Q${it.event.fiscalQuarter} ${it.event.fiscalYear % 100}" }
+            chartLabels = chronological.map { "Q${it.event.fiscalQuarter} ${it.event.fiscalYear % 100}" },
+            epsChartDetails = chronological.map { EarningsFormatter.historyPoint("Q${it.event.fiscalQuarter} ${it.event.fiscalYear % 100}", it.eps.actual, it.eps.estimate, it.eps.currency) },
+            nextEstimate = d.next?.let { EarningsFormatter.estimateSentence(it.estimate) },
+            historyNote = EarningsFormatter.currencyNote(*d.history.map { it.eps.currency }.toTypedArray())
         )
     }
 

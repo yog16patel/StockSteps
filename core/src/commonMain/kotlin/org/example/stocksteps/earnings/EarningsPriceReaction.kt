@@ -296,7 +296,9 @@ object PriceReactionFormat {
         val learn = PriceReactionExplainer.learnTopics.mapNotNull { EarningsEducation.topic(it) }.map { LearnLink(it.title, it.body) }
         return base.copy(response = response, window = r.window, windows = response.windows, lines = lines,
             summary = PriceReactionExplainer.summary(r), explanation = response.explanation, statusText = statusText, contextLine = context,
-            mixedNote = response.mixedNote, warnings = r.warnings, sources = r.sources, chart = chart(response.history, r),
+            mixedNote = response.mixedNote,
+            // 5D.1B: prices without a currency say so once for the section.
+            warnings = r.warnings + listOfNotNull(EarningsFormatter.currencyNote(r.currency).takeIf { r.hasChange || response.history.points.any { it.close != null } }), sources = r.sources, chart = chart(response.history, r),
             stale = r.freshness == DataFreshness.STALE, learn = learn,
             accessibility = "How did the stock react? " + (if (r.hasChange) lines.joinToString(" ") { "${it.label}: ${it.value}." } else statusText.orEmpty()) + " $context.")
     }

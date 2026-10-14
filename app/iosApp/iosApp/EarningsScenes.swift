@@ -643,8 +643,8 @@ struct EarningsDetailsScreen: View {
                 HStack {
                     Text(card.title).font(.headline)
                     Spacer()
-                    // Words and a neutral accent: a beat isn't presented as good for the stock.
-                    Text(card.headline).font(.subheadline.weight(.semibold)).foregroundStyle(card.classification.name == "UNAVAILABLE" ? colors.textSecondary : colors.primary)
+                    // 5D.1 (E-01): the badge shared with Earnings Results (`EarningsDisplay`), so a result reads the same on both screens.
+                    earningsClassificationBadge(card.classification)
                 }
                 ForEach(card.lines, id: \.label) { line($0, colors) }
                 if let note = card.note { Text(note).font(.caption).foregroundStyle(colors.textSecondary) }
@@ -653,11 +653,11 @@ struct EarningsDetailsScreen: View {
             .frame(maxWidth: .infinity, alignment: .leading).stockCard()
             .accessibilityElement(children: .combine)
         }
-        if state.eps == nil, let next = d?.next {
+        if state.eps == nil, d?.next != nil {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Not reported yet").font(.headline)
-                Text("Analysts expect EPS of \(next.estimate?.eps.map { String(format: "%.2f", $0.doubleValue) } ?? "—") and revenue of \(next.estimate?.revenue.map { String(format: "%.2fB", $0.doubleValue / 1e9) } ?? "—").")
-                    .font(.subheadline)
+                // 5D.1 (E-02): the shared sentence (currency and M/B scaling from `EarningsFormatter`; only the estimates that exist).
+                if let sentence = state.nextEstimate { Text(sentence).font(.subheadline) }
             }.frame(maxWidth: .infinity, alignment: .leading).stockCard()
         }
         if !state.reaction.isEmpty || state.reactionSentence != nil {
@@ -676,6 +676,7 @@ struct EarningsDetailsScreen: View {
         }
         if !state.history.isEmpty {
             Text("Earnings history").font(.title3.weight(.semibold)).accessibilityAddTraits(.isHeader)
+            if let note = state.historyNote { Text(note).font(.caption).foregroundStyle(colors.textSecondary) } // 5D.1B
             ForEach(state.history, id: \.id) { row in
                 let open = expanded.contains(row.id)
                 Button { if open { expanded.remove(row.id) } else { expanded.insert(row.id) } } label: {
@@ -903,9 +904,7 @@ struct EarningsResultsScreen: View {
                 HStack {
                     Text(card.title).font(.headline).foregroundStyle(colors.textPrimary)
                     Spacer()
-                    Text(card.classificationText).font(.caption.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 3)
-                        .foregroundStyle(card.classification.name == "BEAT" ? colors.positiveText : card.classification.name == "MISS" ? colors.negativeText : colors.textPrimary)
-                        .background(card.classification.name == "BEAT" ? colors.positiveContainer : card.classification.name == "MISS" ? colors.negativeContainer : colors.surfaceSecondary, in: Capsule())
+                    earningsClassificationBadge(card.classification) // 5D.1 (E-01)
                 }
                 ForEach(card.lines, id: \.label) { line(line: $0, colors) }
                 if let e = card.explanation { Text(e).font(.subheadline).foregroundStyle(colors.textBody) }
@@ -1074,4 +1073,10 @@ struct ReactionChart: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(chart.description_)
     }
+}
+
+/// Phase 5D.1 (E-01): an estimate comparison as the shared status badge, from `EarningsDisplay` (the same words and style as Compose).
+@MainActor func earningsClassificationBadge(_ classification: Classification) -> some View {
+    let shown = EarningsDisplay.shared.classification(classification: classification)
+    return StockStatusBadge(text: shown.label, kind: shown.kind, accessibilityText: shown.spoken)
 }

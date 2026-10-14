@@ -167,6 +167,8 @@ data class AlternativeFigure(val field: String, val value: String, val provider:
 
 object EarningsGrounding {
     const val S_RESULTS = "S1-results"
+    /** 5D.1B: added to the unavailable list when a grounded amount has no source currency, so answers never present it as US dollars. */
+    const val UNKNOWN_CURRENCY_FACT = "Currency: not provided by the source. Amounts are shown without a currency symbol; don't state or assume a currency."
     const val S_ESTIMATES = "S2-estimates"
     const val S_PRICES = "S3-prices"
     const val S_HISTORY = "S4-history"
@@ -238,6 +240,12 @@ object EarningsGrounding {
             add("reaction-endpoint", "Closing price after (${rx.endpoint?.sessionDate})", price(rx.endpoint?.price, rx.currency), S_PRICES)
             add("reaction-change", "Price change over the window", EarningsResultsFormat.percent(rx.percentChange), S_PRICES)
         } else unavailable += "Price reaction: " + (rx?.statusMessage ?: "price data isn't available for this report.")
+        // 5D.1B (owner decision 5D1A-2): amounts without a source currency are shown without a symbol; say so explicitly so an answer never
+        // presents them as US dollars.
+        val missingCurrency = (r.reportingCurrency == null && (r.epsActual != null || r.revenueActual != null)) ||
+            ((r.estimateCurrency ?: r.reportingCurrency) == null && (r.epsEstimate != null || r.revenueEstimate != null)) ||
+            (rx != null && rx.hasChange && rx.currency == null)
+        if (missingCurrency) unavailable += UNKNOWN_CURRENCY_FACT
         unavailable += "Management guidance and commentary aren't in the verified data."
         unavailable += "Analyst commentary isn't in the verified data."
         val observations = history?.deterministicObservations?.map { it.text }.orEmpty()

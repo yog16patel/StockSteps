@@ -504,7 +504,9 @@ object EarningsResultsFormat {
         )
         return ComparisonCardView(key, if (eps) "Earnings Per Share (EPS)" else "Revenue", m.classification, text, lines,
             m.explanation.takeIf { m.classification != Classification.UNAVAILABLE }, m.reason,
-            if (eps) m.basis?.let { "Measured as $it EPS." } else null,
+            // 5D.1B: one currency caption per card when its amounts have no currency (never a default "$").
+            listOfNotNull(if (eps) m.basis?.let { "Measured as $it EPS." } else null,
+                EarningsFormatter.currencyNote(m.currency).takeIf { m.actual != null || m.estimate != null }).joinToString(" ").ifEmpty { null },
             if (eps) "What is EPS?" else "What is revenue?",
             if (eps) "EPS stands for Earnings Per Share. It represents a company's profit attributable to each share under the relevant accounting measure. Diluted EPS counts shares that could be created (for example from stock options); adjusted EPS leaves out items the company considers one-time. StockSteps only compares an estimate and a result measured the same way."
             else "Revenue is the money a company earns from selling its products and services, before any expenses are taken out. Profit is what's left after expenses.")

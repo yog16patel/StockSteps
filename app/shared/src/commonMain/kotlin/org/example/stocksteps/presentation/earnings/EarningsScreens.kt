@@ -381,11 +381,10 @@ internal fun EarningsDetailsScreen(
         }
         val upcoming = d?.next
         if (d != null && state.eps == null && upcoming != null) item(key = "upcoming") {
-            val estimate = upcoming.estimate
             StockCard {
                 Text("Not reported yet", style = typography.cardTitle)
-                Text("Analysts expect EPS of ${EarningsFormatter.eps(estimate?.eps, estimate?.currency)} and revenue of ${EarningsFormatter.revenue(estimate?.revenue, estimate?.currency)}.",
-                    style = typography.small)
+                // 5D.1 (E-02): the shared sentence names only the estimates that exist.
+                state.nextEstimate?.let { Text(it, style = typography.small) }
             }
         }
         if (state.reaction.isNotEmpty() || state.reactionSentence != null) item(key = "reaction") {
@@ -412,10 +411,11 @@ internal fun EarningsDetailsScreen(
             item(key = "history-title") {
                 Column {
                     Text("Earnings history", Modifier.semantics { heading() }, style = typography.sectionTitle)
+                    state.historyNote?.let { Text(it, style = typography.caption, color = colors.textSecondary) } // 5D.1B
                     if (state.epsChart.firstOrNull()?.values?.count { it != null } ?: 0 >= 2) {
                         StockTrendChart(
                             values = state.epsChart[0].values,
-                            details = state.chartLabels.indices.map { i -> "${state.chartLabels[i]} · reported ${state.epsChart[0].values[i]?.let { EarningsFormatter.eps(it, null) } ?: "—"} · est. ${state.epsChart[1].values[i]?.let { EarningsFormatter.eps(it, null) } ?: "—"}" },
+                            details = state.epsChartDetails, // 5D.1 (E-03): with the quarter's currency, like the history rows
                             xLabels = listOf(state.chartLabels.first(), state.chartLabels.last()), yLabels = emptyList(),
                             description = "Reported EPS versus estimate for ${state.chartLabels.size} quarters.",
                             seriesLabel = "Reported EPS", additional = listOf("Estimate" to state.epsChart[1].values)
@@ -485,14 +485,14 @@ private fun Line(line: MetricLine) {
     }
 }
 
-/** Beat/miss shown as words and a neutral accent: a beat isn't presented as "good for the stock". */
+/** 5D.1 (E-01): the classification badge shared with Earnings Results (`EarningsDisplay`), so a result reads the same on both screens. */
 @Composable
 private fun ResultCardView(card: ResultCard, onLearn: () -> Unit) {
     val colors = StockStepsTheme.colors
     StockCard(Modifier.semantics(mergeDescendants = true) { contentDescription = card.accessibility }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(card.title, Modifier.weight(1f), style = StockStepsTheme.typography.cardTitle)
-            Text(card.headline, style = StockStepsTheme.typography.label, color = if (card.classification == Classification.UNAVAILABLE) colors.textSecondary else colors.primary)
+            ClassificationBadge(card.classification)
         }
         card.lines.forEach { Line(it) }
         card.note?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSecondary) }
@@ -584,7 +584,7 @@ private fun FinancialComparisonCard(card: ComparisonCardView, expanded: Boolean,
         Column(Modifier.semantics(mergeDescendants = true) { contentDescription = card.accessibility }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(card.title, Modifier.weight(1f).semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
-                SurpriseIndicator(card.classificationText, card.classification)
+                ClassificationBadge(card.classification)
             }
             card.lines.forEach { Line(it) }
             card.explanation?.let { Text(it, style = typography.small, color = colors.textBody) }
@@ -595,18 +595,11 @@ private fun FinancialComparisonCard(card: ComparisonCardView, expanded: Boolean,
     }
 }
 
-/** The classification as a labelled pill: the word carries the meaning; colour is secondary. */
+/** 5D.1 (E-01): the classification as the shared status badge: the words carry the meaning; colour is secondary. */
 @Composable
-private fun SurpriseIndicator(text: String, classification: Classification) {
-    val colors = StockStepsTheme.colors
-    val (background, content) = when (classification) {
-        Classification.BEAT -> colors.positiveContainer to colors.positiveText
-        Classification.MISS -> colors.negativeContainer to colors.negativeText
-        Classification.MET -> colors.surfaceSecondary to colors.textPrimary
-        Classification.UNAVAILABLE -> colors.surfaceSecondary to colors.textSecondary
-    }
-    Text(text, Modifier.clip(StockStepsTheme.shapes.pill).background(background).padding(horizontal = StockStepsTheme.spacing.sm, vertical = StockStepsTheme.spacing.xxs),
-        style = StockStepsTheme.typography.label, color = content)
+private fun ClassificationBadge(classification: Classification) {
+    val shown = EarningsDisplay.classification(classification)
+    StockStatusBadge(shown.label, shown.kind, contentDescription = shown.spoken)
 }
 
 @Composable

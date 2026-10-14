@@ -125,7 +125,11 @@ object EarningsPremiumFormat {
         val description = "${metric.label} by fiscal quarter, ${h.quarters.firstOrNull()?.label ?: ""} to ${h.quarters.lastOrNull()?.label ?: ""}. " +
             details.filter { it.isNotEmpty() && it != "Fiscal calendar changed" }.joinToString(". ") + "."
         val note = if (present.isEmpty()) "No comparable ${metric.label.lowercase()} values to chart."
-            else if (present.size < shown.size || h.quarters.any { it.missing }) "Gaps are quarters without comparable data; they're never drawn as zero." else null
+            else listOfNotNull(
+                "Gaps are quarters without comparable data; they're never drawn as zero.".takeIf { present.size < shown.size || h.quarters.any { it.missing } },
+                // 5D.1B: one currency caption for the history section when an amount has no currency.
+                EarningsFormatter.currencyNote(*(shown.map { it.currency } + h.currency).toTypedArray())
+            ).joinToString(" ").ifEmpty { null }
         return HistoryChartView(metric, values, details, labels.let { l -> if (l.size <= 4) l else l.mapIndexed { i, s -> if (i == 0 || i == l.lastIndex || i == l.size / 2) s else "" } },
             y, description, metric == HistoryMetric.EPS && present.any { it < 0 }, note)
     }

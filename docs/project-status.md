@@ -6,6 +6,12 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-13 — Global UI Refinement Phase 5D.1 Earnings accuracy (committed and pushed as "Add Global UI Refinement Phase 5D.1 Earnings accuracy with one BEAT, MET and MISS badge, placeholder-free estimate sentences, currency-correct history tooltips and Insights, and no invented dollar sign for a missing currency on Android and iOS"; PASS WITH CONDITIONS).** One BEAT/MET/MISS badge on Results and
+Details (`EarningsDisplay`), one estimate sentence and currency-correct history tooltips from core. Suites pass; Android device PASS; iOS runtime BLOCKED.
+Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md`. Follow-up 5D.1A (investigation only): CAD Insights "$" comes from the server template; a null
+currency shows as "$" (REAL Finnhub data has none). Fixes approved and implemented in 5D.1B (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_1B.md`): CAD Insights now "C$", and a null currency shows no symbol plus
+a caption. All suites pass, including server.
+
 **2026-10-13 — Portfolio Phase E.2 (committed and pushed as "Add Portfolio Phase E.2 with a readable iOS account title, the trade currency shown with the amounts, and a Session expired banner with Sign in again on Android and iOS"; verification in progress).**
 - "New investment account" (inline iOS title), Trade currency in Amounts with a reporting-currency note, "Session expired" + "Sign in again",
   Add unavailable only for an expired session. Report `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2.md`.

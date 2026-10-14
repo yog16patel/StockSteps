@@ -126,7 +126,9 @@ object EarningsInsightEngine {
         eps.percent?.takeIf { eps.classification == Classification.BEAT || eps.classification == Classification.MISS }?.let { p ->
             result += EarningsInsight("eps-surprise:${latest.id}", "surprise",
                 "Reported EPS ${if (p > 0) "exceeded" else "fell short of"} the consensus estimate by ${fmt(abs(p))}%.",
-                "EPS was ${money(eps.actual!!)} against an estimate of ${money(eps.estimate!!)} (${eps.basis ?: "same basis"}).",
+                // 5D.1B (owner decision 5D1A-1): the result's own currency, like the EPS card; never a default "$".
+                "EPS was ${EarningsFormatter.eps(eps.actual!!, eps.currency)} against an estimate of ${EarningsFormatter.eps(eps.estimate!!, eps.currency)} (${eps.basis ?: "same basis"})." +
+                    (EarningsFormatter.currencyNote(eps.currency)?.let { " $it" } ?: ""),
                 listOf("eps.actual", "eps.estimate"), latest.period, asOf, "surprise")
         }
         if (eps.classification in setOf(Classification.BEAT, Classification.MISS) && revenue.classification in setOf(Classification.BEAT, Classification.MISS) && eps.classification != revenue.classification) {
@@ -168,7 +170,6 @@ object EarningsInsightEngine {
     }
 
     private fun fmt(v: Double) = (round(v * 10) / 10).toString()
-    private fun money(v: Double) = (if (v < 0) "−$" else "$") + (round(abs(v) * 100) / 100).toString().let { if (it.substringAfter('.').length == 1) it + "0" else it }
     private fun ordinal(n: Int) = when (n) { 3 -> "third"; 4 -> "fourth"; 5 -> "fifth"; 6 -> "sixth"; 7 -> "seventh"; 8 -> "eighth"; else -> "${n}th" }
 }
 

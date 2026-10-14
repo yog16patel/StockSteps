@@ -39,7 +39,19 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
 - **Phase 5D Earnings audit** (read-only; committed as "Record owner acceptance of Portfolio Phase E.2 with open follow-up checks and add the Phase 5D Earnings read-only audit with a phased proposal"): `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md`. P1: BEAT/MISS shown green/red on
   Results but neutral on Details; estimate sentence can show "—" and iOS formats it without currency (revenue always "B"); EPS history chart
   tooltips drop the currency. Proposal 5D.1 accuracy → 5D.2 design system → 5D.3 large text/states → 5D.4 Details vs Results roles → 5D.5 Brief/Learn.
-- **Next:** owner decisions 5D-1…5D-4 (audit §4), then 5D.1; schedule
+- **Phase 5D.1 (committed and pushed with 5D.1A/5D.1B as "Add Global UI Refinement Phase 5D.1 Earnings accuracy with one BEAT, MET and MISS badge, placeholder-free estimate sentences, currency-correct history tooltips and Insights, and no invented dollar sign for a missing currency on Android and iOS"):** `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md`. E-01 one classification badge
+  (`EarningsDisplay` → `StockStatusBadge`) on Results and Details, both platforms; E-02 one estimate sentence in core (`estimateSentence`);
+  E-03 chart tooltips with the quarter's currency (`historyPoint`). Core 486/0 (JVM, iOS), shared 229/0 (Android) and 225/0 (iOS), both builds OK.
+  Android device PASS (E-01, E-03); E-02 on device NOT RUN (no MOCK scenario); iOS runtime BLOCKED (simulator taps). Recommendation PASS WITH CONDITIONS.
+- **Phase 5D.1A (investigation only, no code change):** `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1A.md`. A: CAD Insights say "$" because the
+  server-run `EarningsInsightEngine` has a private `money()` that hard-codes "$". B: `EarningsFormatter` shows a null currency as "$", and REAL
+  Finnhub estimates/actuals always have a null currency; the same formatter feeds the server's AI grounding and digest. Both need owner
+  approval (5D1A-1…3). Verdict BLOCKED pending approval.
+- **Phase 5D.1B (same commit):** `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1B.md`. Insights use the result's currency
+  ("C$1.94 against C$2.00"); a null currency shows no symbol plus "Currency not provided by the source." once per card or section; the AI
+  grounding states the currency is unavailable. Core 492/0 (JVM, iOS), shared 229/0 / 225/0, server 501/0 (3 skipped), both builds OK; Android
+  CNR.TO Insights PASS; unknown-currency on device NOT RUN; iOS BLOCKED. 5D.1 recommendation: PASS WITH CONDITIONS.
+- **Next:** Phase 5D.2 (design-system alignment) after owner approval; open 5D.1 conditions: iOS runtime, unknown-currency on device, dark theme; schedule
   allocation A1; Phase 5D.
 - Dirty files not from this phase (never staged): root `PROJECT_HANDOFF.md` and the two backend hunks of `docs/project-status.md`.
 

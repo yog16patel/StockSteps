@@ -15,7 +15,7 @@ price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
 **Phase E.2** ("Add Portfolio Phase E.2 with a readable iOS account title, the trade currency shown with the amounts, and a Session expired banner
 with Sign in again on Android and iOS") is committed and pushed, and its verification is recorded (all suites pass; device checks mostly PASS). Closed as PASS WITH CONDITIONS (report §5): the
-on-device currency round-trip and dark theme remain. **Next: Phase 5D** — Earnings audit done (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md`); awaiting owner decisions, then 5D.1 (accuracy). Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2.md`.
+on-device currency round-trip and dark theme remain. **Next: Phase 5D** — Earnings audit done (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md`); 5D.1 (+1A/1B currency) committed; next 5D.2 (design-system alignment) after owner approval. Report: `docs/PORTFOLIO_UI_REFINEMENT_PHASE_E_2.md`.
 
 Earlier context (Phase E.1):
 
@@ -73,6 +73,9 @@ Portfolio conventions (permanent):
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,
   `PortfolioAllocationDisplay`). History loads on demand only; the chart is "Account value", never performance. No UI-computed return %. The donut
   only when `allocationDonutAllowed` (`StockAllocationLayout` geometry). Missing stays missing.
+- **Earnings display (5D.1).** BEAT/MET/MISS come only from `EarningsDisplay.classification` (label + `StockBadgeKind`, drawn with `StockStatusBadge`) on
+  every Earnings screen. Amounts use `EarningsFormatter` with the source currency: a null currency shows no symbol (never "$") plus
+  `EarningsFormatter.UNKNOWN_CURRENCY` once per card or section; never infer a currency from the ticker or exchange.
 - **Large text.** Portfolio sections are borderless (`bordered = false` per call site). Rows in one group stack together (one decision per group,
   `StockLayout.metricRowStacked`), never one by one. Keep iOS badge text short (badges never wrap). Sample scenarios live in the grouped ⋯ sheet
   (`PortfolioScenarioGroups`).
