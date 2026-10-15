@@ -1,14 +1,38 @@
-# StockSteps — session handoff (2026-10-15: Phase 5D.5.3 contextual learning committed; next: owner review of the review package)
+# StockSteps — session handoff (2026-10-15: Phase 5D.5.3 contextual learning CLOSED; next: follow-ups below, then the next refinement step after owner direction)
 
-Read order for a new session: `CLAUDE.md` → `docs/AI_REVIEW_WORKFLOW.md` (review packages, evidence and approval rules) → **§PHASE-5D-5-3-2026-10-15 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` → `docs/reviews/phase5d_5_3/CHATGPT_REVIEW_PACKAGE.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3_PLAN.md` → §PHASE-5D-5-2-CLOSED-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` §7 → §PHASE-5D-5-2-R2-2026-10-15 → `docs/reviews/phase5d_5_2_r2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-2-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` → `docs/reviews/phase5d_5_2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-1C-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C_PLAN.md` → §PHASE-5D-5-1B-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md` → `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md` → §PHASE-5D-5-1-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → `docs/AI_REVIEW_WORKFLOW.md` (review packages, evidence and approval rules) → **§PHASE-5D-5-3-CLOSED-2026-10-15 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` §8 → §PHASE-5D-5-3-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` → `docs/reviews/phase5d_5_3/CHATGPT_REVIEW_PACKAGE.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3_PLAN.md` → §PHASE-5D-5-2-CLOSED-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` §7 → §PHASE-5D-5-2-R2-2026-10-15 → `docs/reviews/phase5d_5_2_r2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-2-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` → `docs/reviews/phase5d_5_2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-1C-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C_PLAN.md` → §PHASE-5D-5-1B-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md` → `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md` → §PHASE-5D-5-1-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
+## PHASE-5D-5-3-CLOSED-2026-10-15. Contextual learning closed — START HERE
+
+- **Status:** the owner approved closing Phase 5D.5.3. The implementation is `3b7a7f5` (pushed).
+- **Current commit:** "Record the closure of Global UI Refinement Phase 5D.5.3 contextual learning with the Android dark check, sheet consistency
+  and accessibility review, and the remaining follow-ups" (this commit). It is local only: **not pushed**, pending the owner's approval.
+- **Final verification:** `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` §8.
+  - Scope check: the 36 files of `3b7a7f5` all belong to the phase; the Portfolio worktree is untouched.
+  - Android dark via the in-app theme: PASS (restored to Light).
+  - Mapped vs unmapped sheets: consistent (one component; the button only with a term).
+  - Accessibility in code and UI tree: headings, "Explain {label}" button roles, 48 dp targets.
+  - The Android contact sheet now includes the dark tiles.
+- **Outstanding items (keep open):**
+  1. iOS live Dynamic Type refresh: rows resize after reopening the screen (existing limit).
+  2. TalkBack NOT RUN; VoiceOver BLOCKED (device).
+  3. iOS signed-in regression: BLOCKED (guest mode).
+  4. Android Company Details "Key Ratios" card: contextual-learning opportunity (EPS, Debt to Equity have terms).
+  5. Intermittent `PortfolioSessionStateTest` timeout (core JVM); fix uncommitted in worktree `charming-hodgkin-98e850` (don't modify from here).
+  - Also noted: the Settings theme chips don't report a selected state in the UI tree (outside this phase).
+- **Still open from earlier:** see §PHASE-5D-5-2-CLOSED-2026-10-15 (iOS AX5 term-footer icons, `UserDataRepositoriesTest`, iOS Earnings Details
+  after sign-in, iOS Home AX5 heading).
+- **Environment:** MOCK server stopped; emulator Light theme, font 1.0, `adb reverse` removed; simulator light, Default text size, guest mode.
+- **Next:** push this closure commit on the owner's request; then Global UI Refinement step 7 (Settings, auth, remaining screens) after owner
+  direction (plan first).
+
 ## PHASE-5D-5-3-2026-10-15. Contextual learning (Phase 5D.5.3) — START HERE
 
 ### 0. Repository state
-- **Current commit:** "Add contextual Learn links for Global UI Refinement Phase 5D.5.3 with an info mark on metrics that have a Learn term, explanation sheets for Financials and Valuation rows, and Learn more buttons that open the term page on the same stack on Android and iOS" (this commit, pushed). Base: `600c295`.
+- **Implementation commit:** `3b7a7f5`, "Add contextual Learn links for Global UI Refinement Phase 5D.5.3 with an info mark on metrics that have a Learn term, explanation sheets for Financials and Valuation rows, and Learn more buttons that open the term page on the same stack on Android and iOS" (pushed). Base: `600c295`.
 - Plan: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3_PLAN.md` (approved: A, then B+C, then D; D-C1 to D-C6 as recommended).
 - Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md`. Review package: `docs/reviews/phase5d_5_3/` (report, Android/iOS contact sheets, focused
   diff; `captures/` stays local and git-ignored). Reference images: `docs/design/phase5d_5_3/`.

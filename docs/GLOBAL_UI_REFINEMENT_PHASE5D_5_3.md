@@ -73,7 +73,7 @@ rebuilt (PASS) and re-checked on device. No Kotlin changed after the test run.
 | Valuation: "Learn more about P/E ratio" link → term; Back → Apple Valuation | PASS |
 | Valuation: P/S sheet shows its explanation, no Learn button | PASS |
 | 2.0× glance: tiles stack, ⓘ inline after the label, no clipping | PASS |
-| Dark theme | NOT RUN (the app keeps its own Light setting, so system night mode has no effect; not changed for this check) |
+| Dark theme | PASS at closure (Settings → Appearance → Dark, then restored to Light): glance ⓘ, P/E sheet with button, P/S sheet without; see §8 |
 
 ### iOS: iPhone 16 simulator, MOCK, guest mode (never signed in)
 | Check | Result |
@@ -87,19 +87,53 @@ rebuilt (PASS) and re-checked on device. No Kotlin changed after the test run.
 | Dark (Default size): Valuation link and rows readable | PASS |
 | AX5 (dark): glance labels wrap with the ⓘ kept on the last word; sheet button wraps to full width and is reachable by scrolling | PASS |
 
-## 5. Known issues and limits
-- **iOS live Dynamic Type:** switching to AX5 while Valuation was open resized the headings but not the rows until the screen was reopened. This
-  is the existing live-refresh limit noted in `CLAUDE.md`, not new in this phase. A fresh render at AX5 is correct.
-- **iOS "Understand Apple" → Valuation row:** this row opens the P/E sheet (existing behaviour), which now also offers the Learn button.
-- **Company Details "Key Ratios" card** (Android) stays non-interactive. It is not in the approved scope.
-- **Screen readers:**
-  - TalkBack: NOT RUN.
-  - VoiceOver: BLOCKED (needs a device).
-  - The rows carry "Explain {label}" labels and hints, but they are not verified by ear.
-- **iOS signed-in flows:** BLOCKED (guest mode only; Claude never signs in). The changed screens don't depend on sign-in.
+## 5. Known issues and limits (outstanding items)
+1. **iOS live Dynamic Type refresh:** switching to AX5 while Valuation is open resizes the headings but not the rows until the screen is
+   reopened. This is the existing live-refresh limit noted in `CLAUDE.md`, not new in this phase. A fresh render at AX5 is correct.
+2. **TalkBack and VoiceOver:**
+   - TalkBack: NOT RUN (its first start asks for a notification permission the owner must answer).
+   - VoiceOver: BLOCKED (needs a device).
+   - Labels, roles and target sizes were checked in code and in the UI tree (§8), but not by ear.
+3. **iOS signed-in regression:** BLOCKED (guest mode only; Claude never signs in). The changed screens don't depend on sign-in, but signed-in
+   navigation around them is unverified.
+4. **Android Company Details "Key Ratios" card:** still non-interactive. This is a contextual-learning opportunity (its EPS and Debt to Equity
+   rows have terms), left for a later phase; not in the approved scope.
+5. **Intermittent `PortfolioSessionStateTest` timeout** (core JVM, 5 s): failed once in the full run and passed on rerun. Unrelated to this
+   phase; the candidate fix is uncommitted in worktree `charming-hodgkin-98e850`, which this phase did not touch.
+- Also noted: the iOS "Understand Apple" → Valuation row opens the P/E sheet (existing behaviour), which now also offers the Learn button.
 
 ## 6. Deviations from the plan
 - One alignment fix (iOS glance sheet keyed by `educationId`, see §4). Nothing else.
 
 ## 7. Verdict
-**PASS WITH CONDITIONS**: Android dark, TalkBack and VoiceOver remain open. Committed and pushed at the owner's request; the open checks above remain.
+**PASS WITH CONDITIONS**: approved by the owner and closed; items 2 and 3 in §5 remain open.
+
+## 8. Closure verification (2026-10-15)
+- **Scope:**
+  - The implementation is commit `3b7a7f5` ("Add contextual Learn links for Global UI Refinement Phase 5D.5.3 …", pushed): 36 files, all in this
+    phase (core mapping and test, tagged rows, shared/iOS Company Details, Financials and Valuation screens, design-system parameters, docs,
+    review package, reference images).
+  - The working tree was clean before closure, and the Portfolio worktree `charming-hodgkin-98e850` was not modified.
+  - The closure commit contains documentation and the updated Android contact sheet only.
+- **Android dark (in-app theme):** PASS.
+  - Setup: emulator-5554, MOCK, 1.0×, Settings → Appearance → Dark.
+  - Glance ⓘ markers are visible on the dark surface.
+  - The mapped P/E sheet shows the company sentence and "Learn more about P/E ratio" (primary fill, white text).
+  - The unmapped Valuation P/S sheet uses the same handle, title and body, with no button.
+  - The theme was restored to Light afterwards; the MOCK server is stopped and `adb reverse` removed.
+  - Captures: Android contact sheet tiles 2 and 5; originals in `docs/reviews/phase5d_5_3/captures/` (git-ignored).
+- **Mapped vs unmapped sheet consistency:** PASS.
+  - Both kinds go through one component per platform: Compose `MetricExplanationSheet` / `EducationSheet`, and iOS
+    `MetricExplanationSheet` / `InfoSheet`.
+  - The Learn button (`MetricLearnMore` / `MetricLearnMoreButton`) renders nothing when the term is null, so an unmapped sheet differs only by the
+    missing button.
+  - Confirmed on device in light and dark (Android) and in light, dark and AX5 (iOS).
+- **Accessibility (code and UI tree):** PASS, with screen readers still open (§5 item 2).
+  - Sheet titles are headings.
+  - Tappable rows use `clickable(onClickLabel = "Explain {label}", role = Role.Button)` with a 48 dp minimum height (iOS: a 48 pt `Button`
+    with an accessibility hint).
+  - The ⓘ is decorative; the click label carries the meaning.
+  - UI tree at 480 dpi: the Learn button is 144 px tall (48 dp) and the sheet handle 144 × 144 px.
+  - The sheet closes before navigating.
+  - Observed outside this phase: the Settings theme chips don't report a selected state in the UI tree (seen while switching the theme for
+    this check).

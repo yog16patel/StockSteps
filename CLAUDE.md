@@ -15,19 +15,19 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.3 contextual learning committed)
+## Current task (as of 2026-10-15, Phase 5D.5.3 contextual learning closed)
 
 Phase 5D.5.3 ("Add contextual Learn links for Global UI Refinement Phase 5D.5.3 with an info mark on metrics that have a Learn term, explanation sheets for Financials and Valuation rows, and Learn more buttons that open the term page on the same stack on Android and iOS") is committed and pushed on top of the Learn closure (`600c295`).
 Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md`; review package: `docs/reviews/phase5d_5_3/`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-3-2026-10-15.**
-Next: owner review.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-3-CLOSED-2026-10-15** (closure verification: report §8).
+Next: Global UI Refinement step 7 after owner direction.
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
 - the intermittent `UserDataRepositoriesTest` on core iOS.
 Still open:
 - iOS Earnings Details after the owner signs in;
 - the iOS Home AX5 heading break and history navigation;
-- Android dark check for 5D.5.3 (the app's own theme setting).
+- 5D.5.3 follow-ups: TalkBack/VoiceOver, iOS signed-in regression, Android "Key Ratios" contextual learning.
 The iPhone 16 simulator app is in guest mode.
 
 Earlier: Learn closed with 5D.5.2 (`057d6e6`, `0730773`, `600c295`), see §PHASE-5D-5-2-CLOSED-2026-10-15 in the handoff.

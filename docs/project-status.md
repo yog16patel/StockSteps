@@ -6,13 +6,25 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-15 — Phase 5D.5.3 contextual learning CLOSED (owner approval).**
+- Implementation `3b7a7f5` (pushed). Closure verification: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` §8.
+  - Android dark via the in-app theme: PASS.
+  - Mapped and unmapped sheets: consistent.
+  - Accessibility in code and UI tree: PASS.
+- **Outstanding:**
+  - iOS live Dynamic Type refresh (existing limit);
+  - TalkBack NOT RUN, VoiceOver BLOCKED;
+  - iOS signed-in regression BLOCKED;
+  - Android "Key Ratios" contextual-learning opportunity;
+  - intermittent `PortfolioSessionStateTest` timeout.
+- **Next:** Global UI Refinement step 7 after owner direction.
+
 **2026-10-15 — Phase 5D.5.3 contextual learning (committed and pushed as "Add contextual Learn links for Global UI Refinement Phase 5D.5.3 with an info mark on metrics that have a Learn term, explanation sheets for Financials and Valuation rows, and Learn more buttons that open the term page on the same stack on Android and iOS").**
 - Company Details glance tiles, Financials rows and Valuation rows explain their metric; metrics with a Learn term show ⓘ and "Learn more about
   {term}", which opens the term page on the same stack (Back returns to the stock).
 - Mapping by id only in core `MetricLearnTerms` (tested); no new educational text, no backend changes.
 - Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md`; review package `docs/reviews/phase5d_5_3/`.
-- **Outstanding:** Android dark NOT RUN; screen readers NOT RUN/BLOCKED; iOS signed-in BLOCKED.
-- **Next:** owner review.
+- Closed; see the entry above.
 
 **2026-10-15 — Phase 5D.5.2 Learn CLOSED (owner approval).**
 - Implementation `057d6e6` + `0730773` (pushed). Final verification and limitations: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` §7.

@@ -39,8 +39,7 @@
 ## 6. Android verification
 emulator-5554, 360 dp, MOCK:
 - **PASS:** glance ⓘ; P/E sheet → term (Learn tab highlighted) → Back; Net Margin sheet with Learn; Operating Margin and P/S sheets without it;
-  Valuation link → term → Back; 2.0× glance without clipping.
-- **NOT RUN:** dark (the app's own Light setting).
+  Valuation link → term → Back; 2.0× glance without clipping; dark via the in-app theme at closure (P/E sheet with button, P/S sheet without).
 - Sheet: `CHATGPT_UI_REVIEW_ANDROID.png`.
 
 ## 7. iOS verification
@@ -54,15 +53,15 @@ iPhone 16, MOCK, guest:
 - The Android Company Details "Key Ratios" card is not tappable (out of scope).
 
 ## 9. Unverified scenarios
-- **NOT RUN:** Android dark; TalkBack.
+- **NOT RUN:** TalkBack.
 - **BLOCKED:** VoiceOver (needs a device); iOS signed-in flows (guest only, never signed in).
 
 ## 10. Deviations
 - One line: the iOS glance sheet looks up its term by `educationId`, the same key the ⓘ and Android use. Rebuilt and re-checked.
 
 ## 11. Owner decisions
-- Close 5D.5.3 after review (committed and pushed at the owner's request).
-- Optional follow-ups: make the "Key Ratios" rows explainable; run Android dark with the in-app theme.
+- Closed by the owner on 2026-10-15 (report §8).
+- Optional follow-ups: make the "Key Ratios" rows explainable; fix the intermittent `PortfolioSessionStateTest` timeout (separate worktree).
 
 ## 12. Links
 - Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md`; plan: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3_PLAN.md`.
