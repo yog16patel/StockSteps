@@ -15,14 +15,14 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.4C C3 committed locally)
+## Current task (as of 2026-10-15, Phase 5D.5.4D committed locally)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
-Phase 5D.5.4B (`d4843f5`, `038aa33`) is pushed. Phase 5D.5.4C C1 (`33fa94c`, Financials) and C2 (`e8265bd`, Valuation) are pushed. Phase 5D.5.4C C3 ("Polish Company Details Financials and Valuation for Global UI Refinement Phase 5D.5.4C C3 without the duplicate P/E row, with a measured range grid, row groups that keep values whole and P/E kept whole at large text on Android and iOS") is committed locally, **not pushed**. Plan:
-`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_PLAN.md`; reports: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C1.md`, `_C2.md`, `_C3.md`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-4C3-2026-10-15.**
-Next: push on approval; then C4 verification, then 5D.5.4D (shared large-text issues).
+Phase 5D.5.4B (`d4843f5`, `038aa33`) is pushed. Phase 5D.5.4C C1 (`33fa94c`), C2 (`e8265bd`) and C3 (`ebe81f4`) are pushed. Phase 5D.5.4D ("Finish Company Details accessibility for Global UI Refinement Phase 5D.5.4D with section header actions under long titles, a stacking Financials chart legend and whole Financial Highlights and Key Ratios values at large text on iOS, and the final verification record") is committed locally, **not pushed**.
+Reports: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C1.md`, `_C2.md`, `_C3.md`, `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md` (§9 = final accessibility QA).
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-4D-2026-10-15.**
+Next: push on approval; the owner runs the TalkBack/VoiceOver pass manually (report §9 steps); then close 5D.5.4.
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
@@ -137,6 +137,10 @@ Portfolio conventions (permanent):
     `StockMetricGrid(maxColumns = 2, rowsWhenNarrow = true)`. Model sentences, the Learn link and the chart reference go through `keepTogether`.
   - (C3) iOS label/value row groups use `StockInfoLineGroup` (one stacking decision per group, shared `StockLayout.metricRowStacked`; values
     stay whole); `StockInfoLine.stacked` stays nil elsewhere. The Financials Profitability rows stay (owner decision).
+- **Company Details large text (5D.5.4D, iOS).** `StockSectionHeader` puts its action under the title only when the title's longest word and
+  the action can't share a line (`StockLayout.metricRowStacked`); the `StockBarChart` legend stacks one entry per line instead of shrinking;
+  Financial Highlights and Key Ratios rows go through `StockInfoLineGroup`. Screen readers can't be driven by injected input on the emulator
+  (TalkBack focus doesn't move) — the owner runs them manually.
 - **Contextual learning (5D.5.3).**
   - Metric → Learn term only via core `MetricLearnTerms` (by id: exact term id, then a single `relatedMetrics` owner, else null); never match visible
     titles and never add educational text.

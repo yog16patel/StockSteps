@@ -42,22 +42,55 @@ struct StockSectionHeader<Trailing: View>: View {
     @ViewBuilder var trailing: () -> Trailing
     /// Re-render on live Dynamic Type changes (Comparison accessibility closure; `StockStepsTheme.font` resolves when the body runs).
     @Environment(\.dynamicTypeSize) private var liveTypeSize
+    /// 5D.5.4D: the header's width, for the stacked-action decision below.
+    @State private var width: CGFloat = 0
     var body: some View {
         let _ = liveTypeSize
-        HStack(spacing: CGFloat(space.sm)) {
-            Text(title)
-                .font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline))
-                .foregroundStyle(StockStepsTheme.colors(scheme).textPrimary)
-                .accessibilityAddTraits(.isHeader)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            trailing()
-            if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .font(StockStepsTheme.font(type.label, relativeTo: .footnote))
-                    .foregroundStyle(StockStepsTheme.colors(scheme).primaryText)
-                    .frame(minWidth: CGFloat(dims.touchTarget), minHeight: CGFloat(dims.touchTarget), alignment: .trailing)
+        Group {
+            if actionStacked {
+                // The action under the title, only when the title's longest word and the action can't share the line (at AX5 "Financial
+                // Highlights" broke as "Financia l Highligh ts" beside "See Financials"). Otherwise the row is unchanged.
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: CGFloat(space.sm)) { titleText; trailing() }
+                    actionButton
+                }
+            } else {
+                HStack(spacing: CGFloat(space.sm)) {
+                    titleText
+                    trailing()
+                    actionButton
+                }
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+
+    private var titleText: some View {
+        Text(title)
+            .font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline))
+            .foregroundStyle(StockStepsTheme.colors(scheme).textPrimary)
+            .accessibilityAddTraits(.isHeader)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private var actionButton: some View {
+        if let actionTitle, let action {
+            Button(actionTitle, action: action)
+                .font(StockStepsTheme.font(type.label, relativeTo: .footnote))
+                .foregroundStyle(StockStepsTheme.colors(scheme).primaryText)
+                .frame(minWidth: CGFloat(dims.touchTarget), minHeight: CGFloat(dims.touchTarget), alignment: .trailing)
+        }
+    }
+
+    /// Shared `StockLayout.metricRowStacked` rule on text widths only (never this row's frame): the longest title word + gap + the action.
+    private var actionStacked: Bool {
+        guard width > 0, let actionTitle, action != nil else { return false }
+        let titleFont = StockStepsTheme.uiFont(type.cardTitle, typeSize: liveTypeSize)
+        let actionFont = StockStepsTheme.uiFont(type.label, typeSize: liveTypeSize)
+        let longest = title.split(separator: " ").map { (String($0) as NSString).size(withAttributes: [.font: titleFont]).width }.max() ?? 0
+        let actionWidth = max((actionTitle as NSString).size(withAttributes: [.font: actionFont]).width, CGFloat(dims.touchTarget))
+        return StockLayout.shared.metricRowStacked(longestLabelWord: Float(longest), valueWidth: Float(actionWidth), availableWidth: Float(width),
+                                                   gap: Float(space.sm))
     }
 }
 

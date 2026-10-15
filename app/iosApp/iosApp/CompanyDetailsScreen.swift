@@ -672,9 +672,16 @@ struct CompanyDetailsScreen: View {
                 if overview.highlights.isEmpty {
                     StockSectionMessage(message: "Financial highlights aren't available right now.")
                 } else {
-                    ForEach(Array(overview.highlights.enumerated()), id: \.offset) { index, row in
-                        if index > 0 { StockDivider() }
-                        StockInfoLine(label: row.label, value: row.value, helper: row.helper, change: row.change ?? "—", direction: row.changeDirection)
+                    // 5D.5.4D: one layout for the group (`StockInfoLineGroup`): values and changes stay whole beside their labels, or every
+                    // value goes under its label when one can't fit (at AX5 "$416. 2B").
+                    StockInfoLineGroup(entries: overview.highlights.map { .init(label: $0.label, value: $0.value, change: $0.change ?? "—") }) { stacked in
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(overview.highlights.enumerated()), id: \.offset) { index, row in
+                                if index > 0 { StockDivider() }
+                                StockInfoLine(label: row.label, value: row.value, helper: row.helper, change: row.change ?? "—", direction: row.changeDirection,
+                                              stacked: stacked)
+                            }
+                        }
                     }
                 }
             }
@@ -687,7 +694,9 @@ struct CompanyDetailsScreen: View {
         if !ratios.isEmpty {
             VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                 StockSectionHeader(title: "Key Ratios")
-                VStack(spacing: 0) { ForEach(ratios, id: \.label) { StockInfoLine(label: $0.label, value: $0.value, compact: true) } }
+                StockInfoLineGroup(entries: ratios.map { .init(label: $0.label, value: $0.value) }, compact: true) { stacked in
+                    VStack(alignment: .leading, spacing: 0) { ForEach(ratios, id: \.label) { StockInfoLine(label: $0.label, value: $0.value, compact: true, stacked: stacked) } }
+                }
                     .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.xs)).stockCard(padding: 0, bordered: false)
             }
         }

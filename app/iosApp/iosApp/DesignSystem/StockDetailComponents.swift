@@ -516,9 +516,17 @@ struct StockBarChart: View {
             }
             .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textPrimary)
             if secondary != nil {
-                HStack(spacing: CGFloat(space.md)) {
-                    legend(chart.primaryLabel, colors.primary)
-                    legend(chart.secondaryLabel ?? "", colors.learnAccent)
+                // 5D.5.4D: side by side while both entries fit whole, otherwise one per line (at AX5 "• Revenue • Net" / "Income" wrapped
+                // unevenly). Each swatch stays beside its own label; the text keeps the user's size.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: CGFloat(space.md)) {
+                        legend(chart.primaryLabel, colors.primary).fixedSize()
+                        legend(chart.secondaryLabel ?? "", colors.learnAccent).fixedSize()
+                    }
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        legend(chart.primaryLabel, colors.primary)
+                        legend(chart.secondaryLabel ?? "", colors.learnAccent)
+                    }
                 }
             }
             GeometryReader { proxy in

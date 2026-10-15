@@ -6,7 +6,17 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.4C C3 Financials & Valuation polish (committed locally as "Polish Company Details Financials and Valuation for Global UI Refinement Phase 5D.5.4C C3 without the duplicate P/E row, with a measured range grid, row groups that keep values whole and P/E kept whole at large text on Android and iOS"; not pushed).**
+**2026-10-15 — Phase 5D.5.4D Company Details accessibility & final verification (committed locally as "Finish Company Details accessibility for Global UI Refinement Phase 5D.5.4D with section header actions under long titles, a stacking Financials chart legend and whole Financial Highlights and Key Ratios values at large text on iOS, and the final verification record"; not pushed).**
+- **iOS AX5 fixes:**
+  - Financials legend stacks;
+  - section header action moves under the title;
+  - Financial Highlights and Key Ratios values stay whole.
+- **Accessibility:** code audit and final QA (tabs, reading order) PASS. TalkBack, VoiceOver and Android guest are BLOCKED (report §9).
+- **Tests:** all suites PASS.
+- **Devices:** checks recorded in `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md`.
+- **Next:** push on approval; the owner screen-reader pass; then close 5D.5.4.
+
+**2026-10-15 — Phase 5D.5.4C C3 Financials & Valuation polish (`ebe81f4`, committed and pushed as "Polish Company Details Financials and Valuation for Global UI Refinement Phase 5D.5.4C C3 without the duplicate P/E row, with a measured range grid, row groups that keep values whole and P/E kept whole at large text on Android and iOS").**
 - **Valuation & Growth:** the duplicate P/E row is removed.
 - **Range stats:** a 2 × 2 grid, aligned rows at large text.
 - **iOS row groups** stack together at AX5 ("+75.5%" and "Operating Cash" whole).
@@ -14,7 +24,7 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 - **iOS chart labels** no longer run together.
 - **Tests:** shared 263/0 and 259/0.
 - **Devices:** Android and iOS checks PASS (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_C3.md`).
-- **Next:** push on approval, then C4 verification.
+- **Next:** 5D.5.4D (see above).
 
 **2026-10-15 — Phase 5D.5.4C C2 Valuation (`e8265bd`, committed and pushed as "Refine Company Details Valuation for Global UI Refinement Phase 5D.5.4C C2 with ratio tiles first, a P/E vs History card, one Learn link, a folded P/E explanation and a neutral ratio footnote on Android and iOS").**
 - **Layout:**
