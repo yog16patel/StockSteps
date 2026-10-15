@@ -162,12 +162,20 @@ struct LearnScreen: View {
                         .accessibilityLabel(L.START_HERE)
                     Text(L.START_TITLE).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline).weight(.bold)).foregroundStyle(colors.textTitle)
                         .accessibilityAddTraits(.isHeader)
-                    Text(L.START_BODY).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                    if !typeSize.isAccessibilitySize {
+                        Text(L.START_BODY).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if !typeSize.isAccessibilitySize {
                     Image("LearnBasics").resizable().scaledToFit().frame(width: CGFloat(dims.learnIllustration), height: CGFloat(dims.learnIllustration))
                         .accessibilityHidden(true)
+                }
+            }
+            // Accessibility sizes: the long sentence folds away (same text, one tap) so the action stays near the title.
+            if typeSize.isAccessibilitySize {
+                StockDisclosure(title: L.START_DETAILS) {
+                    Text(L.START_BODY).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
                 }
             }
             Button(action) { start(inProgress) }.buttonStyle(.stockPrimary)
@@ -184,13 +192,14 @@ struct LearnScreen: View {
         let widest = topics.flatMap { StockCardGridLayout.shared.words(title: $0.name) }.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
         // Reference: at accessibility sizes a compact tile (icon above, name only) that stays in two columns while every topic word fits.
         let inset = typeSize.isAccessibilitySize ? Float(space.md) : Float(space.md) + (Float(dims.icon) + Float(space.sm)) / 2
+        // 5D.5.2 polish: at AX4 and up one column of compact rows instead of tall centred tiles.
         let columns = max(1, Int(StockCardGridLayout.shared.columns(widestTitleWord: Float(widest), availableWidth: Float(width), gap: Float(space.sm),
-                                                                   cardPadding: inset, accessibilityText: false)))
+                                                                   cardPadding: inset, accessibilityText: typeSize >= .accessibility4)))
         let rows = stride(from: 0, to: topics.count, by: columns).map { Array(topics[$0..<min($0 + columns, topics.count)]) }
         return VStack(spacing: CGFloat(space.sm)) {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(alignment: .top, spacing: CGFloat(space.sm)) {
-                    ForEach(row, id: \.name) { topic in topicTile(topic, colors) }
+                    ForEach(row, id: \.name) { topic in topicTile(topic, colors, singleColumn: columns == 1) }
                     if row.count < columns { Color.clear.frame(maxWidth: .infinity) }
                 }
                 .fixedSize(horizontal: false, vertical: true)
@@ -200,12 +209,19 @@ struct LearnScreen: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
     }
 
-    private func topicTile(_ topic: LearnTopic, _ colors: StockColors) -> some View {
+    /// `singleColumn` at accessibility sizes: a compact row (icon beside the name) instead of a tall centred tile.
+    private func topicTile(_ topic: LearnTopic, _ colors: StockColors, singleColumn: Bool) -> some View {
         Button { onLearnTarget(.topics(topic: topic.name, search: false)) } label: {
             let icon = Image(systemName: learnTopicFilledSymbol(L.topicIcon(name: topic.name))).font(StockStepsTheme.font(type.cardTitle, relativeTo: .title3))
                 .foregroundStyle(learnTopicTint(L.topicTone(name: topic.name), colors)).accessibilityHidden(true)
             Group {
-                if typeSize.isAccessibilitySize {
+                if typeSize.isAccessibilitySize && singleColumn {
+                    HStack(spacing: CGFloat(space.md)) {
+                        icon
+                        Text(topic.name).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
+                    }
+                } else if typeSize.isAccessibilitySize {
                     VStack(spacing: CGFloat(space.xs)) {
                         icon
                         Text(topic.name).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.center)
@@ -345,8 +361,8 @@ struct LearnTermView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: CGFloat(space.lg)) {
                     if !typeSize.isAccessibilitySize {
-                        Image("LearnBasics").resizable().scaledToFit().frame(width: CGFloat(dims.learnIllustration) * 2, height: CGFloat(dims.learnIllustration) * 2)
-                            .frame(maxWidth: .infinity).frame(height: CGFloat(dims.chartHeight))
+                        Image("LearnBasics").resizable().scaledToFit().frame(width: CGFloat(dims.learnIllustration) * 1.5, height: CGFloat(dims.learnIllustration) * 1.5)
+                            .frame(maxWidth: .infinity).frame(height: CGFloat(dims.learnIllustration) * 2)
                             .background(colors.primaryContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
                             .accessibilityHidden(true)
                     }

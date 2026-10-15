@@ -18,6 +18,8 @@ object LearnDisplay {
     const val START_HERE = "Start here"
     const val START_TITLE = "Understand a stock in five steps"
     const val START_BODY = "What it does, whether it's growing, whether it makes money, how much debt it has, and whether the stock looks expensive."
+    /** Large text: the Start card's sentence folds under this (5D.5.2 polish); the full sentence stays one tap away. */
+    const val START_DETAILS = "What's covered"
     const val START_ACTION = "Start learning"
     const val CONTINUE_ACTION = "Continue learning"
     const val EXPLORE = "Explore topics"
@@ -81,11 +83,34 @@ object LearnDisplay {
         else -> "orange"
     }
 
-    /** Terms whose title, topic or short text contains every word of [query] (case-insensitive), in catalogue order; blank → none. */
+    /**
+     * Terms matching [query], most relevant first (Phase 5D.5.2 polish). A term matches when every query word appears in its title, topic or
+     * "what it is" text (case-insensitive); blank → none. Ranking tiers, catalogue order within a tier:
+     * 0 exact title (the term name, e.g. "P/E ratio", or the full title) · 1 term name starts with the query · 2 every word in the title ·
+     * 3 every word in the title or topic · 4 a match that needs the definition text. Every match is kept.
+     */
     fun search(query: String): List<EducationEntry> {
-        val words = query.lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+        val q = query.trim().lowercase().replace(Regex("\\s+"), " ")
+        val words = q.split(' ').filter { it.isNotBlank() }
         if (words.isEmpty()) return emptyList()
-        return BeginnerEducation.entries.filter { e -> val text = "${e.title} ${e.topic} ${e.short}".lowercase(); words.all { it in text } }
+        return BeginnerEducation.entries.withIndex().mapNotNull { (i, e) -> searchTier(e, q, words)?.let { Triple(it, i, e) } }
+            .sortedWith(compareBy({ it.first }, { it.second })).map { it.third }
+    }
+
+    /** The ranking tier of [entry] for a normalised query, or null when it doesn't match. */
+    internal fun searchTier(entry: EducationEntry, q: String, words: List<String>): Int? {
+        val name = termName(entry).lowercase()
+        val title = entry.title.lowercase()
+        val topic = entry.topic.lowercase()
+        val all = "$title $topic ${entry.short.lowercase()}"
+        if (!words.all { it in all }) return null
+        return when {
+            q == name || q == title.removeSuffix("?") || q == title -> 0
+            name.startsWith(q) -> 1
+            words.all { it in title } -> 2
+            words.all { it in title || it in topic } -> 3
+            else -> 4
+        }
     }
 
     fun searchEmpty(query: String): String = "No terms match \"${query.trim()}\". Try another word."

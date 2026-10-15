@@ -26,11 +26,39 @@ class LearnDisplayTest {
     @Test fun searchMatchesTitleTopicOrShortTextAndEveryWord() {
         assertEquals(listOf("pe"), LearnDisplay.search("p/e").map { it.id })
         assertTrue(LearnDisplay.search("VALUATION").map { it.id }.containsAll(listOf("eps", "pe", "marketCap")))
-        assertEquals(listOf("dividendYield"), LearnDisplay.search("dividend yield").map { it.id })
+        assertEquals("dividendYield", LearnDisplay.search("dividend yield").first().id)
         assertEquals(emptyList(), LearnDisplay.search("   "))
         assertEquals(emptyList(), LearnDisplay.search("blockchain"))
         assertEquals("No terms match \"blockchain\". Try another word.", LearnDisplay.searchEmpty(" blockchain "))
         assertEquals("1 term", LearnDisplay.resultCount(1))
+    }
+
+    @Test fun searchRanksTitleMatchesBeforeDefinitionMatches() {
+        // Exact term name first, then catalogue order inside each tier.
+        assertEquals("eps", LearnDisplay.search("EPS").first().id)
+        assertEquals("revenue", LearnDisplay.search("revenue").first().id)          // exact name beats "revenue growth" (prefix)
+        assertEquals(listOf("revenue", "revenueGrowth"), LearnDisplay.search("revenue").take(2).map { it.id })
+        // "earnings": the earnings-beat title first; EPS and P/E only mention earnings in their definitions.
+        val earnings = LearnDisplay.search("earnings").map { it.id }
+        assertEquals("earningsBeat", earnings.first())
+        assertTrue(earnings.containsAll(listOf("eps", "pe")))
+        // "dividend": the dividend-yield title before free cash flow, whose definition mentions dividends.
+        assertEquals(listOf("dividendYield", "freeCashFlow"), LearnDisplay.search("dividend").map { it.id })
+        // A topic-only match ranks after title matches but before definition-only matches.
+        val growth = LearnDisplay.search("growth").map { it.id }
+        assertEquals("revenueGrowth", growth.first())
+        // Prefix: "market" → market capitalization (name prefix) before others mentioning markets.
+        assertEquals("marketCap", LearnDisplay.search("market").first().id)
+    }
+
+    @Test fun searchTiersAreDeterministic() {
+        val pe = BeginnerEducation.entry("pe")!!
+        assertEquals(0, LearnDisplay.searchTier(pe, "p/e ratio", listOf("p/e", "ratio")))
+        assertEquals(1, LearnDisplay.searchTier(pe, "p/e", listOf("p/e")))
+        assertEquals(3, LearnDisplay.searchTier(pe, "valuation", listOf("valuation")))
+        assertEquals(4, LearnDisplay.searchTier(pe, "earnings", listOf("earnings")))
+        assertNull(LearnDisplay.searchTier(pe, "dividend", listOf("dividend")))
+        assertEquals(LearnDisplay.search("earnings"), LearnDisplay.search("  EARNINGS "))
     }
 
     @Test fun sectionsUseTheCatalogueTextAndSkipMissingOnes() {

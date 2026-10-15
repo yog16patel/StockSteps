@@ -101,3 +101,20 @@ saved image.
 
 ## 5. Verdict
 **PASS WITH CONDITIONS:** the conditions are the NOT RUN items above.
+
+## 6. Final polish (r2, 2026-10-15; committed as "Polish Learn for Global UI Refinement Phase 5D.5.2 with ranked term search, single-column topics at very large text, a folded Start here sentence at large text and a shorter term illustration on Android and iOS")
+Targeted changes after the owner approved the Learn UI in principle:
+- **Search ranking:** exact name/title → name prefix → title → title or topic → definition; all matches kept (core tests +2).
+- **Very large text:** topic tiles become one column of compact rows (Android ≥ 1.75× font scale, iOS AX4 and up).
+- **Start here at large text:** the sentence folds under "What's covered", with the same text one tap away.
+- **Term page:** a shorter illustration band.
+
+Verified on device:
+- Android: Start learning → Guided Research; topic navigation; ranked search; Practice; term-page bottom above the bottom navigation at 1.0×
+  and 2.0×.
+- iOS AX5: topic → term → Next; term-page bottom above the safe area.
+
+Tests: core 534/0 (JVM) and 534/0 (iOS on rerun; one intermittent `UserDataRepositoriesTest` failure in the full run), shared 246/0 and 242/0,
+server 501/0; builds OK.
+
+Review package: `docs/reviews/phase5d_5_2_r2/`.

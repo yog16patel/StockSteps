@@ -15,12 +15,15 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.2 Learn committed)
+## Current task (as of 2026-10-15, Phase 5D.5.2 Learn polish committed)
 
-Phase 5D.5.2 (Learn redesign) is committed and pushed as "Redesign Learn for Global UI Refinement Phase 5D.5.2 with a Start here card, colour-coded topic tiles, today's concept, an Explore topics list, topic pages, term reading pages and a local term search on Android and iOS", PASS WITH CONDITIONS.
-Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md`; review package: `docs/reviews/phase5d_5_2/`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-2-2026-10-15.**
-Next: owner review; the flaky Portfolio test fix waits uncommitted in worktree `charming-hodgkin-98e850`.
+Phase 5D.5.2 Learn (`057d6e6`) and its final polish ("Polish Learn for Global UI Refinement Phase 5D.5.2 with ranked term search, single-column topics at very large text, a folded Start here sentence at large text and a shorter term illustration on Android and iOS") are committed and pushed.
+Reports: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` (§6 = polish); review packages: `docs/reviews/phase5d_5_2/`, `docs/reviews/phase5d_5_2_r2/`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-2-R2-2026-10-15.**
+Next: owner review.
+Tracked separately:
+- the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
+- the intermittent `UserDataRepositoriesTest` on core iOS.
 Still open:
 - iOS Earnings Details after the owner signs in;
 - the iOS Home AX5 heading break and history navigation.
@@ -98,6 +101,10 @@ Portfolio conventions (permanent):
   - Learn copy and rules come only from core `LearnDisplay`.
   - Topics are the catalogue's `topic` values; never add topics, lessons or educational text without approval.
   - Topic icon colours are decorative theme roles (`topicTone`), never a gain/loss cue.
+  - Term search order comes only from `LearnDisplay.search` / `searchTier` (exact → prefix → title → title or topic → definition; never drop
+    matches).
+  - At very large text (Android ≥ 1.75×, iOS AX4+) topic tiles are one column of compact rows.
+  - At large text the Start here sentence folds under "What's covered".
   - Lists show `LearnDisplay.preview` (the first sentence); the term page shows the full catalogue text.
   - Learn titles go through `LearnDisplay.unbroken` (no break after "/").
   - Topic tiles follow `StockCardGridLayout` with the icon counted as padding (compact icon-above tiles at large text).

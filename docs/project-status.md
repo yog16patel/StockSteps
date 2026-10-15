@@ -6,6 +6,15 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-15 — Phase 5D.5.2 Learn polish (committed and pushed as "Polish Learn for Global UI Refinement Phase 5D.5.2 with ranked term search, single-column topics at very large text, a folded Start here sentence at large text and a shorter term illustration on Android and iOS").**
+- Changes:
+  - ranked term search;
+  - single-column topics at very large text;
+  - a folded Start here sentence at large text;
+  - a shorter illustration.
+- Tests: core 534/0 ×2, shared 246/0 and 242/0, server 501/0. Device checks on Android and iOS.
+- Package: `docs/reviews/phase5d_5_2_r2/`.
+
 **2026-10-15 — Phase 5D.5.2 Learn redesign (committed and pushed as "Redesign Learn for Global UI Refinement Phase 5D.5.2 with a Start here card, colour-coded topic tiles, today's concept, an Explore topics list, topic pages, term reading pages and a local term search on Android and iOS").**
 - Changes:
   - Start here card;

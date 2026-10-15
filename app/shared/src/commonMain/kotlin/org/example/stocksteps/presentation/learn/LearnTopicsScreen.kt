@@ -113,9 +113,9 @@ internal fun LearnTermScreen(id: String, hinge: WindowHinge?, onTerm: (String) -
             LazyColumn(region, contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
                 verticalArrangement = Arrangement.spacedBy(spacing.lg), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (!largeText) item("art") {
-                    Box(content.height(StockStepsTheme.dimensions.chartHeight).background(colors.primaryContainer, StockStepsTheme.shapes.card)
+                    Box(content.height(StockStepsTheme.dimensions.learnIllustration * 2).background(colors.primaryContainer, StockStepsTheme.shapes.card)
                         .clearAndSetSemantics { }, contentAlignment = Alignment.Center) {
-                        Image(painterResource(Res.drawable.ill_learn_basics), null, Modifier.size(StockStepsTheme.dimensions.learnIllustration * 2))
+                        Image(painterResource(Res.drawable.ill_learn_basics), null, Modifier.size(StockStepsTheme.dimensions.learnIllustration * 1.5f))
                     }
                 }
                 item("title") {

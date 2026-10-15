@@ -60,6 +60,9 @@ internal fun learnTopicTint(tone: String): androidx.compose.ui.graphics.Color = 
     else -> StockStepsTheme.colors.primaryText
 }
 
+/** Font scale from which Learn's topic tiles become one column of compact rows (Android 2.0×; iOS uses AX4 and up). */
+private const val LEARN_SINGLE_COLUMN_SCALE = 1.75f
+
 @OptIn(ExperimentalTime::class)
 private fun dayOfYear(): Int = LearnDisplay.dayOfYear(Clock.System.now().toEpochMilliseconds())
 
@@ -164,10 +167,12 @@ private fun StartCard(modifier: Modifier, action: String, onStart: () -> Unit) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                 Text(L.START_HERE.uppercase(), Modifier.semantics { contentDescription = L.START_HERE }, style = typography.tiny, color = colors.textSupporting)
                 Text(L.START_TITLE, Modifier.semantics { heading() }, style = typography.cardTitle.copy(fontWeight = FontWeight.Bold), color = colors.textTitle)
-                Text(L.START_BODY, style = typography.small, color = colors.textBody)
+                if (!largeText) Text(L.START_BODY, style = typography.small, color = colors.textBody)
             }
             if (!largeText) Image(painterResource(Res.drawable.ill_learn_basics), null, Modifier.size(StockStepsTheme.dimensions.learnIllustration))
         }
+        // Large text: the long sentence folds away (same text, one tap) so the action stays near the title.
+        if (largeText) StockDisclosure(L.START_DETAILS, icon = StockIcons.Info) { Text(L.START_BODY, style = typography.small, color = colors.textBody) }
         StockButton(action, onStart)
     }
 }
@@ -187,8 +192,10 @@ private fun TopicGrid(topics: List<LearnTopic>, onTopic: (String) -> Unit) {
         // Reference: icon beside name and coverage at normal text; at large text a compact tile (icon above, name only, centred) that stays in two
         // columns while every topic word fits the tile, else one column (word-safe; never a broken word).
         val largeText = density.fontScale >= StockStepsTheme.dimensions.largeFontScale
+        // 5D.5.2 polish: at very large text (2.0×) one column of compact rows instead of tall centred tiles.
+        val veryLargeText = density.fontScale >= LEARN_SINGLE_COLUMN_SCALE
         val inset = if (largeText) spacing.md.value else spacing.md.value + (StockStepsTheme.dimensions.icon.value + spacing.sm.value) / 2
-        val columns = StockCardGridLayout.columns(widest, maxWidth.value, spacing.sm.value, inset, accessibilityText = false)
+        val columns = StockCardGridLayout.columns(widest, maxWidth.value, spacing.sm.value, inset, accessibilityText = veryLargeText)
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             topics.chunked(columns).forEach { row ->
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
@@ -197,7 +204,11 @@ private fun TopicGrid(topics: List<LearnTopic>, onTopic: (String) -> Unit) {
                         val tint = learnTopicTint(L.topicTone(topic.name))
                         StockCard(Modifier.weight(1f).fillMaxHeight(), onClick = { onTopic(topic.name) }, onClickLabel = "Open ${topic.name}", bordered = false,
                             contentPadding = PaddingValues(spacing.md)) {
-                            if (largeText) Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                            if (columns == 1 && largeText) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                                Icon(icon, null, Modifier.size(StockStepsTheme.dimensions.icon), tint = tint)
+                                Text(topic.name, Modifier.weight(1f), style = typography.bodySemiBold, color = colors.textTitle)
+                            } else if (largeText) Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                                 Icon(icon, null, Modifier.size(StockStepsTheme.dimensions.icon), tint = tint)
                                 Text(topic.name, style = typography.bodySemiBold, color = colors.textTitle, textAlign = TextAlign.Center)
                             } else Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
