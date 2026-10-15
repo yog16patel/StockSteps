@@ -63,6 +63,9 @@ struct StockSearchScene: View {
         }
         .task {
             model.refreshRecent()
+            // 5D.5.5D: each opening starts with an empty field showing recent searches, as on Android (the shared model used to keep the
+            // last query between openings).
+            if initialStock == nil { model.query = "" }
             if let stock = initialStock {
                 selectedStock = stock
                 compactColumn = .detail

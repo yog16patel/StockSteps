@@ -1050,6 +1050,7 @@ private struct AddCompanySheet: View {
     @State private var searching = false
     @State private var attempt = 0
     @State private var searchActive = false
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         let palette = StockStepsTheme.palette(colorScheme)
@@ -1067,7 +1068,7 @@ private struct AddCompanySheet: View {
                         .listRowBackground(Color.clear).listRowSeparator(.hidden)
                 } else if phase == .noResults {
                     SearchStateView(systemImage: "magnifyingglass", title: SearchDisplay.shared.NO_RESULTS_TITLE, message: SearchDisplay.shared.NO_RESULTS_MESSAGE,
-                                    actionTitle: SearchDisplay.shared.TRY_DIFFERENT, isError: false) { query = ""; searchActive = true }
+                                    actionTitle: SearchDisplay.shared.TRY_DIFFERENT, isError: false) { query = ""; searchActive = false; searchFocused = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { searchActive = true; searchFocused = true } }
                         .listRowBackground(Color.clear).listRowSeparator(.hidden)
                 } else if phase == .results {
                     ForEach(results, id: \.symbol) { stock in
@@ -1088,6 +1089,7 @@ private struct AddCompanySheet: View {
             .scrollContentBackground(.hidden)
             .background(StockStepsTheme.color(palette.background))
             .searchable(text: $query, isPresented: $searchActive, prompt: SearchDisplay.shared.PLACEHOLDER)
+            .searchFocused($searchFocused)
             .task { searchActive = true }
             .task(id: "\(query)#\(attempt)") {
                 // A newer query (or Retry) cancels this task, and a cancelled task never writes results: no stale or duplicate lists.

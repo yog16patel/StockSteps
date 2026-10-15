@@ -64,6 +64,19 @@ class RecentSearchStore(private val storage: StringStorage) {
         state.value = next
     }
 
+    /**
+     * 5D.5.5D: entries saved before logos existed (no `logoUrl`) take the logo from a search response that already lists the same listing —
+     * no extra request, order and contents unchanged. Called with each completed search's results.
+     */
+    fun refreshLogos(results: List<StockSearchResult>) {
+        val logos = results.mapNotNull { r -> r.logoUrl?.let { RecentSearches.identity(r) to it } }.toMap()
+        if (logos.isEmpty()) return
+        val next = state.value.map { entry -> if (entry.logoUrl == null) logos[RecentSearches.identity(entry)]?.let { entry.copy(logoUrl = it) } ?: entry else entry }
+        if (next == state.value) return
+        storage.write(RecentSearches.encode(next))
+        state.value = next
+    }
+
     fun clear() {
         storage.write(null)
         state.value = emptyList()

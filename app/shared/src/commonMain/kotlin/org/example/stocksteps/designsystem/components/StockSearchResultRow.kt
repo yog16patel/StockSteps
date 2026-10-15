@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Density
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -27,8 +29,11 @@ import org.example.stocksteps.theme.StockBadgeKind
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.designsystem.icons.StockIcons
 
-/** Font scale at which a search row stacks ticker and exchange and puts the avatar above the text (as Learn's very-large layout). */
+/** Font scale at which a search row puts ticker and exchange on their own lines. */
 internal const val SEARCH_ROW_STACK_SCALE = 1.75f
+
+/** The "Best match" label's largest text scale (5D.5.5D): a small label beside the name, never as large as the name itself. */
+internal const val SEARCH_BADGE_MAX_SCALE = 1.3f
 
 /**
  * One company search result (Phase 5D.5.5B): the company logo when it loads (5D.5.5C), else ticker initials, the name (wraps, never truncated) with an optional "Best match" badge,
@@ -56,7 +61,16 @@ internal fun StockSearchResultRow(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
             StockTitleWithBadge(
                 title = { Text(result.name, style = StockStepsTheme.typography.bodySemiBold, color = nameColor) },
-                badge = { if (best) StockStatusBadge(SearchDisplay.BEST_MATCH, StockBadgeKind.INFO, size = StockBadgeSize.COMPACT) }
+                badge = {
+                    // 5D.5.5D: the label grows with the text only up to SEARCH_BADGE_MAX_SCALE, so it never outweighs the company name (the
+                    // name, ticker and exchange keep the full user size; the label is also spoken in the row's description).
+                    if (best) {
+                        val density = LocalDensity.current
+                        CompositionLocalProvider(LocalDensity provides Density(density.density, minOf(density.fontScale, SEARCH_BADGE_MAX_SCALE))) {
+                            StockStatusBadge(SearchDisplay.BEST_MATCH, StockBadgeKind.INFO, size = StockBadgeSize.COMPACT)
+                        }
+                    }
+                }
             )
             if (stacked) {
                 Text(result.symbol, style = StockStepsTheme.typography.small, fontWeight = FontWeight.SemiBold, color = colors.textSecondary)
@@ -81,15 +95,9 @@ internal fun StockSearchResultRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(spacing.md)
     ) {
-        if (stacked) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                StockTickerAvatar(result.symbol, logoUrl = result.logoUrl)
-                text()
-            }
-        } else {
-            StockTickerAvatar(result.symbol, logoUrl = result.logoUrl)
-            Column(Modifier.weight(1f)) { text() }
-        }
+        // 5D.5.5D (owner reference): the logo stays beside the text at every size; at very large text only ticker and exchange stack.
+        StockTickerAvatar(result.symbol, logoUrl = result.logoUrl)
+        Column(Modifier.weight(1f)) { text() }
         if (enabled) Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.iconSecondary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
     }
 }

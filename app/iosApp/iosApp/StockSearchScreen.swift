@@ -13,6 +13,8 @@ struct StockSearchScreen: View {
     let onSelect: (StockSearchResult) -> Void
     /// The sheet opens with the search field active (keyboard up), so the first tap isn't lost to the presentation animation (Phase 5C.1).
     @State private var searchActive = false
+    /// 5D.5.5D: focus for "Try a different search" (re-activating `searchActive` alone doesn't raise the keyboard again).
+    @FocusState private var searchFocused: Bool
     private var palette: ThemePalette { StockStepsTheme.palette(colorScheme) }
 
     var body: some View {
@@ -49,7 +51,7 @@ struct StockSearchScreen: View {
             } else if phase == .noResults {
                 SearchStateView(systemImage: "magnifyingglass", title: SearchDisplay.shared.NO_RESULTS_TITLE,
                                 message: SearchDisplay.shared.NO_RESULTS_MESSAGE, actionTitle: SearchDisplay.shared.TRY_DIFFERENT, isError: false) {
-                    query = ""; searchActive = true
+                    query = ""; searchActive = false; searchFocused = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { searchActive = true; searchFocused = true }
                 }
                 .listRowBackground(Color.clear).listRowSeparator(.hidden)
             } else {
@@ -65,6 +67,7 @@ struct StockSearchScreen: View {
         .background(StockStepsTheme.color(palette.background))
         .tint(StockStepsTheme.color(palette.primary))
         .searchable(text: $query, isPresented: $searchActive, prompt: SearchDisplay.shared.PLACEHOLDER)
+        .searchFocused($searchFocused)
         .task { if query.isEmpty { searchActive = true } }
     }
 

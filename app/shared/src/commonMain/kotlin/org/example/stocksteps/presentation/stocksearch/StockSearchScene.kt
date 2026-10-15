@@ -47,6 +47,8 @@ internal fun StockSearchScene(
     }
     val watchlistState by (watchlistModel?.state ?: kotlinx.coroutines.flow.MutableStateFlow(StockWatchlistState()))
         .collectAsStateWithLifecycle()
+    // 5D.5.5D: recent entries saved before logos existed take theirs from results the search already returned (no extra request).
+    LaunchedEffect(state.results) { if (state.results.isNotEmpty()) recentSearches?.refreshLogos(state.results) }
     val recent by (recentSearches?.items ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList())).collectAsStateWithLifecycle()
     StockSearchScreen(
         state = state,

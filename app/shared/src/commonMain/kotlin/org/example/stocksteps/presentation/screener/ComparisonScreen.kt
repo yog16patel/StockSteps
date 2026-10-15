@@ -716,8 +716,8 @@ private fun AddCompanyDialog(state: ComparisonUiState, replacing: String?, onSea
     }
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+    // 5D.5.5D: edge to edge, so the status bar shows the page colour instead of the dialog scrim.
+    org.example.stocksteps.presentation.components.FullScreenDialog(onDismissRequest = onDismiss) {
         val spacing = StockStepsTheme.spacing
         Column(Modifier.fillMaxSize().background(StockStepsTheme.colors.appBackground).safeDrawingPadding()) {
             org.example.stocksteps.presentation.components.StockStepsTopBar(

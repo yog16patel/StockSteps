@@ -148,6 +148,9 @@ final class StockSearchViewModel {
                 guard !Task.isCancelled else { return }
                 results = values
                 isSearching = false
+                // 5D.5.5D: recent entries saved before logos existed take theirs from these results (no extra request).
+                RecentSearchesStore.shared.refreshLogos(results: values)
+                recent = RecentSearchesStore.shared.current()
             } catch {
                 guard let self, !Task.isCancelled else { return }
                 searchError = "Could not load stocks. Check your connection and try again."

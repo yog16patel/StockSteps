@@ -7,8 +7,8 @@ private let dims = StockStepsTheme.dimensions
 
 /// One company search result (Phase 5D.5.5B, as Compose `StockSearchResultRow`): the company logo when it loads, else ticker initials, the name (wraps, never truncated)
 /// with an optional "Best match" badge, then ticker · exchange (never truncated — they tell listings apart), and a chevron. Borderless; the
-/// list draws dividers. One spoken element ("Apple Inc., AAPL, NASDAQ, best match") with the button trait. From AX3 the avatar goes above
-/// the text and ticker and exchange take their own lines.
+/// list draws dividers. One spoken element ("Apple Inc., AAPL, NASDAQ, best match") with the button trait. From AX3 ticker and exchange take
+/// their own lines; the logo stays on the left.
 struct SearchResultRow: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -25,16 +25,9 @@ struct SearchResultRow: View {
         let stacked = typeSize >= .accessibility3
         Button(action: action) {
             HStack(alignment: .center, spacing: CGFloat(space.md)) {
-                if stacked {
-                    VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                        StockTickerAvatar(symbol: result.symbol, logoUrl: result.logoUrl)
-                        text(colors, stacked: true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    StockTickerAvatar(symbol: result.symbol, logoUrl: result.logoUrl)
-                    text(colors, stacked: false).frame(maxWidth: .infinity, alignment: .leading)
-                }
+                // 5D.5.5D (owner reference): the logo stays beside the text at every size; from AX3 only ticker and exchange stack.
+                StockTickerAvatar(symbol: result.symbol, logoUrl: result.logoUrl)
+                text(colors, stacked: stacked).frame(maxWidth: .infinity, alignment: .leading)
                 if enabled { Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(colors.iconSecondary) }
             }
             .padding(.vertical, CGFloat(space.sm))
@@ -49,7 +42,20 @@ struct SearchResultRow: View {
         .accessibilityHint(hint ?? "")
     }
 
-    private var badge: some View { StockStatusBadge(text: SearchDisplay.shared.BEST_MATCH, kind: .info, size: .compact) }
+    /// The "Best match" label (5D.5.5D): it grows with Dynamic Type only up to 1.3× its default size, so it never outweighs the company name
+    /// (as Compose's `SEARCH_BADGE_MAX_SCALE`); name, ticker and exchange keep the full user size, and the label is also spoken.
+    private var badge: some View {
+        let tone = StockSemanticStyles.shared.badge(kind: .info, p: StockStepsTheme.palette(scheme))
+        let base = CGFloat(type.tiny.size)
+        let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize))
+        let size = min(UIFontMetrics(forTextStyle: .caption2).scaledValue(for: base, compatibleWith: traits), base * 1.3)
+        return Text(verbatim: SearchDisplay.shared.BEST_MATCH)
+            .font(.system(size: size, weight: .medium))
+            .foregroundStyle(StockStepsTheme.color(tone.content))
+            .lineLimit(1).fixedSize()
+            .padding(.horizontal, CGFloat(space.xs + space.xxs)).padding(.vertical, CGFloat(space.xxs))
+            .background(StockStepsTheme.color(tone.container), in: Capsule())
+    }
 
     @ViewBuilder
     private func text(_ colors: StockColors, stacked: Bool) -> some View {

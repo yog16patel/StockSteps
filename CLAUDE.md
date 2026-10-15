@@ -15,14 +15,14 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, search logos committed locally)
+## Current task (as of 2026-10-15, Phase 5D.5.5D committed locally)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
 Phase 5D.5.4 (Company Details, A–D) is pushed through `0c5c4c4`; the owner runs the TalkBack/VoiceOver pass manually (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md` §9).
-Phase 5D.5.5 Company Search: the plan (`docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5_PLAN.md`), 5D.5.5B (`08723a6`) and 5D.5.5C (`1d90195`) are pushed. The search-logo addendum ("Show company logos in Company Search results on Android and iOS with a server-built logo URL per result and a ticker-initials fallback, without extra provider calls") is committed locally, **not pushed** (report `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5C.md` §9).
-**Start with `docs/PROJECT_HANDOFF.md` §SEARCH-LOGOS-2026-10-15.**
-Next: push on approval; then 5D.5.5D (full device matrix, screen readers, polish items in the 5D.5.5C report §6). Owner to confirm FMP logo display rights.
+Phase 5D.5.5 Company Search: the plan, 5D.5.5B (`08723a6`), 5D.5.5C (`1d90195`) and search logos (`65ad004`) are pushed. 5D.5.5D ("Finish Company Search for Global UI Refinement Phase 5D.5.5D with an edge-to-edge Comparison picker, iOS search refocus and empty reopen, a smaller Best match label, logos beside large text and logos for older recent searches on Android and iOS") is committed locally, **not pushed**. Report: `docs/reviews/phase5d_5_5d/PHASE5D_5_5D_VERIFICATION.md`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-5D-2026-10-15.**
+Next: push on approval; owner screen-reader pass and FMP logo licence check; then close 5D.5.5.
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
@@ -153,6 +153,10 @@ Portfolio conventions (permanent):
     UserDefaults; never synced, no account). Screen states come only from `SearchDisplay.phase` and its copy; Retry re-runs the current query
     once and stale responses never apply. The Comparison picker uses the same row (`enabled`/`note` "Already added") and keeps its own
     add/replace outcome.
+  - (5D.5.5D) The logo stays left of the text at every size (only ticker and exchange stack at very large text); the "Best match" label
+    grows to at most 1.3× (`SEARCH_BADGE_MAX_SCALE` / `UIFontMetrics` cap). Recent entries without a logo take it from later search results
+    (`RecentSearchStore.refreshLogos`, no extra request). Full-screen pickers on Android use `FullScreenDialog` (edge to edge). iOS search
+    opens with an empty query; refocusing a `.searchable` field needs `searchActive` off and on again after a short delay.
   - Android debug builds use the LAN MOCK host from `~/.gradle/gradle.properties`; to test server changes on the local MOCK server, build with
     `-PstockstepsMockBackendUrl=http://127.0.0.1:8081`.
 - **Company Details large text (5D.5.4D, iOS).** `StockSectionHeader` puts its action under the title only when the title's longest word and

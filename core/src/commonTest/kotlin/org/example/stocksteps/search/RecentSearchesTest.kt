@@ -48,6 +48,22 @@ class RecentSearchesTest {
     }
 
     @Test
+    fun olderEntriesTakeTheirLogoFromALaterSearchResponse() {
+        val storage = InMemoryStringStorage("""[{"symbol":"AAPL","name":"Apple Inc.","exchange":"NASDAQ"},{"symbol":"MSFT","name":"Microsoft Corporation","exchange":"NASDAQ"}]""")
+        val store = RecentSearchStore(storage)
+        store.refreshLogos(listOf(StockSearchResult("AAPL", "Apple Inc.", "USD", "NASDAQ", logoUrl = "https://images.financialmodelingprep.com/symbol/AAPL.png"),
+            StockSearchResult("APLE", "Apple Hospitality REIT, Inc.", "USD", "NYSE", logoUrl = "https://images.financialmodelingprep.com/symbol/APLE.png")))
+        // Only the listing that was already recent is updated; order and the other entries stay; it persists.
+        assertEquals(listOf("https://images.financialmodelingprep.com/symbol/AAPL.png", null), store.current().map { it.logoUrl })
+        assertEquals(listOf("AAPL", "MSFT"), RecentSearchStore(storage).current().map { it.symbol })
+        assertEquals("https://images.financialmodelingprep.com/symbol/AAPL.png", RecentSearchStore(storage).current().first().logoUrl)
+        // Nothing to do: no write.
+        val untouched = InMemoryStringStorage(null)
+        RecentSearchStore(untouched).refreshLogos(listOf(StockSearchResult("AAPL", "Apple Inc.", logoUrl = "x")))
+        assertEquals(null, untouched.read())
+    }
+
+    @Test
     fun corruptOrInvalidStorageIsNoHistory() {
         assertEquals(emptyList(), RecentSearchStore(InMemoryStringStorage("{not json")).current())
         assertEquals(emptyList(), RecentSearches.decode("""{"symbol":"AAPL"}"""))

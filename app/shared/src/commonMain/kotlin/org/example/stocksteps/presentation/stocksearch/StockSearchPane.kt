@@ -10,13 +10,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import org.example.stocksteps.designsystem.components.SEARCH_ROW_STACK_SCALE
 import org.example.stocksteps.designsystem.components.StockDivider
 import org.example.stocksteps.designsystem.components.StockEmptyState
 import org.example.stocksteps.designsystem.components.StockErrorState
@@ -98,12 +96,11 @@ internal fun StockSearchPane(
     }
 }
 
-/** Result rows with inset dividers (full width when rows stack at very large text). */
+/** Result rows with dividers inset to the text (the logo stays on the left at every size). */
 internal fun LazyListScope.resultRows(prefix: String, rows: List<StockSearchResult>, best: Boolean, onSelect: (StockSearchResult) -> Unit,
                                       enabled: (StockSearchResult) -> Boolean = { true }, note: (StockSearchResult) -> String? = { null }) {
     itemsIndexed(rows, key = { _, stock -> "$prefix:${stock.symbol}" }) { index, stock ->
-        val stacked = LocalDensity.current.fontScale >= SEARCH_ROW_STACK_SCALE
-        if (index > 0) StockDivider(startIndent = if (stacked) 0.dp else StockStepsTheme.dimensions.logo + StockStepsTheme.spacing.md)
+        if (index > 0) StockDivider(startIndent = StockStepsTheme.dimensions.logo + StockStepsTheme.spacing.md)
         StockSearchResultRow(stock, best = best, onClick = { onSelect(stock) }, enabled = enabled(stock), note = note(stock))
     }
 }

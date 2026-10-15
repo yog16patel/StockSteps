@@ -6,7 +6,18 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Company logos in search (5D.5.5C addendum; committed locally as "Show company logos in Company Search results on Android and iOS with a server-built logo URL per result and a ticker-initials fallback, without extra provider calls"; not pushed).**
+**2026-10-15 — Phase 5D.5.5D Company Search final verification & polish (committed locally as "Finish Company Search for Global UI Refinement Phase 5D.5.5D with an edge-to-edge Comparison picker, iOS search refocus and empty reopen, a smaller Best match label, logos beside large text and logos for older recent searches on Android and iOS"; not pushed).**
+- **Fixes:**
+  - Android picker status bar;
+  - iOS focus after "Try a different search";
+  - smaller "Best match" label at large text;
+  - iOS search reopens empty;
+  - logo stays left at large text;
+  - old recents get logos from search results.
+- **Not changed:** ranking and API.
+- **Report:** `docs/reviews/phase5d_5_5d/PHASE5D_5_5D_VERIFICATION.md`.
+
+**2026-10-15 — Company logos in search (5D.5.5C addendum; `65ad004`, committed and pushed as "Show company logos in Company Search results on Android and iOS with a server-built logo URL per result and a ticker-initials fallback, without extra provider calls").**
 - The server adds FMP's public logo URL to each search result (no extra API calls).
 - Both apps show the logo, with an initials fallback.
 - Details: `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5C.md` §9.
