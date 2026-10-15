@@ -183,7 +183,7 @@ internal fun AppNavigation(
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true -> "Earnings details"
                         destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true -> "Research"
                         destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true -> "Practice"
-                        destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefRoute>() == true -> "Daily Brief"
+                        destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefRoute>() == true -> org.example.stocksteps.brief.DailyBriefDisplay.TITLE
                         destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute>() == true -> "Previous briefs"
                         destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeOrderRoute>() == true -> "Practice order"
                         destination?.hasRoute<PortfolioRoute>() == true -> "Portfolio"

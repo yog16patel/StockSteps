@@ -4,7 +4,7 @@ import org.example.stocksteps.brief.BriefFormat
 import org.example.stocksteps.brief.BriefIndex
 import org.example.stocksteps.brief.BriefMarketSession
 import org.example.stocksteps.brief.DailyBrief
-import org.example.stocksteps.brief.QuoteState
+import org.example.stocksteps.brief.DailyBriefDisplay
 import org.example.stocksteps.companydetail.PriceDirection
 import org.example.stocksteps.portfolio.PortfolioUiState
 import org.example.stocksteps.presentation.portfolio.PortfolioPresentation
@@ -20,25 +20,18 @@ object HomeDashboardPresentation {
 
     fun indices(brief: DailyBrief): List<BriefIndex> = brief.marketSnapshot.take(MAX_INDICES)
 
-    /** "US stocks: Closed for the day (after-hours trading)" — the exchange list stays in the brief reader. */
-    fun sessionLine(session: BriefMarketSession): String = "${sessionName(session)}: ${session.label}"
-    fun sessionLines(brief: DailyBrief): List<String> = brief.sessions.map(::sessionLine)
-    private fun sessionName(session: BriefMarketSession): String = when (session.market) {
-        "US" -> "US stocks"
-        "CA" -> "Canadian stocks"
-        else -> session.name
-    }
+    /** "US stocks: Closed for the day (after-hours trading)" — the exchange list stays in the brief reader (5D.5.1: wording in `DailyBriefDisplay`). */
+    fun sessionLine(session: BriefMarketSession): String = DailyBriefDisplay.sessionLine(session)
+    fun sessionLines(brief: DailyBrief): List<String> = DailyBriefDisplay.sessionLines(brief)
 
     /** "−18.59 (−0.24%)", or null when the brief has no change (the row then shows the quote state only). */
-    fun indexChange(index: BriefIndex): String? = if (index.value == null || index.change == null) null else BriefFormat.change(index)
-
-    fun indexDirection(index: BriefIndex): PriceDirection = when {
-        index.value == null || index.changePercent == null -> PriceDirection.UNAVAILABLE
-        else -> when (BriefFormat.sign(index)) { 1 -> PriceDirection.UP; -1 -> PriceDirection.DOWN; else -> PriceDirection.UNCHANGED }
-    }
-
+    fun indexChange(index: BriefIndex): String? = DailyBriefDisplay.indexChange(index)
+    fun indexDirection(index: BriefIndex): PriceDirection = DailyBriefDisplay.indexDirection(index)
     /** Stale or unavailable quotes are labelled in the caution colour, never shown as current. */
-    fun indexCaution(index: BriefIndex): Boolean = index.state == QuoteState.STALE || index.state == QuoteState.UNAVAILABLE
+    fun indexCaution(index: BriefIndex): Boolean = DailyBriefDisplay.indexCaution(index)
+
+    /** D-5 (5D.5.1): the summary's first sentence under the brief entry; the reader shows it in full. */
+    fun briefSummary(brief: DailyBrief): String? = DailyBriefDisplay.homeSummary(brief)
 
     /** "Latest available · Oct 7 · 1 min read", plus "Offline copy" when it came from the device cache. */
     fun briefMeta(brief: DailyBrief, nowMillis: Long, offline: Boolean): String =

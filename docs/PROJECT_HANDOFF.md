@@ -1,9 +1,200 @@
-# StockSteps — session handoff (2026-10-14 session end: Portfolio E.2 closed PASS WITH CONDITIONS; Global UI Refinement Phase 5D.1 Earnings accuracy committed at `a15cd5f`; next: Phase 5D.2 after owner approval)
+# StockSteps — session handoff (2026-10-14: Phase 5D.5.1 Daily Brief reader committed; next: Phase 5D.5.2 Learn after owner approval)
 
-Read order for a new session: `CLAUDE.md` → **§SESSION-END-2026-10-14 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE-5D-5-1-2026-10-14 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PHASE-5D-5-1-2026-10-14. Daily Market Brief reader (Phase 5D.5.1) — START HERE
+
+### 0. Repository state
+- Branch `main`. Current commit: **"Refine the Daily Market Brief reader for Global UI Refinement Phase 5D.5.1 with the summary as the headline, shared index rows, first-sentence stories, folded notes, a Sample badge and a one-line Home summary on Android and iOS"** (this commit, pushed), on top of `7326e62`.
+- It also carries the previous session's end-of-session handoff edits (§SESSION-END-2026-10-14-EARNINGS below, `docs/project-status.md`, `CLAUDE.md`),
+  which were uncommitted until now.
+
+### 1. What was done
+- **5D.5 audit and plan** (read-only): `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md`, with the owner's reference image `docs/design/phase5d_5/REFERENCE-daily-brief-learn.webp`.
+  - Owner decisions: D-1 Brief first; D-2 A (server summary is the headline); D-3 no Key points; D-4 "Market stories"; D-5 Home keeps its layout
+    plus one summary line; D-6 promote the disclosure components with Earnings wrappers.
+  - Deferred: B-1 (index sparkline, backend) and 5D.5.2 Learn.
+- **5D.5.1 implemented** (display only; no server/API/fixture/presenter/AI/navigation change). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md`.
+  - core `brief/DailyBriefDisplay.kt` holds all reader copy and rules.
+  - core `format/ReadableText.firstSentence` (moved from `EarningsDisplay`, which delegates).
+  - Design system:
+    - Compose `StockDisclosure` / `StockNotes` / `StockShowDetails` / `StockLinkAction` / `StockIndexRow`, with SwiftUI mirrors in
+      `DesignSystem/StockDisclosure.swift`;
+    - `StockNavigationRow.summary` (optional, never truncated).
+  - The Compose and SwiftUI reader and history are rewritten. Home uses the shared index row and shows the summary's first sentence.
+- **Fixes found on device:**
+  - F-1: link actions use the label style.
+  - F-2: an excerpt equal to its headline is hidden.
+  - F-3 (pre-existing): `BriefFormat.groupDigits` printed negatives as "0.-42"; now "−0.42".
+  - F-4: offline is said once.
+  - F-5: summaries are never cut mid-number ("S&P 50…").
+
+### 2. Validation (final code)
+- Tests: core **514/0** JVM and **514/0** iOS; shared **245/0** Android and **241/0** iOS; server **501/0**.
+- Builds: `assembleDebug` OK; `xcodebuild` (generic, plus iPhone 16 ad-hoc with the MOCK URL) BUILD SUCCEEDED.
+- Device checks on the local MOCK server:
+  - Android `emulator-5554` at 360 dp: 1.0× light and dark, 1.3×, 2.0×; six scenarios; offline; history; Home — PASS.
+  - iPhone 16: Default light and dark, AX XL live change, AX5; menu; history; offline; Home — PASS.
+- Captures: 40 in `docs/design/phase5d_5/`.
+- Verdict: **PASS WITH CONDITIONS.**
+
+### 3. Not verified / limits
+- Loading skeleton capture; error state without a saved copy (clearing app data would sign the emulator account out); signed-in watchlist
+  highlights; StockSteps+ / AI; TalkBack and VoiceOver; iPhone SE width.
+- Platform alerts remain for the upgrade and message dialogs.
+
+### 4. Known issues (pre-existing, out of scope)
+- iOS Home at AX5: "Market/s today" beside the Sample badge and "StockSte/ps" break mid-word.
+- iOS: opening a brief from Previous briefs returned to Home once. History is a Home-stack destination in `AppScene`.
+- A follow-up session was proposed for both (not started).
+
+### 5. Incident
+- During the device checks, 388 committed captures under `docs/design/` and the new `phase5d_5/` folder were deleted by something outside this
+  session (disk was at 98%).
+- At the owner's request they were restored with `git checkout -- docs/design` (that folder only), and the captures were recreated as JPEG.
+
+### 6. Environment at the end
+- MOCK server stopped.
+- emulator-5554: font 1.0, `wm size reset`, no `adb reverse`, app theme Light.
+- iPhone 16: light, content size large, latest build installed.
+
+### 7. Next steps
+1. **Phase 5D.5.2 Learn:** plan §4.3 / §7. It needs the owner's answer on D-7: topic grid with chips, no new route.
+2. Optional **5D.5.3** (B-1, index sparkline; backend, additive).
+3. Earlier items still open:
+   - iOS Earnings Details after the owner signs in (5D.4.3);
+   - the Home AX5 and history-navigation follow-up.
+
+## SESSION-END-2026-10-14-EARNINGS. End-of-session handoff (Earnings Phases 5D.2 → 5D.4.3) — START HERE
+
+### 0. Repository state (verified with `git status`, `git log`)
+- Branch `main`, **in sync with `origin/main`**. HEAD **`7326e62`** "Stabilize Global UI Refinement Phase 5D.4.3 Earnings with one Reported status in
+  the header, a full-width company name at large text, tighter section bottoms and a fading session-chip row on Android and iOS" (pushed).
+- **Working tree:** only this handoff's edits are uncommitted (`docs/PROJECT_HANDOFF.md`, `docs/project-status.md` top §0, the `CLAUDE.md`
+  current-task block).
+  - The backend session's earlier uncommitted edits (root `PROJECT_HANDOFF.md`; the `~/.gradle/gradle.properties` hunks in `docs/project-status.md`) were
+    **no longer in the working tree** at session end. They were not committed and were not touched by this session; ask the owner or the backend session
+    if they are needed.
+  - Never use `git add .`, `reset` or `clean`; stage by explicit path.
+- Application code is unchanged since `7326e62`.
+
+### 1. Current development objective
+Global UI Refinement plan step 6 (**Phase 5D: Earnings, then Daily Brief and Learn**). The Earnings track is functionally complete through 5D.4.3. The
+remaining work is verification closure, then **5D.5** (Daily Brief and Learn, starting with a read-only audit).
+
+### 2. Exact task at the end of this session
+**Phase 5D.4.3 final regression review** (read-only) was completed. Recommendation: **close 5D.4.3 as PASS WITH CONDITIONS**. The only genuine open item
+is **iOS Earnings Details, BLOCKED pending the owner's sign-in** on the local Firebase Auth emulator. That is a verification gap, not a UI failure.
+Nothing is in progress or uncommitted on our side except these handoff docs.
+
+### 3. Commits this session (oldest first; all pushed)
+| Commit | Phase | Content |
+|---|---|---|
+| `3d7b000` | 5D.2 | Price-reaction "Window"/"Source" letter-per-line fix. Cause: a weighted label beside an unweighted value. Fix: shared `StockLayout.labelColumn` + `EarningsLines`. Also design-system badges, banners and buttons, sentence case, lesson-named links, an iOS EPS history chart, iOS theme fonts |
+| `91961a2` | 5D.3 | Visual polish from the owner's reference: EPS headline (`EarningsFormatter.epsHeadline`, server classification only), key metric groups (`keyMetrics`/`secondary`), reaction headline with folded methodology, D-1 Sample badge, collapsed Sources and disclosures (each note once) |
+| `e965618` | 5D.4 (+5D.3 closure) | EPS merged into the Details takeaway; `StockMetricGrid(rowsWhenNarrow)`; server explanations show the first sentence + "Show details" (5D4-2 option A, server text never reworded); history chart y-axis labels from shown values (`epsChartYLabels`) and all quarter labels; previous quarter folded into Results revenue (`foldQuarter`); shorter Results title |
+| `a4f35c4` | 5D.4.1 | One collapsed `EarningsShowDetails` per card; "No estimate" (`EarningsFormatter.NO_ESTIMATE`); separate Reported / Next header lines; Before/After dates as detail lines; Results takeaway first; compact insight rows |
+| `93aac9c` | 5D.4.2 | Borderless content sections per call site (`StockCard(bordered = false)` / `.stockCard(bordered: false)`), 20 dp section rhythm, 20 sp company name, Show details + Learn more on one row, "Comparison unavailable" below the title, quiet secondary metrics (new optional `StockMetric(quiet)` / `StockMetricItem.quiet`), reaction % on its own line, width-based history chart (`StockChartLayout`) |
+| `7326e62` | 5D.4.3 | No duplicate "Reported" (`EarningsDisplay.statusBadgeShown`), full-width company name at large text (logo on the ticker line), 8 dp bottom padding under toggle rows (`EarningsSectionPadding` / `.earningsSection()`), Results session chips in `StockFadingScrollRow` |
+
+### 4. Files created or modified this session (all committed except these handoff docs)
+- **core:** `earnings/EarningsPresentation.kt`, `EarningsResults.kt`, `EarningsPriceReaction.kt`.
+  - Display fields only: `HistoryRowView.classification`/`epsVsEstimate`/`surprise`, `ResultCard.keyMetrics`/`secondary`, `EarningsDetailsState.headline`/`reaction*`/`nextLine`/`nextDetail`/`epsChartYLabels`, `ComparisonCardView.keyMetrics`/`secondary`, `EarningsResultsState.publication`/`yearOverYearFolded`/`quarterOverQuarterFolded`/`comparisonNotes`, `EarningsPriceReactionState.headline`/`direction`/`keyLines`/`detailLines`.
+  - Tests: `EarningsPhase5D2Test.kt`, `EarningsPhase5D3Test.kt`, `EarningsPhase5D4Test.kt` (new); `EarningsResultsTest.kt` (title now sentence case).
+- **shared:**
+  - `theme/Spacing.kt` (`StockLayout.labelColumn`) and `designsystem/components/StockMetric.kt` (`quiet`).
+  - `presentation/earnings/EarningsDisplay.kt`, `EarningsComponents.kt` (new), `EarningsScreens.kt`, `EarningsPremiumUi.kt`.
+  - Tests: `ResponsiveLayoutRulesTest.kt`, `EarningsDisplayTest.kt`.
+- **iOS:** `EarningsScenes.swift`, `EarningsComponents.swift` (new), `EarningsPremiumViews.swift`, `EarningsReminderViews.swift`, `DesignSystem/StockControls.swift` (`quiet`).
+- **docs:**
+  - Reports: `GLOBAL_UI_REFINEMENT_PHASE5D_2.md`, `_5D_3.md`, `_5D_4_AUDIT.md`, `_5D_4.md` (incl. §5D.4.1), `_5D_4_2_PLAN.md`, `_5D_4_2.md`, `_5D_4_3_PLAN.md`, `_5D_4_3.md`.
+  - Captures: `docs/design/earnings_phase5d_2/`, `_5d_3/`, `_5d_4/`, `_5d_4_2/`, `_5d_4_3/`.
+  - `CLAUDE.md` conventions: Earnings layout, visual polish, UX, cards, surfaces, iOS simulator points.
+
+### 5. Important decisions (and why)
+- **Owner decisions:**
+  - D-1: compact Sample badge instead of the in-page strip (the full sentence stays in the notes and the app strip).
+  - 5D4-2 A: first sentence + Show details; server text is never reworded in the UI.
+  - 5D4-3: EPS merged into the Details takeaway; Results keeps the full card.
+  - 5D4-4: MOCK scenario chips left as they are.
+  - 5D.4.1: insights as compact rows only; nothing hidden.
+  - 5D42-1…4: borderless, 20 sp name, quiet secondary metrics, StockSteps+ Earnings sections included.
+  - 5D43-1…4: Q-01/02/03 applied; actions stay stacked at large text; the shared row-mode emphasis is not changed (it would touch Portfolio and Home).
+- **The approved move of the next report's session/status into the reminder sheet was NOT done** (5D.4.1): a caption line keeps it visible without touching the reminder UI.
+- **Display only throughout:** no calculation, classification, currency (5D.1B), API, fixture, AI, entitlement, reminder or navigation change. Missing values stay "—" / "No estimate", never 0, never a beat/miss.
+- **The global card default is unchanged.** Borderless is per Earnings call site; Event, Calendar and Digest screens are not touched.
+
+### 6. Known bugs, blockers, risks
+- **BLOCKED:** iOS Earnings Details runtime. It uses the signed-in endpoint; the local Auth emulator starts empty and the simulator's saved session has
+  ended ("Your session has ended. Sign in again"). The owner must sign in in the app (Claude never types credentials or creates accounts).
+- **Fixed misunderstanding:** the earlier "iOS simulator taps not registering" was Claude passing image-pixel coordinates to the simulator tool. It expects
+  device **points** (pixels ÷ 3 on iPhone 16). The restarts were not the fix.
+- **Out of scope, pre-existing:** iOS Home after a *live* Dynamic Type change shows mixed sizes, and "StockSte/ps" breaks mid-word at AX sizes
+  (`docs/design/earnings_phase5d_4_3/note-ios-home-live-dynamic-type-out-of-scope.png`).
+- **Minor, optional:** the iOS Results beginner-takeaway card uses its own padding (bottom gap slightly larger than `.earningsSection()`).
+- At large text, `StockMetricGrid` row mode draws every value at the same weight (quiet emphasis only in columns). Intentionally left.
+- Parallel sessions share the emulator, simulator and `build/` folders. Run Gradle suites sequentially; `emulator-5556` belongs to the backend session.
+
+### 7. Build and test results
+**Verified (executed):**
+- At `93aac9c`/`7326e62`: shared **245/0** (Android host) and **241/0** (iOS); `:app:androidApp:assembleDebug` OK; `xcodebuild` (iPhone 16, ad-hoc
+  signed, MOCK URL) BUILD SUCCEEDED.
+- Core last run at `a4f35c4`: **502/0** JVM and **502/0** iOS (core has not changed since).
+- Server tests not run this session (no server change).
+
+**Verified on device (emulator-5554, Pixel_9_Pro, 360 dp, local MOCK, CNR.TO):**
+- Details at 1.0× / 1.3× / 2.0× light, plus dark, PASS: one "Reported", full-width name at 2.0×, 8 dp section bottoms, last content above the Sample strip.
+- Results session chips at 2.0×: fade, scroll and selection PASS. This was re-verified in the final review after rebuilding the APK from `7326e62`; those
+  captures are in the scratchpad only.
+- iOS iPhone 16 Earnings Results: light, dark, and live AX XL (dark and light) PASS.
+
+**NOT verified:**
+- iOS Earnings Details (BLOCKED).
+- iOS session-chip horizontal scroll at AX sizes.
+- Android dark 1.0× re-capture after 5D.4.3 (5D.4.2 dark PASS with the same tokens).
+- Loading, empty and error states (no MOCK scenario on Details).
+- TalkBack, VoiceOver, physical devices.
+
+### 8. Environment at session end
+- MOCK server stopped.
+- Firebase Auth emulator stopped.
+- `emulator-5554` running, restored (font 1.0, `wm size reset`, no `adb reverse`, app theme Light).
+- iPhone 16 simulator booted (appearance light, content size large); the latest 5D.4.3 build is installed. The local MOCK URL is baked in, and Settings environment = MOCK.
+
+### 9. How to run (unchanged)
+- **MOCK backend:** `./gradlew :server:runMock` (stop with `./gradlew :server:stopMock`).
+- **Android:**
+  1. `./gradlew :app:androidApp:assembleDebug -PstockstepsMockBackendUrl=http://127.0.0.1:8081`
+  2. `adb -s emulator-5554 install -r app/androidApp/build/outputs/apk/debug/androidApp-debug.apk`
+  3. `adb reverse tcp:8081 tcp:8081`, then `adb shell wm size 1080x2400` for 360 dp.
+  4. Open CNR.TO Results: `am start -n org.example.stocksteps/.MainActivity --es type earnings-results --es reportId CNR.TO:2026-Q2` (send it twice
+     after a cold start). Then View company details → Earnings history → Earnings Details.
+  5. Dark mode: the app's own Settings → Theme.
+- **iOS:**
+  1. Build: `xcodebuild -project app/iosApp/iosApp.xcodeproj -scheme app.iosApp -sdk iphonesimulator -destination "platform=iOS Simulator,id=A04A9C8B-D9D1-4910-B0C0-BEC042629EDA" -derivedDataPath <dd> CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES STOCKSTEPS_MOCK_BACKEND_URL=http://localhost:8081 build`
+  2. `simctl install`, then `simctl launch … org.example.stocksteps --firebase-emulators`.
+  3. Use device **points** for taps (search icon (247, 97); Company page "View Results" after scrolling ≈ (94, 194)).
+  4. `simctl ui <id> appearance dark|light` and `simctl ui <id> content_size accessibility-extra-large|large`.
+- **Auth emulator (owner-approved, local only):** `cd firebase && node_modules/.bin/firebase emulators:start --only auth --project stocksteps --config ../firebase.json`.
+
+### 10. Exact next steps
+1. **Close 5D.4.3:** ask the owner to sign in. Start the Auth emulator, the owner signs in through the app on the iPhone 16, then verify iOS Earnings
+   Details at Default, AX and dark: header full-width name at AX, single "Reported", 8 dp section bottoms, last content above the Sample strip,
+   session chips scroll at AX. Record in `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` and commit only with owner approval.
+2. **Optional small fixes (owner decision):** iOS Results takeaway padding; the iOS Home live Dynamic Type issue (separate mini-phase).
+3. **Phase 5D.5 (Daily Brief, Learn):** read-only audit first, then a plan and owner approval before any code. Use the Earnings conventions in `CLAUDE.md` as
+   the reference: borderless per call site, `EarningsShowDetails`-style disclosure, shared layout rules.
+
+### 11. Requirements discussed but not implemented
+- Next-report session/status moved into the reminder sheet (5D.4.1 approval; not done, kept as a header caption).
+- Details vs Results role split beyond the current duplication removal (audit E-04 / 5D-2).
+- Shortening server-generated explanations at the source (5D4-2 option B; not chosen).
+- Hiding repetitive insights on Details (5D.4.1 option b; not chosen).
+- Quiet emphasis in `StockMetricGrid` row mode (shared change; declined).
+- Still open from earlier: Portfolio QA-E2-1…3, allocation A1, REAL currency enrichment (5D1A-3), typed-symbol currency metadata (E.2 D-3), screen-reader passes.
 
 ## PHASE-5D-4-3-2026-10-14 — committed and pushed as "Stabilize Global UI Refinement Phase 5D.4.3 Earnings with one Reported status in the header, a full-width company name at large text, tighter section bottoms and a fading session-chip row on Android and iOS"
 - On top of `93aac9c`: one status in words in the header (no duplicate Reported badge), full-width company name at large text, 8 dp bottom padding under toggle
@@ -71,7 +262,7 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
 - Owner decisions: D-1 sample-disclosure badge (proposal only), D-2 Details vs Results roles (5D.4), D-3 the Auth emulator for iOS checks.
 - Recommendation: PASS WITH CONDITIONS. Next: the Earnings visual-polish plan (proposed 5D.3) awaits owner approval.
 
-## SESSION-END-2026-10-14. End-of-session handoff (Portfolio E.2 → Earnings 5D.1) — START HERE
+## SESSION-END-2026-10-14. End-of-session handoff (Portfolio E.2 → Earnings 5D.1) — superseded by §SESSION-END-2026-10-14-EARNINGS
 
 ### 0. Repository state (verified with `git fetch`, `git status`, `git log`)
 - Branch `main`, in sync with `origin/main`. HEAD **`a15cd5f`** "Add Global UI Refinement Phase 5D.1 Earnings accuracy with one BEAT, MET and MISS

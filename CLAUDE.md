@@ -11,11 +11,15 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-14, Earnings Phase 5D.4.3 committed)
+## Current task (as of 2026-10-14, Phase 5D.5.1 Daily Brief committed)
 
-Phases 5D.2 (`3d7b000`), 5D.3 (`91961a2`), 5D.4.3 ("Stabilize Global UI Refinement Phase 5D.4.3 Earnings with one Reported status in the header, a full-width company name at large text, tighter section bottoms and a fading session-chip row on Android and iOS"), 5D.4.2 ("Polish Global UI Refinement Phase 5D.4.2 Earnings with borderless content sections, a compact header, one-row Show details and Learn more, the comparison-unavailable badge below the title and quieter secondary metrics on Android and iOS"), 5D.4.1 ("Polish Global UI Refinement Phase 5D.4 Earnings with one collapsed Show details per card, No estimate for missing estimates, separate Reported and Next header lines, dated reaction prices and compact insight rows on Android and iOS") and 5D.4 ("Add Global UI Refinement Phase 5D.4 Earnings UX refinement with EPS merged into the takeaway, compact metric rows, first-sentence explanations, a labelled EPS history chart and folded comparisons and notes on Android and iOS") are committed and pushed, each PASS WITH CONDITIONS. Reports
-`docs/GLOBAL_UI_REFINEMENT_PHASE5D_2.md`, `_5D_3.md`, `_5D_4.md`. **Next: iOS Earnings Details needs the owner to sign in on the local Auth emulator (approved to start; it runs empty); then
-Daily Brief / Learn (5D.5) after owner approval.** iPhone 16 input works after a simulator restart (shutdown + boot, no erase).
+Phase 5D.5.1 (Daily Market Brief reader) is committed and pushed as "Refine the Daily Market Brief reader for Global UI Refinement Phase 5D.5.1 with the summary as the headline, shared index rows, first-sentence stories, folded notes, a Sample badge and a one-line Home summary on Android and iOS", PASS WITH CONDITIONS.
+Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md`; plan with the owner's decisions: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-1-2026-10-14.** Next: Phase 5D.5.2 Learn (needs the owner's decision D-7 first); optional B-1
+(index sparkline, backend). Still open: iOS Earnings Details after the owner signs in (5D.4.3); the iOS Home AX5 heading break and history → brief
+navigation (pre-existing).
+
+Earlier (Earnings 5D.2–5D.4.3, all pushed through `7326e62`): see `docs/PROJECT_HANDOFF.md` §SESSION-END-2026-10-14-EARNINGS.
 
 Earlier (Portfolio Phase E.2):
 
@@ -79,6 +83,16 @@ Portfolio conventions (permanent):
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,
   `PortfolioAllocationDisplay`). History loads on demand only; the chart is "Account value", never performance. No UI-computed return %. The donut
   only when `allocationDonutAllowed` (`StockAllocationLayout` geometry). Missing stays missing.
+- **Daily Brief (5D.5.1).**
+  - Reader copy and rules come only from core `DailyBriefDisplay`.
+  - The server `summaryLine` is the headline, never reworded. Never add causes ("what moved the markets"), key points or invented headlines.
+  - One meta line with the SAMPLE badge; freshness is relative, with no time zone guessed.
+  - Index rows go through `StockIndexRow` / `BriefIndexRow` (shared with Home).
+  - Stories show `DailyBriefDisplay.excerpt` (hidden when it only repeats the headline) through `StockShowDetails`. The evidence note sits once in
+    "About these stories", and the notes and disclaimer once in "About this brief".
+  - Text actions on a toggle row use `StockLinkAction`.
+  - `StockNavigationRow.summary` is never truncated (a clipped "S&P 50…" misleads).
+  - The disclosure components are design-system `StockDisclosure` / `StockShowDetails`; the Earnings names are wrappers.
 - **Earnings visual polish (5D.3).** Key numbers come from the presenters' `keyMetrics` (drawn with `EarningsKeyMetrics` / `StockMetricGrid`); the
   Details headline only from `EarningsFormatter.epsHeadline` (server classification, else the server summary); methodology, sources and disclaimers fold
   into `EarningsDisclosure` (each note once, `EarningsDisplay.resultsDisclosures`); sample data shows a SAMPLE badge (D-1), never removed.

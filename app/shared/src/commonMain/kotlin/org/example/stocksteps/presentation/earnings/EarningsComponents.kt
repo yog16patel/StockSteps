@@ -1,19 +1,13 @@
 package org.example.stocksteps.presentation.earnings
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import org.example.stocksteps.companydetail.PriceDirection
 import org.example.stocksteps.designsystem.components.*
 import org.example.stocksteps.designsystem.icons.StockIcons
@@ -39,32 +33,14 @@ internal fun EarningsReactionHeadline(headline: String, direction: PriceDirectio
     } else StockPriceChange(headline, direction, modifier, style = StockStepsTheme.typography.numberMedium, maxLines = Int.MAX_VALUE)
 }
 
-/**
- * A collapsed secondary section (methodology, sources, disclosures): a 48 dp row that announces its state, the content below when open. Nothing
- * inside is removed, only folded away from the main reading flow (the Comparison 5C.1 "Sources & methodology" pattern).
- */
+/** A collapsed secondary section; since 5D.5.1 the design-system [StockDisclosure] (same behaviour, kept under its Earnings name). */
 @Composable
-internal fun EarningsDisclosure(title: String, modifier: Modifier = Modifier, icon: ImageVector = StockIcons.Info, content: @Composable ColumnScope.() -> Unit) {
-    var open by rememberSaveable(title) { mutableStateOf(false) }
-    val colors = StockStepsTheme.colors
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-        Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
-            .clickable(role = Role.Button, onClickLabel = if (open) "Hide $title" else "Show $title") { open = !open }
-            .semantics { stateDescription = if (open) "Expanded" else "Collapsed" },
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-            Icon(icon, null, Modifier.size(StockStepsTheme.dimensions.iconSmall), tint = colors.primaryText)
-            Text(title, Modifier.weight(1f), style = StockStepsTheme.typography.label, color = colors.primaryText)
-            Icon(StockIcons.ChevronRight, null, Modifier.rotate(if (open) 90f else 0f), tint = colors.iconSecondary)
-        }
-        if (open) content()
-    }
-}
+internal fun EarningsDisclosure(title: String, modifier: Modifier = Modifier, icon: ImageVector = StockIcons.Info, content: @Composable ColumnScope.() -> Unit) =
+    StockDisclosure(title, modifier, icon, content)
 
-/** Caption lines inside a disclosure. */
+/** Caption lines inside a disclosure ([StockNotes]). */
 @Composable
-internal fun EarningsNotes(lines: List<String>) {
-    lines.forEach { Text(it, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary) }
-}
+internal fun EarningsNotes(lines: List<String>) = StockNotes(lines)
 
 /** Neutral insight icon from `EarningsDisplay.insightIcon` (never a direction cue). */
 internal fun earningsInsightIcon(category: String): ImageVector = when (EarningsDisplay.insightIcon(category)) {
@@ -76,34 +52,13 @@ internal fun earningsInsightIcon(category: String): ImageVector = when (Earnings
 }
 
 /**
- * 5D.4.1: the one "Show details" of a card. Always visible: the first sentence of [explanation]. Behind the toggle (collapsed by default): the rest
- * of the sentence and [content] (secondary lines, notes, lesson link). Without anything to reveal there is no toggle.
+ * 5D.4.1: the one "Show details" of a card; since 5D.5.1 the design-system [StockShowDetails] (same behaviour, kept under its Earnings name).
+ * 5D.4.2: [trailing] shares the toggle's row (e.g. "Learn more").
  */
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 internal fun EarningsShowDetails(explanation: String?, hasMore: Boolean, modifier: Modifier = Modifier,
-                                 /** 5D.4.2: an action sharing the toggle's row (e.g. "Learn more"); wraps below it when they don't fit. */
                                  trailing: (@Composable () -> Unit)? = null,
-                                 content: @Composable ColumnScope.() -> Unit = {}) {
-    val (first, rest) = remember(explanation) { explanation?.let { EarningsDisplay.firstSentence(it) } ?: ("" to null) }
-    var open by rememberSaveable(explanation, hasMore) { mutableStateOf(false) }
-    val colors = StockStepsTheme.colors
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-        if (first.isNotEmpty()) Text(if (open && rest != null) "$first $rest" else first, style = StockStepsTheme.typography.small, color = colors.textBody)
-        val toggle = rest != null || hasMore
-        if (toggle && open) content()
-        if (toggle || trailing != null) FlowRow(horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md), itemVerticalAlignment = Alignment.CenterVertically) {
-            if (toggle) Row(Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
-                .clickable(role = Role.Button, onClickLabel = if (open) "Hide details" else "Show details") { open = !open }
-                .semantics { stateDescription = if (open) "Expanded" else "Collapsed" },
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-                Text(if (open) "Hide details" else "Show details", style = StockStepsTheme.typography.label, color = colors.primaryText)
-                Icon(StockIcons.ChevronDown, null, Modifier.size(StockStepsTheme.dimensions.iconSmall).rotate(if (open) 180f else 0f), tint = colors.primaryText)
-            }
-            trailing?.invoke()
-        }
-    }
-}
+                                 content: @Composable ColumnScope.() -> Unit = {}) = StockShowDetails(explanation, hasMore, modifier, trailing, content)
 
 /** 5D.4.1 (option a): a compact insight row — small neutral icon, period, title; the server explanation behind "Show details", unchanged. */
 @Composable

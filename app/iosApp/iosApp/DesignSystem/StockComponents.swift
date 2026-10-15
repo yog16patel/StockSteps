@@ -514,6 +514,9 @@ struct StockNavigationRow: View {
     /// Optional status beside the title (e.g. "StockSteps+" as PREMIUM, Phase 5C); nil keeps existing rows unchanged.
     var badge: String? = nil
     var badgeKind: StockBadgeKind = .premium
+    /// 5D.5.1: a short body line under the title (Home's Daily Brief entry shows the summary's first sentence); never truncated, so a number or
+    /// name is never cut ("S&P 50…" at AX5); callers keep it short. nil keeps rows unchanged.
+    var summary: String? = nil
     let action: () -> Void
     /// Re-render on live Dynamic Type changes (Comparison accessibility closure; `StockStepsTheme.font` resolves when the body runs).
     @Environment(\.dynamicTypeSize) private var liveTypeSize
@@ -533,6 +536,10 @@ struct StockNavigationRow: View {
                         } badge: { StockStatusBadge(text: badge, kind: badgeKind, size: .compact) }
                     } else {
                         Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+                    }
+                    if let summary {
+                        Text(summary).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
+                            .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
                     }
                     if let detail {
                         Text(detail).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))

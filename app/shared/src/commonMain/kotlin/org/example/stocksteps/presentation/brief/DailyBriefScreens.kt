@@ -1,10 +1,10 @@
 package org.example.stocksteps.presentation.brief
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -12,9 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.text.style.TextOverflow
 import org.example.stocksteps.brief.*
 import org.example.stocksteps.designsystem.components.*
 import org.example.stocksteps.designsystem.icons.StockIcons
@@ -22,6 +20,8 @@ import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.learning.BeginnerEducation
 import org.example.stocksteps.learning.EducationEntry
 import org.example.stocksteps.presentation.learn.BeginnerExplanationSheet
+import org.example.stocksteps.theme.StockBadgeKind
+import org.example.stocksteps.theme.StockBannerKind
 
 internal sealed interface BriefAction {
     data object Retry : BriefAction
@@ -48,8 +48,15 @@ internal sealed interface BriefAction {
     data class Scenario(val name: String?) : BriefAction
 }
 
+private val D = DailyBriefDisplay
+
 // ---------- Reader ----------
 
+/**
+ * Daily Brief reader (Global UI Refinement Phase 5D.5.1): answer first — one meta line, the server summary as the headline, freshness and
+ * sessions, then compact index rows, stories with the first sentence and "Show details", personal sections, the Concept of the day and one
+ * folded "About this brief". Borderless sections per call site; every value and sentence comes from the brief.
+ */
 @Composable
 internal fun DailyBriefScreen(state: DailyBriefUiState, nowMillis: Long, modifier: Modifier, onAction: (BriefAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
@@ -57,165 +64,144 @@ internal fun DailyBriefScreen(state: DailyBriefUiState, nowMillis: Long, modifie
     val typography = StockStepsTheme.typography
     var education by remember { mutableStateOf<EducationEntry?>(null) }
     var preferences by remember { mutableStateOf(false) }
-    var scenarios by remember { mutableStateOf(false) }
     val brief = state.current
     LazyColumn(modifier.background(colors.appBackground), contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
-        verticalArrangement = Arrangement.spacedBy(spacing.sectionGap)) {
-        item("header") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Your Daily Market Brief", Modifier.weight(1f).semantics { heading() }, style = typography.screenTitle, color = colors.textPrimary)
-                    TextButton(onClick = { preferences = true; onAction(BriefAction.LoadPreferences) }) { Text("Notify me") }
-                }
-                Text("Understand the market in a few minutes.", style = typography.body, color = colors.textBody)
-                brief?.let { b ->
-                    Text("${b.edition.label} · ${BriefFormat.date(b.briefDate)} · ${b.readingMinutes} min read", style = typography.caption, color = colors.textSecondary)
-                    Text("Market data for the ${BriefFormat.date(b.sessionDate)} session · Updated ${BriefFormat.published(b.updatedAt) ?: b.updatedAt}",
-                        style = typography.caption, color = colors.textSecondary)
-                    b.sessions.forEach { s -> Text("${s.name}: ${s.label}", style = typography.caption, color = colors.textSecondary) }
-                    if (BriefFormat.isStale(b, nowMillis)) Banner("This is the latest brief available. It isn't from today.")
-                    if (state.offline) Banner("You're offline. This is a copy saved on this device.")
-                    if (b.sampleData) Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Sample data for development", Modifier.weight(1f), style = typography.caption, color = colors.cautionText)
-                        Box {
-                            TextButton(onClick = { scenarios = true }) { Text("Scenarios") }
-                            DropdownMenu(scenarios, { scenarios = false }) {
-                                DropdownMenuItem({ Text("Current (no scenario)") }, { scenarios = false; onAction(BriefAction.Scenario(null)) })
-                                DailyBriefPresenter.SCENARIOS.forEach { n -> DropdownMenuItem({ Text(n) }, { scenarios = false; onAction(BriefAction.Scenario(n)) }) }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        verticalArrangement = Arrangement.spacedBy(spacing.xl)) {
         if (brief == null) {
             item("state") {
-                if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading the Daily Market Brief" })
-                else StockErrorState(state.error ?: "The brief isn't available right now.", { onAction(BriefAction.Retry) })
+                if (state.loading) BriefSkeleton()
+                else StockErrorState(state.error ?: D.UNAVAILABLE, { onAction(BriefAction.Retry) })
             }
             return@LazyColumn
         }
-        item("summary") { Text(brief.summaryLine, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = typography.bodyMedium, color = colors.textPrimary) }
+        item("header") { Header(brief, state, nowMillis, onAction) { preferences = true; onAction(BriefAction.LoadPreferences) } }
 
-        // Section 2 — Market at a glance
-        item("glance") {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                SectionTitle("Market at a Glance")
-                if (brief.marketSnapshot.isEmpty()) Text("Index values aren't available right now.", style = typography.small, color = colors.textSecondary)
-                brief.marketSnapshot.forEach { IndexRow(it) }
-                Text(brief.indexExplainer, style = typography.small, color = colors.textSecondary)
+        item("markets") {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                StockSectionHeader(D.MARKETS)
+                if (brief.marketSnapshot.isEmpty()) Text(D.NO_INDICES, style = typography.small, color = colors.textSupporting)
+                else Column {
+                    brief.marketSnapshot.forEachIndexed { n, index ->
+                        if (n > 0) StockDivider()
+                        BriefIndexRow(index)
+                    }
+                }
+                StockDisclosure(D.INDEX_EXPLAINER_TITLE, icon = StockIcons.School) {
+                    Text(brief.indexExplainer, style = typography.small, color = colors.textBody)
+                }
             }
         }
 
-        // Section 3 — Stories
-        item("stories-title") { SectionTitle("Market Stories") }
-        if (brief.stories.isEmpty()) item("no-stories") { Text("No market stories met our source checks for this brief.", style = typography.small, color = colors.textSecondary) }
-        items(brief.stories, key = { "story-${it.id}" }) { story -> StoryCard(story, state.ai[story.id], state.plus, onAction) }
+        item("stories-title") {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                StockSectionHeader(D.STORIES)
+                if (brief.stories.isEmpty()) Text(D.NO_STORIES, style = typography.small, color = colors.textSupporting)
+            }
+        }
+        itemsIndexed(brief.stories, key = { _, it -> "story-${it.id}" }) { n, story ->
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                if (n > 0) StockDivider()
+                StoryRow(story, state.ai[story.id], state.plus, nowMillis, onAction)
+            }
+        }
+        if (brief.stories.isNotEmpty()) item("stories-about") {
+            StockDisclosure(D.ABOUT_STORIES) { StockNotes(D.storyNotes(brief)) }
+        }
 
-        // Section 4 — Watchlist
         item("watchlist") { WatchlistSection(state, onAction) }
 
-        // Section 5 — Earnings
         state.personal?.earnings?.takeIf { it.isNotEmpty() }?.let { rows ->
             item("earnings") {
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                    SectionTitle("Upcoming Earnings")
-                    rows.forEach { e ->
-                        StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { },
-                            onClick = { onAction(e.eventId?.let { BriefAction.OpenEarnings(it) } ?: BriefAction.OpenStock(e.symbol)) },
-                            onClickLabel = if (e.eventId != null) "Open ${e.symbol} earnings event" else "Open ${e.symbol}") {
-                            Text("${e.name ?: e.symbol} (${e.symbol})", style = typography.bodySemiBold, color = colors.textPrimary)
-                            Text(listOfNotNull("Expected ${BriefFormat.date(e.date)}", "${e.dateStatus} date", e.timing,
-                                e.epsEstimate?.let { "EPS estimate ${e.currency ?: ""} ${BriefFormat.groupDigits(it)}".replace("  ", " ") },
-                                when (e.reason) { "portfolio" -> "In your portfolio"; "watchlist" -> "On your watchlist"; else -> "General example" }).joinToString(" · "),
-                                style = typography.caption, color = colors.textSecondary)
-                        }
+                    StockSectionHeader(D.EARNINGS)
+                    rows.forEachIndexed { n, e ->
+                        if (n > 0) StockDivider()
+                        StockNavigationRow(D.earningsTitle(e), { onAction(e.eventId?.let { BriefAction.OpenEarnings(it) } ?: BriefAction.OpenStock(e.symbol)) },
+                            detail = D.earningsDetail(e), actionLabel = D.earningsAction(e))
                     }
-                    Text("Report dates can change until a company confirms them.", style = typography.caption, color = colors.textSecondary)
+                    Text(D.EARNINGS_DATES_NOTE, style = typography.caption, color = colors.textMeta)
                 }
             }
         }
 
-        // Section 6 — Concept of the Day
-        item("concept") {
-            StockCard(Modifier.fillMaxWidth(), containerColor = colors.educationContainer, bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Text("Concept of the Day", style = typography.label, color = colors.primaryText)
-                Text(brief.concept.title, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
-                Text(brief.concept.explanation, style = typography.body, color = colors.textBody)
-                brief.concept.example?.let { Text("Example: $it", style = typography.small, color = colors.textBody) }
-                Text(brief.concept.whyToday, style = typography.caption, color = colors.textSecondary)
-                Row {
-                    TextButton(onClick = { education = BeginnerEducation.entry(brief.concept.learnTermId) }) { Text("Understand more") }
-                    TextButton(onClick = { onAction(BriefAction.Learn) }) { Text("Open Learn") }
-                }
-            }
-        }
+        item("concept") { ConceptCard(brief.concept, onExplain = { education = BeginnerEducation.entry(brief.concept.learnTermId) }, onLearn = { onAction(BriefAction.Learn) }) }
 
-        // Section 7 — Premium
-        item("premium") { PremiumSection(state, onAction) }
+        if (state.personal != null) item("premium") { PremiumSection(state, onAction) }
 
         item("footer") {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                brief.notes.forEach { Text(it, style = typography.caption, color = colors.textSecondary) }
-                Text(brief.disclaimer, style = typography.caption, color = colors.textSecondary)
-                TextButton(onClick = { onAction(BriefAction.History) }) { Text("Previous briefs") }
+                StockDisclosure(D.ABOUT_BRIEF) { StockNotes(D.aboutLines(brief)) }
+                StockNavigationRow(D.HISTORY, { onAction(BriefAction.History) }, icon = StockIcons.Calendar)
             }
         }
     }
     education?.let { BeginnerExplanationSheet(it) { education = null } }
     if (preferences) PreferencesSheet(state, onAction) { preferences = false }
-    if (state.upgrade) AlertDialog(onDismissRequest = { onAction(BriefAction.DismissUpgrade) }, title = { Text("StockSteps+") },
-        text = { Text("AI explanations, the full personalized brief and the complete brief history are part of StockSteps+. The market summary, stories and Concept of the Day stay free.") },
-        confirmButton = { TextButton(onClick = { onAction(BriefAction.Upgrade) }) { Text("See StockSteps+") } },
-        dismissButton = { TextButton(onClick = { onAction(BriefAction.DismissUpgrade) }) { Text("Not now") } })
-    state.message?.let { AlertDialog(onDismissRequest = { onAction(BriefAction.DismissMessage) }, text = { Text(it) }, confirmButton = { TextButton(onClick = { onAction(BriefAction.DismissMessage) }) { Text("OK") } }) }
+    if (state.upgrade) AlertDialog(onDismissRequest = { onAction(BriefAction.DismissUpgrade) }, title = { Text(D.UPGRADE_TITLE) },
+        text = { Text(D.UPGRADE) },
+        confirmButton = { StockButton(D.SEE_PLUS, { onAction(BriefAction.Upgrade) }, variant = StockButtonVariant.TEXT) },
+        dismissButton = { StockButton(D.NOT_NOW, { onAction(BriefAction.DismissUpgrade) }, variant = StockButtonVariant.TEXT) })
+    state.message?.let {
+        AlertDialog(onDismissRequest = { onAction(BriefAction.DismissMessage) }, text = { Text(it) },
+            confirmButton = { StockButton("OK", { onAction(BriefAction.DismissMessage) }, variant = StockButtonVariant.TEXT) })
+    }
 }
 
+/** Meta line with the Sample badge and the ⋯ menu, the summary as the headline, freshness and sessions, then stale/offline banners. */
 @Composable
-private fun SectionTitle(text: String) = Text(text, Modifier.semantics { heading() }, style = StockStepsTheme.typography.sectionTitle, color = StockStepsTheme.colors.textPrimary)
-
-@Composable
-private fun Banner(text: String) {
-    Text(text, Modifier.fillMaxWidth().clip(StockStepsTheme.shapes.card).background(StockStepsTheme.colors.warningContainer).padding(StockStepsTheme.spacing.sm),
-        style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textPrimary)
-}
-
-@Composable
-private fun IndexRow(i: BriefIndex) {
+private fun Header(brief: DailyBrief, state: DailyBriefUiState, nowMillis: Long, onAction: (BriefAction) -> Unit, onNotify: () -> Unit) {
+    val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = BriefFormat.accessibility(i) }) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(i.displayName, style = typography.bodySemiBold, color = colors.textPrimary)
-                Text(i.stateLabel, style = typography.caption, color = if (i.state == QuoteState.STALE || i.state == QuoteState.UNAVAILABLE) colors.cautionText else colors.textSecondary)
-                i.proxyNote?.let { Text(it, style = typography.caption, color = colors.textTertiary) }
+    var menu by remember { mutableStateOf(false) }
+    var scenarios by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            StockTitleWithBadge(Modifier.weight(1f), title = { Text(D.meta(brief), style = typography.caption, color = colors.textMeta) }, badge = {
+                if (brief.sampleData) StockStatusBadge(D.SAMPLE, StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT, contentDescription = D.SAMPLE_DESCRIPTION)
+            })
+            Box {
+                IconButton(onClick = { menu = true }) { Icon(StockIcons.More, D.MORE_OPTIONS, tint = colors.iconSecondary) }
+                DropdownMenu(menu, { menu = false }) {
+                    DropdownMenuItem({ Text(D.NOTIFY) }, { menu = false; onNotify() }, leadingIcon = { Icon(StockIcons.Bell, null) })
+                    DropdownMenuItem({ Text(D.HISTORY) }, { menu = false; onAction(BriefAction.History) }, leadingIcon = { Icon(StockIcons.Calendar, null) })
+                    // MOCK only: sample briefs come from the local fixtures; the server refuses scenarios in REAL.
+                    if (brief.sampleData) DropdownMenuItem({ Text(D.SCENARIOS) }, { menu = false; scenarios = true }, leadingIcon = { Icon(StockIcons.Layers, null) })
+                }
+                DropdownMenu(scenarios, { scenarios = false }) {
+                    DropdownMenuItem({ Text(D.SCENARIO_NONE) }, { scenarios = false; onAction(BriefAction.Scenario(null)) })
+                    DailyBriefPresenter.SCENARIOS.forEach { n -> DropdownMenuItem({ Text(n) }, { scenarios = false; onAction(BriefAction.Scenario(n)) }) }
+                }
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(BriefFormat.value(i), style = typography.bodySemiBold, color = colors.textPrimary)
-                if (i.value != null) Text("${BriefFormat.direction(i)} ${BriefFormat.change(i)}", style = typography.caption,
-                    color = when (BriefFormat.sign(i)) { 1 -> colors.positiveText; -1 -> colors.negativeText; else -> colors.textSecondary })
-            }
+        }
+        Text(brief.summaryLine, Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite }, style = typography.sectionTitle, color = colors.textTitle)
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Text(D.freshness(brief, nowMillis), style = typography.caption, color = colors.textMeta)
+            D.sessionLines(brief).forEach { Text(it, style = typography.caption, color = colors.textMeta) }
+        }
+        D.banners(brief, nowMillis, state.offline).forEach { message ->
+            StockBanner(if (message == D.STALE) StockBannerKind.WARNING else StockBannerKind.INFO, message)
         }
     }
 }
 
+/** One story: meta, headline, the provider excerpt's first sentence; details hold the rest, the company and the explanation. */
 @Composable
-private fun StoryCard(story: BriefStory, ai: BriefAiState?, plus: Boolean, onAction: (BriefAction) -> Unit) {
+@OptIn(ExperimentalLayoutApi::class)
+private fun StoryRow(story: BriefStory, ai: BriefAiState?, plus: Boolean, nowMillis: Long, onAction: (BriefAction) -> Unit) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-        Text(story.topic.uppercase(), style = typography.tiny, color = colors.primaryText)
-        Text(story.headline, Modifier.semantics { heading() }, style = typography.bodySemiBold, color = colors.textPrimary)
-        story.summary?.let { Text(it, style = typography.body, color = colors.textBody) }
-        Text(listOfNotNull(story.publisher ?: "Publisher not provided", BriefFormat.published(story.publishedAt)).joinToString(" · "), style = typography.caption, color = colors.textSecondary)
-        if (story.relatedSymbols.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-            story.relatedSymbols.forEach { s -> AssistChip(onClick = { onAction(BriefAction.OpenStock(s)) }, label = { Text(s) }) }
-        }
-        Text(story.evidenceNote, style = typography.caption, color = colors.textTertiary)
-        Row {
-            TextButton(onClick = { onAction(BriefAction.OpenUrl(story.sourceUrl)) }, modifier = Modifier.semantics { contentDescription = "Read the original article from ${story.publisher ?: "the publisher"}" }) { Text("Read article") }
-            TextButton(onClick = { onAction(BriefAction.Explain(story.id)) }, enabled = ai?.loading != true) { Text(if (plus) "Understand More" else "Understand More · StockSteps+") }
+    val spacing = StockStepsTheme.spacing
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Text(D.storyMeta(story, nowMillis), style = typography.caption, color = colors.textMeta)
+        Text(story.headline, Modifier.semantics { heading() }, style = typography.bodySemiBold, color = colors.textTitle)
+        StockShowDetails(D.excerpt(story), hasMore = true, trailing = {
+            StockLinkAction(D.READ_ARTICLE, { onAction(BriefAction.OpenUrl(story.sourceUrl)) }, icon = StockIcons.ArrowForward, description = D.readArticleLabel(story))
+        }) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                story.relatedSymbols.forEach { s -> StockButton(D.companyAction(s), { onAction(BriefAction.OpenStock(s)) }, variant = StockButtonVariant.SECONDARY) }
+                StockLinkAction(D.understandLabel(plus), { onAction(BriefAction.Explain(story.id)) }, icon = StockIcons.Lightbulb, enabled = ai?.loading != true)
+            }
         }
         ai?.let { AiAnswer(it, onAction) }
     }
@@ -224,17 +210,18 @@ private fun StoryCard(story: BriefStory, ai: BriefAiState?, plus: Boolean, onAct
 @Composable
 private fun AiAnswer(ai: BriefAiState, onAction: (BriefAction) -> Unit) {
     val typography = StockStepsTheme.typography
+    val colors = StockStepsTheme.colors
     when {
-        ai.loading -> LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Preparing an explanation" })
-        ai.error != null -> Text(ai.error!!, style = typography.small, color = StockStepsTheme.colors.negativeText)
+        ai.loading -> LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = D.PREPARING })
+        ai.error != null -> Text(ai.error!!, style = typography.small, color = colors.negativeText)
         ai.answer != null -> Column(Modifier.semantics { liveRegion = LiveRegionMode.Polite }, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
             val a = ai.answer!!
-            Text(if (a.usesAi) "AI explanation (StockSteps+)" else "Sample explanation (mock)", style = typography.label, color = StockStepsTheme.colors.primaryText)
-            Text(a.answer, style = typography.body)
-            a.points.forEach { Text("• $it", style = typography.small) }
-            if (a.insufficientEvidence) Text("The sources don't contain enough to answer that fully.", style = typography.caption, color = StockStepsTheme.colors.cautionText)
-            a.sources.forEach { s -> TextButton(onClick = { onAction(BriefAction.OpenUrl(s.url)) }) { Text("Source: ${s.publisher ?: s.title ?: "article"}") } }
-            a.remainingToday?.let { Text("$it explanations left today", style = typography.caption, color = StockStepsTheme.colors.textSecondary) }
+            Text(D.aiLabel(a), style = typography.label, color = colors.primaryText)
+            Text(a.answer, style = typography.body, color = colors.textBody)
+            a.points.forEach { Text("• $it", style = typography.small, color = colors.textBody) }
+            if (a.insufficientEvidence) Text(D.INSUFFICIENT, style = typography.caption, color = colors.cautionText)
+            a.sources.forEach { s -> StockLinkAction(D.aiSource(s), { onAction(BriefAction.OpenUrl(s.url)) }, icon = StockIcons.ArrowForward) }
+            a.remainingToday?.let { Text(D.aiRemaining(it), style = typography.caption, color = colors.textMeta) }
         }
     }
 }
@@ -244,32 +231,49 @@ private fun WatchlistSection(state: DailyBriefUiState, onAction: (BriefAction) -
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-        SectionTitle("From Your Watchlist")
+        StockSectionHeader(D.WATCHLIST)
         val personal = state.personal
         when {
-            !state.signedIn -> StockEmptyState("Sign in to see news, price moves and earnings for companies you follow.", actionText = "Sign in", onAction = { onAction(BriefAction.SignIn) })
-            personal == null && state.personalLoading -> LinearProgressIndicator(Modifier.fillMaxWidth())
-            personal == null -> Text(state.personalError ?: "Your watchlist updates aren't available right now.", style = typography.small, color = colors.textSecondary)
-            personal.watchlistCount == 0 -> StockEmptyState("Add companies to a watchlist to see their updates in your brief.", actionText = "Go to Watchlist", onAction = { onAction(BriefAction.Watchlist) })
-            personal.watchlistHighlights.isEmpty() -> Text("Nothing notable from the ${personal.watchlistCount} companies you follow in this session.", style = typography.small, color = colors.textSecondary)
-            else -> {
-                personal.watchlistHighlights.forEach { h ->
-                    StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { }, onClick = {
+            !state.signedIn -> StockEmptyState(D.SIGN_IN_PROMPT, actionText = D.SIGN_IN, onAction = { onAction(BriefAction.SignIn) })
+            personal == null && state.personalLoading -> StockLoadingState { Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
+                StockSkeleton(Modifier.fillMaxWidth(0.8f)); StockSkeleton(Modifier.fillMaxWidth(0.6f)) } }
+            personal == null -> Text(state.personalError ?: D.WATCHLIST_UNAVAILABLE, style = typography.small, color = colors.textSupporting)
+            personal.watchlistCount == 0 -> StockEmptyState(D.WATCHLIST_EMPTY, actionText = D.GO_TO_WATCHLIST, onAction = { onAction(BriefAction.Watchlist) })
+            personal.watchlistHighlights.isEmpty() -> Text(D.nothingNotable(personal.watchlistCount), style = typography.small, color = colors.textSupporting)
+            else -> Column {
+                personal.watchlistHighlights.forEachIndexed { n, h ->
+                    if (n > 0) StockDivider()
+                    StockNavigationRow(h.text, {
                         h.url?.let { onAction(BriefAction.OpenUrl(it)) } ?: h.reportId?.let { onAction(BriefAction.OpenResults(it)) } ?: onAction(BriefAction.OpenStock(h.symbol))
-                    }, onClickLabel = if (h.url != null) "Read the article" else if (h.reportId != null) "View ${h.symbol} earnings results" else "Open ${h.symbol}") {
-                        Text("${h.symbol}${h.name?.let { " · $it" } ?: ""}", style = typography.label, color = colors.textSecondary)
-                        Text(h.text, style = typography.body, color = colors.textPrimary)
-                        h.publisher?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
-                    }
+                    }, detail = listOfNotNull(D.highlightTitle(h), h.publisher).joinToString(" · "), actionLabel = D.highlightAction(h))
                 }
-                if (personal.moreHighlights > 0) Text("${personal.moreHighlights} more updates are included with StockSteps+.", style = typography.small, color = colors.primaryText,
-                    modifier = Modifier.clickable { onAction(BriefAction.Upgrade) }.heightIn(min = StockStepsTheme.dimensions.touchTarget))
+                if (personal.moreHighlights > 0) {
+                    StockDivider()
+                    StockNavigationRow(D.moreHighlights(personal.moreHighlights), { onAction(BriefAction.Upgrade) }, badge = "StockSteps+")
+                }
             }
         }
-        personal?.notes?.firstOrNull { it.startsWith("Watching") }?.let { Text(it, style = typography.caption, color = colors.textSecondary) }
-        if (state.signedIn && (personal?.watchlistCount ?: 0) > 0) Row(verticalAlignment = Alignment.CenterVertically) {
-            StockButton("Your Earnings Digest", onClick = { onAction(BriefAction.EarningsDigest) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb, modifier = Modifier.weight(1f, fill = false))
-            org.example.stocksteps.presentation.earnings.PlusBadge()
+        personal?.notes?.firstOrNull { it.startsWith("Watching") }?.let { Text(it, style = typography.caption, color = colors.textMeta) }
+        if (state.signedIn && (personal?.watchlistCount ?: 0) > 0) {
+            StockNavigationRow(D.EARNINGS_DIGEST, { onAction(BriefAction.EarningsDigest) }, icon = StockIcons.Lightbulb, badge = "StockSteps+")
+        }
+    }
+}
+
+/** The one tinted card on the screen: the concept title, the first sentence, details behind "Show details"; the full explanation in the sheet. */
+@Composable
+private fun ConceptCard(concept: ConceptOfTheDay, onExplain: () -> Unit, onLearn: () -> Unit) {
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    StockCard(Modifier.fillMaxWidth(), containerColor = colors.educationContainer, bordered = false, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        Text(D.CONCEPT, style = typography.label, color = colors.primaryText)
+        Text(concept.title, Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textTitle)
+        StockShowDetails(concept.explanation, hasMore = true, trailing = {
+            StockLinkAction(D.UNDERSTAND_CONCEPT, onExplain, icon = StockIcons.School)
+        }) {
+            concept.example?.let { Text(D.conceptExample(it), style = typography.small, color = colors.textBody) }
+            Text(concept.whyToday, style = typography.caption, color = colors.textSupporting)
+            StockLinkAction(D.OPEN_LEARN, onLearn, icon = StockIcons.ArrowForward)
         }
     }
 }
@@ -279,26 +283,43 @@ private fun PremiumSection(state: DailyBriefUiState, onAction: (BriefAction) -> 
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     val personal = state.personal ?: return
-    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-        Text("StockSteps+ insights", Modifier.semantics { heading() }, style = typography.cardTitle, color = colors.textPrimary)
+    Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        StockSectionHeader(D.PLUS)
         val insights = personal.premiumInsights
         if (insights == null) {
-            Text("See how today's market relates to the companies you follow, more company stories, and ask follow-up questions with source-backed AI explanations.",
-                style = typography.small, color = colors.textBody)
-            TextButton(onClick = { onAction(BriefAction.Upgrade) }) { Text("Preview StockSteps+") }
+            Text(D.PLUS_PREVIEW, style = typography.small, color = colors.textBody)
+            StockLinkAction(D.PLUS_PREVIEW_ACTION, { onAction(BriefAction.Upgrade) }, icon = StockIcons.ArrowForward)
         } else {
             insights.forEach { Text("• $it", style = typography.body, color = colors.textBody) }
             if (personal.companyStories.isNotEmpty()) {
-                Text("More from companies you follow", style = typography.label, color = colors.textSecondary)
+                Text(D.PLUS_STORIES, style = typography.label, color = colors.textSupporting)
                 personal.companyStories.forEach { s ->
-                    TextButton(onClick = { onAction(BriefAction.OpenUrl(s.sourceUrl)) }) { Text("${s.relatedSymbols.firstOrNull()?.let { "$it: " } ?: ""}${s.headline}", maxLines = 2) }
+                    StockNavigationRow(s.headline, { onAction(BriefAction.OpenUrl(s.sourceUrl)) }, detail = s.relatedSymbols.firstOrNull(), actionLabel = D.readArticleLabel(s))
                 }
             }
             var question by rememberSaveable { mutableStateOf("") }
-            OutlinedTextField(question, { question = it.take(300) }, Modifier.fillMaxWidth(), label = { Text("Ask about this brief") })
-            StockButton("Ask", { onAction(BriefAction.Ask(question)) }, enabled = question.trim().length >= 3 && state.ai["ask"]?.loading != true)
+            StockTextField(question, { question = it.take(300) }, D.ASK_LABEL, Modifier.fillMaxWidth(), singleLine = false)
+            StockButton(D.ASK, { onAction(BriefAction.Ask(question)) }, variant = StockButtonVariant.SECONDARY,
+                enabled = question.trim().length >= 3 && state.ai["ask"]?.loading != true)
             state.ai["ask"]?.let { AiAnswer(it, onAction) }
-            Text("Answers use only this brief's sources. No predictions or buy/sell advice.", style = typography.caption, color = colors.textSecondary)
+            Text(D.ASK_NOTE, style = typography.caption, color = colors.textMeta)
+        }
+    }
+}
+
+/** Loading layout in the reader's shape (meta, two headline lines, three index rows, two story rows); read as one "Loading". */
+@Composable
+private fun BriefSkeleton() {
+    val spacing = StockStepsTheme.spacing
+    StockLoadingState(Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+            StockSkeleton(Modifier.fillMaxWidth(0.5f))
+            StockSkeleton(Modifier.fillMaxWidth().height(spacing.xl))
+            StockSkeleton(Modifier.fillMaxWidth(0.7f).height(spacing.xl))
+            Spacer(Modifier.height(spacing.sm))
+            repeat(3) { Row(horizontalArrangement = Arrangement.spacedBy(spacing.md)) { StockSkeleton(Modifier.weight(1f)); StockSkeleton(Modifier.width(spacing.xxxl * 2)) } }
+            Spacer(Modifier.height(spacing.sm))
+            repeat(2) { Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) { StockSkeleton(Modifier.fillMaxWidth(0.4f)); StockSkeleton(Modifier.fillMaxWidth(0.9f)) } }
         }
     }
 }
@@ -338,34 +359,32 @@ private fun PreferencesSheet(state: DailyBriefUiState, onAction: (BriefAction) -
     }
 }
 
+
 // ---------- History ----------
 
+/** Previous briefs as navigation rows (sample briefs badged); the StockSteps+ remainder as one row. */
 @Composable
 internal fun DailyBriefHistoryScreen(state: DailyBriefUiState, modifier: Modifier, onAction: (BriefAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val history = state.history
-    LazyColumn(modifier.background(StockStepsTheme.colors.appBackground), contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
-        verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        item("title") { Text("Previous briefs", Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle) }
-        if (history == null) item("loading") { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-        else {
-            if (history.items.isEmpty()) item("empty") { StockEmptyState("No briefs yet.") }
-            items(history.items, key = { it.id }) { s ->
-                StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { }, onClick = { onAction(BriefAction.OpenBrief(s.id)) }, onClickLabel = "Read this brief") {
-                    Text("${s.edition.label} · ${BriefFormat.date(s.briefDate)}", style = StockStepsTheme.typography.bodySemiBold)
-                    Text(s.summaryLine, style = StockStepsTheme.typography.small, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("${s.readingMinutes} min read", style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary)
-                }
+    LazyColumn(modifier.background(StockStepsTheme.colors.appBackground), contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md)) {
+        if (history == null) item("loading") {
+            StockLoadingState(Modifier.fillMaxWidth()) { Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) { repeat(3) { StockSkeleton(Modifier.fillMaxWidth(0.8f)) } } }
+        } else {
+            if (history.items.isEmpty()) item("empty") { StockEmptyState(D.NO_HISTORY) }
+            itemsIndexed(history.items, key = { _, it -> it.id }) { n, s ->
+                if (n > 0) StockDivider()
+                StockNavigationRow(D.historyTitle(s), { onAction(BriefAction.OpenBrief(s.id)) }, summary = D.historySummary(s), detail = D.historyDetail(s),
+                    actionLabel = "Read this brief", badge = if (s.sampleData) D.SAMPLE else null, badgeKind = StockBadgeKind.SAMPLE)
             }
             if (history.lockedCount > 0) item("locked") {
-                StockCard(Modifier.fillMaxWidth(), onClick = { onAction(BriefAction.Upgrade) }, onClickLabel = "See StockSteps+") {
-                    Text("${history.lockedCount} older briefs are included with StockSteps+.", style = StockStepsTheme.typography.small)
-                }
+                StockDivider()
+                StockNavigationRow(D.lockedHistory(history.lockedCount), { onAction(BriefAction.Upgrade) }, actionLabel = D.SEE_PLUS, badge = "StockSteps+")
             }
         }
     }
-    if (state.upgrade) AlertDialog(onDismissRequest = { onAction(BriefAction.DismissUpgrade) }, title = { Text("StockSteps+") },
-        text = { Text("The full brief history is part of StockSteps+. The latest three briefs stay free.") },
-        confirmButton = { TextButton(onClick = { onAction(BriefAction.Upgrade) }) { Text("See StockSteps+") } },
-        dismissButton = { TextButton(onClick = { onAction(BriefAction.DismissUpgrade) }) { Text("Not now") } })
+    if (state.upgrade) AlertDialog(onDismissRequest = { onAction(BriefAction.DismissUpgrade) }, title = { Text(D.UPGRADE_TITLE) },
+        text = { Text(D.HISTORY_UPGRADE) },
+        confirmButton = { StockButton(D.SEE_PLUS, { onAction(BriefAction.Upgrade) }, variant = StockButtonVariant.TEXT) },
+        dismissButton = { StockButton(D.NOT_NOW, { onAction(BriefAction.DismissUpgrade) }, variant = StockButtonVariant.TEXT) })
 }

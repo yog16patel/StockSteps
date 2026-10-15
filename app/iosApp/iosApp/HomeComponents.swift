@@ -78,7 +78,7 @@ struct HomeMarketOverview: View {
                     VStack(spacing: 0) {
                         ForEach(Array(indices.enumerated()), id: \.element.indexId) { n, index in
                             if n > 0 { StockDivider() }
-                            HomeIndexRow(index: index, client: model.client)
+                            BriefIndexRow(index: index, client: model.client)
                         }
                     }
                 }
@@ -87,7 +87,7 @@ struct HomeMarketOverview: View {
                 let caution = model.client.isStale(brief: brief) || state?.offline == true
                 HomeLinkRow(title: "Your Daily Market Brief", detail: home.briefMeta(brief: brief, nowMillis: now, offline: state?.offline == true),
                             detailColor: caution ? colors.cautionText : colors.textMeta,
-                            hint: home.briefAction(brief: brief, nowMillis: now), action: onOpenBrief)
+                            hint: home.briefAction(brief: brief, nowMillis: now), summary: home.briefSummary(brief: brief), action: onOpenBrief)
             } else if state?.loading != false {
                 ProgressView().frame(maxWidth: .infinity).accessibilityLabel("Loading market overview")
             } else {
@@ -99,59 +99,17 @@ struct HomeMarketOverview: View {
     }
 }
 
-/// Index name and quote state — value and change; one spoken summary. At large Dynamic Type sizes the values move under the name.
-private struct HomeIndexRow: View {
-    let index: BriefIndex
-    let client: IosBriefClient
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.dynamicTypeSize) private var typeSize
-    var body: some View {
-        let colors = StockStepsTheme.colors(scheme)
-        let name = VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-            Text(index.displayName).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
-            Text(index.stateLabel).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
-                .foregroundStyle(home.indexCaution(index: index) ? colors.cautionText : colors.textMeta)
-            if let note = index.proxyNote {
-                Text(note).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
-            }
-        }
-        let stacked = typeSize >= .xxxLarge
-        let values = VStack(alignment: stacked ? .leading : .trailing, spacing: CGFloat(space.xxs)) {
-            Text(client.value(i: index)).font(StockStepsTheme.font(type.numberLabelStrong, relativeTo: .footnote))
-                .foregroundStyle(colors.textValue).monospacedDigit()
-            if let change = home.indexChange(index: index) {
-                StockPriceChange(percentage: change, direction: home.indexDirection(index: index), lineLimit: nil)
-            } else {
-                Text("Change unavailable").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
-            }
-        }
-        Group {
-            if stacked {
-                VStack(alignment: .leading, spacing: CGFloat(space.xs)) { name; values }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                HStack(spacing: CGFloat(space.md)) {
-                    name.frame(maxWidth: .infinity, alignment: .leading)
-                    values.fixedSize(horizontal: true, vertical: false)
-                }
-            }
-        }
-        .padding(.vertical, CGFloat(space.sm))
-        .frame(minHeight: CGFloat(dims.rowCompactMinHeight))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(client.accessibility(i: index))
-    }
-}
-
 /// A full-width tappable row inside a Home card (Upcoming & alerts, brief entry); the shared `StockNavigationRow` without an icon.
 struct HomeLinkRow: View {
     let title: String
     let detail: String?
     var detailColor: Color? = nil
     var hint: String? = nil
+    /// 5D.5.1 (D-5): the brief summary's first sentence under the title.
+    var summary: String? = nil
     let action: () -> Void
     var body: some View {
-        StockNavigationRow(title: title, detail: detail, detailColor: detailColor, hint: hint, action: action)
+        StockNavigationRow(title: title, detail: detail, detailColor: detailColor, hint: hint, summary: summary, action: action)
     }
 }
 

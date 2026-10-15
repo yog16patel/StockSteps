@@ -31,48 +31,18 @@ struct EarningsReactionHeadline: View {
     }
 }
 
-/// A collapsed secondary section (methodology, sources, disclosures): a 48 pt button that announces its state; nothing inside is removed.
+/// A collapsed secondary section; since 5D.5.1 the design-system `StockDisclosure` (same behaviour, kept under its Earnings name).
 struct EarningsDisclosure<Content: View>: View {
     let title: String
     var systemImage = "info.circle"
     @ViewBuilder var content: () -> Content
-    @State private var open = false
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.dynamicTypeSize) private var typeSize
-    var body: some View {
-        let _ = typeSize
-        let colors = StockStepsTheme.colors(scheme)
-        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            Button { open.toggle() } label: {
-                HStack(spacing: CGFloat(space.xs)) {
-                    Image(systemName: systemImage).accessibilityHidden(true)
-                    Text(title).multilineTextAlignment(.leading)
-                    Spacer(minLength: 0)
-                    Image(systemName: open ? "chevron.down" : "chevron.right").accessibilityHidden(true)
-                }
-                .font(StockStepsTheme.font(type.label, relativeTo: .subheadline))
-                .foregroundStyle(colors.primaryText)
-                .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityValue(open ? "Expanded" : "Collapsed")
-            if open { content() }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
+    var body: some View { StockDisclosure(title: title, systemImage: systemImage, content: content) }
 }
 
-/// Caption lines inside a disclosure.
+/// Caption lines inside a disclosure (`StockNotes`).
 struct EarningsNotes: View {
     let lines: [String]
-    @Environment(\.colorScheme) private var scheme
-    var body: some View {
-        ForEach(lines, id: \.self) {
-            Text($0).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(StockStepsTheme.colors(scheme).textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
+    var body: some View { StockNotes(lines: lines) }
 }
 
 /// Neutral SF Symbol per insight category (`EarningsDisplay.insightIcon`; never a direction cue).
@@ -86,54 +56,14 @@ func earningsInsightSymbol(_ category: String) -> String {
     }
 }
 
-/// 5D.4.1: the one "Show details" of a card (as Compose `EarningsShowDetails`). Visible: the first sentence of `explanation`. Collapsed by default:
-/// the rest of the sentence and `content` (secondary lines, notes, lesson). No toggle when there is nothing to reveal.
+/// 5D.4.1: the one "Show details" of a card; since 5D.5.1 the design-system `StockShowDetails` (same behaviour, kept under its Earnings name).
+/// 5D.4.2: `trailing` shares the toggle's row (e.g. "Learn more").
 struct EarningsShowDetails<Content: View>: View {
     let explanation: String?
     let hasMore: Bool
-    /// 5D.4.2: an action sharing the toggle's row (e.g. "Learn more"); moves below it when they don't fit.
     var trailing: AnyView? = nil
     @ViewBuilder var content: () -> Content
-    @State private var open = false
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.dynamicTypeSize) private var typeSize
-    var body: some View {
-        let _ = typeSize
-        let colors = StockStepsTheme.colors(scheme)
-        let parts = explanation.map { EarningsDisplay.shared.firstSentence(text: $0) }
-        let first = parts?.first as? String
-        let rest = parts?.second as? String
-        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            if let first {
-                Text(open && rest != nil ? "\(first) \(rest!)" : first).stockFont(type.small, relativeTo: .subheadline).foregroundStyle(colors.textBody)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            let toggle = rest != nil || hasMore
-            if toggle && open { content() }
-            if toggle || trailing != nil {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: CGFloat(space.md)) { toggleButton(toggle, colors); trailing }
-                    VStack(alignment: .leading, spacing: 0) { toggleButton(toggle, colors); trailing }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder private func toggleButton(_ shown: Bool, _ colors: StockColors) -> some View {
-        if shown {
-                Button { open.toggle() } label: {
-                    HStack(spacing: CGFloat(space.xxs)) {
-                        Text(open ? "Hide details" : "Show details")
-                        Image(systemName: open ? "chevron.up" : "chevron.down").accessibilityHidden(true)
-                    }
-                    .font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
-                    .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget)).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityValue(open ? "Expanded" : "Collapsed")
-        }
-    }
+    var body: some View { StockShowDetails(explanation: explanation, hasMore: hasMore, trailing: trailing, content: content) }
 }
 
 /// 5D.4.1 (option a): a compact insight row — small neutral icon, period, title; the server explanation behind "Show details", unchanged.

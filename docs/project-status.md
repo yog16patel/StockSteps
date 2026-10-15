@@ -6,6 +6,21 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-14 — Phase 5D.5.1 Daily Market Brief reader (committed and pushed as "Refine the Daily Market Brief reader for Global UI Refinement Phase 5D.5.1 with the summary as the headline, shared index rows, first-sentence stories, folded notes, a Sample badge and a one-line Home summary on Android and iOS").**
+- Display only, on Android and iOS: the summary is the headline; one meta line with a Sample badge; shared compact index rows; stories show the
+  first sentence with "Show details"; notes fold once; a ⋯ menu; relative times; a skeleton while loading. Home adds the summary's first sentence.
+- Five device fixes, including a pre-existing negative-number format bug ("0.-42" → "−0.42").
+- Tests: core 514/0 ×2, shared 245/0 and 241/0, server 501/0; both builds OK. Device matrix PASS on Android and iOS (local MOCK).
+- Verdict: PASS WITH CONDITIONS. Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md`; plan: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md`.
+- **Next:** 5D.5.2 Learn (owner decision D-7 first).
+
+**2026-10-14 — Session end #2 (Earnings).** HEAD `7326e62` (pushed). Earnings Phases **5D.2, 5D.3, 5D.4, 5D.4.1, 5D.4.2 and 5D.4.3 are committed and pushed**
+(PASS WITH CONDITIONS; display-only, no calculation/API/navigation change). Final 5D.4.3 review: close as PASS WITH CONDITIONS. Only open item: **iOS Earnings
+Details BLOCKED pending the owner's sign-in** on the local Auth emulator. Tests: shared 245/0 and 241/0, core 502/0 ×2 (core unchanged since), both builds OK.
+**Next:** iOS Details verification after sign-in → Phase 5D.5 (Daily Brief, Learn) read-only audit. Full handoff: `docs/PROJECT_HANDOFF.md`
+§SESSION-END-2026-10-14-EARNINGS. (The backend session's earlier uncommitted edits to this file and root `PROJECT_HANDOFF.md` were no longer in
+the working tree at session end; not touched here.)
+
 **2026-10-14 — Phase 5D.3 Earnings visual polish (committed as "Add Global UI Refinement Phase 5D.3 Earnings visual polish with an EPS headline, key metric groups, a reaction headline with folded methodology, a Sample badge and collapsed sources on Android and iOS", on top of `3d7b000` = 5D.2; both pushed).** Details and Results now lead with key metrics, a built
 EPS headline, a reaction headline with the details collapsed, a Sample badge and a collapsed sources section. All suites pass; Android device PASS;
 iOS NOT RUN. Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_3.md`. Recommendation: PASS WITH CONDITIONS.

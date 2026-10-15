@@ -17,11 +17,9 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import org.example.stocksteps.brief.BriefFormat
-import org.example.stocksteps.brief.BriefIndex
 import org.example.stocksteps.brief.DailyBriefUiState
 import org.example.stocksteps.designsystem.components.*
 import org.example.stocksteps.designsystem.icons.StockIcons
@@ -115,13 +113,14 @@ internal fun HomeMarketOverview(state: DailyBriefUiState?, nowMillis: Long, onOp
                 } else Column {
                     indices.forEachIndexed { n, index ->
                         if (n > 0) StockDivider()
-                        HomeIndexRow(index)
+                        org.example.stocksteps.presentation.brief.BriefIndexRow(index)
                     }
                 }
                 StockDivider()
                 val caution = BriefFormat.isStale(brief, nowMillis) || state.offline
                 HomeLinkRow(
                     title = "Your Daily Market Brief",
+                    summary = HomeDashboardPresentation.briefSummary(brief),
                     detail = HomeDashboardPresentation.briefMeta(brief, nowMillis, state.offline),
                     detailColor = if (caution) colors.cautionText else colors.textMeta,
                     actionLabel = HomeDashboardPresentation.briefAction(brief, nowMillis),
@@ -134,42 +133,11 @@ internal fun HomeMarketOverview(state: DailyBriefUiState?, nowMillis: Long, onOp
     }
 }
 
-/** Index name and quote state — value and change; one spoken summary. At large font scale the values move under the name. */
-@Composable
-private fun HomeIndexRow(index: BriefIndex) {
-    val colors = StockStepsTheme.colors
-    val typography = StockStepsTheme.typography
-    val spacing = StockStepsTheme.spacing
-    val largeText = LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
-    val name: @Composable (Modifier) -> Unit = { m ->
-        Column(m, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Text(index.displayName, style = typography.bodySemiBold, color = colors.textTitle)
-            Text(index.stateLabel, style = typography.caption, color = if (HomeDashboardPresentation.indexCaution(index)) colors.cautionText else colors.textMeta)
-            index.proxyNote?.let { Text(it, style = typography.caption, color = colors.textMeta) }
-        }
-    }
-    val values: @Composable (Alignment.Horizontal) -> Unit = { alignment ->
-        Column(horizontalAlignment = alignment, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            Text(BriefFormat.value(index), style = typography.numberLabelStrong, color = colors.textValue)
-            val change = HomeDashboardPresentation.indexChange(index)
-            if (change != null) StockPriceChange(change, HomeDashboardPresentation.indexDirection(index), maxLines = 2)
-            else Text("Change unavailable", style = typography.caption, color = colors.textMeta)
-        }
-    }
-    val rowModifier = Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.rowCompactMinHeight)
-        .clearAndSetSemantics { contentDescription = BriefFormat.accessibility(index) }.padding(vertical = spacing.sm)
-    if (largeText) {
-        Column(rowModifier, verticalArrangement = Arrangement.spacedBy(spacing.xs)) { name(Modifier); values(Alignment.Start) }
-    } else Row(rowModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
-        name(Modifier.weight(1f)); values(Alignment.End)
-    }
-}
-
 /** A full-width tappable row inside a Home card (Upcoming & alerts, brief entry); the shared [StockNavigationRow] without an icon. */
 @Composable
 internal fun HomeLinkRow(title: String, detail: String?, onClick: () -> Unit, modifier: Modifier = Modifier,
-                         detailColor: Color = StockStepsTheme.colors.textSupporting, actionLabel: String? = null) =
-    StockNavigationRow(title, onClick, modifier, detail = detail, detailColor = detailColor, actionLabel = actionLabel)
+                         detailColor: Color = StockStepsTheme.colors.textSupporting, actionLabel: String? = null, summary: String? = null) =
+    StockNavigationRow(title, onClick, modifier, detail = detail, detailColor = detailColor, actionLabel = actionLabel, summary = summary)
 
 /**
  * Compact portfolio summary in the Portfolio (Phase 3) language: total value dominant, today's change (or that it is unavailable), one

@@ -31,7 +31,10 @@ internal fun StockNavigationRow(
     actionLabel: String? = null,
     /** Optional status beside the title (e.g. "StockSteps+" as PREMIUM, Phase 5C); default none, so existing rows are unchanged. */
     badge: String? = null,
-    badgeKind: org.example.stocksteps.theme.StockBadgeKind = org.example.stocksteps.theme.StockBadgeKind.PREMIUM
+    badgeKind: org.example.stocksteps.theme.StockBadgeKind = org.example.stocksteps.theme.StockBadgeKind.PREMIUM,
+    /** 5D.5.1: a short body line under the title (Home's Daily Brief entry shows the summary's first sentence); never truncated, so a number or
+     *  name is never cut ("S&P 50…" at AX5); callers keep it short. Default none. */
+    summary: String? = null
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -46,6 +49,7 @@ internal fun StockNavigationRow(
             if (badge == null) Text(title, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
             else StockTitleWithBadge(title = { Text(title, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle) },
                 badge = { StockStatusBadge(badge, badgeKind, size = StockBadgeSize.COMPACT) })
+            if (summary != null) Text(summary, style = StockStepsTheme.typography.small, color = colors.textBody)
             if (detail != null) Text(detail, style = StockStepsTheme.typography.caption, color = detailColor)
             if (secondaryDetail != null) Text(secondaryDetail, style = StockStepsTheme.typography.caption, color = colors.textSupporting)
         }

@@ -5,6 +5,7 @@ import SwiftUI
 private let space = StockStepsTheme.spacing
 private let type = StockStepsTheme.typography
 private let dims = StockStepsTheme.dimensions
+private let D = DailyBriefDisplay.shared
 
 extension Notification.Name {
     /// Posted with a brief id (or "") when the user taps a Daily Market Brief notification.
@@ -44,6 +45,17 @@ struct BriefTarget: Hashable, Identifiable {
     var id: String { briefId ?? "latest" }
 }
 
+/// A brief index as the shared `StockIndexRow` (Home "Markets today" and the reader, Phase 5D.5.1).
+struct BriefIndexRow: View {
+    let index: BriefIndex
+    let client: IosBriefClient
+    var body: some View {
+        StockIndexRow(name: index.displayName, stateLabel: index.stateLabel, value: client.value(i: index), change: D.indexChange(index: index),
+                      direction: D.indexDirection(index: index), accessibilityText: client.accessibility(i: index), caution: D.indexCaution(index: index),
+                      note: index.proxyNote, changeUnavailable: D.CHANGE_UNAVAILABLE)
+    }
+}
+
 // MARK: - Reader
 
 struct DailyBriefScene: View {
@@ -62,13 +74,16 @@ struct DailyBriefScene: View {
     var body: some View {
         DailyBriefScreen(state: model.state, client: model.client, onOpenStock: onOpenStock, onOpenEarnings: onOpenEarnings, onOpenResults: onOpenResults, onHistory: onHistory, onWatchlist: onWatchlist,
                          onLearn: onLearn, onSignIn: onSignIn, onUpgrade: { model.presenter.dismissUpgrade(); onUpgrade() }, onOpenDigest: onOpenDigest)
-            .navigationTitle("Daily Brief")
+            .navigationTitle(D.TITLE)
             .navigationBarTitleDisplayMode(.inline)
             .task(id: target.id) { model.presenter.open(id: target.briefId) }
             .refreshable { model.presenter.loadLatest() }
     }
 }
 
+/// Daily Brief reader (Global UI Refinement Phase 5D.5.1, as Compose `DailyBriefScreen`): answer first — one meta line, the server summary as the
+/// headline, freshness and sessions, compact index rows, stories with the first sentence and "Show details", personal sections, the Concept of
+/// the day and one folded "About this brief". Borderless sections; every value and sentence comes from the brief.
 struct DailyBriefScreen: View {
     let state: DailyBriefUiState?
     let client: IosBriefClient
@@ -84,33 +99,34 @@ struct DailyBriefScreen: View {
     var onOpenDigest: (() -> Void)? = nil
     @Environment(\.colorScheme) private var scheme
     @Environment(\.openURL) private var openURL
+    /// Read in body so a live Dynamic Type change re-renders (theme fonts resolve when the body runs).
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var showPreferences = false
     @State private var concept: EducationEntry?
     @State private var question = ""
     private var presenter: DailyBriefPresenter { client.presenter }
 
     var body: some View {
+        let _ = typeSize
         let colors = StockStepsTheme.colors(scheme)
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: CGFloat(space.sectionGap)) {
-                header(colors)
-                if let brief = state?.current {
-                    Text(brief.summaryLine).font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(colors.textPrimary)
-                    glance(brief, colors)
-                    stories(brief, colors)
+            LazyVStack(alignment: .leading, spacing: CGFloat(space.xl)) {
+                if let state, let brief = state.current {
+                    header(brief, state, colors)
+                    markets(brief, colors)
+                    stories(brief, state, colors)
                     watchlist(colors)
                     earnings(colors)
                     conceptCard(brief, colors)
                     premium(colors)
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(brief.notes, id: \.self) { Text($0).font(.caption).foregroundStyle(colors.textSecondary) }
-                        Text(brief.disclaimer).font(.caption).foregroundStyle(colors.textSecondary)
-                        Button("Previous briefs", action: onHistory).frame(minHeight: CGFloat(dims.touchTarget))
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        StockDisclosure(title: D.ABOUT_BRIEF) { StockNotes(lines: D.aboutLines(brief: brief)) }
+                        StockNavigationRow(title: D.HISTORY, icon: "calendar", action: onHistory)
                     }
                 } else if state?.loading != false {
-                    ProgressView().accessibilityLabel("Loading the Daily Market Brief")
+                    skeleton
                 } else {
-                    StockSectionMessage(message: state?.error ?? "The brief isn't available right now.", actionTitle: "Try again", action: { presenter.loadLatest() })
+                    StockSectionMessage(message: state?.error ?? D.UNAVAILABLE, actionTitle: "Try again", action: { presenter.loadLatest() })
                 }
             }
             .frame(maxWidth: CGFloat(dims.contentMaxWidth))
@@ -119,124 +135,147 @@ struct DailyBriefScreen: View {
             .frame(maxWidth: .infinity)
         }
         .background(colors.appBackground.ignoresSafeArea())
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { moreMenu } }
         .sheet(isPresented: $showPreferences) { preferences(colors).presentationDetents([.medium, .large]) }
         .sheet(item: Binding(get: { concept.map { IdentifiedEntry(entry: $0) } }, set: { concept = $0?.entry })) { BeginnerExplanationSheet(entry: $0.entry) }
-        .alert("StockSteps+", isPresented: Binding(get: { state?.upgrade == true }, set: { if !$0 { presenter.dismissUpgrade() } })) {
-            Button("See StockSteps+", action: onUpgrade)
-            Button("Not now", role: .cancel) { presenter.dismissUpgrade() }
-        } message: { Text("AI explanations, the full personalized brief and the complete brief history are part of StockSteps+. The market summary, stories and Concept of the Day stay free.") }
+        .alert(D.UPGRADE_TITLE, isPresented: Binding(get: { state?.upgrade == true }, set: { if !$0 { presenter.dismissUpgrade() } })) {
+            Button(D.SEE_PLUS, action: onUpgrade)
+            Button(D.NOT_NOW, role: .cancel) { presenter.dismissUpgrade() }
+        } message: { Text(D.UPGRADE) }
         .alert(state?.message ?? "", isPresented: Binding(get: { state?.message != nil }, set: { if !$0 { presenter.dismissMessage() } })) { Button("OK") { presenter.dismissMessage() } }
     }
 
+    /// ⋯ : Notify me, Previous briefs and (sample briefs only, MOCK) the scenario list.
+    private var moreMenu: some View {
+        Menu {
+            Button(D.NOTIFY, systemImage: "bell") { presenter.loadPreferences(); showPreferences = true }
+            Button(D.HISTORY, systemImage: "calendar", action: onHistory)
+            if state?.current?.sampleData == true {
+                Menu(D.SCENARIOS) {
+                    Button(D.SCENARIO_NONE) { presenter.scenario(name: nil) }
+                    ForEach(client.scenarios, id: \.self) { n in Button(n) { presenter.scenario(name: n) } }
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle").accessibilityLabel(D.MORE_OPTIONS)
+        }
+    }
+
     private func sectionTitle(_ text: String) -> some View {
-        Text(text).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title2)).accessibilityAddTraits(.isHeader)
+        StockSectionHeader(title: text) { EmptyView() }
+    }
+
+    private func caption(_ text: String, _ color: Color) -> some View {
+        Text(text).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
     }
 
     @ViewBuilder
-    private func header(_ colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            HStack {
-                Text("Your Daily Market Brief").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
-                Spacer()
-                Button("Notify me") { presenter.loadPreferences(); showPreferences = true }
-            }
-            Text("Understand the market in a few minutes.").font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
-            if let b = state?.current {
-                Text("\(b.edition.label) · \(client.date(iso: b.briefDate)) · \(b.readingMinutes) min read").font(.caption).foregroundStyle(colors.textSecondary)
-                Text("Market data for the \(client.date(iso: b.sessionDate)) session · Updated \(client.published(iso: b.updatedAt) ?? b.updatedAt)").font(.caption).foregroundStyle(colors.textSecondary)
-                ForEach(b.sessions, id: \.market) { s in Text("\(s.name): \(client.sessionLabel(s: s))").font(.caption).foregroundStyle(colors.textSecondary) }
-                if client.isStale(brief: b) { banner("This is the latest brief available. It isn't from today.", colors) }
-                if state?.offline == true { banner("You're offline. This is a copy saved on this device.", colors) }
-                if b.sampleData {
-                    HStack {
-                        Text("Sample data for development").font(.caption).foregroundStyle(colors.cautionText)
-                        Spacer()
-                        Menu("Scenarios") {
-                            Button("Current (no scenario)") { presenter.scenario(name: nil) }
-                            ForEach(client.scenarios, id: \.self) { n in Button(n) { presenter.scenario(name: n) } }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func banner(_ text: String, _ colors: StockColors) -> some View {
-        Text(text).font(StockStepsTheme.font(type.small)).padding(CGFloat(space.sm)).frame(maxWidth: .infinity, alignment: .leading)
-            .background(colors.warningContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
-    }
-
-    @ViewBuilder
-    private func glance(_ brief: DailyBrief, _ colors: StockColors) -> some View {
+    private func header(_ b: DailyBrief, _ state: DailyBriefUiState, _ colors: StockColors) -> some View {
+        let now = client.now()
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-            sectionTitle("Market at a Glance")
-            if brief.marketSnapshot.isEmpty { Text("Index values aren't available right now.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary) }
-            ForEach(brief.marketSnapshot, id: \.indexId) { i in
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(i.displayName).font(StockStepsTheme.font(type.bodySemiBold))
-                        Text(i.stateLabel).font(.caption).foregroundStyle(client.isStaleQuote(i: i) ? colors.cautionText : colors.textSecondary)
-                        if let note = i.proxyNote { Text(note).font(.caption).foregroundStyle(colors.textTertiary) }
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(client.value(i: i)).font(StockStepsTheme.font(type.bodySemiBold)).monospacedDigit()
-                        if i.value != nil {
-                            let sign = client.sign(i: i)
-                            Text("\(client.direction(i: i)) \(client.change(i: i))").font(.caption).monospacedDigit()
-                                .foregroundStyle(sign > 0 ? colors.positiveText : sign < 0 ? colors.negativeText : colors.textSecondary)
-                        }
-                    }
-                }
-                .stockCard()
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(client.accessibility(i: i))
+            StockTitleWithBadge {
+                caption(D.meta(brief: b), colors.textMeta)
+            } badge: {
+                if b.sampleData { StockStatusBadge(text: D.SAMPLE, kind: .sample, size: .compact, accessibilityText: D.SAMPLE_DESCRIPTION) }
             }
-            Text(brief.indexExplainer).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
+            Text(b.summaryLine).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).foregroundStyle(colors.textTitle)
+                .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                caption(D.freshness(brief: b, nowMillis: now), colors.textMeta)
+                ForEach(D.sessionLines(brief: b), id: \.self) { caption($0, colors.textMeta) }
+            }
+            ForEach(D.banners(brief: b, nowMillis: now, offline: state.offline), id: \.self) { message in
+                StockBanner(kind: message == D.STALE ? .warning : .info, message: message)
+            }
         }
     }
 
     @ViewBuilder
-    private func stories(_ brief: DailyBrief, _ colors: StockColors) -> some View {
-        sectionTitle("Market Stories")
-        if brief.stories.isEmpty { Text("No market stories met our source checks for this brief.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary) }
-        ForEach(brief.stories, id: \.id) { story in
-            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                Text(story.topic.uppercased()).font(.caption2.weight(.bold)).foregroundStyle(colors.primaryText)
-                Text(story.headline).font(StockStepsTheme.font(type.bodySemiBold)).accessibilityAddTraits(.isHeader)
-                if let summary = story.summary { Text(summary).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody) }
-                Text([story.publisher ?? "Publisher not provided", client.published(iso: story.publishedAt)].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(colors.textSecondary)
-                if !story.relatedSymbols.isEmpty {
-                    HStack { ForEach(story.relatedSymbols, id: \.self) { s in Button(s) { onOpenStock(s) }.buttonStyle(.bordered) } }
+    private func markets(_ brief: DailyBrief, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            sectionTitle(D.MARKETS)
+            if brief.marketSnapshot.isEmpty {
+                Text(D.NO_INDICES).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(brief.marketSnapshot.enumerated()), id: \.element.indexId) { n, index in
+                        if n > 0 { StockDivider() }
+                        BriefIndexRow(index: index, client: client)
+                    }
                 }
-                Text(story.evidenceNote).font(.caption).foregroundStyle(colors.textTertiary)
-                HStack {
-                    Button("Read article") { if let url = URL(string: story.sourceUrl) { openURL(url) } }
-                        .accessibilityLabel("Read the original article from \(story.publisher ?? "the publisher")")
-                    Button(client.isPlus(state: state!) ? "Understand More" : "Understand More · StockSteps+") { presenter.explain(storyId: story.id) }
-                        .disabled(client.ai(state: state!, key: story.id)?.loading == true)
-                }
-                .frame(minHeight: CGFloat(dims.touchTarget))
-                if let ai = state.flatMap({ client.ai(state: $0, key: story.id) }) { aiAnswer(ai, colors) }
             }
-            .stockCard()
+            StockDisclosure(title: D.INDEX_EXPLAINER_TITLE, systemImage: "graduationcap") {
+                Text(brief.indexExplainer).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+            }
         }
+    }
+
+    @ViewBuilder
+    private func stories(_ brief: DailyBrief, _ state: DailyBriefUiState, _ colors: StockColors) -> some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.md)) {
+            sectionTitle(D.STORIES)
+            if brief.stories.isEmpty {
+                Text(D.NO_STORIES).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+            }
+            ForEach(Array(brief.stories.enumerated()), id: \.element.id) { n, story in
+                if n > 0 { StockDivider() }
+                storyRow(story, state, colors)
+            }
+            if !brief.stories.isEmpty {
+                StockDisclosure(title: D.ABOUT_STORIES) { StockNotes(lines: D.storyNotes(brief: brief)) }
+            }
+        }
+    }
+
+    private func storyRow(_ story: BriefStory, _ state: DailyBriefUiState, _ colors: StockColors) -> some View {
+        let ai = client.ai(state: state, key: story.id)
+        return VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            caption(D.storyMeta(story: story, nowMillis: client.now()), colors.textMeta)
+            Text(story.headline).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+                .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+            StockShowDetails(explanation: D.excerpt(story: story), hasMore: true, trailing: AnyView(
+                linkButton(D.READ_ARTICLE, systemImage: "arrow.up.right", colors) { if let url = URL(string: story.sourceUrl) { openURL(url) } }
+                    .accessibilityLabel(D.readArticleLabel(story: story))
+            )) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: CGFloat(space.sm)) { storyActions(story, state, ai, colors) }
+                    VStack(alignment: .leading, spacing: CGFloat(space.xs)) { storyActions(story, state, ai, colors) }
+                }
+            }
+            if let ai { aiAnswer(ai, colors) }
+        }
+    }
+
+    @ViewBuilder
+    private func storyActions(_ story: BriefStory, _ state: DailyBriefUiState, _ ai: BriefAiState?, _ colors: StockColors) -> some View {
+        ForEach(story.relatedSymbols, id: \.self) { s in Button(D.companyAction(symbol: s)) { onOpenStock(s) }.buttonStyle(.stockSecondary) }
+        linkButton(D.understandLabel(plus: client.isPlus(state: state)), systemImage: "lightbulb", colors) { presenter.explain(storyId: story.id) }
+            .disabled(ai?.loading == true)
+    }
+
+    /// A text action in the app's link style (48 pt target).
+    private func linkButton(_ title: String, systemImage: String, _ colors: StockColors, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage).font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
+                .multilineTextAlignment(.leading).frame(minHeight: CGFloat(dims.touchTarget)).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
     private func aiAnswer(_ ai: BriefAiState, _ colors: StockColors) -> some View {
         if ai.loading {
-            ProgressView().accessibilityLabel("Preparing an explanation")
+            ProgressView().accessibilityLabel(D.PREPARING)
         } else if let error = ai.error {
             Text(error).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.negativeText)
         } else if let a = ai.answer {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(a.usesAi ? "AI explanation (StockSteps+)" : "Sample explanation (mock)").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.primaryText)
-                Text(a.answer)
-                ForEach(a.points, id: \.self) { Text("• \($0)").font(StockStepsTheme.font(type.small)) }
-                if a.insufficientEvidence { Text("The sources don't contain enough to answer that fully.").font(.caption).foregroundStyle(colors.cautionText) }
-                ForEach(a.sources, id: \.id) { s in Button("Source: \(s.publisher ?? s.title ?? "article")") { if let url = URL(string: s.url) { openURL(url) } } }
-                if let left = a.remainingToday { Text("\(left.intValue) explanations left today").font(.caption).foregroundStyle(colors.textSecondary) }
+            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                Text(D.aiLabel(answer: a)).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.primaryText)
+                Text(a.answer).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
+                ForEach(a.points, id: \.self) { Text("• \($0)").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody) }
+                if a.insufficientEvidence { caption(D.INSUFFICIENT, colors.cautionText) }
+                ForEach(a.sources, id: \.id) { s in linkButton(D.aiSource(source: s), systemImage: "arrow.up.right", colors) { if let url = URL(string: s.url) { openURL(url) } } }
+                if let left = a.remainingToday { caption(D.aiRemaining(left: left.int32Value), colors.textMeta) }
             }
         }
     }
@@ -244,42 +283,40 @@ struct DailyBriefScreen: View {
     @ViewBuilder
     private func watchlist(_ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            sectionTitle("From Your Watchlist")
+            sectionTitle(D.WATCHLIST)
             if state?.signedIn != true {
-                StockSectionMessage(message: "Sign in to see news, price moves and earnings for companies you follow.", actionTitle: "Sign in", action: onSignIn)
+                StockSectionMessage(message: D.SIGN_IN_PROMPT, actionTitle: D.SIGN_IN, action: onSignIn)
             } else if let p = state?.personal {
                 if p.watchlistCount == 0 {
-                    StockSectionMessage(message: "Add companies to a watchlist to see their updates in your brief.", actionTitle: "Go to Watchlist", action: onWatchlist)
+                    StockSectionMessage(message: D.WATCHLIST_EMPTY, actionTitle: D.GO_TO_WATCHLIST, action: onWatchlist)
                 } else if p.watchlistHighlights.isEmpty {
-                    Text("Nothing notable from the \(p.watchlistCount) companies you follow in this session.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
+                    Text(D.nothingNotable(count: p.watchlistCount)).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                 } else {
-                    ForEach(Array(p.watchlistHighlights.enumerated()), id: \.offset) { _, h in
-                        Button {
-                            if let u = h.url, let url = URL(string: u) { openURL(url) }
-                            else if let id = h.reportId { onOpenResults(id) }
-                            else { onOpenStock(h.symbol) }
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("\(h.symbol)\(h.name.map { " · \($0)" } ?? "")").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
-                                Text(h.text).foregroundStyle(colors.textPrimary).multilineTextAlignment(.leading)
-                                if let p = h.publisher { Text(p).font(.caption).foregroundStyle(colors.textSecondary) }
+                    VStack(spacing: 0) {
+                        ForEach(Array(p.watchlistHighlights.enumerated()), id: \.offset) { n, h in
+                            if n > 0 { StockDivider() }
+                            StockNavigationRow(title: h.text, detail: [D.highlightTitle(h: h), h.publisher].compactMap { $0 }.joined(separator: " · "),
+                                               hint: D.highlightAction(h: h)) {
+                                if let u = h.url, let url = URL(string: u) { openURL(url) }
+                                else if let id = h.reportId { onOpenResults(id) }
+                                else { onOpenStock(h.symbol) }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .stockCard()
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityElement(children: .combine)
+                        if p.moreHighlights > 0 {
+                            StockDivider()
+                            StockNavigationRow(title: D.moreHighlights(count: p.moreHighlights), badge: "StockSteps+", action: onUpgrade)
+                        }
                     }
-                    if p.moreHighlights > 0 { Button("\(p.moreHighlights) more updates are included with StockSteps+.") { onUpgrade() } }
                 }
-                if let note = p.notes.first(where: { $0.hasPrefix("Watching") }) { Text(note).font(.caption).foregroundStyle(colors.textSecondary) }
+                if let note = p.notes.first(where: { $0.hasPrefix("Watching") }) { caption(note, colors.textMeta) }
                 if let onOpenDigest, p.watchlistCount > 0 {
-                    HStack { Button("Your Earnings Digest", systemImage: "lightbulb", action: onOpenDigest).frame(minHeight: 48); PlusBadge() }
+                    StockNavigationRow(title: D.EARNINGS_DIGEST, icon: "lightbulb", badge: "StockSteps+", action: onOpenDigest)
                 }
             } else if state?.personalLoading == true {
-                ProgressView()
+                VStack(alignment: .leading, spacing: CGFloat(space.sm)) { StockSkeleton(width: 240); StockSkeleton(width: 180) }
+                    .accessibilityElement(children: .ignore).accessibilityLabel("Loading")
             } else {
-                Text(state?.personalError ?? "Your watchlist updates aren't available right now.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
+                Text(state?.personalError ?? D.WATCHLIST_UNAVAILABLE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
             }
         }
     }
@@ -288,39 +325,34 @@ struct DailyBriefScreen: View {
     private func earnings(_ colors: StockColors) -> some View {
         if let rows = state?.personal?.earnings, !rows.isEmpty {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                sectionTitle("Upcoming Earnings")
-                ForEach(rows, id: \.symbol) { e in
-                    Button { if let id = e.eventId { onOpenEarnings(id) } else { onOpenStock(e.symbol) } } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(e.name ?? e.symbol) (\(e.symbol))").font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
-                            Text(["Expected \(client.date(iso: e.date))", "\(e.dateStatus) date", e.timing,
-                                  e.epsEstimate.map { "EPS estimate \(e.currency ?? "") \(client.money(v: $0.doubleValue))" },
-                                  e.reason == "portfolio" ? "In your portfolio" : e.reason == "watchlist" ? "On your watchlist" : "General example"]
-                                .compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(colors.textSecondary).multilineTextAlignment(.leading)
+                sectionTitle(D.EARNINGS)
+                VStack(spacing: 0) {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { n, e in
+                        if n > 0 { StockDivider() }
+                        StockNavigationRow(title: D.earningsTitle(e: e), detail: D.earningsDetail(e: e), hint: D.earningsAction(e: e)) {
+                            if let id = e.eventId { onOpenEarnings(id) } else { onOpenStock(e.symbol) }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .stockCard()
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityElement(children: .combine)
                 }
-                Text("Report dates can change until a company confirms them.").font(.caption).foregroundStyle(colors.textSecondary)
+                caption(D.EARNINGS_DATES_NOTE, colors.textMeta)
             }
         }
     }
 
+    /// The one tinted card: the concept title, the first sentence, details behind "Show details"; the full explanation in the sheet.
     private func conceptCard(_ brief: DailyBrief, _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            Text("Concept of the Day").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.primaryText)
-            Text(brief.concept.title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).accessibilityAddTraits(.isHeader)
-            Text(brief.concept.explanation).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
-            if let example = brief.concept.example { Text("Example: \(example)").font(StockStepsTheme.font(type.small)) }
-            Text(brief.concept.whyToday).font(.caption).foregroundStyle(colors.textSecondary)
-            HStack {
-                Button("Understand more") { concept = client.term(id: brief.concept.learnTermId) }
-                Button("Open Learn", action: onLearn)
+            Text(D.CONCEPT).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.primaryText)
+            Text(brief.concept.title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader)
+            StockShowDetails(explanation: brief.concept.explanation, hasMore: true, trailing: AnyView(
+                linkButton(D.UNDERSTAND_CONCEPT, systemImage: "graduationcap", colors) { concept = client.term(id: brief.concept.learnTermId) }
+            )) {
+                if let example = brief.concept.example {
+                    Text(D.conceptExample(example: example)).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                }
+                caption(brief.concept.whyToday, colors.textSupporting)
+                linkButton(D.OPEN_LEARN, systemImage: "arrow.right", colors, action: onLearn)
             }
-            .frame(minHeight: CGFloat(dims.touchTarget))
         }
         .padding(CGFloat(space.cardPadding))
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -331,29 +363,42 @@ struct DailyBriefScreen: View {
     private func premium(_ colors: StockColors) -> some View {
         if let p = state?.personal {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                Text("StockSteps+ insights").font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).accessibilityAddTraits(.isHeader)
+                sectionTitle(D.PLUS)
                 if let insights = p.premiumInsights {
                     ForEach(insights, id: \.self) { Text("• \($0)").font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody) }
                     if !p.companyStories.isEmpty {
-                        Text("More from companies you follow").font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
+                        Text(D.PLUS_STORIES).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSupporting)
                         ForEach(p.companyStories, id: \.id) { s in
-                            Button("\(s.relatedSymbols.first.map { "\($0): " } ?? "")\(s.headline)") { if let url = URL(string: s.sourceUrl) { openURL(url) } }.multilineTextAlignment(.leading)
+                            StockNavigationRow(title: s.headline, detail: s.relatedSymbols.first, hint: D.readArticleLabel(story: s)) {
+                                if let url = URL(string: s.sourceUrl) { openURL(url) }
+                            }
                         }
                     }
-                    TextField("Ask about this brief", text: $question, axis: .vertical).textFieldStyle(.roundedBorder)
+                    TextField(D.ASK_LABEL, text: $question, axis: .vertical).textFieldStyle(.roundedBorder).font(StockStepsTheme.font(type.body))
                         .onChange(of: question) { _, v in if v.count > 300 { question = String(v.prefix(300)) } }
-                    Button("Ask") { presenter.ask(question: question) }.buttonStyle(.stockPrimary)
+                    Button(D.ASK) { presenter.ask(question: question) }.buttonStyle(.stockSecondary)
                         .disabled(question.trimmingCharacters(in: .whitespaces).count < 3 || state.flatMap { client.ai(state: $0, key: "ask") }?.loading == true)
                     if let ai = state.flatMap({ client.ai(state: $0, key: "ask") }) { aiAnswer(ai, colors) }
-                    Text("Answers use only this brief's sources. No predictions or buy/sell advice.").font(.caption).foregroundStyle(colors.textSecondary)
+                    caption(D.ASK_NOTE, colors.textMeta)
                 } else {
-                    Text("See how today's market relates to the companies you follow, more company stories, and ask follow-up questions with source-backed AI explanations.")
-                        .font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
-                    Button("Preview StockSteps+", action: onUpgrade)
+                    Text(D.PLUS_PREVIEW).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                    linkButton(D.PLUS_PREVIEW_ACTION, systemImage: "arrow.right", colors, action: onUpgrade)
                 }
             }
-            .stockCard()
         }
+    }
+
+    /// Loading layout in the reader's shape (meta, two headline lines, three index rows, two story rows); read as one "Loading".
+    private var skeleton: some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.md)) {
+            StockSkeleton(width: 160)
+            StockSkeleton(width: 240, height: CGFloat(space.xl))
+            StockSkeleton(width: 220, height: CGFloat(space.xl))
+            ForEach(0..<3, id: \.self) { _ in HStack { StockSkeleton(width: 140); Spacer(); StockSkeleton(width: 64) } }
+            ForEach(0..<2, id: \.self) { _ in VStack(alignment: .leading, spacing: CGFloat(space.xs)) { StockSkeleton(width: 120); StockSkeleton(width: 240) } }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(D.LOADING)
     }
 
     private func preferences(_ colors: StockColors) -> some View {
@@ -386,6 +431,7 @@ struct DailyBriefScreen: View {
 
 // MARK: - History
 
+/// Previous briefs as navigation rows (sample briefs badged); the StockSteps+ remainder as one row (as Compose `DailyBriefHistoryScreen`).
 struct DailyBriefHistoryScene: View {
     let model: BriefModel
     let onOpenBrief: (String) -> Void
@@ -394,27 +440,31 @@ struct DailyBriefHistoryScene: View {
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
-        List {
-            if let history = model.state?.history {
-                if history.items.isEmpty { Text("No briefs yet.") }
-                ForEach(history.items, id: \.id) { s in
-                    Button { onOpenBrief(s.id) } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("\(s.edition.label) · \(model.client.date(iso: s.briefDate))").font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
-                            Text(s.summaryLine).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).lineLimit(2)
-                            Text("\(s.readingMinutes) min read").font(.caption).foregroundStyle(colors.textSecondary)
-                        }
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if let history = model.state?.history {
+                    if history.items.isEmpty { StockSectionMessage(message: D.NO_HISTORY) }
+                    ForEach(Array(history.items.enumerated()), id: \.element.id) { n, s in
+                        if n > 0 { StockDivider() }
+                        StockNavigationRow(title: D.historyTitle(s: s), detail: D.historyDetail(s: s), hint: "Read this brief",
+                                           badge: s.sampleData ? D.SAMPLE : nil, badgeKind: .sample, summary: D.historySummary(s: s)) { onOpenBrief(s.id) }
                     }
-                    .accessibilityElement(children: .combine)
+                    if history.lockedCount > 0 {
+                        StockDivider()
+                        StockNavigationRow(title: D.lockedHistory(count: history.lockedCount), hint: D.SEE_PLUS, badge: "StockSteps+", action: onUpgrade)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: CGFloat(space.md)) { ForEach(0..<3, id: \.self) { _ in StockSkeleton(width: 260) } }
+                        .accessibilityElement(children: .ignore).accessibilityLabel("Loading")
                 }
-                if history.lockedCount > 0 {
-                    Button("\(history.lockedCount) older briefs are included with StockSteps+.", action: onUpgrade)
-                }
-            } else {
-                ProgressView()
             }
+            .frame(maxWidth: CGFloat(dims.contentMaxWidth))
+            .padding(.horizontal, CGFloat(space.screen))
+            .padding(.vertical, CGFloat(space.md))
+            .frame(maxWidth: .infinity)
         }
-        .navigationTitle("Previous briefs")
+        .background(colors.appBackground.ignoresSafeArea())
+        .navigationTitle(D.HISTORY)
         .navigationBarTitleDisplayMode(.inline)
         .task { model.presenter.loadHistory() }
     }

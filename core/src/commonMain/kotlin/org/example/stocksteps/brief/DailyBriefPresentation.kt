@@ -295,9 +295,11 @@ object BriefFormat {
     fun sign(i: BriefIndex): Int = when { i.changePercent == null -> 0; i.changePercent > 0.005 -> 1; i.changePercent < -0.005 -> -1; else -> 0 }
     fun accessibility(i: BriefIndex): String = "${i.displayName}: ${value(i)}, ${direction(i)} ${change(i)}. ${i.stateLabel}."
     fun published(iso: String?): String? = iso?.takeIf { it.length >= 16 }?.let { "${date(it)} · ${it.substring(11, 16)} UTC" }
+    /** "1,234.50"; negatives keep their sign in front ("−0.42", Phase 5D.5.1 fix: was "0.-42"). */
     fun groupDigits(v: Double): String {
         val cents = kotlin.math.round(v * 100).toLong()
-        val whole = (cents / 100).toString().reversed().chunked(3).joinToString(",").reversed()
-        return "$whole.${(cents % 100).toString().padStart(2, '0')}"
+        val abs = kotlin.math.abs(cents)
+        val whole = (abs / 100).toString().reversed().chunked(3).joinToString(",").reversed()
+        return "${if (cents < 0) "−" else ""}$whole.${(abs % 100).toString().padStart(2, '0')}"
     }
 }

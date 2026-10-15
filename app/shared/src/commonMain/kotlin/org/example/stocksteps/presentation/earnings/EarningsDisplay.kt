@@ -97,11 +97,7 @@ object EarningsDisplay {
      * 5D4-2 (option A): a long server explanation shows its first sentence; the rest stays one tap away ("Show details"). Splits only at ". ",
      * "? " or "! " followed by a capital letter, so amounts ("C$1.94", "3.0%") and abbreviations never split. Returns (first, rest or null).
      */
-    fun firstSentence(text: String): Pair<String, String?> {
-        val match = Regex("""[.?!]\s+(?=[A-Z])""").find(text) ?: return text to null
-        val end = match.range.first + 1
-        return text.substring(0, end) to text.substring(match.range.last + 1).trim().ifEmpty { null }
-    }
+    fun firstSentence(text: String): Pair<String, String?> = org.example.stocksteps.format.ReadableText.firstSentence(text)
 
     /** Details notes folded like Results: the server notes, the sample sentence for sample data, the disclaimer — each once. */
     fun detailsDisclosures(notes: List<String>, sampleData: Boolean): List<String> =
