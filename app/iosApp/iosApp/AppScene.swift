@@ -39,6 +39,8 @@ struct AppScene: View {
     @State private var showingSettingsDigest = false
     @State private var learningModel: LearningModel
     @State private var researchTarget: ResearchTarget?
+    /// Phase 5D.5.2: Learn topics and term pages.
+    @State private var learnTarget: LearnTarget?
     @State private var practiceModel: PracticeModel?
     @State private var showingPractice = false
     @State private var practiceTarget: PracticeOrderTarget?
@@ -122,7 +124,8 @@ struct AppScene: View {
                     .tabItem { Label("Watchlist", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 
-                LearnScene(learning: learningModel, onResearch: { researchTarget = $0 }, onSearch: { initialStock = nil; showingSearch = true }, onPractice: openPractice)
+                LearnScene(learning: learningModel, onResearch: { researchTarget = $0 }, onSearch: { initialStock = nil; showingSearch = true }, onPractice: openPractice,
+                           onLearnTarget: { learnTarget = $0 })
                     .sampleDataInset()
                     .tabItem { Label("Learn", systemImage: "book") }
                     .tag(AppRoute.learn)
@@ -137,7 +140,7 @@ struct AppScene: View {
                 screenerModel.activate(); earningsModel.activate(); learningModel.activate(); briefModel?.activate()
             }
             // Home and Settings show their own compact headers instead of a navigation title.
-            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .markets && selectedTab != .watchlist && selectedTab != .portfolio))
+            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .markets && selectedTab != .watchlist && selectedTab != .portfolio && selectedTab != .learn))
             // Every client reads the URL per request; reload Home so its data matches the new backend.
             .navigationDestination(item: $detailsSymbol) { symbol in
                 CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel, learning: learningModel,
@@ -145,6 +148,14 @@ struct AppScene: View {
                                     onUpgrade: { showingSettings = true }, onPracticeBuy: { practiceTrade(PracticeOrderTarget(symbol: $0, sell: false)) },
                                     onEarningsCalendar: { earningsCalendar = EarningsCalendarTarget(date: $0) },
                                     onEarningsResults: { earningsResultsId = $0 })
+            }
+            .navigationDestination(item: $learnTarget) { target in
+                switch target {
+                case let .topics(topic, search):
+                    LearnTopicsView(topic: topic, focusSearch: search, onSearchCompanies: { initialStock = nil; showingSearch = true })
+                case let .term(id):
+                    LearnTermView(termId: id, onSearchCompanies: { initialStock = nil; showingSearch = true })
+                }
             }
             .navigationDestination(item: $briefTarget) { target in
                 if let briefModel {

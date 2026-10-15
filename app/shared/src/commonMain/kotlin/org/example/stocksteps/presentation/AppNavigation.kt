@@ -145,6 +145,7 @@ internal fun AppNavigation(
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsResultsRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true ||
+        destination?.hasRoute<org.example.stocksteps.presentation.learn.LearnTopicsRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.learn.LearnTermRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeOrderRoute>() == true
     // Practice needs an account: the server keeps the simulated ledger.
@@ -191,7 +192,8 @@ internal fun AppNavigation(
                         isCompanyFinancials -> "Financials"
                         isCompanyNews -> "Company news"
                         destination?.hasRoute<WatchListRoute>() == true -> "Watchlist"
-                        destination?.hasRoute<LearnRoute>() == true -> "Learn"
+                        destination?.hasRoute<LearnRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.learn.LearnTopicsRoute>() == true ||
+                            destination?.hasRoute<org.example.stocksteps.presentation.learn.LearnTermRoute>() == true -> "Learn"
                         destination?.hasRoute<SettingsRoute>() == true -> "Settings"
                         else -> "Home"
                     },
@@ -220,7 +222,8 @@ internal fun AppNavigation(
                                 MainDestination.PORTFOLIO -> destination.inPortfolioTab() // D3.1: one rule for every Portfolio destination
                                 MainDestination.MARKETS -> isMarkets
                                 MainDestination.WATCHLIST -> destination.hasRoute<WatchListRoute>()
-                                MainDestination.LEARN -> destination.hasRoute<LearnRoute>()
+                                MainDestination.LEARN -> destination.hasRoute<LearnRoute>() || destination.hasRoute<org.example.stocksteps.presentation.learn.LearnTopicsRoute>() ||
+                                    destination.hasRoute<org.example.stocksteps.presentation.learn.LearnTermRoute>()
                             }
                             StockBottomNavigationItem(
                                 selected = selected,
@@ -462,7 +465,20 @@ internal fun AppNavigation(
                 )
             }
             composable<LearnRoute> {
-                LearnScene(hinge, accounts, onResearch = openResearch, onSearch = { navController.navigate(StockSearchRoute()) }, onPractice = openPractice)
+                LearnScene(hinge, accounts, onResearch = openResearch, onSearch = { navController.navigate(StockSearchRoute()) }, onPractice = openPractice,
+                    onTopics = { topic, search -> navController.navigate(org.example.stocksteps.presentation.learn.LearnTopicsRoute(topic, search)) },
+                    onTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
+            }
+            composable<org.example.stocksteps.presentation.learn.LearnTopicsRoute> { entry ->
+                org.example.stocksteps.presentation.learn.LearnTopicsScene(entry.toRoute(), hinge,
+                    onTopic = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTopicsRoute(it)) },
+                    onTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
+            }
+            composable<org.example.stocksteps.presentation.learn.LearnTermRoute> { entry ->
+                org.example.stocksteps.presentation.learn.LearnTermScene(entry.toRoute(), hinge,
+                    onTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) },
+                    onTopics = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTopicsRoute()) },
+                    onSearch = { navController.navigate(StockSearchRoute()) })
             }
             composable<org.example.stocksteps.presentation.practice.PracticeRoute> {
                 if (accounts != null) org.example.stocksteps.presentation.practice.PracticeScene(accounts, hinge,

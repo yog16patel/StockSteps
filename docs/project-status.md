@@ -6,6 +6,18 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-15 — Phase 5D.5.2 Learn redesign (committed and pushed as "Redesign Learn for Global UI Refinement Phase 5D.5.2 with a Start here card, colour-coded topic tiles, today's concept, an Explore topics list, topic pages, term reading pages and a local term search on Android and iOS").**
+- Changes:
+  - Start here card;
+  - colour-coded topic grid;
+  - Today's concept;
+  - Explore topics, Topic and Term reading pages;
+  - local term search.
+- Built from the existing catalogue only.
+- Tests: core 532/0 ×2, shared 246/0 and 242/0, server 501/0; builds OK. Device checks on Android and iOS.
+- Review package: `docs/reviews/phase5d_5_2/`. Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md`.
+- PASS WITH CONDITIONS (screen readers, signed-in progress and iPhone SE NOT RUN).
+
 **2026-10-14 — Review workflow.**
 - `docs/AI_REVIEW_WORKFLOW.md` defines the compact ChatGPT review package that ends each approved implementation phase:
   - stored in `docs/reviews/<phase-id>/`;

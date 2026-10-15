@@ -1,9 +1,68 @@
-# StockSteps — session handoff (2026-10-14: Daily Brief closed with Phase 5D.5.1c; next: Phase 5D.5.2 Learn after owner approval)
+# StockSteps — session handoff (2026-10-15: Phase 5D.5.2 Learn redesign committed; next: owner review of the ChatGPT package)
 
-Read order for a new session: `CLAUDE.md` → `docs/AI_REVIEW_WORKFLOW.md` (review packages, evidence and approval rules) → **§PHASE-5D-5-1C-2026-10-14 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C_PLAN.md` → §PHASE-5D-5-1B-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md` → `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md` → §PHASE-5D-5-1-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → `docs/AI_REVIEW_WORKFLOW.md` (review packages, evidence and approval rules) → **§PHASE-5D-5-2-2026-10-15 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` → `docs/reviews/phase5d_5_2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-1C-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C_PLAN.md` → §PHASE-5D-5-1B-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md` → `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md` → §PHASE-5D-5-1-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PHASE-5D-5-2-2026-10-15. Learn redesign (Phase 5D.5.2 A+B+C) — START HERE
+
+### 0. Repository state
+- Branch `main`. Current commit: **"Redesign Learn for Global UI Refinement Phase 5D.5.2 with a Start here card, colour-coded topic tiles, today's concept, an Explore topics list, topic pages, term reading pages and a local term search on Android and iOS"** (this commit, pushed), on top of `bab5a46` (AI review workflow).
+- **Not in this commit:** a separate session fixed the flaky `PortfolioSessionStateTest` (test-only) in worktree `charming-hodgkin-98e850`
+  (branch `claude/charming-hodgkin-98e850`). It is uncommitted there.
+
+### 1. What was done
+- **Plan:** `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2_PLAN.md`.
+  - The owner said "continue with what you recommend", so decisions D-L1…D-L8 were adopted.
+  - The owner then asked to match the reference closely (`docs/design/phase5d_5_2/REFERENCE-learn.webp`).
+- **Implemented** (display and navigation inside Learn only; educational text unchanged; no backend, progress or entitlement change):
+  - **core:** `learning/LearnDisplay.kt` — topics from the catalogue, term names, colour roles, filter, outline and sections, next term, today's
+    concept (the `BriefContent` rotation), first-sentence preview, non-breaking slash — with `LearnDisplayTest` (10 tests).
+  - **Learn home:**
+    - in-page title + search;
+    - a light-blue "Start here" card with one Start learning action (resume, else the first company not yet researched, else search);
+    - a 2×2 topic grid (coloured filled icon, name, term names; compact two-column tiles at large text);
+    - Today's concept;
+    - real-progress cards;
+    - More ways to learn.
+  - **New screens:**
+    - Explore topics: card list; the term filter appears when opened from search.
+    - Topic: its terms.
+    - Term reading page: illustration band, title, "what it is", an "In this lesson" outline, sections, next term.
+  - **Navigation:**
+    - Android adds `LearnTopicsRoute(topic?, search)` and `LearnTermRoute(id)`; the Learn tab stays selected.
+    - iOS adds `LearnTarget` in `AppScene`; the Learn tab uses an in-page header; pushed pages show only "‹ Learn".
+  - The old iOS `LearnScreen` was removed from `GuidedResearchScenes.swift`. Shared `StockCard` / `StockNavigationRow` are unchanged.
+
+### 2. Validation
+- Tests: core **532/0** (JVM on `--rerun`; the full run hit the known Portfolio timeout once) and **532/0** iOS; shared **246/0** and **242/0**;
+  server **501/0**.
+- Builds: `assembleDebug` and `xcodebuild` OK.
+- Device checks (results in the report):
+  - Android 360 dp: 1.0× light and dark, 2.0×;
+  - iPhone 16: Default light and dark, AX XL live change, AX5 top.
+- **Review package:** `docs/reviews/phase5d_5_2/` (two contact sheets + `CHATGPT_REVIEW_PACKAGE.md`).
+  - At the owner's request the individual captures were deleted. The sheets are the only saved screenshots.
+
+### 3. Not verified / limits
+- **NOT RUN:** signed-in progress cards on device, TalkBack and VoiceOver, iPhone SE, Android 1.3×, iOS AX5 below the header.
+- Today's concept can differ from the Brief's on earnings-heavy or closed days.
+- Term search also matches definitions.
+- **Deferred:** new lessons and content (the reference's "What is a stock?", ETFs…), levels, bookmarks and share, deep links to a term (D-8).
+
+### 4. Environment at the end
+- No servers running.
+- emulator-5554: font 1.0, `wm size reset`, no `adb reverse`, Light.
+- iPhone 16: light, large, guest mode.
+
+### 5. Next steps
+1. Owner and ChatGPT review of `docs/reviews/phase5d_5_2/`.
+2. Merge or commit the flaky-test fix from worktree `charming-hodgkin-98e850` (owner decision).
+3. Optional:
+   - a learning-content phase (new lessons);
+   - term deep links;
+   - the iOS Home AX5 / history follow-up (proposed earlier).
 
 ## PHASE-5D-5-1C-2026-10-14. Daily Brief final polish (5D.5.1c) — Daily Brief CLOSED by the owner — START HERE
 
