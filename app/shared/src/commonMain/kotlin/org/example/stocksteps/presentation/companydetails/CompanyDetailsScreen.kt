@@ -3,7 +3,12 @@ package org.example.stocksteps.presentation.companydetails
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.launch
+import org.example.stocksteps.presentation.companydetails.CompanyDetailsPresentation.Section as PageSection
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,11 +41,13 @@ import org.example.stocksteps.resources.*
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Company Details (Global UI Refinement Phase 4C), one vertical page that answers a beginner's questions in order:
- * what company is this (header) → what is the price doing (price, status, chart, why it moved) → what are the important numbers (At a Glance
- * with ranges) → what do they mean (understand: assessment, insight, about, guided research) → valuation & financial health → earnings →
- * news. Each section loads and fails on its own; a value appears once (chart stats and key ratios skip what At a Glance shows).
+ * Company Details (Global UI Refinement Phase 4C; hierarchy 5D.5.4A), one vertical page that answers a beginner's questions in order:
+ * what company is this and what is the price doing (identity, price, chart with the day range) → actions → what the company does → the
+ * important numbers (At a Glance) → what they mean (Understand, then why it moved) → valuation & financial health → earnings → news → About →
+ * research further. A sticky section bar scrolls to Overview · Financials · News · About within the page (never a new screen). Each section
+ * loads and fails on its own; a value appears once. Every section is borderless (owner direction, as Daily Brief and Earnings).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun CompanyDetailsScreen(
     state: CompanyDetailsState,
@@ -63,6 +70,52 @@ internal fun CompanyDetailsScreen(
     var showSources by remember { mutableStateOf(false) }
     val content = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxWidth()
     val section = content.padding(top = spacing.sectionGap)
+    val why = state.whyMoving
+    val whatItDoes = overview?.let(CompanyDetailsPresentation::whatItDoes)
+    val pageSections = CompanyDetailsPresentation.sections(overview)
+    // One ordered list of page items, so the section bar knows where each section starts (plan §C).
+    val keys = buildList {
+        add("header"); add("chart")
+        if (overview != null) add("actions")
+        add("sections")
+        if (whatItDoes != null) add("what")
+        if (overview != null) { add("glance"); add("understand") }
+        if ((why is Section.Content && why.value != null) || why == Section.Unavailable) add("why")
+        if (overview != null) add("valuation")
+        if (earnings != null) add("earnings")
+        add("news")
+        if (PageSection.ABOUT in pageSections) add("about")
+        add("research"); add("disclaimer")
+    }
+    fun anchor(target: PageSection): Int = when (target) {
+        PageSection.OVERVIEW -> keys.indexOf("sections") + 1
+        PageSection.FINANCIALS -> keys.indexOf("valuation")
+        PageSection.NEWS -> keys.indexOf("news")
+        PageSection.ABOUT -> keys.indexOf("about")
+    }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var barHeight by remember { mutableIntStateOf(0) }
+    // The selected entry follows the scroll position: the last section whose top reached the bottom of the pinned bar (shared rule).
+    val selected by remember(keys, pageSections) {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val sticky = keys.indexOf("sections")
+            val tops = pageSections.associateWith { target ->
+                val index = anchor(target)
+                val item = info.visibleItemsInfo.firstOrNull { it.index == index && it.index != sticky }
+                when {
+                    item != null -> (item.offset - barHeight).toFloat()
+                    index < listState.firstVisibleItemIndex -> -1f
+                    else -> Float.MAX_VALUE
+                }
+            }
+            CompanyDetailsPresentation.selectedSection(tops, tolerance = 1f, atEnd = !listState.canScrollForward, viewport = info.viewportEndOffset.toFloat())
+        }
+    }
+    val scrollTo: (PageSection) -> Unit = { target ->
+        anchor(target).takeIf { it >= 0 }?.let { index -> scope.launch { listState.animateScrollToItem(index, -barHeight) } }
+    }
     Column(Modifier.fillMaxSize().background(StockStepsTheme.colors.appBackground)) {
         // Minimal bar: back and watchlist only; the company identity lives in the page header.
         StockStepsTopBar(
@@ -85,60 +138,60 @@ internal fun CompanyDetailsScreen(
         AdaptiveSinglePane(hinge) { region ->
             LazyColumn(
                 modifier = region,
+                state = listState,
                 contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, bottom = spacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                item(key = "header") {
-                    CompanyHeader(state.overview, showEarningsAction = earnings == null, onAction = onAction,
-                        onRetry = { onAction(CompanyDetailsAction.RetryCore) }, modifier = content)
-                }
-                item(key = "chart") {
-                    ChartSection(
-                        section = state.chart,
-                        issue = state.chartIssue,
-                        range = state.range,
-                        dayDirection = overview?.direction,
-                        quickStats = overview?.let(CompanyDetailsPresentation::chartStats),
-                        onSelect = { onAction(CompanyDetailsAction.SelectRange(it)) },
-                        onRetry = { onAction(CompanyDetailsAction.RetryChart) },
-                        modifier = content.padding(top = spacing.md)
-                    )
-                }
-                // Why it moved explains the price, so it follows the chart. Hidden while loading and when no source-backed explanation exists.
-                when (val why = state.whyMoving) {
-                    is Section.Content -> why.value?.let { value ->
-                        item(key = "why") { WhyMovingSection(value, onSources = { showSources = true }, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) },
-                            onMore = { onAction(CompanyDetailsAction.OpenMovement) }, modifier = section) }
-                    }
-                    Section.Unavailable -> item(key = "why") {
-                        SectionTitled(stringResource(Res.string.details_why_title), section) {
-                            StockCard { StockErrorState(stringResource(Res.string.details_why_unavailable), { onAction(CompanyDetailsAction.RetryWhyMoving) }) }
+                keys.forEach { key ->
+                    if (key == "sections") stickyHeader(key = key) {
+                        StockSectionBar(pageSections, selected, label = { it.label }, onSelect = scrollTo,
+                            modifier = content.background(StockStepsTheme.colors.appBackground).padding(top = spacing.sm).onSizeChanged { barHeight = it.height })
+                    } else item(key = key) {
+                        when (key) {
+                            "header" -> CompanyHeader(state.overview, onRetry = { onAction(CompanyDetailsAction.RetryCore) }, modifier = content)
+                            "chart" -> ChartSection(
+                                section = state.chart,
+                                issue = state.chartIssue,
+                                range = state.range,
+                                dayDirection = overview?.direction,
+                                quickStats = overview?.let(CompanyDetailsPresentation::chartStats),
+                                dayRange = overview?.dayRange,
+                                onSelect = { onAction(CompanyDetailsAction.SelectRange(it)) },
+                                onRetry = { onAction(CompanyDetailsAction.RetryChart) },
+                                modifier = content.padding(top = spacing.md)
+                            )
+                            "actions" -> CompanyActions(onAction, content.padding(top = spacing.md))
+                            "what" -> whatItDoes?.let { what ->
+                                WhatItDoesRow(what, onOpen = if (PageSection.ABOUT in pageSections) { { scrollTo(PageSection.ABOUT) } } else null,
+                                    modifier = content.padding(top = spacing.md))
+                            }
+                            "glance" -> overview?.let { GlanceSection(it, onExplain = { id -> education = id }, modifier = section) }
+                            "understand" -> overview?.let { UnderstandSection(it, onEvidence = { showEvidence = true }, onExplain = { id -> education = id }, modifier = section) }
+                            // Why it moved explains the price: after the numbers and what they mean (D-E5). Hidden while loading and when no
+                            // source-backed explanation exists.
+                            "why" -> when (why) {
+                                is Section.Content -> why.value?.let { value ->
+                                    WhyMovingSection(value, onSources = { showSources = true }, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) },
+                                        onMore = { onAction(CompanyDetailsAction.OpenMovement) }, modifier = section)
+                                }
+                                Section.Unavailable -> SectionTitled(stringResource(Res.string.details_why_title), section) {
+                                    StockCard(bordered = false) { StockErrorState(stringResource(Res.string.details_why_unavailable), { onAction(CompanyDetailsAction.RetryWhyMoving) }) }
+                                }
+                                Section.Loading -> Unit
+                            }
+                            "valuation" -> overview?.let {
+                                ValuationHealthSection(it, onUnderstand = { education = "pe" }, onValuation = { onAction(CompanyDetailsAction.OpenValuation) },
+                                    onFinancials = { onAction(CompanyDetailsAction.OpenFinancials) }, modifier = section)
+                            }
+                            "earnings" -> earnings?.let { e -> EarningsSection(e, earningsReminder, onAction, section) }
+                            "news" -> NewsSection(state.news, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) }, onRetry = { onAction(CompanyDetailsAction.RetryNews) },
+                                onViewAll = { onAction(CompanyDetailsAction.OpenNews) }, modifier = section)
+                            "about" -> overview?.let { AboutCard(it, section) }
+                            "research" -> ResearchSection(researchCompleted, practice = overview != null, showEarningsAction = earnings == null, onAction, section)
+                            "disclaimer" -> Text(stringResource(Res.string.details_disclaimer), modifier = content.padding(top = spacing.lg),
+                                style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textTertiary)
                         }
                     }
-                    Section.Loading -> Unit
-                }
-                overview?.let { data ->
-                    item(key = "glance") { GlanceSection(data, onExplain = { education = it }, modifier = section) }
-                    item(key = "understand") {
-                        UnderstandSection(data, researchCompleted, onExplain = { education = it }, onEvidence = { showEvidence = true },
-                            onResearch = { onAction(CompanyDetailsAction.Research) }, modifier = section)
-                    }
-                    item(key = "valuation") {
-                        ValuationHealthSection(data, onUnderstand = { education = "pe" }, onValuation = { onAction(CompanyDetailsAction.OpenValuation) },
-                            onFinancials = { onAction(CompanyDetailsAction.OpenFinancials) }, modifier = section)
-                    }
-                }
-                if (overview == null) {
-                    item(key = "research") { org.example.stocksteps.presentation.research.UnderstandStockCard(researchCompleted, { onAction(CompanyDetailsAction.Research) }, section) }
-                }
-                earnings?.let { e -> item(key = "earnings") { EarningsSection(e, earningsReminder, onAction, section) } }
-                item(key = "news") {
-                    NewsSection(state.news, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) }, onRetry = { onAction(CompanyDetailsAction.RetryNews) },
-                        onViewAll = { onAction(CompanyDetailsAction.OpenNews) }, modifier = section)
-                }
-                item(key = "disclaimer") {
-                    Text(stringResource(Res.string.details_disclaimer), modifier = content.padding(top = spacing.lg),
-                        style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textTertiary)
                 }
             }
         }
@@ -147,21 +200,51 @@ internal fun CompanyDetailsScreen(
         education?.let { id -> EducationSheet(id, overview, onDismiss = { education = null }, onLearn = { onAction(CompanyDetailsAction.LearnTerm(it)) }) }
         if (showEvidence) EvidenceSheet(overview.insightEvidence, onDismiss = { showEvidence = false })
     }
-    val why = (state.whyMoving as? Section.Content)?.value
-    if (showSources && why != null) {
-        SourcesSheet(why, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) }, onDismiss = { showSources = false })
+    val whyValue = (state.whyMoving as? Section.Content)?.value
+    if (showSources && whyValue != null) {
+        SourcesSheet(whyValue, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) }, onDismiss = { showSources = false })
+    }
+}
+
+/** "What Apple does": the first sentence of the description and "Sector · Industry"; tapping scrolls to About (D-E3: tags left the header). */
+@Composable
+private fun WhatItDoesRow(what: CompanyDetailsPresentation.WhatItDoes, onOpen: (() -> Unit)?, modifier: Modifier) {
+    val colors = StockStepsTheme.colors
+    val spacing = StockStepsTheme.spacing
+    StockCard(modifier, onClick = onOpen, onClickLabel = onOpen?.let { "Read more in About" }, bordered = false, contentPadding = PaddingValues(spacing.md)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+                Text(what.title, Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle, color = colors.textPrimary)
+                what.summary?.let { Text(it, style = StockStepsTheme.typography.small, color = colors.textBody) }
+                what.classification?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textMeta) }
+            }
+            if (onOpen != null) Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.iconSecondary,
+                modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+        }
     }
 }
 
 /**
- * Compact identity (logo, name that wraps, ticker · exchange, tags) and the price as the focal point: price, signed change with its session
- * ("Today" or the quote's date),
- * the US market status chip and the quote time; then the secondary actions, wrapping instead of scrolling sideways.
+ * Research further (D-E2): Guided Research and Practice Buy together as the learning actions, plus Earnings when the page has no Earnings
+ * section.
+ */
+@Composable
+private fun ResearchSection(researchCompleted: Int?, practice: Boolean, showEarningsAction: Boolean, onAction: (CompanyDetailsAction) -> Unit, modifier: Modifier) {
+    SectionTitled(CompanyDetailsPresentation.RESEARCH_TITLE, modifier) {
+        org.example.stocksteps.presentation.research.UnderstandStockCard(researchCompleted, { onAction(CompanyDetailsAction.Research) }, Modifier)
+        if (practice) StockButton("Practice Buy", { onAction(CompanyDetailsAction.PracticeBuy) }, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY)
+        if (showEarningsAction) StockButton("Earnings", { onAction(CompanyDetailsAction.Earnings) }, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY)
+    }
+}
+
+/**
+ * Compact identity (logo, name that wraps, ticker · exchange) and the price as the focal point: price, signed change with its session
+ * ("Today" or the quote's date), the US market status chip and the quote time. Sector and industry live in "What … does" and About (5D.5.4A,
+ * D-E3); the actions follow the chart.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CompanyHeader(section: Section<CompanyOverview>, showEarningsAction: Boolean, onAction: (CompanyDetailsAction) -> Unit,
-                          onRetry: () -> Unit, modifier: Modifier) {
+private fun CompanyHeader(section: Section<CompanyOverview>, onRetry: () -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
@@ -173,7 +256,7 @@ private fun CompanyHeader(section: Section<CompanyOverview>, showEarningsAction:
                 StockSkeleton(Modifier.fillMaxWidth(0.3f).height(StockStepsTheme.dimensions.touchTarget / 2))
             }
         }
-        Section.Unavailable -> StockCard(modifier.padding(top = spacing.sm)) { StockErrorState(stringResource(Res.string.details_unavailable), onRetry) }
+        Section.Unavailable -> StockCard(modifier.padding(top = spacing.sm), bordered = false) { StockErrorState(stringResource(Res.string.details_unavailable), onRetry) }
         is Section.Content -> {
             val overview = section.value
             Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
@@ -182,11 +265,6 @@ private fun CompanyHeader(section: Section<CompanyOverview>, showEarningsAction:
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                         Text(overview.name, modifier = Modifier.semantics { heading() }, style = typography.sectionTitle, color = colors.textTitle)
                         Text(overview.listing, style = typography.small, color = colors.textSupporting)
-                    }
-                }
-                if (overview.tags.isNotEmpty()) {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                        overview.tags.forEach { StockTag(it) }
                     }
                 }
                 // Price block: the price is the focal point; the session chip sits beside it (never inside the green/red change line);
@@ -215,19 +293,18 @@ private fun CompanyHeader(section: Section<CompanyOverview>, showEarningsAction:
                     }
                     updated?.let { Text(stringResource(Res.string.details_updated, it), style = typography.caption, color = colors.textMeta) }
                 }
-                CompanyActions(showEarningsAction, onAction, Modifier.padding(top = spacing.sm))
             }
         }
     }
 }
 
 /**
- * Header actions: Add to portfolio (primary) and Compare side by side, Practice Buy full width below. The pair shares a row only while both
- * measured labels fit their equal share (shared `StockActionLayout`, same rule as iOS, Phase 4C.3); at large font scale or on narrow widths
- * every action takes its own full-width row, so labels never clip or wrap. Earnings is offered here only when the page has no Earnings section.
+ * Actions after the chart (5D.5.4A, D-E2): Add to portfolio (primary) and Compare share a row only while both measured labels fit their equal
+ * share (shared `StockActionLayout`, same rule as iOS, Phase 4C.3); at large font scale or on narrow widths each takes its own full-width row,
+ * so labels never clip or wrap. Practice Buy and Earnings moved to Research further.
  */
 @Composable
-private fun CompanyActions(showEarningsAction: Boolean, onAction: (CompanyDetailsAction) -> Unit, modifier: Modifier) {
+private fun CompanyActions(onAction: (CompanyDetailsAction) -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
     val density = androidx.compose.ui.platform.LocalDensity.current
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
@@ -238,19 +315,18 @@ private fun CompanyActions(showEarningsAction: Boolean, onAction: (CompanyDetail
         val widths = listOf("Add to portfolio", "Compare").map { with(density) { measurer.measure(it, labelStyle).size.width.toDp().value } }
         val sideBySide = org.example.stocksteps.theme.StockActionLayout.sideBySide(widths, maxWidth.value, spacing.lg.value, spacing.sm.value,
             accessibilityText = density.fontScale >= StockStepsTheme.dimensions.largeFontScale)
-        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            if (sideBySide) Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                add(Modifier.weight(1f)); compare(Modifier.weight(1f))
-            } else {
-                add(Modifier.fillMaxWidth()); compare(Modifier.fillMaxWidth())
-            }
-            StockButton("Practice Buy", { onAction(CompanyDetailsAction.PracticeBuy) }, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY)
-            if (showEarningsAction) StockButton("Earnings", { onAction(CompanyDetailsAction.Earnings) }, Modifier.fillMaxWidth(), variant = StockButtonVariant.SECONDARY)
+        if (sideBySide) Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            add(Modifier.weight(1f)); compare(Modifier.weight(1f))
+        } else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            add(Modifier.fillMaxWidth()); compare(Modifier.fillMaxWidth())
         }
     }
 }
 
-/** Range selector, chart (touch to inspect) and the quote stats, grouped on one surface. */
+/**
+ * Range selector, chart (touch to inspect), the quote stats and the day range, grouped on one borderless surface (5D.5.4A). The stats are a
+ * `StockMetricGrid` (label above value; one column at large text) so a value never splits mid-word; High/Low are the Day Range bar (D-E4).
+ */
 @Composable
 private fun ChartSection(
     section: Section<PriceChart>,
@@ -258,13 +334,14 @@ private fun ChartSection(
     range: ChartRange,
     dayDirection: PriceDirection?,
     quickStats: List<InfoRow>?,
+    dayRange: RangeSummary?,
     onSelect: (ChartRange) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
-    StockCard(modifier, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm)) {
+    StockCard(modifier, bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm)) {
         StockPillSelector(ChartRange.entries, range, label = { it.label }, onSelect = onSelect)
         val chart = (section as? Section.Content)?.value
         val summary = remember(chart, dayDirection) { chart?.let { ChartPresentation.summary(it.points, range, dayDirection) } }
@@ -295,13 +372,14 @@ private fun ChartSection(
             StockLineChart(summary.closes, summary.direction, summary.yLabels, summary.xLabels, summary.description,
                 Modifier.fillMaxWidth().padding(top = spacing.xs).height(StockStepsTheme.dimensions.chartHeight), onScrub = { scrub = it })
         }
+        if (!quickStats.isNullOrEmpty() || dayRange != null) StockDivider(Modifier.padding(top = spacing.sm))
         if (!quickStats.isNullOrEmpty()) {
-            StockDivider(Modifier.padding(top = spacing.sm))
-            Row(Modifier.padding(top = spacing.xxs), horizontalArrangement = Arrangement.spacedBy(spacing.lg)) {
-                quickStats.chunked((quickStats.size + 1) / 2).forEach { column ->
-                    Column(Modifier.weight(1f)) { column.forEach { StockInfoRow(it.label, it.value, compact = true) } }
-                }
-            }
+            StockMetricGrid(quickStats.map { StockMetricItem(it.label, it.value, quiet = true) }, Modifier.padding(top = spacing.sm), maxColumns = 2)
+        }
+        dayRange?.let { range ->
+            val title = stringResource(Res.string.details_day_range)
+            StockRangeBar(title, range.low, range.high, range.position, stringResource(Res.string.details_range_a11y, title, range.low, range.high),
+                Modifier.padding(top = spacing.sm, bottom = spacing.xs))
         }
     }
 }
@@ -362,14 +440,14 @@ private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (Str
 
 /**
  * At a Glance: the key metrics in one `StockMetricGrid` (two columns, one at large text; values never truncate — qualifiers such as "(YoY)"
- * move to the supporting line) and the 52-week / day ranges under a divider. Tapping a metric opens its plain-English explanation.
+ * move to the supporting line) and the 52-week range under a divider. Tapping a metric opens its plain-English explanation.
  */
 @Composable
 private fun GlanceSection(data: CompanyOverview, onExplain: (String) -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
     val learn = stringResource(Res.string.details_learn_more)
     SectionTitled(stringResource(Res.string.details_glance_title), modifier) {
-        StockCard(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             StockMetricGrid(data.glance.map { metric ->
                 val shown = CompanyDetailsPresentation.glance(metric)
                 // 5D.5.3 (D-C2): a small ⓘ marks metrics with a Learn term; the whole tile stays the 48 dp target.
@@ -377,35 +455,27 @@ private fun GlanceSection(data: CompanyOverview, onExplain: (String) -> Unit, mo
                     onClick = metric.educationId?.let { id -> { onExplain(id) } }, onClickLabel = learn,
                     info = metric.educationId?.let(org.example.stocksteps.learning.MetricLearnTerms::hasTerm) == true)
             }, maxColumns = 2)
-            if (data.yearRange != null || data.dayRange != null) {
+            // The day range sits with the chart (5D.5.4A); the 52-week range stays here.
+            data.yearRange?.let { range ->
                 StockDivider()
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                    data.yearRange?.let { range ->
-                        val title = stringResource(Res.string.details_year_range)
-                        StockRangeBar(title, range.low, range.high, range.position, stringResource(Res.string.details_range_a11y, title, range.low, range.high))
-                    }
-                    data.dayRange?.let { range ->
-                        val title = stringResource(Res.string.details_day_range)
-                        StockRangeBar(title, range.low, range.high, range.position, stringResource(Res.string.details_range_a11y, title, range.low, range.high))
-                    }
-                }
+                val title = stringResource(Res.string.details_year_range)
+                StockRangeBar(title, range.low, range.high, range.position, stringResource(Res.string.details_range_a11y, title, range.low, range.high))
             }
         }
     }
 }
 
 /**
- * "Understand <company>": the factual assessment rows, the beginner insight, About (description with Show more, country, sector and
- * industry once as rows plus the context sentence) and the Guided Research entry. Facts first, interpretation second, education last.
+ * "Understand <company>": the factual assessment rows and the beginner insight. Facts first, interpretation second; About and Guided Research
+ * have their own sections further down (5D.5.4A).
  */
 @Composable
-private fun UnderstandSection(data: CompanyOverview, researchCompleted: Int?, onExplain: (String) -> Unit, onEvidence: () -> Unit,
-                              onResearch: () -> Unit, modifier: Modifier) {
+private fun UnderstandSection(data: CompanyOverview, onExplain: (String) -> Unit, onEvidence: () -> Unit, modifier: Modifier) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     SectionTitled(CompanyDetailsPresentation.understandTitle(data), modifier) {
         if (data.assessment.isNotEmpty()) {
-            StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
+            StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
                 data.assessment.forEachIndexed { index, row ->
                     if (index > 0) StockDivider()
                     val (icon, container, tint) = when (row.id) {
@@ -431,17 +501,16 @@ private fun UnderstandSection(data: CompanyOverview, researchCompleted: Int?, on
                 onClick = onEvidence
             )
         }
-        if (data.about != null || data.country != null || data.sector != null) AboutCard(data)
-        org.example.stocksteps.presentation.research.UnderstandStockCard(researchCompleted, onResearch, Modifier)
     }
 }
 
+/** About (description with See more, country, sector and industry once as rows plus the context sentence); its own section since 5D.5.4A. */
 @Composable
-private fun AboutCard(data: CompanyOverview) {
+private fun AboutCard(data: CompanyOverview, modifier: Modifier) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     var expanded by rememberSaveable(data.symbol) { mutableStateOf(false) }
-    StockCard(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+    StockCard(modifier, bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         StockSectionHeader(
             title = stringResource(Res.string.details_about_title, data.shortName),
             actionText = data.aboutFull?.let { stringResource(if (expanded) Res.string.details_see_less else Res.string.details_see_more) },
@@ -477,7 +546,7 @@ private fun ValuationHealthSection(data: CompanyOverview, onUnderstand: () -> Un
     val spacing = StockStepsTheme.spacing
     val valuation = data.valuation
     SectionTitled(CompanyDetailsPresentation.VALUATION_HEALTH_TITLE, modifier) {
-        StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             StockSectionHeader(stringResource(Res.string.details_valuation_title))
             if (valuation == null) {
                 StockEmptyState(stringResource(Res.string.details_valuation_unavailable))
@@ -505,7 +574,7 @@ private fun ValuationHealthSection(data: CompanyOverview, onUnderstand: () -> Un
         }
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             StockSectionHeader(stringResource(Res.string.details_highlights_title), actionText = stringResource(Res.string.details_see_financials), onActionClick = onFinancials)
-            StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
+            StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
                 if (data.highlights.isEmpty()) {
                     StockEmptyState(stringResource(Res.string.details_highlights_unavailable), Modifier.padding(vertical = spacing.sm))
                 } else {
@@ -521,7 +590,7 @@ private fun ValuationHealthSection(data: CompanyOverview, onUnderstand: () -> Un
         if (ratios.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 StockSectionHeader(stringResource(Res.string.details_key_ratios))
-                StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
+                StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
                     ratios.forEach { StockInfoRow(it.label, it.value, compact = true) }
                 }
             }
@@ -539,7 +608,7 @@ private fun NewsSection(news: Section<List<NewsUiModel>>, onOpen: (String) -> Un
             actionText = if (hasNews) stringResource(Res.string.details_view_all_news) else null,
             onActionClick = if (hasNews) onViewAll else null
         )
-        StockCard(contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
+        StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
             when (news) {
                 Section.Loading -> StockLoadingState { Column { repeat(2) { StockNewsCardSkeleton() } } }
                 Section.Unavailable -> StockErrorState(stringResource(Res.string.home_news_unavailable), onRetry, Modifier.padding(vertical = spacing.sm))
@@ -562,7 +631,7 @@ private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarnin
     val error = state.error
     val dateText = state.dateText
     SectionTitled("Earnings", modifier) {
-        StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        StockCard(Modifier.fillMaxWidth(), bordered = false, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
             when {
                 state.loading -> Text("Loading the next earnings date…", style = typography.small, color = colors.textSecondary)
                 error != null -> StockErrorState(error, { onAction(CompanyDetailsAction.RetryEarnings) })

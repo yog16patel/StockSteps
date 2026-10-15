@@ -92,9 +92,20 @@ struct StockRangeBar: View {
 /// Dragging reveals the point under the finger through `onScrub`.
 struct StockLineChart: View {
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
     let summary: ChartSummary
     var onScrub: (Int?) -> Void = { _ in }
+    /// 5D.5.4A: at accessibility sizes keep only the first and last time labels and stop the axis labels growing past AX1, so dates never
+    /// truncate ("Se… Oc…") and the plot keeps its width. Default off (unchanged elsewhere).
+    var compactAxisAtLargeText = false
     @State private var touched: Int?
+
+    private var compactAxis: Bool { compactAxisAtLargeText && typeSize.isAccessibilitySize }
+    private var xLabels: [String] {
+        let all = summary.xLabels
+        guard compactAxis, all.count > 2, let first = all.first, let last = all.last else { return all }
+        return [first, last]
+    }
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
@@ -160,14 +171,16 @@ struct StockLineChart: View {
                     }
                 }
                 .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)
+                .dynamicTypeSize(compactAxisAtLargeText ? ...DynamicTypeSize.accessibility1 : ...DynamicTypeSize.accessibility5)
             }
             HStack {
-                ForEach(Array(summary.xLabels.enumerated()), id: \.offset) { index, label in
+                ForEach(Array(xLabels.enumerated()), id: \.offset) { index, label in
                     if index > 0 { Spacer(minLength: 0) }
                     Text(label).lineLimit(1)
                 }
             }
             .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)
+            .dynamicTypeSize(compactAxisAtLargeText ? ...DynamicTypeSize.accessibility1 : ...DynamicTypeSize.accessibility5)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(summary.description_)
@@ -192,12 +205,14 @@ struct StockAssessmentRow: View {
         let content = HStack(spacing: CGFloat(space.md)) {
             StockIconTile(systemName: systemName, container: iconContainer, content: iconContent)
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                // Short badges share the title's line while both fit; otherwise — and always for long badges such as "More cash than debt"
-                // (shared `StockBadgeLayout`, Phase 4C.3) — the badge sits below, so it never squeezes the title or breaks it mid-word.
+                // Short badges share the title's line while both fit; otherwise — and always for badges over the shared `StockBadgeLayout` limit
+                // (Phase 4C.3; 20 characters since 5D.5.4A) — the badge sits below, so it never squeezes the title or breaks it mid-word.
                 if badge.map({ StockBadgeLayout.shared.mayShareTitleLine(badge: $0) }) ?? true {
                     ViewThatFits(in: .horizontal) {
+                        // Side by side only when the whole title and the whole pill fit on one line (both fixed), so ViewThatFits never
+                        // squeezes the title ("Financial He…") or picks the wrapping fallback here.
                         HStack(spacing: CGFloat(space.sm)) {
-                            Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+                            Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).lineLimit(1).fixedSize()
                             Spacer(minLength: 0)
                             if let badge { StockBadge(text: badge, tone: tone) }
                         }
@@ -211,6 +226,9 @@ struct StockAssessmentRow: View {
                     Text(note).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
                 }
             }
+            // 5D.5.4A: the text column always fills the row, leading-aligned. A stacked badge has no Spacer, so the row was narrower and the
+            // list centred it ("Financial Health" sat further right than the other rows).
+            .frame(maxWidth: .infinity, alignment: .leading)
             if action != nil {
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(colors.iconSecondary).accessibilityHidden(true)
             }
@@ -227,8 +245,22 @@ struct StockAssessmentRow: View {
 
     private func stackedTitle(_ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-            Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
-            if let badge { StockBadge(text: badge, tone: tone) }
+            // Inside ViewThatFits the title would be held to one line ("Financial He…"); it wraps between words instead.
+            Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).fixedSize(horizontal: false, vertical: true)
+            if let badge { rowBadge(badge) }
+        }
+    }
+
+    /// The pill when it fits, then the compact pill; if neither fits the column beside the icon (a long badge such as "More debt than cash" at
+    /// AX5), the same words as tinted text that wraps between words — the pill never wraps, and a fixed-width pill pushed the whole row past
+    /// the screen edge (5D.5.4A).
+    private func rowBadge(_ text: String) -> some View {
+        let style = StockSemanticStyles.shared.badge(kind: tone.badgeKind, p: StockStepsTheme.palette(scheme))
+        return ViewThatFits(in: .horizontal) {
+            StockBadge(text: text, tone: tone)
+            StockStatusBadge(text: text, kind: tone.badgeKind, size: .compact)
+            Text(verbatim: text).font(StockStepsTheme.font(type.label)).foregroundStyle(StockStepsTheme.color(style.content))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -315,6 +347,44 @@ struct StockFadingScrollRow<Item: Hashable, Content: View>: View {
             .onAppear { if let selected { proxy.scrollTo(selected) } }
             .onChange(of: selected) { _, item in if let item { withAnimation { proxy.scrollTo(item) } } }
         }
+    }
+}
+
+/// In-page section bar (Phase 5D.5.4A, Company Details; mirrors Compose `StockSectionBar`): text tabs with an underline under the selected
+/// one; tapping scrolls the page, never opens a screen. Natural-width labels in a fading scroll row, so they never clip at large sizes;
+/// 44 pt+ targets, read as tabs with the selected state; a hairline below separates the bar from the content.
+struct StockSectionBar<Item: Hashable>: View {
+    @Environment(\.colorScheme) private var scheme
+    let items: [Item]
+    let selected: Item
+    let label: (Item) -> String
+    let onSelect: (Item) -> Void
+
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        VStack(spacing: 0) {
+            StockFadingScrollRow(items: items, selected: selected, spacing: CGFloat(space.lg)) { item in
+                let isSelected = item == selected
+                Button { onSelect(item) } label: {
+                    VStack(spacing: CGFloat(space.xs)) {
+                        Text(label(item))
+                            .font(StockStepsTheme.font(isSelected ? type.bodySemiBold : type.body))
+                            .foregroundStyle(isSelected ? colors.primaryText : colors.textSecondary)
+                            .lineLimit(1).fixedSize()
+                        Capsule().fill(isSelected ? colors.primaryText : Color.clear).frame(height: 3)
+                    }
+                    .padding(.top, CGFloat(space.sm))
+                    .frame(minHeight: CGFloat(dims.touchTarget), alignment: .bottom)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
+            }
+            StockDivider()
+        }
+        .background(colors.appBackground)
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isTabBar)
     }
 }
 

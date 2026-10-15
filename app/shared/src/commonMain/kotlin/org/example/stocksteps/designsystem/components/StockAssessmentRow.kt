@@ -56,8 +56,8 @@ internal fun StockAssessmentRow(
     ) {
         StockIconTile(icon, iconContainer, iconContent)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            // Short badges share the title's line while both fit (badge at the end); otherwise — and always for long badges such as "More cash
-            // than debt" (shared `StockBadgeLayout`, Phase 4C.3) — the badge sits below, so it never squeezes the title or breaks it mid-word.
+            // Short badges share the title's line while both fit (badge at the end); otherwise — and always for badges over the shared
+            // `StockBadgeLayout` limit (Phase 4C.3; 20 characters since 5D.5.4A) — the badge sits below, so it never squeezes the title or breaks it mid-word.
             if (badge == null || StockBadgeLayout.mayShareTitleLine(badge)) {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(spacing.xxs),
                     itemVerticalAlignment = Alignment.CenterVertically) {

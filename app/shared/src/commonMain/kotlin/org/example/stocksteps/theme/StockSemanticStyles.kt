@@ -92,12 +92,13 @@ object StockActionLayout {
 }
 
 /**
- * Where a status badge sits next to a row title (Phase 4C.3): short badges ("High margin", "Near History") may share the title's line when it
- * fits; long ones ("More cash than debt") always go below the title so they never squeeze it. Character count, not pixels, so both platforms
- * decide the same way at every text size; the fit check stays with each layout.
+ * Where a status badge sits next to a row title (Phase 4C.3; 5D.5.4A owner direction): badges up to [INLINE_MAX_CHARACTERS] ("High margin",
+ * "Near History", "More debt than cash") may share the title's line, at its end like the other rows, when both fit; longer ones always go below
+ * the title so they never squeeze it. Character count, not pixels, so both platforms decide the same way; the fit check stays with each layout
+ * (Compose FlowRow wraps the badge, SwiftUI ViewThatFits stacks it), so at large text a badge that doesn't fit still moves below the title.
  */
 object StockBadgeLayout {
-    const val INLINE_MAX_CHARACTERS = 14
+    const val INLINE_MAX_CHARACTERS = 20
 
     fun mayShareTitleLine(badge: String): Boolean = badge.trim().length <= INLINE_MAX_CHARACTERS
 }

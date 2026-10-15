@@ -26,10 +26,12 @@ class ResponsiveLayoutRulesTest {
         val short = listOf("Growing", "Growing fast", "Shrinking", "High margin", "Profitable", "Thin margin", "Losing money",
             "Near History", "Above History", "Below History")
         short.forEach { assertTrue(StockBadgeLayout.mayShareTitleLine(it), it) }
-        // Both Financial Health labels are long and always go below "Financial Health".
+        // 5D.5.4A: both Financial Health labels share the title's line like the other badges (each layout still stacks them when they don't fit).
         listOf(AssessmentRules.health(2.0, 1.0).first, AssessmentRules.health(1.0, 2.0).first).forEach {
-            assertFalse(StockBadgeLayout.mayShareTitleLine(it), it)
+            assertTrue(StockBadgeLayout.mayShareTitleLine(it), it)
         }
+        // Anything longer than the limit always goes below the title.
+        assertFalse(StockBadgeLayout.mayShareTitleLine("Much more debt than cash today"))
     }
 
     @Test

@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.Text
@@ -163,3 +165,38 @@ internal fun <T> StockFadingScrollRow(items: List<T>, selected: T?, modifier: Mo
     }
 }
 
+
+/**
+ * In-page section bar (Phase 5D.5.4A, Company Details): text tabs with an underline under the selected one; tapping scrolls the page, it
+ * never opens a screen. Natural-width labels that scroll horizontally (with the shared fade) when they don't fit — at large font scale they
+ * never clip or wrap. 48dp targets, announced as tabs with their selected state; a hairline below separates the bar from the content.
+ */
+@Composable
+internal fun <T> StockSectionBar(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit, modifier: Modifier = Modifier) {
+    val colors = StockStepsTheme.colors
+    val spacing = StockStepsTheme.spacing
+    androidx.compose.foundation.layout.Column(modifier.fillMaxWidth().background(colors.appBackground)) {
+        StockFadingScrollRow(options, selected, Modifier.selectableGroup(), spacing.lg) { option, itemModifier ->
+            val isSelected = option == selected
+            androidx.compose.foundation.layout.Column(
+                itemModifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
+                    .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(option) }),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                Text(
+                    text = label(option),
+                    modifier = Modifier.padding(top = spacing.sm, bottom = spacing.xs),
+                    style = if (isSelected) StockStepsTheme.typography.bodySemiBold else StockStepsTheme.typography.body,
+                    color = if (isSelected) colors.primaryText else colors.textSecondary,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Box(
+                    Modifier.fillMaxWidth().height(3.dp).clip(StockStepsTheme.shapes.pill)
+                        .background(if (isSelected) colors.primaryText else Color.Transparent)
+                )
+            }
+        }
+        StockDivider()
+    }
+}

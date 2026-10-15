@@ -107,9 +107,70 @@ object CompanyDetailsPresentation {
         return GlanceDisplay(match.groupValues[1], listOf(qualifier, metric.helper).filter { it.isNotBlank() }.joinToString(" · "))
     }
 
-    /** Quote stats under the chart without Market Cap and P/E, which At a Glance already shows. */
-    fun chartStats(overview: CompanyOverview): List<InfoRow> = overview.quickStats.filter { it.label !in CHART_STATS_IN_GLANCE }
+    /**
+     * Quote stats under the chart without Market Cap and P/E, which At a Glance already shows, and (5D.5.4A, D-E4) without High and Low
+     * while the Day Range bar beside the chart shows them; without a day range they stay, so no value disappears.
+     */
+    fun chartStats(overview: CompanyOverview): List<InfoRow> = overview.quickStats.filter {
+        it.label !in CHART_STATS_IN_GLANCE && (overview.dayRange == null || it.label !in CHART_STATS_IN_DAY_RANGE)
+    }
     private val CHART_STATS_IN_GLANCE = setOf("Market Cap", "P/E")
+    private val CHART_STATS_IN_DAY_RANGE = setOf("High", "Low")
+
+    // ---------- Page sections (5D.5.4A) ----------
+
+    /** In-page section bar entries (D-E1): each scrolls to its section on this page; none opens a new screen. */
+    enum class Section(val label: String) { OVERVIEW("Overview"), FINANCIALS("Financials"), NEWS("News"), ABOUT("About") }
+
+    /** The bar's entries in page order; Financials and About only when the page shows those sections (never a tab that scrolls nowhere). */
+    fun sections(overview: CompanyOverview?): List<Section> = listOfNotNull(
+        Section.OVERVIEW,
+        Section.FINANCIALS.takeIf { overview != null },
+        Section.NEWS,
+        Section.ABOUT.takeIf { overview != null && hasAbout(overview) }
+    )
+
+    /** The About section exists when there is a description, country or classification. */
+    fun hasAbout(overview: CompanyOverview): Boolean = overview.about != null || overview.country != null || overview.sector != null
+
+    /**
+     * The selected entry for the current scroll position, shared by both platforms: [tops] is each present section's top relative to the bottom
+     * of the pinned bar (≤ [tolerance] means it reached the bar). The last section that reached it wins; Overview before any did. At the end of
+     * the page ([atEnd]) the last section whose top is on screen ([viewport]) wins, so a short final section can still be selected.
+     */
+    fun selectedSection(tops: Map<Section, Float>, tolerance: Float, atEnd: Boolean = false, viewport: Float = Float.MAX_VALUE): Section {
+        val ordered = Section.entries.filter { it in tops }
+        if (atEnd) ordered.lastOrNull { (tops[it] ?: Float.MAX_VALUE) < viewport }?.let { return it }
+        return ordered.lastOrNull { (tops[it] ?: Float.MAX_VALUE) <= tolerance } ?: Section.OVERVIEW
+    }
+
+    // ---------- What the company does (5D.5.4A) ----------
+
+    /** "What Apple does": the first sentence of the existing description and "Sector · Industry"; null when neither exists. */
+    data class WhatItDoes(val title: String, val summary: String?, val classification: String?)
+
+    fun whatItDoes(overview: CompanyOverview): WhatItDoes? {
+        val summary = overview.about?.let(::firstSentence)
+        val classification = listOfNotNull(overview.sector, overview.industry).joinToString(" · ").ifBlank { null }
+        if (summary == null && classification == null) return null
+        return WhatItDoes("What ${overview.shortName} does", summary, classification)
+    }
+
+    /**
+     * The first sentence of [text] (the existing description, never reworded): it ends at ".", "!" or "?" followed by a space and a capital,
+     * except after a known abbreviation ("Apple Inc. is…"), an initialism ("U.S.") or a single initial; the whole text when no such end exists.
+     */
+    fun firstSentence(text: String): String? {
+        val trimmed = text.trim().ifEmpty { return null }
+        Regex("""[.!?](?=\s+[A-Z0-9“"])""").findAll(trimmed).forEach { match ->
+            val before = trimmed.substring(0, match.range.first).substringAfterLast(' ').trimStart('(', '“', '"')
+            if (before.length > 1 && '.' !in before && before.lowercase() !in ABBREVIATIONS) return trimmed.substring(0, match.range.last + 1)
+        }
+        return trimmed
+    }
+    private val ABBREVIATIONS = setOf("inc", "corp", "co", "ltd", "plc", "llc", "lp", "s.a", "n.v", "ag", "u.s", "u.k", "mr", "mrs", "ms", "dr", "st",
+        "jr", "sr", "no", "vs", "etc", "e.g", "i.e", "approx", "dept", "est", "fig", "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept",
+        "oct", "nov", "dec")
 
     /** Key ratios without the ones At a Glance already shows (same label), so a value appears once. */
     fun keyRatios(overview: CompanyOverview): List<InfoRow> {

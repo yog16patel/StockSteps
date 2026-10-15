@@ -6,6 +6,15 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-15 — Phase 5D.5.4A Company Details hierarchy (committed locally as "Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS"; not pushed).**
+- Header without tags; borderless chart with Open/Volume and the Day Range.
+- One action row; Practice Buy in "Research further".
+- Pinned in-page section bar (Overview · Financials · News · About).
+- "What … does" row; new order; borderless sections.
+- Long badges share the title line (shared rule 14 → 20 characters).
+- Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; plan `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`.
+- **Outstanding:** screen readers; iOS signed-in. **Next:** owner review, push, then 5D.5.4B.
+
 **2026-10-15 — Phase 5D.5.3 contextual learning CLOSED (owner approval).**
 - Implementation `3b7a7f5` (pushed). Closure verification: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` §8.
   - Android dark via the in-app theme: PASS.

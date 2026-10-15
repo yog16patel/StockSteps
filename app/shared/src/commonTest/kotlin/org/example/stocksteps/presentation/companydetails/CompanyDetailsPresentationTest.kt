@@ -6,6 +6,7 @@ import org.example.stocksteps.companydetail.InfoRow
 import org.example.stocksteps.companydetail.PriceDirection
 import org.example.stocksteps.model.MarketStatus
 import org.example.stocksteps.presentation.markets.MarketsScreenPresentation.StatusDot
+import org.example.stocksteps.presentation.companydetails.CompanyDetailsPresentation.Section as s
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -54,6 +55,56 @@ class CompanyDetailsPresentationTest {
         )
         assertEquals(listOf("Open", "Volume"), present.chartStats(data).map { it.label })
         assertEquals(listOf("Price to Sales"), present.keyRatios(data).map { it.label })
+    }
+
+    @Test
+    fun chartHighAndLowGiveWayToTheDayRangeOnlyWhenItExists() {
+        val stats = listOf(InfoRow("Open", "$333.74"), InfoRow("High", "$338.67"), InfoRow("Low", "$332.78"), InfoRow("Volume", "6.9M"),
+            InfoRow("Market Cap", "$127.2B"), InfoRow("P/E", "28.0"))
+        val withRange = overview(quickStats = stats).copy(dayRange = org.example.stocksteps.companydetail.RangeSummary("$332.78", "$338.67", 0.6f))
+        assertEquals(listOf("Open", "Volume"), present.chartStats(withRange).map { it.label })
+        // Without a day range nothing disappears: High and Low stay under the chart.
+        assertEquals(listOf("Open", "High", "Low", "Volume"), present.chartStats(overview(quickStats = stats)).map { it.label })
+    }
+
+    @Test
+    fun sectionBarListsOnlySectionsThePageShows() {
+        val all = CompanyDetailsPresentation.Section.entries
+        assertEquals(all, present.sections(overview().copy(about = "Apple Inc. designs devices.")))
+        // Before the overview loads only Overview and News exist.
+        assertEquals(listOf(CompanyDetailsPresentation.Section.OVERVIEW, CompanyDetailsPresentation.Section.NEWS), present.sections(null))
+        // No description, country or classification → no About entry.
+        assertEquals(all - CompanyDetailsPresentation.Section.ABOUT, present.sections(overview(sector = null, industry = null)))
+        assertEquals(listOf("Overview", "Financials", "News", "About"), all.map { it.label })
+    }
+
+    @Test
+    fun selectedSectionIsTheLastOneThatReachedTheBar() {
+        val tops = mapOf(s.OVERVIEW to -900f, s.FINANCIALS to -10f, s.NEWS to 400f, s.ABOUT to 1600f)
+        assertEquals(s.FINANCIALS, present.selectedSection(tops, tolerance = 1f))
+        assertEquals(s.OVERVIEW, present.selectedSection(mapOf(s.OVERVIEW to 20f, s.FINANCIALS to 700f), tolerance = 1f))
+        // At the end of the page a short last section that can't reach the bar is still selectable once it is on screen.
+        assertEquals(s.ABOUT, present.selectedSection(tops, tolerance = 1f, atEnd = true, viewport = 1700f))
+        assertEquals(s.NEWS, present.selectedSection(tops, tolerance = 1f, atEnd = true, viewport = 1000f))
+        // Sections that aren't on the page are never selected.
+        assertEquals(s.NEWS, present.selectedSection(mapOf(s.OVERVIEW to -500f, s.NEWS to -5f), tolerance = 1f))
+    }
+
+    @Test
+    fun whatItDoesUsesTheFirstSentenceAndClassificationVerbatim() {
+        val apple = overview().copy(about = "Apple Inc. is a global technology corporation. It sells iPhone, Mac and services worldwide.")
+        val what = present.whatItDoes(apple)!!
+        assertEquals("What Apple does", what.title)
+        // "Inc." is not a sentence end.
+        assertEquals("Apple Inc. is a global technology corporation.", what.summary)
+        assertEquals("Technology · Consumer Electronics", what.classification)
+        assertEquals("One sentence without an end", present.firstSentence("One sentence without an end"))
+        assertEquals("J.P. Morgan Chase & Co. is a bank.", present.firstSentence("J.P. Morgan Chase & Co. is a bank. It lends."))
+        assertEquals("Sales rose 5.2% in the U.S. market.", present.firstSentence("Sales rose 5.2% in the U.S. market. Costs fell."))
+        // Classification only, description only, neither.
+        assertEquals(CompanyDetailsPresentation.WhatItDoes("What Apple does", null, "Technology · Consumer Electronics"), present.whatItDoes(overview()))
+        assertEquals("Apple makes phones.", present.whatItDoes(overview(sector = null, industry = null).copy(about = "Apple makes phones."))?.summary)
+        assertNull(present.whatItDoes(overview(sector = null, industry = null)))
     }
 
     @Test

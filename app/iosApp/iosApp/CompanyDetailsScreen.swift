@@ -1,9 +1,11 @@
 import Shared
 import SwiftUI
 
-/// Company Details: one scrolling page ordered for beginners — identity, price, chart and quote
-/// stats, why it moved, at a glance, how it looks, insight, about, highlights, valuation,
-/// ranges, key ratios, sector, news. Sections load and fail independently.
+typealias PageSection = CompanyDetailsPresentation.Section
+
+/// Company Details (hierarchy 5D.5.4A, mirrors Compose): identity and price → chart with the day range → actions → pinned section bar
+/// (Overview · Financials · News · About, scrolling within the page) → what the company does → At a Glance → Understand → why it moved →
+/// valuation & financial health → earnings → news → About → research further. Sections load and fail independently; all are borderless.
 struct CompanyDetailsScreen: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -40,6 +42,16 @@ struct CompanyDetailsScreen: View {
     @State private var aboutExpanded = false
     @State private var scrub: Int?
     @State private var actionsWidth: CGFloat = 0
+    /// Section bar (5D.5.4A): each anchor's top in the scroll view, the pinned bar's frame, the viewport height and whether the page is at its end.
+    @State private var anchorTops: [PageSection: CGFloat] = [:]
+    @State private var barFrame: CGRect = .zero
+    @State private var viewport: CGFloat = 0
+    @State private var atEnd = false
+    @State private var pageWidth: CGFloat = 0
+    /// The content column: the screen minus the side gutters, at most `contentMaxWidth` (nil until measured).
+    private var contentWidth: CGFloat? {
+        pageWidth > 0 ? min(CGFloat(dims.contentMaxWidth), max(pageWidth - 2 * CGFloat(space.screen), 0)) : nil
+    }
     private let space = StockStepsTheme.spacing
     private let type = StockStepsTheme.typography
     private let dims = StockStepsTheme.dimensions
@@ -97,41 +109,85 @@ struct CompanyDetailsScreen: View {
                 StockNavigationRow(title: "Earnings history", detail: "Past results for this company", icon: "clock.arrow.circlepath", action: onEarnings)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .stockCard()
+            .stockCard(bordered: false)
         }
     }
 
-    /// Order (Phase 4C): identity and price → chart → why it moved → At a Glance → understand → valuation & financial health → earnings → news.
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                header(colors)
-                chartSection(colors).padding(.top, CGFloat(space.md))
-                switch model.whyMoving {
-                case .content(let why): if let why { whySection(why, colors).padding(.top, CGFloat(space.sectionGap)) }
-                case .unavailable:
-                    titled("Why Did It Move?") {
-                        StockSectionMessage(message: "We couldn't load the explanation right now.", actionTitle: "Try again", action: model.loadWhyMoving)
-                            .stockCard()
+        let overview = model.overview.value
+        let sections = present.sections(overview: overview)
+        let what = overview.flatMap { present.whatItDoes(overview: $0) }
+        ScrollViewReader { proxy in
+            ScrollView {
+                // A plain VStack (not lazy): every section anchor exists, so the bar can scroll to sections that haven't been shown yet
+                // (a LazyVStack hadn't created them and `scrollTo` did nothing). The page is about a dozen sections.
+                VStack(alignment: .leading, spacing: 0) {
+                    header(colors)
+                    chartSection(colors).padding(.top, CGFloat(space.md))
+                    if overview != nil { actions.padding(.top, CGFloat(space.md)) }
+                    sectionBar(sections, proxy)
+                        .opacity(barPinned ? 0 : 1)
+                        .accessibilityHidden(barPinned)
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("page")) } action: { barFrame = $0 }
+                    Group {
+                        anchor(.overview)
+                        if let what {
+                            whatItDoesRow(what, about: sections.contains(.about) ? { scroll(proxy, to: .about) } : nil, colors).padding(.top, CGFloat(space.md))
+                        }
+                        if let overview {
+                            titled("At a Glance") { glanceCard(overview, colors) }
+                            titled(present.understandTitle(overview: overview)) { understand(overview, colors) }
+                        }
+                        // Why it moved explains the price: after the numbers and what they mean (D-E5).
+                        switch model.whyMoving {
+                        case .content(let why): if let why { whySection(why, colors).padding(.top, CGFloat(space.sectionGap)) }
+                        case .unavailable:
+                            titled("Why Did It Move?") {
+                                StockSectionMessage(message: "We couldn't load the explanation right now.", actionTitle: "Try again", action: model.loadWhyMoving)
+                                    .stockCard(bordered: false)
+                            }
+                        case .loading: EmptyView()
+                        }
+                        if let overview {
+                            anchor(.financials)
+                            titled(present.VALUATION_HEALTH_TITLE) { valuationHealth(overview, colors) }
+                        }
+                        if let nextEarnings { earningsSection(nextEarnings, colors) }
+                        anchor(.news)
+                        newsSection(colors).padding(.top, CGFloat(space.sectionGap))
+                        if let overview, sections.contains(.about) {
+                            anchor(.about)
+                            aboutCard(overview, colors).padding(.top, CGFloat(space.sectionGap))
+                        }
+                        researchSection(hasOverview: overview != nil)
+                        Text("Educational information, not a recommendation to buy or sell.")
+                            .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
+                            .padding(.top, CGFloat(space.lg))
                     }
-                case .loading: EmptyView()
                 }
-                if let overview = model.overview.value {
-                    overviewSections(overview, colors)
-                } else if showResearch {
-                    UnderstandStockCard(completed: researchCompleted, action: onResearch).padding(.top, CGFloat(space.sectionGap))
-                }
-                if let nextEarnings { earningsSection(nextEarnings, colors) }
-                newsSection(colors).padding(.top, CGFloat(space.sectionGap))
-                Text("Educational information, not a recommendation to buy or sell.")
-                    .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
-                    .padding(.top, CGFloat(space.lg))
+                // Pinned to the available width, leading-aligned: a plain VStack grows to its widest child, which shifted the whole page sideways
+                // at AX5; a child that can't fit now overflows on its own trailing edge, as it did in the LazyVStack.
+                .frame(width: contentWidth, alignment: .leading)
+                .padding(.horizontal, CGFloat(space.screen))
+                .padding(.bottom, CGFloat(space.xl))
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: CGFloat(dims.contentMaxWidth))
-            .padding(.horizontal, CGFloat(space.screen))
-            .padding(.bottom, CGFloat(space.xl))
-            .frame(maxWidth: .infinity)
+            .coordinateSpace(name: "page")
+            // Pinned copy of the bar once the inline one scrolls under the top edge (same state, same actions).
+            .overlay(alignment: .top) {
+                if barPinned {
+                    sectionBar(sections, proxy)
+                        .frame(maxWidth: CGFloat(dims.contentMaxWidth))
+                        .padding(.horizontal, CGFloat(space.screen))
+                        .frame(maxWidth: .infinity)
+                        .background(colors.appBackground)
+                }
+            }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 2
+            } action: { _, end in atEnd = end }
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { viewport = $0.height; pageWidth = $0.width }
         }
         .background(colors.appBackground.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
@@ -165,9 +221,9 @@ struct CompanyDetailsScreen: View {
 
     // MARK: Header
 
-    /// Compact identity (logo, wrapping name, ticker · exchange, tags) and the price as the focal point: price, signed change with its session
-    /// ("Today" or the quote's date), the US
-    /// market status chip and the quote time; then the secondary actions, wrapping instead of scrolling sideways.
+    /// Compact identity (logo, wrapping name, ticker · exchange) and the price as the focal point: price, signed change with its session
+    /// ("Today" or the quote's date), the US market status chip and the quote time. Sector and industry live in "What … does" and About
+    /// (5D.5.4A, D-E3); the actions follow the chart.
     @ViewBuilder
     private func header(_ colors: StockColors) -> some View {
         switch model.overview {
@@ -177,7 +233,7 @@ struct CompanyDetailsScreen: View {
                 StockSkeleton(width: 180); StockSkeleton(width: 120, height: 24)
             }.accessibilityElement(children: .ignore).accessibilityLabel("Loading")
         case .unavailable:
-            StockSectionMessage(message: "Unable to load company data.", actionTitle: "Try again", action: model.loadCore).stockCard()
+            StockSectionMessage(message: "Unable to load company data.", actionTitle: "Try again", action: model.loadCore).stockCard(bordered: false)
         case .content(let overview):
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 HStack(alignment: .center, spacing: CGFloat(space.md)) {
@@ -188,7 +244,6 @@ struct CompanyDetailsScreen: View {
                         Text(overview.listing).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                     }
                 }
-                if !overview.tags.isEmpty { tags(overview.tags) }
                 // Price block: the price is the focal point; the session chip sits beside it (never inside the green/red change line);
                 // one spoken sentence for price, change, quote time and session.
                 let updated = overview.updatedAt.map { Self.quoteTime($0.int64Value) }
@@ -217,7 +272,6 @@ struct CompanyDetailsScreen: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel([present.priceDescription(overview: overview, updated: updated, change: changeLabel),
                                      present.statusDescription(status: overview.marketStatus).map { "\($0)." }].compactMap { $0 }.joined(separator: " "))
-                actions.padding(.top, CGFloat(space.sm))
             }
         }
     }
@@ -232,8 +286,8 @@ struct CompanyDetailsScreen: View {
         Text(verbatim: label.text).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
     }
 
-    /// Add to portfolio (primary) and Compare side by side, Practice Buy full width below; when the pair doesn't fit on one line each (narrow
-    /// phones, accessibility sizes) every action takes its own full-width row. Earnings is offered here only when the page has no Earnings section.
+    /// Actions after the chart (5D.5.4A, D-E2): Add to portfolio (primary) and Compare side by side; when the pair doesn't fit on one line each
+    /// (narrow phones, accessibility sizes) each takes its own full-width row. Practice Buy and Earnings moved to Research further.
     private var actions: some View {
         VStack(spacing: CGFloat(space.sm)) {
             if actionPairFits {
@@ -245,9 +299,6 @@ struct CompanyDetailsScreen: View {
                 wide("Add to portfolio", "plus", .stockPrimary, onAddPortfolio)
                 wide("Compare", "square.split.2x1", .stockSecondary, onCompare)
             }
-            wide("Practice Buy", "graduationcap", .stockSecondary, onPracticeBuy)
-                .accessibilityHint("Opens a simulated order with virtual money")
-            if nextEarnings == nil { wide("Earnings", "calendar", .stockSecondary, onEarnings) }
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { actionsWidth = $0 }
     }
@@ -280,10 +331,80 @@ struct CompanyDetailsScreen: View {
         return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(seconds)))
     }
 
-    private func tags(_ values: [String]) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: CGFloat(space.xs)) { ForEach(values, id: \.self) { StockTag(text: $0) } }
-            VStack(alignment: .leading, spacing: CGFloat(space.xs)) { ForEach(values, id: \.self) { StockTag(text: $0) } }
+    // MARK: Section bar (5D.5.4A)
+
+    /// The anchor's own id: the bar's tabs already use the section value as their id (inside `StockFadingScrollRow`), and a shared id made
+    /// `scrollTo` find the visible tab instead of the section.
+    private func anchorID(_ section: PageSection) -> String { "section-anchor-\(section.label)" }
+
+    /// The inline bar has scrolled under the top edge, so the pinned copy shows.
+    private var barPinned: Bool { barFrame.height > 0 && barFrame.minY < 0 }
+
+    private func sectionBar(_ sections: [PageSection], _ proxy: ScrollViewProxy) -> some View {
+        StockSectionBar(items: sections, selected: selectedSection(sections), label: { $0.label }) { scroll(proxy, to: $0) }
+            .padding(.top, CGFloat(space.sm))
+    }
+
+    /// A zero-height marker where a section starts: the bar scrolls to it and reads its position (shared `selectedSection` rule).
+    private func anchor(_ section: PageSection) -> some View {
+        Color.clear.frame(height: 0).id(anchorID(section))
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("page")).minY } action: { anchorTops[section] = $0 }
+    }
+
+    /// The last section whose top reached the bottom of the pinned bar; Overview before any did; at the end, the last one on screen.
+    private func selectedSection(_ sections: [PageSection]) -> PageSection {
+        var tops: [PageSection: KotlinFloat] = [:]
+        let barBottom = max(barFrame.maxY, barFrame.height)
+        for section in sections { tops[section] = KotlinFloat(value: Float((anchorTops[section] ?? .greatestFiniteMagnitude) - barBottom)) }
+        return present.selectedSection(tops: tops, tolerance: 1, atEnd: atEnd, viewport: Float(max(viewport - barBottom, 0)))
+    }
+
+    /// Scrolls so the section starts just below the pinned bar (a zero-height anchor lands at the bar's share of the viewport).
+    private func scroll(_ proxy: ScrollViewProxy, to section: PageSection) {
+        let y = viewport > 0 ? min(max(barFrame.height / viewport, 0), 1) : 0
+        withAnimation { proxy.scrollTo(anchorID(section), anchor: UnitPoint(x: 0.5, y: y)) }
+    }
+
+    /// "What Apple does": the first sentence of the description and "Sector · Industry"; tapping scrolls to About (D-E3: tags left the header).
+    @ViewBuilder
+    private func whatItDoesRow(_ what: CompanyDetailsPresentation.WhatItDoes, about: (() -> Void)?, _ colors: StockColors) -> some View {
+        let content = HStack(spacing: CGFloat(space.sm)) {
+            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                Text(what.title).font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                if let summary = what.summary { Text(summary).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody) }
+                if let classification = what.classification {
+                    Text(classification).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                }
+            }
+            Spacer(minLength: 0)
+            // At accessibility sizes the chevron would narrow the text until long words break mid-word; the row stays a button (hint below).
+            if about != nil && !typeSize.isAccessibilitySize {
+                Image(systemName: "chevron.right").foregroundStyle(colors.iconSecondary).accessibilityHidden(true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .multilineTextAlignment(.leading)
+        .stockCard(bordered: false)
+        if let about {
+            Button(action: about) { content.contentShape(Rectangle()) }.buttonStyle(.plain).accessibilityHint("Shows About")
+        } else {
+            content
+        }
+    }
+
+    /// Research further (D-E2): Guided Research and Practice Buy together, plus Earnings when the page has no Earnings section.
+    @ViewBuilder
+    private func researchSection(hasOverview: Bool) -> some View {
+        if showResearch || hasOverview || nextEarnings == nil {
+            titled(present.RESEARCH_TITLE) {
+                if showResearch { UnderstandStockCard(completed: researchCompleted, action: onResearch) }
+                if hasOverview {
+                    wide("Practice Buy", "graduationcap", .stockSecondary, onPracticeBuy)
+                        .accessibilityHint("Opens a simulated order with virtual money")
+                }
+                if nextEarnings == nil { wide("Earnings", "calendar", .stockSecondary, onEarnings) }
+            }
         }
     }
 
@@ -308,22 +429,23 @@ struct CompanyDetailsScreen: View {
             case .content where summary != nil:
                 Text(scrubLabel ?? summary?.change ?? " ")
                     .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(changeColor)
-                if let summary { StockLineChart(summary: summary) { scrub = $0 }.frame(height: CGFloat(dims.chartHeight)) }
+                if let summary { StockLineChart(summary: summary, onScrub: { scrub = $0 }, compactAxisAtLargeText: true).frame(height: CGFloat(dims.chartHeight)) }
             default:
                 // Phase 4C.3: a compact centered state instead of a chart-sized blank area; no flat or placeholder line is drawn.
                 chartNotice
             }
-            if let stats = model.overview.value.map({ present.chartStats(overview: $0) }), !stats.isEmpty {
-                StockDivider().padding(.top, CGFloat(space.xs))
-                let half = (stats.count + 1) / 2
-                HStack(alignment: .top, spacing: CGFloat(space.lg)) {
-                    VStack(spacing: 0) { ForEach(Array(stats.prefix(half)), id: \.label) { StockInfoLine(label: $0.label, value: $0.value, compact: true) } }
-                    VStack(spacing: 0) { ForEach(Array(stats.dropFirst(half)), id: \.label) { StockInfoLine(label: $0.label, value: $0.value, compact: true) } }
-                }
+            // 5D.5.4A: label-above-value grid (one column at large sizes) so values never split mid-word; High/Low are the Day Range bar.
+            let stats = model.overview.value.map { present.chartStats(overview: $0) } ?? []
+            let dayRange = model.overview.value?.dayRange
+            if !stats.isEmpty || dayRange != nil { StockDivider().padding(.top, CGFloat(space.xs)) }
+            if !stats.isEmpty {
+                StockMetricGrid(items: stats.map { StockMetricItem(label: $0.label, value: $0.value, quiet: true) }, maxColumns: 2)
+                    .padding(.top, CGFloat(space.xs))
             }
+            if let dayRange { StockRangeBar(title: "Day Range", range: dayRange).padding(.vertical, CGFloat(space.xs)) }
         }
         .padding(.horizontal, CGFloat(space.md) - CGFloat(space.sm))
-        .stockCard(padding: CGFloat(space.sm))
+        .stockCard(padding: CGFloat(space.sm), bordered: false)
     }
 
     /// Failure (connection / temporary) offers Try again; "no history" is an answer, so it doesn't (Phase 4C.2, same as Android).
@@ -380,14 +502,7 @@ struct CompanyDetailsScreen: View {
 
     // MARK: Overview sections
 
-    @ViewBuilder
-    private func overviewSections(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
-        titled("At a Glance") { glanceCard(overview, colors) }
-        titled(present.understandTitle(overview: overview)) { understand(overview, colors) }
-        titled(present.VALUATION_HEALTH_TITLE) { valuationHealth(overview, colors) }
-    }
-
-    /// Key metrics in one `StockMetricGrid` (values never truncate; "(YoY)"-style qualifiers move to the supporting line) and the ranges.
+    /// Key metrics in one `StockMetricGrid` (values never truncate; "(YoY)"-style qualifiers move to the supporting line) and the 52-week range.
     private func glanceCard(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
             StockMetricGrid(items: overview.glance.map { metric in
@@ -396,18 +511,16 @@ struct CompanyDetailsScreen: View {
                                        direction: metric.direction, action: { education = metric }, hint: "Learn what this means",
                                        info: metricHasTerm(metric.educationId))
             }, maxColumns: 2)
-            if overview.yearRange != nil || overview.dayRange != nil {
+            // The day range sits with the chart (5D.5.4A); the 52-week range stays here.
+            if let range = overview.yearRange {
                 StockDivider()
-                VStack(alignment: .leading, spacing: CGFloat(space.md)) {
-                    if let range = overview.yearRange { StockRangeBar(title: "52-Week Range", range: range) }
-                    if let range = overview.dayRange { StockRangeBar(title: "Day Range", range: range) }
-                }
+                StockRangeBar(title: "52-Week Range", range: range)
             }
         }
-        .stockCard()
+        .stockCard(bordered: false)
     }
 
-    /// Facts (assessment), interpretation (insight), then education (About with sector/industry once, Guided Research).
+    /// Facts (assessment), then interpretation (insight); About and Guided Research have their own sections further down (5D.5.4A).
     @ViewBuilder
     private func understand(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
         if !overview.assessment.isEmpty {
@@ -420,13 +533,11 @@ struct CompanyDetailsScreen: View {
                                        action: row.id == "valuation" ? { education = overview.glance.first { $0.id == "pe" } } : nil)
                 }
             }
-            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0)
+            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
         }
         if let insight = overview.insight {
             StockInsightCard(title: "Beginner Insight", message: insight, actionTitle: "Why does this matter?", action: { showEvidence = true })
         }
-        if overview.about != nil || overview.country != nil || overview.sector != nil { aboutCard(overview, colors) }
-        if showResearch { UnderstandStockCard(completed: researchCompleted, action: onResearch) }
     }
 
     private func aboutCard(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
@@ -450,7 +561,7 @@ struct CompanyDetailsScreen: View {
                 }
             }
         }
-        .stockCard()
+        .stockCard(bordered: false)
     }
 
     /// Current vs historical P/E (one metric row), the factual headline, lesson and detail links; highlights; key ratios not in At a Glance.
@@ -481,7 +592,7 @@ struct CompanyDetailsScreen: View {
                                action: onOpenValuation)
         }
         .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.sm))
-        .stockCard(padding: 0)
+        .stockCard(padding: 0, bordered: false)
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
             StockSectionHeader(title: "Financial Highlights", actionTitle: "See Financials", action: onOpenFinancials)
             VStack(spacing: 0) {
@@ -494,7 +605,7 @@ struct CompanyDetailsScreen: View {
                     }
                 }
             }
-            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0)
+            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
             if let basis = overview.highlightsBasis {
                 Text(basis).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
             }
@@ -504,7 +615,7 @@ struct CompanyDetailsScreen: View {
             VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                 StockSectionHeader(title: "Key Ratios")
                 VStack(spacing: 0) { ForEach(ratios, id: \.label) { StockInfoLine(label: $0.label, value: $0.value, compact: true) } }
-                    .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.xs)).stockCard(padding: 0)
+                    .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.xs)).stockCard(padding: 0, bordered: false)
             }
         }
     }
@@ -525,7 +636,7 @@ struct CompanyDetailsScreen: View {
                     }
                 }
             }
-            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0)
+            .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
         }
     }
 
@@ -631,3 +742,4 @@ private struct InfoSheet: View {
         .presentationDetents([.medium, .large])
     }
 }
+
