@@ -76,37 +76,25 @@ struct CompanyValuationScene: View {
                     Text("Understanding what investors pay for this company.").font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
                 }
                 if let content = model.model {
-                    currentCard(content, colors).padding(.top, CGFloat(space.md))
-                    titled("Historical P/E Trend") {
-                        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-                            if model.historyLoaded {
-                                StockPillSelector(options: ValuationRange.entries, selected: model.range, label: { $0.label }) { model.select(range: $0) }
-                                if let chart = content.chart {
-                                    StockTrendChart(chart: chart, referenceLabel: content.average.map { "\(content.averageLabel): \($0)" })
-                                }
-                                Text(content.methodology).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
-                            } else {
-                                StockSectionMessage(message: content.historyMessage ?? "We couldn't load the valuation history right now.", actionTitle: "Try again", action: model.load)
-                            }
+                    // 5D.5.4C C2: ratio tiles first (D-V1), then P/E vs History (D-V3), one Learn link, the P/E explanation folded.
+                    VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+                        StockSectionHeader(title: ValuationDisplay.shared.KEY_METRICS_TITLE)
+                        StockMetricGrid(items: ValuationDisplay.shared.keyMetrics(model: content).map { m in
+                            let title = ValuationDisplay.shared.plain(text: m.label)
+                            let explanation = m.metricId.flatMap { MetricLearnTerms.shared.explain(metricId: $0, title: title) }
+                            return StockMetricItem(label: m.label, value: m.value, helper: m.caption, action: explanation.map { e in { explaining = e } },
+                                                   hint: "Explain \(title)", info: m.metricId.map { MetricLearnTerms.shared.hasTerm(metricId: $0) } ?? false)
+                        }, maxColumns: 2, tiled: true)
+                        if model.fundamentalsFailed {
+                            StockSectionMessage(message: "We couldn't load the other valuation metrics right now.", actionTitle: "Try again", action: model.load)
+                                .stockCard(bordered: false)
+                        } else if content.otherMetrics.isEmpty {
+                            Text("Other valuation ratios aren't available for this company.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
                         }
-                        .stockCard(padding: CGFloat(space.md), bordered: false)
                     }
-                    understanding(content, colors).padding(.top, CGFloat(space.xl))
-                    titled("Other Valuation Metrics") {
-                        VStack(spacing: 0) {
-                            if model.fundamentalsFailed {
-                                StockSectionMessage(message: "We couldn't load the other valuation metrics right now.", actionTitle: "Try again", action: model.load)
-                            } else if content.otherMetrics.isEmpty {
-                                StockSectionMessage(message: "Other valuation ratios aren't available for this company.")
-                            } else {
-                                ForEach(Array(content.otherMetrics.enumerated()), id: \.offset) { index, row in
-                                    if index > 0 { StockDivider() }
-                                    ExplainableInfoLine(label: row.label, value: row.value, helper: row.helper, explanation: metricExplanation(row)) { explaining = $0 }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
-                    }
+                    .padding(.top, CGFloat(space.md))
+                    titled(ValuationDisplay.shared.HISTORY_TITLE) { history(content, colors) }
+                    UnderstandingView(content: content).padding(.top, CGFloat(space.md))
                     if content.growth.count > 1 {
                         titled("Valuation & Growth") {
                             VStack(alignment: .leading, spacing: 0) {
@@ -143,8 +131,9 @@ struct CompanyValuationScene: View {
                         }
                     }
                     StockInsightCard(title: "What Does This Valuation Tell Us?", message: content.insight).padding(.top, CGFloat(space.xl))
+                    Text(ValuationDisplay.shared.FOOTNOTE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary).padding(.top, CGFloat(space.lg))
                     Text("Educational information, not a recommendation to buy or sell.")
-                        .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary).padding(.top, CGFloat(space.lg))
+                        .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary).padding(.top, CGFloat(space.xs))
                 } else {
                     VStack(spacing: CGFloat(space.sm)) {
                         ForEach(0..<3, id: \.self) { _ in StockSkeleton(width: 1, height: CGFloat(StockStepsTheme.dimensions.chartHeight)).frame(maxWidth: .infinity) }
@@ -165,55 +154,62 @@ struct CompanyValuationScene: View {
         .task { model.start() }
     }
 
-    /// Primary card: large P/E, neutral badge (amber only when above history), meaning, comparison.
-    private func currentCard(_ content: ValuationModel, _ colors: StockColors) -> some View {
+    /// P/E vs History (5D.5.4C C2): current beside its historical average and the difference (only with a reliable average), the existing badge and
+    /// meaning, then the range pills, chart and methodology on one borderless surface; then the single "Learn more about P/E ratio" link.
+    @ViewBuilder
+    private func history(_ content: ValuationModel, _ colors: StockColors) -> some View {
         let space = StockStepsTheme.spacing
         let type = StockStepsTheme.typography
-        return VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-            Text("Current P/E Ratio").font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary)
-            HStack(spacing: CGFloat(space.sm)) {
-                Text(content.currentPe).font(StockStepsTheme.font(type.largeNumber, relativeTo: .largeTitle)).foregroundStyle(colors.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
-                if let badge = content.badge { StockBadge(text: badge, tone: content.position == .above ? .caution : .neutral) }
+        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            if let c = ValuationDisplay.shared.comparison(model: content) {
+                StockMetricGrid(items: [StockMetricItem(label: c.currentLabel, value: c.current), StockMetricItem(label: c.averageLabel, value: c.average),
+                                        StockMetricItem(label: "Difference", value: c.difference ?? "—")], maxColumns: 3, rowsWhenNarrow: true)
             }
-            Text(content.meaning).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
-            if let average = content.average {
-                StockDivider()
-                HStack(alignment: .top, spacing: CGFloat(space.sm)) {
-                    ForEach([("Current", content.currentPe), (content.averageLabel, average), ("Difference", content.difference ?? "—")], id: \.0) { label, value in
-                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                            Text(label).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary)
-                            Text(value).font(StockStepsTheme.font(type.numberEmphasis, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityElement(children: .combine)
-                    }
+            if let badge = content.badge {
+                // The badge stays one line while it fits (regular, then compact); only when neither fits the screen (AX5) does the same text
+                // wrap on the badge's colours, so it never widens the column past the screen.
+                let tone: FactTone = content.position == .above ? .caution : .neutral
+                ViewThatFits(in: .horizontal) {
+                    StockBadge(text: badge, tone: tone)
+                    StockStatusBadge(text: badge, kind: tone.badgeKind, size: .compact)
+                    wrappingBadge(badge, kind: tone.badgeKind)
                 }
             }
+            Text(content.meaning).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
+            StockDivider()
+            if model.historyLoaded {
+                StockPillSelector(options: ValuationRange.entries, selected: model.range, label: { $0.label }) { model.select(range: $0) }
+                if let chart = content.chart {
+                    StockTrendChart(chart: chart, referenceLabel: content.average.map { "\(content.averageLabel): \($0)" })
+                }
+                Text(content.methodology).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
+            } else {
+                StockSectionMessage(message: content.historyMessage ?? "We couldn't load the valuation history right now.", actionTitle: "Try again", action: model.load)
+            }
         }
-        .stockCard(padding: CGFloat(space.lg), bordered: false)
+        .stockCard(padding: CGFloat(space.md), bordered: false)
+        // 5D.5.3: the full P/E lesson one tap away — once on this screen.
+        if let term = MetricLearnTerms.shared.termFor(metricId: "pe") {
+            Button { learnTerm = term.id } label: {
+                Label(MetricLearnTerms.shared.learnMoreLabel(entry: term), systemImage: "graduationcap")
+                    .font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
+                    .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget)).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
     }
 
-    private func understanding(_ content: ValuationModel, _ colors: StockColors) -> some View {
-        VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.sm)) {
-            Text("Understanding P/E Ratio").font(StockStepsTheme.font(StockStepsTheme.typography.cardTitle, relativeTo: .headline).bold())
-                .foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
-            Text(content.understanding).font(StockStepsTheme.font(StockStepsTheme.typography.body)).foregroundStyle(colors.textBody)
-            ValuationExplainerView(explainer: content.highReasons)
-            ValuationExplainerView(explainer: content.lowReasons)
-            // 5D.5.3: the full P/E lesson one tap away.
-            if let term = MetricLearnTerms.shared.termFor(metricId: "pe") {
-                Button { learnTerm = term.id } label: {
-                    Label(MetricLearnTerms.shared.learnMoreLabel(entry: term), systemImage: "graduationcap")
-                        .font(StockStepsTheme.font(StockStepsTheme.typography.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
-                        .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget)).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(CGFloat(StockStepsTheme.spacing.lg))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(colors.primaryContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.cardLarge)))
+    /// The badge's text and colours (`StockSemanticStyles`) on a rounded rectangle that may wrap — the last resort at the largest sizes.
+    private func wrappingBadge(_ text: String, kind: StockBadgeKind) -> some View {
+        let tone = StockSemanticStyles.shared.badge(kind: kind, p: StockStepsTheme.palette(scheme))
+        let c = StockStepsTheme.color
+        return Text(verbatim: text)
+            .font(StockStepsTheme.font(StockStepsTheme.typography.label))
+            .foregroundStyle(c(tone.content))
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, CGFloat(StockStepsTheme.spacing.sm))
+            .padding(.vertical, CGFloat(StockStepsTheme.spacing.xxs))
+            .background(c(tone.container), in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.chip)))
     }
 
     private func titled<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -222,6 +218,35 @@ struct CompanyValuationScene: View {
             content()
         }
         .padding(.top, CGFloat(StockStepsTheme.spacing.xl))
+    }
+}
+
+/// Understanding P/E Ratio, folded (5D.5.4C C2): the existing explanation and the Why high / Why low points behind one toggle.
+private struct UnderstandingView: View {
+    @Environment(\.colorScheme) private var scheme
+    let content: ValuationModel
+    @State private var open = false
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        let space = StockStepsTheme.spacing
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            Button { open.toggle() } label: {
+                Text("\(ValuationDisplay.shared.UNDERSTANDING_TITLE) \(open ? "↑" : "↓")")
+                    .font(StockStepsTheme.font(StockStepsTheme.typography.bodySemiBold)).foregroundStyle(colors.textPrimary)
+                    .frame(maxWidth: .infinity, minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget), alignment: .leading).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityValue(open ? "Expanded" : "Collapsed")
+            if open {
+                Text(content.understanding).font(StockStepsTheme.font(StockStepsTheme.typography.small)).foregroundStyle(colors.textBody)
+                ValuationExplainerView(explainer: content.highReasons)
+                ValuationExplainerView(explainer: content.lowReasons)
+            }
+        }
+        .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.xs))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(colors.primaryContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
     }
 }
 

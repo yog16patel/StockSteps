@@ -1,6 +1,6 @@
 # Global UI Refinement Phase 5D.5.4C, stage C1: Financials hierarchy
 
-- **Status:** implemented and verified on Android and iOS against the local MOCK server. Approved; committed locally as "Refine Company Details Financials for Global UI Refinement Phase 5D.5.4C C1 with an Income, Balance Sheet and Cash Flow section bar, one selector row, the revenue and net income chart and key-metric tiles first on Android and iOS" (**not pushed**).
+- **Status:** implemented and verified on Android and iOS against the local MOCK server. Approved; committed locally as "Refine Company Details Financials for Global UI Refinement Phase 5D.5.4C C1 with an Income, Balance Sheet and Cash Flow section bar, one selector row, the revenue and net income chart and key-metric tiles first on Android and iOS" (`33fa94c`, pushed).
 - **Baseline:** `038aa33` (5D.5.4B r2, pushed).
 - **Plan:** `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_PLAN.md`, approved with D-F1 to D-V3 as recommended. C1 implements D-F1, D-F2 and D-F3;
   Valuation (C2) has not started.

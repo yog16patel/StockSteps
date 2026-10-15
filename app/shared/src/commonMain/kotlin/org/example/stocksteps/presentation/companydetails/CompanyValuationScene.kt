@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -103,24 +104,23 @@ internal fun CompanyValuationScreen(
                     }
                     return@LazyColumn
                 }
-                item(key = "current") { CurrentCard(model, content.padding(top = spacing.md)) }
-                item(key = "trend") { TrendSection(model, state.history is org.example.stocksteps.presentation.companydetails.Section.Content, onRange, onRetry, section) }
-                item(key = "understanding") { UnderstandingCard(model, section, onLearnTerm) }
-                item(key = "other") {
-                    Column(section, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        StockSectionHeader(stringResource(Res.string.valuation_other_title))
-                        StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
-                            when {
-                                state.fundamentals == Section.Unavailable -> StockErrorState(stringResource(Res.string.valuation_other_failed), onRetry, Modifier.padding(vertical = spacing.sm))
-                                model.otherMetrics.isEmpty() -> StockEmptyState(stringResource(Res.string.valuation_other_empty), Modifier.padding(vertical = spacing.sm))
-                                else -> model.otherMetrics.forEachIndexed { index, row ->
-                                    if (index > 0) StockDivider()
-                                    StockInfoRow(row.label, row.value, helper = row.helper, onClick = explain(row), onClickLabel = explainLabel(row), info = hasTerm(row))
-                                }
-                            }
+                // 5D.5.4C C2: ratio tiles first (D-V1), then P/E vs History (current, average, difference, badge, chart — D-V3), one Learn link, the
+                // P/E explanation folded; growth, range, insight and the neutral footnote (D-V2) follow.
+                item(key = "metrics") {
+                    Column(content.padding(top = spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                        StockSectionHeader(ValuationDisplay.KEY_METRICS_TITLE)
+                        StockMetricGrid(ValuationDisplay.keyMetrics(model).map { m ->
+                            val row = InfoRow(ValuationDisplay.plain(m.label), m.value, metricId = m.metricId)
+                            StockMetricItem(m.label, m.value, helper = m.caption, onClick = explain(row), onClickLabel = explainLabel(row), info = hasTerm(row))
+                        }, maxColumns = 2, tiled = true)
+                        when {
+                            state.fundamentals == Section.Unavailable -> StockCard(bordered = false) { StockErrorState(stringResource(Res.string.valuation_other_failed), onRetry) }
+                            model.otherMetrics.isEmpty() -> Text(stringResource(Res.string.valuation_other_empty), style = StockStepsTheme.typography.small, color = colors.textSecondary)
                         }
                     }
                 }
+                item(key = "history") { HistorySection(model, state.history is org.example.stocksteps.presentation.companydetails.Section.Content, onRange, onRetry, section, onLearnTerm) }
+                item(key = "understanding") { UnderstandingCard(model, content.padding(top = spacing.md)) }
                 if (model.growth.size > 1) {
                     item(key = "growth") {
                         Column(section, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
@@ -165,47 +165,38 @@ internal fun CompanyValuationScreen(
                     StockInsightCard(title = stringResource(Res.string.valuation_insight_title), body = model.insight, modifier = section)
                 }
                 item(key = "disclaimer") {
-                    Text(stringResource(Res.string.details_disclaimer), content.padding(top = spacing.lg), style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+                    Column(content.padding(top = spacing.lg), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                        Text(ValuationDisplay.FOOTNOTE, style = StockStepsTheme.typography.small, color = colors.textSecondary)
+                        Text(stringResource(Res.string.details_disclaimer), style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+                    }
                 }
             }
         }
     }
 }
 
-/** Primary card: large P/E, neutral badge, what it means, and the historical comparison. */
+/**
+ * P/E vs History (5D.5.4C C2): the current P/E beside its historical average and the difference (only when the model has a reliable average),
+ * the existing badge (D-V3) and meaning sentence, then the range pills, the existing chart and its methodology — one borderless surface — and
+ * the single "Learn more about P/E ratio" link.
+ */
 @Composable
-private fun CurrentCard(model: ValuationModel, modifier: Modifier) {
-    val spacing = StockStepsTheme.spacing
-    val colors = StockStepsTheme.colors
-    StockCard(modifier, bordered = false, contentPadding = PaddingValues(spacing.lg)) {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Text(stringResource(Res.string.valuation_current_title), style = StockStepsTheme.typography.label, color = colors.textSecondary)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                Text(model.currentPe, Modifier.semantics { heading() }, style = StockStepsTheme.typography.largeNumber, color = colors.textPrimary)
-                // A higher or lower P/E is not good or bad: informational blue, caution amber only when above.
-                model.badge?.let { StockBadge(it, if (model.position == ValuationPosition.ABOVE) FactTone.CAUTION else FactTone.NEUTRAL) }
-            }
-            Text(model.meaning, style = StockStepsTheme.typography.body, color = colors.textBody)
-            if (model.average != null) {
-                StockDivider()
-                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                    StockMetric(stringResource(Res.string.valuation_current), model.currentPe, Modifier.weight(1f))
-                    StockMetric(model.averageLabel, model.average!!, Modifier.weight(1f))
-                    StockMetric(stringResource(Res.string.valuation_difference), model.difference ?: "—", Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TrendSection(model: ValuationModel, loaded: Boolean, onRange: (ValuationRange) -> Unit, onRetry: () -> Unit, modifier: Modifier) {
+private fun HistorySection(model: ValuationModel, loaded: Boolean, onRange: (ValuationRange) -> Unit, onRetry: () -> Unit, modifier: Modifier,
+                           onLearnTerm: (String) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        StockSectionHeader(stringResource(Res.string.valuation_trend_title))
-        StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm)) {
+        StockSectionHeader(ValuationDisplay.HISTORY_TITLE)
+        StockCard(bordered = false, contentPadding = PaddingValues(spacing.md)) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                ValuationDisplay.comparison(model)?.let { c ->
+                    StockMetricGrid(listOf(StockMetricItem(c.currentLabel, c.current), StockMetricItem(c.averageLabel, c.average),
+                        StockMetricItem(stringResource(Res.string.valuation_difference), c.difference ?: "—")), maxColumns = 3, rowsWhenNarrow = true)
+                }
+                // A higher or lower P/E is not good or bad: neutral, caution amber only when above (existing rule).
+                model.badge?.let { StockBadge(it, if (model.position == ValuationPosition.ABOVE) FactTone.CAUTION else FactTone.NEUTRAL) }
+                Text(model.meaning, style = StockStepsTheme.typography.small, color = colors.textBody)
+                StockDivider()
                 if (!loaded) {
                     StockErrorState(model.historyMessage ?: stringResource(Res.string.financials_unavailable), onRetry)
                 } else {
@@ -218,25 +209,33 @@ private fun TrendSection(model: ValuationModel, loaded: Boolean, onRange: (Valua
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun UnderstandingCard(model: ValuationModel, modifier: Modifier, onLearnTerm: (String) -> Unit = {}) {
-    val spacing = StockStepsTheme.spacing
-    val colors = StockStepsTheme.colors
-    Column(
-        modifier.clip(StockStepsTheme.shapes.cardLarge).background(colors.primaryContainer).padding(spacing.lg),
-        verticalArrangement = Arrangement.spacedBy(spacing.sm)
-    ) {
-        Text(stringResource(Res.string.valuation_understanding_title), Modifier.semantics { heading() },
-            style = StockStepsTheme.typography.cardTitle.copy(fontWeight = FontWeight.Bold), color = colors.textPrimary)
-        Text(model.understanding, style = StockStepsTheme.typography.body, color = colors.textBody)
-        listOf(model.highReasons, model.lowReasons).forEach { explainer -> Explainer(explainer) }
-        // 5D.5.3: the full P/E lesson one tap away.
+        // 5D.5.3: the full P/E lesson one tap away — once on this screen.
         org.example.stocksteps.learning.MetricLearnTerms.termFor("pe")?.let { term ->
             StockLinkAction(org.example.stocksteps.learning.MetricLearnTerms.learnMoreLabel(term), { onLearnTerm(term.id) },
                 icon = org.example.stocksteps.designsystem.icons.StockIcons.School)
+        }
+    }
+}
+
+/** Understanding P/E Ratio, folded (5D.5.4C C2): the existing explanation and the Why high / Why low points behind one toggle. */
+@Composable
+private fun UnderstandingCard(model: ValuationModel, modifier: Modifier) {
+    val spacing = StockStepsTheme.spacing
+    val colors = StockStepsTheme.colors
+    var open by rememberSaveable { mutableStateOf(false) }
+    Column(
+        modifier.clip(StockStepsTheme.shapes.card).background(colors.primaryContainer).padding(horizontal = spacing.md, vertical = spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs)
+    ) {
+        Box(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
+            .clickable(onClickLabel = if (open) "Hide" else "Show", role = Role.Button) { open = !open }
+            .semantics { stateDescription = if (open) "Expanded" else "Collapsed" }, contentAlignment = Alignment.CenterStart) {
+            Text("${ValuationDisplay.UNDERSTANDING_TITLE} ${if (open) "↑" else "↓"}", Modifier.semantics { heading() },
+                style = StockStepsTheme.typography.bodySemiBold, color = colors.textPrimary)
+        }
+        if (open) {
+            Text(model.understanding, style = StockStepsTheme.typography.small, color = colors.textBody)
+            listOf(model.highReasons, model.lowReasons).forEach { explainer -> Explainer(explainer) }
         }
     }
 }

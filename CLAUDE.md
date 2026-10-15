@@ -15,14 +15,14 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.4C C1 committed locally)
+## Current task (as of 2026-10-15, Phase 5D.5.4C C2 committed locally)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
-Phase 5D.5.4B (`d4843f5`, `038aa33`) is pushed. Phase 5D.5.4C C1 ("Refine Company Details Financials for Global UI Refinement Phase 5D.5.4C C1 with an Income, Balance Sheet and Cash Flow section bar, one selector row, the revenue and net income chart and key-metric tiles first on Android and iOS") is committed locally, **not pushed**. Plan:
-`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_PLAN.md`; report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C1.md`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-4C1-2026-10-15.**
-Next: push on approval; then C2 Valuation, C3 polish, C4 verification.
+Phase 5D.5.4B (`d4843f5`, `038aa33`) is pushed. Phase 5D.5.4C C1 (`33fa94c`, Financials) is pushed. Phase 5D.5.4C C2 ("Refine Company Details Valuation for Global UI Refinement Phase 5D.5.4C C2 with ratio tiles first, a P/E vs History card, one Learn link, a folded P/E explanation and a neutral ratio footnote on Android and iOS") is committed locally, **not pushed**. Plan:
+`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_PLAN.md`; reports: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C1.md`, `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_C2.md`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-4C2-2026-10-15.**
+Next: push on approval; then C3 polish (owner question: drop P/E from Valuation & Growth?), C4 verification.
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
@@ -127,6 +127,12 @@ Portfolio conventions (permanent):
   - The bar's tab is the group of the section nearest the bar (the model interleaves groups). Off-screen sections rank in page order, never at
     a fixed value.
   - A change caption carries the direction through `StockMetric(helperDirection)`; the value stays neutral.
+- **Valuation (5D.5.4C C2).**
+  - Layout comes only from `ValuationDisplay` (display only): ratio tiles (P/E first, then the model's ratios; captions = first sentence of the
+    existing description; a missing ratio has no tile), the P/E vs History comparison only with a reliable average, one P/E Learn link, the
+    Understanding fold and the D-V2 footnote. Never compute or reword values, averages, badges or methodology.
+  - Ratio abbreviations in labels go through `ValuationDisplay.keepTogether` (word joiners; sheet titles and hints use `plain`).
+  - The iOS P/E vs History badge falls back regular → compact → wrapping, so it never widens the column at AX5.
 - **Contextual learning (5D.5.3).**
   - Metric → Learn term only via core `MetricLearnTerms` (by id: exact term id, then a single `relatedMetrics` owner, else null); never match visible
     titles and never add educational text.

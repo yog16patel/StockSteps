@@ -6,10 +6,23 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.4C C1 Financials (committed locally as "Refine Company Details Financials for Global UI Refinement Phase 5D.5.4C C1 with an Income, Balance Sheet and Cash Flow section bar, one selector row, the revenue and net income chart and key-metric tiles first on Android and iOS"; not pushed).**
+**2026-10-15 — Phase 5D.5.4C C2 Valuation (committed locally as "Refine Company Details Valuation for Global UI Refinement Phase 5D.5.4C C2 with ratio tiles first, a P/E vs History card, one Learn link, a folded P/E explanation and a neutral ratio footnote on Android and iOS"; not pushed).**
+- **Layout:**
+  - ratio tiles first;
+  - P/E vs History (comparison only with a reliable average);
+  - one Learn link;
+  - Understanding P/E folded;
+  - Growth, Range and Insight kept;
+  - D-V2 footnote.
+- **Large-text fixes:** iOS badge fallback, "P/E" kept whole, iOS chart dates scale.
+- **Tests:** shared 262/0 and 258/0.
+- **Devices:** Android and iOS checks PASS (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_C2.md`).
+- **Next:** push on approval, then C3 polish and C4 verification.
+
+**2026-10-15 — Phase 5D.5.4C C1 Financials (`33fa94c`, committed and pushed as "Refine Company Details Financials for Global UI Refinement Phase 5D.5.4C C1 with an Income, Balance Sheet and Cash Flow section bar, one selector row, the revenue and net income chart and key-metric tiles first on Android and iOS").**
 - Section bar, one selector row, the revenue + net income chart and key-metric tiles first; all sections and sheets kept.
 - Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C1.md`; plan `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_PLAN.md`.
-- **Next:** push on approval, then C2 Valuation.
+- **Next:** C2 Valuation (see above).
 
 **2026-10-15 — Phase 5D.5.4B r2 reference refinement (committed and pushed as "Refine Company Details for Global UI Refinement Phase 5D.5.4B r2 with tiled At a Glance metrics, assessment pills on the title line, Beginner Insight inside Understand and a Why Did It Move section led by the observed move and possible reasons on Android and iOS"; not pushed).**
 - Tiled At a Glance; pills on the title line; Beginner Insight inside Understand.

@@ -625,7 +625,8 @@ struct StockTrendChart: View {
             HStack {
                 ForEach(Array(chart.xLabels.enumerated()), id: \.offset) { index, label in
                     if index > 0 { Spacer(minLength: 0) }
-                    Text(label).lineLimit(1)
+                    // 5D.5.4C C2: at AX5 the dates shrink to fit instead of truncating to "Oc…" (as the bar chart's labels since C1).
+                    Text(label).lineLimit(1).minimumScaleFactor(0.4)
                 }
             }
             .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)

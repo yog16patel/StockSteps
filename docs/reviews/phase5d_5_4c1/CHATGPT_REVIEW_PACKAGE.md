@@ -3,7 +3,7 @@
 ## 1. Phase and Git baseline
 - **Phase:** 5D.5.4C, stage C1.
 - **Base:** `038aa33`.
-- **Under review:** the local commit "Refine Company Details Financials for Global UI Refinement Phase 5D.5.4C C1 with an Income, Balance Sheet and Cash Flow section bar, one selector row, the revenue and net income chart and key-metric tiles first on Android and iOS" (not pushed).
+- **Under review:** the local commit "Refine Company Details Financials for Global UI Refinement Phase 5D.5.4C C1 with an Income, Balance Sheet and Cash Flow section bar, one selector row, the revenue and net income chart and key-metric tiles first on Android and iOS" (`33fa94c`, pushed).
 
 ## 2. Changes
 - **Section bar:** a pinned Income · Balance Sheet · Cash Flow bar (scrolls within the page; the selected tab is the nearest section's group).
