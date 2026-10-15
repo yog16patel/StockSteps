@@ -37,6 +37,7 @@ struct CompanyDetailsScreen: View {
     /// 5D.5.3: opens a Learn term on top of this stock (Back returns here).
     var onLearnTerm: (String) -> Void = { _ in }
     @State private var education: GlanceMetric?
+    @State private var explaining: MetricExplanation?
     @State private var showEvidence = false
     @State private var showSources = false
     @State private var aboutExpanded = false
@@ -205,6 +206,9 @@ struct CompanyDetailsScreen: View {
             InfoSheet(title: educationTitle(metric), message: educationBody(metric), term: metric.educationId.flatMap { MetricLearnTerms.shared.termFor(metricId: $0) },
                       onLearn: { id in education = nil; onLearnTerm(id) })
         }
+        .sheet(item: $explaining) { explanation in
+            MetricExplanationSheet(explanation: explanation, onLearn: { id in explaining = nil; onLearnTerm(id) })
+        }
         .sheet(isPresented: $showEvidence) {
             if let rows = model.overview.value?.insightEvidence {
                 InfoSheet(title: "Where this comes from", rows: rows.map { ($0.label, $0.value) })
@@ -329,6 +333,15 @@ struct CompanyDetailsScreen: View {
         formatter.locale = Locale(identifier: "en_US")
         formatter.timeZone = TimeZone(identifier: "America/New_York")
         return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(seconds)))
+    }
+
+    /// Glance metrics keep their company sentence (InfoSheet); net margin and debt use the 5D.5.3 metric sheet (5D.5.4B).
+    private func explain(_ id: String, _ overview: CompanyOverview) {
+        if present.GLANCE_SHEET_IDS.contains(id) {
+            education = overview.glance.first { $0.educationId == id || $0.id == id }
+        } else {
+            explaining = MetricLearnTerms.shared.explain(metricId: id, title: nil)
+        }
     }
 
     // MARK: Section bar (5D.5.4A)
@@ -460,26 +473,23 @@ struct CompanyDetailsScreen: View {
 
     private func whySection(_ why: WhyMoving, _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-            HStack(spacing: CGFloat(space.sm)) {
-                Image(systemName: "lightbulb.fill").foregroundStyle(colors.educationAccent).accessibilityHidden(true)
-                Text("Why Did It Move?").font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: 0)
-                if !why.sources.isEmpty {
-                    // Compact pill inside a full 44 pt+ touch target, read as "3 sources" (no arrow).
-                    Button { showSources = true } label: {
-                        Text(verbatim: "\(why.sources.count) sources →")
-                            .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
-                            .padding(.horizontal, CGFloat(space.sm)).padding(.vertical, CGFloat(space.xs))
-                            .background(colors.surface, in: Capsule())
-                            .frame(minHeight: CGFloat(dims.touchTarget))
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(why.sources.count) sources")
+            // 5D.5.4B: title and source pill share a line only while both fit whole; otherwise the pill sits under the title, so at AX5
+            // "3 sources" never breaks mid-word.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: CGFloat(space.sm)) {
+                    whyTitle(colors).fixedSize()
+                    Spacer(minLength: 0)
+                    if !why.sources.isEmpty { sourcesPill(why, colors) }
+                }
+                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                    whyTitle(colors)
+                    if !why.sources.isEmpty { sourcesPill(why, colors) }
                 }
             }
-            Text(why.summary).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
+            // 5D.5.4B: the first sentence (what moved) as the lead, the rest of the same summary below in a quieter style.
+            let shown = present.whyMoving(summary: why.summary)
+            Text(shown.lead).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
+            if let rest = shown.rest { Text(rest).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody) }
             if let matters = why.whyItMatters {
                 HStack(alignment: .top, spacing: CGFloat(space.sm)) {
                     Image(systemName: "info.circle.fill").foregroundStyle(colors.learnAccent).accessibilityHidden(true)
@@ -498,6 +508,29 @@ struct CompanyDetailsScreen: View {
         }
         .padding(CGFloat(space.md))
         .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.cardLarge)))
+    }
+
+    private func whyTitle(_ colors: StockColors) -> some View {
+        HStack(spacing: CGFloat(space.sm)) {
+            Image(systemName: "lightbulb.fill").foregroundStyle(colors.educationAccent).accessibilityHidden(true)
+            Text("Why Did It Move?").font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+        }
+    }
+
+    /// Compact pill inside a full 44 pt+ touch target, read as "3 sources" (no arrow); never wraps.
+    private func sourcesPill(_ why: WhyMoving, _ colors: StockColors) -> some View {
+        Button { showSources = true } label: {
+            Text(verbatim: "\(why.sources.count) sources →")
+                .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
+                .lineLimit(1).fixedSize()
+                .padding(.horizontal, CGFloat(space.sm)).padding(.vertical, CGFloat(space.xs))
+                .background(colors.surface, in: Capsule())
+                .frame(minHeight: CGFloat(dims.touchTarget))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(why.sources.count) sources")
     }
 
     // MARK: Overview sections
@@ -525,12 +558,13 @@ struct CompanyDetailsScreen: View {
     private func understand(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
         if !overview.assessment.isEmpty {
             VStack(spacing: 0) {
-                ForEach(Array(overview.assessment.enumerated()), id: \.offset) { index, row in
+                // 5D.5.4B: Category → Interpretation → Supporting metric → Short explanation; every row opens its metric's explanation.
+                ForEach(Array(present.assessment(overview: overview).enumerated()), id: \.offset) { index, row in
                     if index > 0 { StockDivider() }
                     let (icon, container, tint) = assessmentIcon(row.id, colors)
-                    StockAssessmentRow(systemName: icon, iconContainer: container, iconContent: tint, title: row.title, detail: row.detail,
-                                       badge: row.badge, tone: row.tone, note: row.explanation,
-                                       action: row.id == "valuation" ? { education = overview.glance.first { $0.id == "pe" } } : nil)
+                    StockAssessmentRow(systemName: icon, iconContainer: container, iconContent: tint, title: row.title, detail: row.metric,
+                                       badge: row.status, tone: row.tone, note: row.explanation,
+                                       action: row.metricId.map { id in { explain(id, overview) } }, statusBelowTitle: true)
                 }
             }
             .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
@@ -583,10 +617,7 @@ struct CompanyDetailsScreen: View {
             } else {
                 StockSectionMessage(message: "Valuation history isn't available for this company.")
             }
-            StockDivider()
-            StockNavigationRow(title: "Understand P/E Ratio", detail: "What the price-to-earnings ratio tells you", icon: "lightbulb") {
-                education = overview.glance.first { $0.id == "pe" }
-            }
+            // 5D.5.4B: "Understand P/E Ratio" removed here; the same P/E sheet opens from the P/E tile and the Understand Valuation row.
             StockDivider()
             StockNavigationRow(title: "See detailed valuation", detail: "Historical P/E and how it has changed", icon: "chart.line.uptrend.xyaxis",
                                action: onOpenValuation)

@@ -199,27 +199,37 @@ struct StockAssessmentRow: View {
     var tone: FactTone = .neutral
     var note: String?
     var action: (() -> Void)?
+    /// 5D.5.4B: see Compose `statusBelowTitle` — the status as tinted words under the title on every row. Default off (unchanged).
+    var statusBelowTitle = false
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         let content = HStack(spacing: CGFloat(space.md)) {
             StockIconTile(systemName: systemName, container: iconContainer, content: iconContent)
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                // Short badges share the title's line while both fit; otherwise — and always for badges over the shared `StockBadgeLayout` limit
-                // (Phase 4C.3; 20 characters since 5D.5.4A) — the badge sits below, so it never squeezes the title or breaks it mid-word.
-                if badge.map({ StockBadgeLayout.shared.mayShareTitleLine(badge: $0) }) ?? true {
-                    ViewThatFits(in: .horizontal) {
-                        // Side by side only when the whole title and the whole pill fit on one line (both fixed), so ViewThatFits never
-                        // squeezes the title ("Financial He…") or picks the wrapping fallback here.
-                        HStack(spacing: CGFloat(space.sm)) {
-                            Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).lineLimit(1).fixedSize()
-                            Spacer(minLength: 0)
-                            if let badge { StockBadge(text: badge, tone: tone) }
-                        }
-                        stackedTitle(colors)
+                if statusBelowTitle {
+                    Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle)
+                    if let badge {
+                        let style = StockSemanticStyles.shared.badge(kind: tone.badgeKind, p: StockStepsTheme.palette(scheme))
+                        Text(verbatim: badge).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(StockStepsTheme.color(style.content))
                     }
                 } else {
-                    stackedTitle(colors)
+                    // Short badges share the title's line while both fit; otherwise — and always for badges over the shared `StockBadgeLayout` limit
+                    // (Phase 4C.3; 20 characters since 5D.5.4A) — the badge sits below, so it never squeezes the title or breaks it mid-word.
+                    if badge.map({ StockBadgeLayout.shared.mayShareTitleLine(badge: $0) }) ?? true {
+                        ViewThatFits(in: .horizontal) {
+                            // Side by side only when the whole title and the whole pill fit on one line (both fixed), so ViewThatFits never
+                            // squeezes the title ("Financial He…") or picks the wrapping fallback here.
+                            HStack(spacing: CGFloat(space.sm)) {
+                                Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).lineLimit(1).fixedSize()
+                                Spacer(minLength: 0)
+                                if let badge { StockBadge(text: badge, tone: tone) }
+                            }
+                            stackedTitle(colors)
+                        }
+                    } else {
+                        stackedTitle(colors)
+                    }
                 }
                 Text(detail).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
                 if let note {

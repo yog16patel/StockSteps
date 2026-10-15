@@ -180,7 +180,7 @@ internal fun CompanyDetailsScreen(
                                 Section.Loading -> Unit
                             }
                             "valuation" -> overview?.let {
-                                ValuationHealthSection(it, onUnderstand = { education = "pe" }, onValuation = { onAction(CompanyDetailsAction.OpenValuation) },
+                                ValuationHealthSection(it, onValuation = { onAction(CompanyDetailsAction.OpenValuation) },
                                     onFinancials = { onAction(CompanyDetailsAction.OpenFinancials) }, modifier = section)
                             }
                             "earnings" -> earnings?.let { e -> EarningsSection(e, earningsReminder, onAction, section) }
@@ -197,7 +197,14 @@ internal fun CompanyDetailsScreen(
         }
     }
     if (overview != null) {
-        education?.let { id -> EducationSheet(id, overview, onDismiss = { education = null }, onLearn = { onAction(CompanyDetailsAction.LearnTerm(it)) }) }
+        education?.let { id ->
+            val onLearn: (String) -> Unit = { onAction(CompanyDetailsAction.LearnTerm(it)) }
+            // Glance metrics keep their company sentence; Understand rows for net margin and debt use the 5D.5.3 metric sheet.
+            if (id in CompanyDetailsPresentation.GLANCE_SHEET_IDS) EducationSheet(id, overview, onDismiss = { education = null }, onLearn = onLearn)
+            else org.example.stocksteps.learning.MetricLearnTerms.explain(id)?.let { explanation ->
+                org.example.stocksteps.presentation.learn.MetricExplanationSheet(explanation, onLearn, onDismiss = { education = null })
+            }
+        }
         if (showEvidence) EvidenceSheet(overview.insightEvidence, onDismiss = { showEvidence = false })
     }
     val whyValue = (state.whyMoving as? Section.Content)?.value
@@ -415,7 +422,10 @@ private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (Str
                 }
             }
         }
-        Text(why.summary, style = StockStepsTheme.typography.body, color = colors.textBody)
+        // 5D.5.4B: the first sentence (what moved) as the lead, the rest of the same summary below in a quieter style.
+        val shown = remember(why.summary) { CompanyDetailsPresentation.whyMoving(why.summary) }
+        Text(shown.lead, style = StockStepsTheme.typography.bodySemiBold, color = colors.textPrimary)
+        shown.rest?.let { Text(it, style = StockStepsTheme.typography.small, color = colors.textBody) }
         why.whyItMatters?.let { matters ->
             Row(
                 Modifier.fillMaxWidth().clip(StockStepsTheme.shapes.card).background(colors.learnContainerStart).padding(spacing.sm),
@@ -476,7 +486,8 @@ private fun UnderstandSection(data: CompanyOverview, onExplain: (String) -> Unit
     SectionTitled(CompanyDetailsPresentation.understandTitle(data), modifier) {
         if (data.assessment.isNotEmpty()) {
             StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
-                data.assessment.forEachIndexed { index, row ->
+                // 5D.5.4B: Category → Interpretation → Supporting metric → Short explanation; every row opens its metric's explanation.
+                CompanyDetailsPresentation.assessment(data).forEachIndexed { index, row ->
                     if (index > 0) StockDivider()
                     val (icon, container, tint) = when (row.id) {
                         "growth" -> Triple(StockIcons.TrendingUp, colors.positiveContainer, colors.positiveText)
@@ -486,9 +497,10 @@ private fun UnderstandSection(data: CompanyOverview, onExplain: (String) -> Unit
                     }
                     StockAssessmentRow(
                         icon = icon, iconContainer = container, iconContent = tint,
-                        title = row.title, detail = row.detail, badge = row.badge, tone = row.tone, note = row.explanation,
-                        onClick = if (row.id == "valuation") { { onExplain("pe") } } else null,
-                        onClickLabel = stringResource(Res.string.details_learn_more)
+                        title = row.title, detail = row.metric, badge = row.status, tone = row.tone, note = row.explanation,
+                        onClick = row.metricId?.let { id -> { onExplain(id) } },
+                        onClickLabel = stringResource(Res.string.details_learn_more),
+                        statusBelowTitle = true
                     )
                 }
             }
@@ -541,7 +553,7 @@ private fun AboutCard(data: CompanyOverview, modifier: Modifier) {
  * and the detailed valuation; the financial highlights with their basis; key ratios not already shown in At a Glance.
  */
 @Composable
-private fun ValuationHealthSection(data: CompanyOverview, onUnderstand: () -> Unit, onValuation: () -> Unit, onFinancials: () -> Unit, modifier: Modifier) {
+private fun ValuationHealthSection(data: CompanyOverview, onValuation: () -> Unit, onFinancials: () -> Unit, modifier: Modifier) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     val valuation = data.valuation
@@ -565,9 +577,7 @@ private fun ValuationHealthSection(data: CompanyOverview, onUnderstand: () -> Un
                 }
                 Text(valuation.explanation, style = StockStepsTheme.typography.small, color = colors.textBody)
             }
-            StockDivider()
-            StockNavigationRow(stringResource(Res.string.details_understand_pe), onUnderstand, icon = StockIcons.Lightbulb,
-                detail = "What the price-to-earnings ratio tells you")
+            // 5D.5.4B: "Understand P/E Ratio" removed here; the same P/E sheet opens from the P/E tile and the Understand Valuation row.
             StockDivider()
             StockNavigationRow(stringResource(Res.string.details_see_valuation), onValuation, icon = StockIcons.TrendingUp,
                 detail = "Historical P/E and how it has changed")

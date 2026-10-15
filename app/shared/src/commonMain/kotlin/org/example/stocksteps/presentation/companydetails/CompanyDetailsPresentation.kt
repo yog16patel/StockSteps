@@ -164,10 +164,12 @@ object CompanyDetailsPresentation {
         val trimmed = text.trim().ifEmpty { return null }
         Regex("""[.!?](?=\s+[A-Z0-9“"])""").findAll(trimmed).forEach { match ->
             val before = trimmed.substring(0, match.range.first).substringAfterLast(' ').trimStart('(', '“', '"')
-            if (before.length > 1 && '.' !in before && before.lowercase() !in ABBREVIATIONS) return trimmed.substring(0, match.range.last + 1)
+            if (before.length > 1 && !INITIALISM.matches(before) && before.lowercase() !in ABBREVIATIONS) return trimmed.substring(0, match.range.last + 1)
         }
         return trimmed
     }
+    /** "U.S", "J.P" (the text before the final dot): letters joined by dots; "0.24%" is a number, not an initialism. */
+    private val INITIALISM = Regex("""^([A-Za-z]\.)+[A-Za-z]$""")
     private val ABBREVIATIONS = setOf("inc", "corp", "co", "ltd", "plc", "llc", "lp", "s.a", "n.v", "ag", "u.s", "u.k", "mr", "mrs", "ms", "dr", "st",
         "jr", "sr", "no", "vs", "etc", "e.g", "i.e", "approx", "dept", "est", "fig", "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept",
         "oct", "nov", "dec")
@@ -186,6 +188,48 @@ object CompanyDetailsPresentation {
     /** Sector and industry as label/value rows (shown once, in About, instead of a separate section). */
     fun classification(overview: CompanyOverview): List<InfoRow> =
         listOfNotNull(overview.sector?.let { InfoRow("Sector", it) }, overview.industry?.let { InfoRow("Industry", it) })
+
+    // ---------- Understand rows (5D.5.4B) ----------
+
+    /**
+     * One Understand row in the beginner order Category → Interpretation → Supporting metric → Short explanation, from the existing
+     * `AssessmentRow` (labels, tones and sentences unchanged). [metricId] is the explanation the row opens: the At a Glance sheet for
+     * revenue growth and P/E, the 5D.5.3 metric sheet (`MetricLearnTerms.explain`) for net margin and debt.
+     */
+    data class AssessmentDisplay(
+        val id: String, val title: String, val status: String?, val tone: org.example.stocksteps.companydetail.FactTone,
+        val metric: String, val explanation: String?, val metricId: String?
+    )
+
+    fun assessment(overview: CompanyOverview): List<AssessmentDisplay> = overview.assessment.map { row ->
+        AssessmentDisplay(row.id, row.title, row.badge, row.tone, supportingMetric(row), row.explanation, ASSESSMENT_METRICS[row.id])
+    }
+
+    /**
+     * The row's fact as a beginner reads it: "YoY" spelled out ("Revenue +6.4% year over year"), and for Valuation only the current P/E —
+     * P/E against its historical average is shown once, in the Valuation card below (D-E4).
+     */
+    fun supportingMetric(row: org.example.stocksteps.companydetail.AssessmentRow): String {
+        val text = if (row.id == "valuation") row.detail.substringBefore(" • ") else row.detail
+        return text.replace(Regex("""\bYoY\b"""), "year over year")
+    }
+
+    /** Which explanation each Understand row opens (ids from `MetricEducation`; Learn terms follow `MetricLearnTerms`, unchanged). */
+    private val ASSESSMENT_METRICS = mapOf("growth" to "revenueGrowth", "profitability" to "netMargin", "health" to "debt", "valuation" to "pe")
+
+    /** Ids the At a Glance explanation sheet handles (it adds the company's own number); other ids use the 5D.5.3 metric sheet. */
+    val GLANCE_SHEET_IDS = setOf("marketCap", "pe", "revenueGrowth", "dividendYield")
+
+    // ---------- Why did it move (5D.5.4B) ----------
+
+    /** The movement summary split for scanning: the first sentence as the lead, the rest (verbatim) below it; null rest when one sentence. */
+    data class WhyMovingDisplay(val lead: String, val rest: String?)
+
+    fun whyMoving(summary: String): WhyMovingDisplay {
+        val lead = firstSentence(summary) ?: summary.trim()
+        val rest = summary.trim().removePrefix(lead).trim().ifEmpty { null }
+        return WhyMovingDisplay(lead, rest)
+    }
 
     // ---------- Valuation ----------
 

@@ -6,6 +6,13 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-15 — Phase 5D.5.4B Understand and Why Did It Move? (committed locally as "Refine Company Details Understand rows and Why Did It Move for Global UI Refinement Phase 5D.5.4B with category, interpretation, one supporting fact and a note per row, an explanation sheet on every row, a bold lead sentence and one P/E comparison on Android and iOS"; not pushed).**
+- Understand rows: category, tinted interpretation, one fact, note; every row opens its explanation and Learn link.
+- P/E vs average only in the Valuation card; duplicate "Understand P/E Ratio" removed.
+- Why Did It Move?: bold lead sentence plus the verbatim rest.
+- Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4B.md`.
+- **Outstanding:** screen readers; iOS signed-in. **Next:** push on approval, then 5D.5.4C.
+
 **2026-10-15 — Phase 5D.5.4A Company Details hierarchy CLOSED (owner approval with conditions).**
 - Implementation `0fbce92` (pushed). Closure verification: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md` §8.
   - Shared iOS tests 246/0; badge-rule audit (only the Financial Health badges move inline).

@@ -10,6 +10,7 @@ import org.example.stocksteps.presentation.companydetails.CompanyDetailsPresenta
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertNotNull
 
 class CompanyDetailsPresentationTest {
     private val present = CompanyDetailsPresentation
@@ -105,6 +106,43 @@ class CompanyDetailsPresentationTest {
         assertEquals(CompanyDetailsPresentation.WhatItDoes("What Apple does", null, "Technology · Consumer Electronics"), present.whatItDoes(overview()))
         assertEquals("Apple makes phones.", present.whatItDoes(overview(sector = null, industry = null).copy(about = "Apple makes phones."))?.summary)
         assertNull(present.whatItDoes(overview(sector = null, industry = null)))
+    }
+
+    @Test
+    fun understandRowsKeepTheirLabelsAndShowOneSupportingMetric() {
+        val rows = listOf(
+            org.example.stocksteps.companydetail.AssessmentRow("growth", "Growth", "Revenue +6.4% YoY", badge = "Growing",
+                tone = org.example.stocksteps.companydetail.FactTone.POSITIVE, explanation = "Apple brought in more money from sales than a year earlier."),
+            org.example.stocksteps.companydetail.AssessmentRow("profitability", "Profitability", "Net Margin 32.0%", badge = "High margin"),
+            org.example.stocksteps.companydetail.AssessmentRow("health", "Financial Health", "Cash $36B • Debt $99B", badge = "More debt than cash",
+                tone = org.example.stocksteps.companydetail.FactTone.CAUTION),
+            org.example.stocksteps.companydetail.AssessmentRow("valuation", "Valuation", "P/E 28.0 • 5Y Avg 27.5", badge = "Near History",
+                explanation = "Trading near its historical P/E valuation.")
+        )
+        val shown = present.assessment(overview().copy(assessment = rows))
+        // Order, titles, interpretation labels, tones and sentences are the core rows' own.
+        assertEquals(rows.map { it.id }, shown.map { it.id })
+        assertEquals(rows.map { it.badge }, shown.map { it.status })
+        assertEquals(rows.map { it.tone }, shown.map { it.tone })
+        assertEquals(rows.map { it.explanation }, shown.map { it.explanation })
+        assertEquals(listOf("Revenue +6.4% year over year", "Net Margin 32.0%", "Cash $36B • Debt $99B", "P/E 28.0"), shown.map { it.metric })
+        assertEquals(listOf("revenueGrowth", "netMargin", "debt", "pe"), shown.map { it.metricId })
+        // Every opened id has an explanation; only glance ids use the glance sheet.
+        shown.forEach { assertNotNull(org.example.stocksteps.companydetail.MetricEducation.find(it.metricId!!), it.id) }
+        assertEquals(setOf("revenueGrowth", "pe"), shown.mapNotNull { it.metricId }.filter { it in present.GLANCE_SHEET_IDS }.toSet())
+        // Valuation without a history keeps its P/E.
+        assertEquals("P/E 28.0", present.supportingMetric(rows[3].copy(detail = "P/E 28.0")))
+    }
+
+    @Test
+    fun whyItMovedLeadIsTheFirstSentenceAndTheRestIsVerbatim() {
+        val summary = "Apple Inc. rose 0.91% on Oct 7, while the S&P 500 fell 0.24%. Company news in the same period included “Apple’s New CEO”. " +
+            "It may have contributed, but timing alone doesn't prove it."
+        val shown = present.whyMoving(summary)
+        assertEquals("Apple Inc. rose 0.91% on Oct 7, while the S&P 500 fell 0.24%.", shown.lead)
+        assertEquals("Company news in the same period included “Apple’s New CEO”. It may have contributed, but timing alone doesn't prove it.", shown.rest)
+        assertEquals(summary, shown.lead + " " + shown.rest)
+        assertEquals(CompanyDetailsPresentation.WhyMovingDisplay("Apple rose 1%.", null), present.whyMoving("Apple rose 1%."))
     }
 
     @Test

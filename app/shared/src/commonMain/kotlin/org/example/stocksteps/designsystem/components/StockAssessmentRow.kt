@@ -41,7 +41,12 @@ internal fun StockAssessmentRow(
     tone: FactTone = FactTone.NEUTRAL,
     note: String? = null,
     onClick: (() -> Unit)? = null,
-    onClickLabel: String? = null
+    onClickLabel: String? = null,
+    /**
+     * 5D.5.4B: the status as tinted words on its own line under the title (Category → Interpretation → fact → note), the same for every
+     * row so all rows align and a long status ("More debt than cash") wraps between words at any size. Default off (pill badge, unchanged).
+     */
+    statusBelowTitle: Boolean = false
 ) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
@@ -58,7 +63,11 @@ internal fun StockAssessmentRow(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
             // Short badges share the title's line while both fit (badge at the end); otherwise — and always for badges over the shared
             // `StockBadgeLayout` limit (Phase 4C.3; 20 characters since 5D.5.4A) — the badge sits below, so it never squeezes the title or breaks it mid-word.
-            if (badge == null || StockBadgeLayout.mayShareTitleLine(badge)) {
+            if (statusBelowTitle) {
+                Text(title, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
+                if (badge != null) Text(badge, style = StockStepsTheme.typography.bodySemiBold,
+                    color = colors.rgb(org.example.stocksteps.theme.StockSemanticStyles.badge(tone.badgeKind(), colors.palette).content))
+            } else if (badge == null || StockBadgeLayout.mayShareTitleLine(badge)) {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(spacing.xxs),
                     itemVerticalAlignment = Alignment.CenterVertically) {
                     Text(title, Modifier.padding(end = spacing.sm), style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
