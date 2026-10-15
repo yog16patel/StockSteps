@@ -6,6 +6,14 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-15 — Phase 5D.5.6A Shared Navigation & Top App Bar audit and plan (committed locally as "Add the Phase 5D.5.6A shared navigation and top app bar audit and plan with a canonical parent tab per screen, independent tab stacks with a cross-tab Back trail and a shared landing top bar, approved with decisions D1 to D12"; docs only; not pushed). Approved: D1–D12 as recommended.**
+- **Plan:** `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6_PLAN.md`.
+  - Canonical parent tab per screen (Company Search/Details/Financials/Valuation/News → Markets).
+  - Independent per-tab stacks with a cross-tab trail for Back.
+  - Tab bar visible on pushed screens and hidden on modals.
+  - A shared landing top bar with Notifications and Settings.
+- **Next:** push on approval, then 5D.5.6B.
+
 **2026-10-15 — Phase 5D.5.5D final verification & closure (committed locally as "Close Company Search for Global UI Refinement Phase 5D.5.5D with the final verification record and add the Phase 5D.5.6 shared navigation and top app bar planning note"; docs only, no code changes; not pushed). Recommendation: CLOSE WITH DEFERRED ITEMS.**
 - **Device checks on local MOCK, both platforms:** error + Retry, rapid typing, clear or cancel while pending, newer query wins, return from details, recents (logo refresh, initials, GOOG/GOOGL, guest persistence, Clear all), Android 1.3×. All PASS.
 - **Suites:** all green in one sequential run: core 556/0 ×2, server 502/0, shared 264/0 and 260/0, builds.

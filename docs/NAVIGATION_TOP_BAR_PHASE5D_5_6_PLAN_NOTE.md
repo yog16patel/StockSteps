@@ -1,5 +1,8 @@
 # Phase 5D.5.6 — Shared Navigation & Top App Bar Refinement (planning note)
 
+> **Superseded by `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6_PLAN.md` (5D.5.6A).** The recommendation below that shared screens keep their
+> originating tab is withdrawn: every screen has one canonical parent tab (owner requirement R1).
+
 - **Status:** planning only (2026-10-15). Nothing here is implemented. Implementation waits for an owner-approved plan (5D.5.6A audit + plan,
   then B/C/D phases).
 - **Ground rules:** no extra API calls; the Route/Scene/Screen boundary (CLAUDE.md) stays; no sixth tab; Android and iOS behave the same.

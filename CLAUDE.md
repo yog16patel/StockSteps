@@ -15,14 +15,15 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.5D closure record committed locally)
+## Current task (as of 2026-10-15, Phase 5D.5.6A navigation plan committed locally)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
 Phase 5D.5.4 (Company Details, A–D) is pushed through `0c5c4c4`; the owner runs the TalkBack/VoiceOver pass manually (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md` §9).
 Phase 5D.5.5 Company Search: the plan, 5D.5.5B (`08723a6`), 5D.5.5C (`1d90195`), search logos (`65ad004`) and 5D.5.5D (`458e6a2`) are pushed. The final verification and closure record ("Close Company Search for Global UI Refinement Phase 5D.5.5D with the final verification record and add the Phase 5D.5.6 shared navigation and top app bar planning note") is committed locally, **not pushed**: recommendation CLOSE WITH DEFERRED ITEMS (owner TalkBack/VoiceOver pass; FMP logo display licence **UNVERIFIED**, a launch dependency for logos). Report: `docs/reviews/phase5d_5_5d/PHASE5D_5_5D_VERIFICATION.md` §8.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-5D-FINAL-2026-10-15.**
-Next: push on approval; then 5D.5.6A (Shared Navigation & Top App Bar audit + plan) from `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6_PLAN_NOTE.md` — no implementation without owner approval.
+Phase 5D.5.5D closure (`ebadf96`) is pushed. Phase 5D.5.6A ("Add the Phase 5D.5.6A shared navigation and top app bar audit and plan with a canonical parent tab per screen, independent tab stacks with a cross-tab Back trail and a shared landing top bar, approved with decisions D1 to D12") is committed locally, **not pushed**: plan `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6_PLAN.md`, owner-approved D1–D12 (canonical parent tab per screen; per-tab stacks with a cross-tab Back trail; tab bar visible on pushes, hidden on modals; shared landing top bar with Notifications and Settings).
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-6A-2026-10-15.**
+Next: push on approval; then 5D.5.6B (core navigation policy + landing top bar) on the owner's go-ahead — no implementation before that.
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
