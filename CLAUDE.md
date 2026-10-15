@@ -4,6 +4,10 @@ Read this first, then `docs/project-status.md` (feature status, decisions, pendi
 `PROJECT_HANDOFF.md` (milestone log + validation history). `AGENTS.md` has the same core rules.
 Always verify against the code and `git status`/`git log` — docs can lag the repository.
 
+**Review workflow (mandatory):** Before planning, implementing, verifying, or handing off a development phase, read `docs/AI_REVIEW_WORKFLOW.md`.
+Follow its evidence collection, review-package, and approval requirements. At the end of an implementation phase, generate the appropriate compact
+ChatGPT review package unless the owner explicitly opts out.
+
 ## What StockSteps is
 
 A **beginner-focused** investing education app (Android + iOS) with a Kotlin Ktor backend.

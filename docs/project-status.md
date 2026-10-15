@@ -6,6 +6,12 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-14 — Review workflow.**
+- `docs/AI_REVIEW_WORKFLOW.md` defines the compact ChatGPT review package that ends each approved implementation phase:
+  - stored in `docs/reviews/<phase-id>/`;
+  - full-resolution originals and logs in its git-ignored `captures/`.
+- `CLAUDE.md` requires reading it.
+
 **2026-10-14 — Phase 5D.5.1c Daily Brief final polish; Daily Brief CLOSED (committed and pushed as "Polish the Daily Brief for Global UI Refinement Phase 5D.5.1c with a borderless story group, a compact header with session status under Markets, a secondary Add companies action, matching footer links and a tighter concept card on Android and iOS").**
 - Changes:
   - borderless story group;
