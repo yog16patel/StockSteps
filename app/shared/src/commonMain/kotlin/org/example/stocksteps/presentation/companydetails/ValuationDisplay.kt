@@ -1,5 +1,6 @@
 package org.example.stocksteps.presentation.companydetails
 
+import org.example.stocksteps.companydetail.InfoRow
 import org.example.stocksteps.companydetail.ValuationModel
 
 /**
@@ -23,7 +24,7 @@ object ValuationDisplay {
      * other ratios the model has, in its order. A ratio the model leaves out (missing, or not meaningful) has no tile.
      */
     fun keyMetrics(model: ValuationModel): List<KeyMetric> =
-        listOf(KeyMetric(keepTogether("P/E Ratio"), model.currentPe, null, "pe")) +
+        listOf(KeyMetric(keepTogether("P/E Ratio"), model.currentPe, null, PE_METRIC_ID)) +
             model.otherMetrics.map { row ->
                 KeyMetric(keepTogether(row.label), row.value, row.helper?.let(CompanyDetailsPresentation::firstSentence), row.metricId)
             }
@@ -35,10 +36,21 @@ object ValuationDisplay {
         model.average?.let { avg -> Comparison("Current", model.currentPe, keepTogether(model.averageLabel), avg, model.difference) }
 
     /**
-     * Keeps a ratio abbreviation whole ("P/E", "P/S") with invisible word joiners around the slash: at the largest text sizes a label wrapped as
-     * "Average P/" + "E". The visible text is unchanged; [plain] removes the joiners.
+     * Valuation & Growth (C3): shown exactly when it was before (the model has more than one row), without the model's P/E row — P/E is the first
+     * key-metric tile and leads P/E vs History, so a third copy added nothing. Growth rows keep the model's order, values and directions.
      */
-    fun keepTogether(label: String): String = SLASH_ABBREVIATION.replace(label) { "${it.groupValues[1]}\u2060/\u2060${it.groupValues[2]}" }
+    fun growthVisible(model: ValuationModel): Boolean = model.growth.size > 1
+
+    fun growthRows(model: ValuationModel): List<InfoRow> = model.growth.filterNot { it.metricId == PE_METRIC_ID }
+
+    private const val PE_METRIC_ID = "pe"
+
+    /**
+     * Keeps a ratio abbreviation whole ("P/E", "P/S") with invisible word joiners around the slash: at the largest text sizes a label wrapped as
+     * "Average P/" + "E". C3: the page's model sentences go through it too (the Insight read "current P/" + "E is close" at AX5). The
+     * visible text is unchanged; [plain] removes the joiners.
+     */
+    fun keepTogether(text: String): String = SLASH_ABBREVIATION.replace(text) { "${it.groupValues[1]}\u2060/\u2060${it.groupValues[2]}" }
 
     fun plain(text: String): String = text.replace("\u2060", "")
 

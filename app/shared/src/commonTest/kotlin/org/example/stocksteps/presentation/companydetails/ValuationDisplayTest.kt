@@ -11,11 +11,11 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ValuationDisplayTest {
-    private fun model(currentPe: String = "28.0x", average: String? = "27.5x", difference: String? = "+2%", averageLabel: String = "5-Year Average", other: List<InfoRow> = emptyList()) = ValuationModel(
+    private fun model(currentPe: String = "28.0x", average: String? = "27.5x", difference: String? = "+2%", averageLabel: String = "5-Year Average", other: List<InfoRow> = emptyList(), growth: List<InfoRow> = emptyList()) = ValuationModel(
         range = ValuationRange.FIVE_YEARS, currentPe = currentPe, currentPeAvailable = currentPe != "N/A", badge = "Near Historical Average",
         position = ValuationPosition.NEAR, meaning = "m", averageLabel = averageLabel, average = average, difference = difference, methodology = "x",
         chart = null, rangeSummary = null, understanding = "u", highReasons = ValuationExplainer("Why can P/E be high?", emptyList()),
-        lowReasons = ValuationExplainer("Why can P/E be low?", emptyList()), otherMetrics = other, growth = emptyList(), growthNote = "", insight = "", historyMessage = null)
+        lowReasons = ValuationExplainer("Why can P/E be low?", emptyList()), otherMetrics = other, growth = growth, growthNote = "", insight = "", historyMessage = null)
 
     private val apple = listOf(
         InfoRow("Price to Sales (P/S)", "10.6x", "Market value ÷ annual revenue.", metricId = "priceSales"),
@@ -50,7 +50,26 @@ class ValuationDisplayTest {
         assertEquals("P\u2060/\u2060E Ratio", ValuationDisplay.keepTogether("P/E Ratio"))
         assertEquals("Price to Sales (P\u2060/\u2060S)", ValuationDisplay.keepTogether("Price to Sales (P/S)"))
         assertEquals("EV / EBITDA", ValuationDisplay.keepTogether("EV / EBITDA"))
+        // C3: model sentences too — the visible text is unchanged.
+        val insight = "Apple's current P/E is close to its 5-year average."
+        assertEquals("Apple's current P\u2060/\u2060E is close to its 5-year average.", ValuationDisplay.keepTogether(insight))
+        assertEquals(insight, ValuationDisplay.plain(ValuationDisplay.keepTogether(insight)))
         assertEquals("Price to Book (P/B)", ValuationDisplay.plain(ValuationDisplay.keepTogether("Price to Book (P/B)")))
+    }
+
+    @Test
+    fun valuationAndGrowthDropsOnlyTheDuplicatePeRowAndKeepsItsVisibilityRule() {
+        val pe = InfoRow("P/E Ratio", "28.0x", metricId = "pe")
+        val revenue = InfoRow("Revenue Growth (latest year)", "+6.4%", metricId = "revenueGrowth")
+        val eps = InfoRow("EPS Growth (latest year)", "+75.5%", metricId = "epsGrowth")
+        val full = model(growth = listOf(pe, revenue, eps))
+        assertTrue(ValuationDisplay.growthVisible(full))
+        assertEquals(listOf(revenue, eps), ValuationDisplay.growthRows(full))
+        // Hidden exactly as before: P/E alone (no growth figure) or a single growth row.
+        assertEquals(false, ValuationDisplay.growthVisible(model(growth = listOf(pe))))
+        assertEquals(false, ValuationDisplay.growthVisible(model(growth = listOf(revenue))))
+        // Without a current P/E the model's two growth rows stay as they were.
+        assertEquals(listOf(revenue, eps), ValuationDisplay.growthRows(model(growth = listOf(revenue, eps))))
     }
 
     @Test

@@ -1,13 +1,38 @@
-# StockSteps — session handoff (2026-10-15: Phase 5D.5.4C C2 Valuation committed locally; next: push on approval, then C3)
+# StockSteps — session handoff (2026-10-15: Phase 5D.5.4C C3 polish committed locally; next: push on approval, then C4)
 
-Read order for a new session: `CLAUDE.md` → `docs/AI_REVIEW_WORKFLOW.md` (review packages, evidence and approval rules) → **§PHASE-5D-5-4C2-2026-10-15 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_C2.md` → `docs/reviews/phase5d_5_4c2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-4C1-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_PLAN.md` → §PHASE-5D-5-4B-R2-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4B.md` §11 → §PHASE-5D-5-4B-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4B.md` → `docs/reviews/phase5d_5_4b/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-4A-CLOSED-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md` §8 → §PHASE-5D-5-4A-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md` → `docs/reviews/phase5d_5_4a/CHATGPT_REVIEW_PACKAGE.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md` → `docs/reviews/phase5d_5_4/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-3-CLOSED-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` §8 → §PHASE-5D-5-3-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` → `docs/reviews/phase5d_5_3/CHATGPT_REVIEW_PACKAGE.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3_PLAN.md` → §PHASE-5D-5-2-CLOSED-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` §7 → §PHASE-5D-5-2-R2-2026-10-15 → `docs/reviews/phase5d_5_2_r2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-2-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` → `docs/reviews/phase5d_5_2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-1C-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C_PLAN.md` → §PHASE-5D-5-1B-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md` → `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md` → §PHASE-5D-5-1-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → `docs/AI_REVIEW_WORKFLOW.md` (review packages, evidence and approval rules) → **§PHASE-5D-5-4C3-2026-10-15 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_C3.md` → `docs/reviews/phase5d_5_4c3/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-4C2-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_C2.md` → `docs/reviews/phase5d_5_4c2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-4C1-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_PLAN.md` → §PHASE-5D-5-4B-R2-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4B.md` §11 → §PHASE-5D-5-4B-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4B.md` → `docs/reviews/phase5d_5_4b/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-4A-CLOSED-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md` §8 → §PHASE-5D-5-4A-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md` → `docs/reviews/phase5d_5_4a/CHATGPT_REVIEW_PACKAGE.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md` → `docs/reviews/phase5d_5_4/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-3-CLOSED-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` §8 → §PHASE-5D-5-3-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` → `docs/reviews/phase5d_5_3/CHATGPT_REVIEW_PACKAGE.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3_PLAN.md` → §PHASE-5D-5-2-CLOSED-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` §7 → §PHASE-5D-5-2-R2-2026-10-15 → `docs/reviews/phase5d_5_2_r2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-2-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` → `docs/reviews/phase5d_5_2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-1C-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C_PLAN.md` → §PHASE-5D-5-1B-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md` → `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md` → §PHASE-5D-5-1-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
+## PHASE-5D-5-4C3-2026-10-15. Financials & Valuation polish (Phase 5D.5.4C C3) — START HERE
+
+- **Current commit:** "Polish Company Details Financials and Valuation for Global UI Refinement Phase 5D.5.4C C3 without the duplicate P/E row, with a measured range grid, row groups that keep values whole and P/E kept whole at large text on Android and iOS" (this commit). It is local only: **not pushed**. Base: `e8265bd` (C2, pushed). Approved by the owner after review.
+- Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_C3.md`. Review package: `docs/reviews/phase5d_5_4c3/` (`captures/` git-ignored).
+- **Files in this commit:**
+  - shared `ValuationDisplay.kt`, `CompanyValuationScene.kt`, `ValuationDisplayTest.kt`;
+  - iOS `StockDetailComponents.swift`, `LearnViews.swift`, `CompanyValuationScene.swift`, `CompanyFinancialsScene.swift`;
+  - the report, the review package, and this handoff and status update.
+- **Done:**
+  - P/E row removed from Valuation & Growth (`ValuationDisplay.growthRows`; visibility unchanged via `growthVisible`).
+  - Range stats are a measured 2 × 2 grid / aligned rows.
+  - iOS `StockInfoLineGroup` (one stacking decision per row group, shared `metricRowStacked`) on Valuation & Growth and the Financials
+    sections.
+  - "P/E" kept whole in Valuation prose, the Learn link and the chart reference.
+  - iOS chart label gaps.
+  - No outline changes were needed (already borderless).
+- **Validation:**
+  - core 541/0 ×2, server 501/0, shared 263/0 and 259/0; builds PASS.
+  - Android 1.0×/1.3×/2.0×, dark, sheet → Learn → Back and the 3Y switch: PASS.
+  - iOS Default, dark, AX XL and AX5 on both screens: PASS.
+  - **NOT RUN in C3:** Financials dark (both) and Android Financials 2.0× (no code change there); TalkBack. VoiceOver BLOCKED.
+- **Open (5D.5.4D):** iOS AX5 Financials legend wrap; Company Details Financial Highlights card.
+- **Owner decision:** the Profitability rows that repeat the Financials tiles are kept.
+- **Next:** push on approval → C4 verification → 5D.5.4D.
+
 ## PHASE-5D-5-4C2-2026-10-15. Valuation hierarchy (Phase 5D.5.4C C2) — START HERE
 
-- **Current commit:** "Refine Company Details Valuation for Global UI Refinement Phase 5D.5.4C C2 with ratio tiles first, a P/E vs History card, one Learn link, a folded P/E explanation and a neutral ratio footnote on Android and iOS" (this commit). It is local only: **not pushed**. Base: `33fa94c` (C1, pushed). Approved by the owner after review.
+- **Current commit:** "Refine Company Details Valuation for Global UI Refinement Phase 5D.5.4C C2 with ratio tiles first, a P/E vs History card, one Learn link, a folded P/E explanation and a neutral ratio footnote on Android and iOS" (`e8265bd`, committed and pushed). Base: `33fa94c` (C1, pushed). Approved by the owner after review.
 - Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_C2.md`. Review package: `docs/reviews/phase5d_5_4c2/` (`captures/` git-ignored).
 - **Files in this commit:**
   - shared `ValuationDisplay.kt` (new) and `ValuationDisplayTest.kt` (new), `CompanyValuationScene.kt`;
@@ -31,8 +56,7 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
   - **Pre-existing:** the unchanged Valuation & Growth rows break "+75.5" / "%" at iOS AX5 (5D.5.4D, with Financial Highlights).
   - "N/A" and no-dividend states are unit-tested only.
   - TalkBack/VoiceOver; iOS signed-in.
-- **Next:** push on approval → C3 polish (owner question: drop the P/E row from Valuation & Growth?; confirm the iOS wrapping badge) → C4
-  verification.
+- **Next:** C3 polish (see above) → C4 verification.
 
 ## PHASE-5D-5-4C1-2026-10-15. Financials hierarchy (Phase 5D.5.4C C1) — START HERE
 

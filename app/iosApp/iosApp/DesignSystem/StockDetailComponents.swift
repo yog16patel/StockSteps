@@ -416,30 +416,76 @@ struct StockInfoLine: View {
     var compact = false
     /// 5D.5.3: a decorative ⓘ after the label for rows that open a metric explanation. Default off.
     var info = false
+    /// 5D.5.4C C3, set by a `StockInfoLineGroup`: false keeps the value whole beside the label (the group's rule says it fits, so the label
+    /// wraps instead — never "+75.5" / "%"); true puts the value (and change) under the label. Default nil: the row is unchanged.
+    var stacked: Bool? = nil
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            if stacked == true {
+                StockMetricLabel(label: label, info: info, style: compact ? type.small : type.body, color: compact ? colors.textSecondary : colors.textBody)
+                Text(value).font(StockStepsTheme.font(compact ? type.numberLabelStrong : type.numberMedium)).foregroundStyle(colors.textPrimary)
+                changeView(colors)
+            } else {
             HStack(spacing: CGFloat(space.sm)) {
                 StockMetricLabel(label: label, info: info, style: compact ? type.small : type.body, color: compact ? colors.textSecondary : colors.textBody)
                 Spacer(minLength: 0)
                 Text(value).font(StockStepsTheme.font(compact ? type.numberLabelStrong : type.numberMedium)).foregroundStyle(colors.textPrimary)
-                if let change {
-                    Group {
-                        if let direction, direction != .unavailable {
-                            StockPriceChange(percentage: change, direction: direction, style: type.numberLabel)
-                        } else {
-                            Text(change).font(StockStepsTheme.font(type.numberLabel)).foregroundStyle(colors.textSecondary)
-                        }
-                    }
-                    .frame(minWidth: CGFloat(dims.changeColumn), alignment: .trailing)
+                    .fixedSize(horizontal: stacked == false, vertical: false)
+                if change != nil {
+                    changeView(colors).fixedSize(horizontal: stacked == false, vertical: false).frame(minWidth: CGFloat(dims.changeColumn), alignment: .trailing)
                 }
+            }
             }
             if let helper {
                 Text(helper).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
             }
         }
+        .frame(maxWidth: stacked == true ? .infinity : nil, alignment: .leading)
         .padding(.vertical, CGFloat(compact ? space.xs : space.sm))
         .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func changeView(_ colors: StockColors) -> some View {
+        if let change {
+            if let direction, direction != .unavailable {
+                StockPriceChange(percentage: change, direction: direction, style: type.numberLabel)
+            } else {
+                Text(change).font(StockStepsTheme.font(type.numberLabel)).foregroundStyle(colors.textSecondary)
+            }
+        }
+    }
+}
+
+/// 5D.5.4C C3: one layout decision for a group of `StockInfoLine` rows, by the shared `StockLayout.metricRowStacked` rule (as
+/// `StockMetricGrid(rowsWhenNarrow)` and Compose): when any row's longest label word (with its ⓘ) and its value (with its change) can't share a
+/// line, every row puts the value under its label. Text widths only, never the rows' own frames. `content(stacked)` draws the rows.
+struct StockInfoLineGroup<Content: View>: View {
+    struct Entry { let label: String; let value: String; var change: String? = nil; var info = false }
+    @Environment(\.dynamicTypeSize) private var typeSize
+    let entries: [Entry]
+    var compact = false
+    @ViewBuilder let content: (Bool) -> Content
+    @State private var width: CGFloat = 0
+    var body: some View {
+        content(stacked)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+
+    private var stacked: Bool {
+        guard width > 0 else { return false }
+        let labelFont = StockStepsTheme.uiFont(compact ? type.small : type.body, typeSize: typeSize)
+        let valueFont = StockStepsTheme.uiFont(compact ? type.numberLabelStrong : type.numberMedium, typeSize: typeSize)
+        let changeFont = StockStepsTheme.uiFont(type.numberLabel, typeSize: typeSize)
+        func w(_ text: String, _ font: UIFont) -> CGFloat { (text as NSString).size(withAttributes: [.font: font]).width }
+        return entries.contains { e in
+            let words = e.label.split(separator: " ").map(String.init)
+            let longest = words.enumerated().map { i, word in w(word, labelFont) + (e.info && i == words.count - 1 ? labelFont.pointSize * 1.3 : 0) }.max() ?? 0
+            let value = w(e.value, valueFont) + (e.change.map { w("↑\u{00A0}" + $0, changeFont) + CGFloat(space.sm) } ?? 0)
+            return StockLayout.shared.metricRowStacked(longestLabelWord: Float(longest), valueWidth: Float(value), availableWidth: Float(width), gap: Float(space.sm))
+        }
     }
 }
 
@@ -499,7 +545,8 @@ struct StockBarChart: View {
             .frame(height: 140)
             HStack(spacing: 0) {
                 ForEach(bars.indices, id: \.self) { i in
-                    Text(bars[i].label).lineLimit(1).minimumScaleFactor(0.4).frame(maxWidth: .infinity)
+                    // C3: a small gap so scaled labels never run together ("FY21FY22" at AX5).
+                    Text(bars[i].label).lineLimit(1).minimumScaleFactor(0.4).padding(.horizontal, CGFloat(space.xxs)).frame(maxWidth: .infinity)
                         .foregroundStyle(i == index ? colors.textPrimary : colors.textTertiary)
                 }
             }
@@ -624,7 +671,8 @@ struct StockTrendChart: View {
             .frame(height: 150)
             HStack {
                 ForEach(Array(chart.xLabels.enumerated()), id: \.offset) { index, label in
-                    if index > 0 { Spacer(minLength: 0) }
+                    // C3: a minimum gap so shrunk dates never run together ("Oct 2021Jun 2023" at AX XL).
+                    if index > 0 { Spacer(minLength: CGFloat(space.sm)) }
                     // 5D.5.4C C2: at AX5 the dates shrink to fit instead of truncating to "Oc…" (as the bar chart's labels since C1).
                     Text(label).lineLimit(1).minimumScaleFactor(0.4)
                 }

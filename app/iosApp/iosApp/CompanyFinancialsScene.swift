@@ -295,12 +295,11 @@ private struct FinancialSectionView: View {
                     if let meaning = section.meaning { Text(meaning).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody) }
                     if showChart, let chart = section.chart { StockBarChart(chart: chart) }
                     if !section.rows.isEmpty {
-                        VStack(spacing: 0) {
-                            ForEach(Array(section.rows.enumerated()), id: \.offset) { index, row in
-                                if index > 0 { StockDivider() }
-                                ExplainableInfoLine(label: row.label, value: row.value, helper: row.helper, change: row.change, direction: row.changeDirection,
-                                                    explanation: metricExplanation(row), onExplain: onExplain)
-                            }
+                        // C3: one decision per section — each value under its label when any row can't share a line (at AX5 "Operatin" /
+                        // "g Cash" broke beside "$121B").
+                        StockInfoLineGroup(entries: section.rows.map { .init(label: $0.label, value: $0.value, change: $0.change,
+                                                                                info: metricExplanation($0)?.term != nil) }) { stacked in
+                            sectionRows(stacked: stacked)
                         }
                     }
                     ForEach(Array(section.comparisons.enumerated()), id: \.offset) { _, comparison in StockComparisonBars(comparison: comparison) }
@@ -333,6 +332,16 @@ private struct FinancialSectionView: View {
                 }
             }
             .stockCard(padding: CGFloat(space.md), bordered: false)
+        }
+    }
+
+    private func sectionRows(stacked: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(section.rows.enumerated()), id: \.offset) { index, row in
+                if index > 0 { StockDivider() }
+                ExplainableInfoLine(label: row.label, value: row.value, helper: row.helper, change: row.change, direction: row.changeDirection,
+                                    stacked: stacked, explanation: metricExplanation(row), onExplain: onExplain)
+            }
         }
     }
 

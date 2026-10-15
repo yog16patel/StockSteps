@@ -508,19 +508,21 @@ struct ExplainableInfoLine: View {
     var change: String? = nil
     var direction: PriceDirection? = nil
     var compact = false
+    /// See `StockInfoLine.stacked` (5D.5.4C C3); default nil keeps the row.
+    var stacked: Bool? = nil
     let explanation: MetricExplanation?
     let onExplain: (MetricExplanation) -> Void
     var body: some View {
         if let explanation {
             Button { onExplain(explanation) } label: {
                 StockInfoLine(label: label, value: value, helper: helper, change: change, direction: direction, compact: compact,
-                              info: explanation.term != nil)
+                              info: explanation.term != nil, stacked: stacked)
                     .frame(minHeight: CGFloat(dims.touchTarget)).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityHint(MetricLearnTerms.shared.explainLabel(metricLabel: label))
         } else {
-            StockInfoLine(label: label, value: value, helper: helper, change: change, direction: direction, compact: compact)
+            StockInfoLine(label: label, value: value, helper: helper, change: change, direction: direction, compact: compact, stacked: stacked)
         }
     }
 }

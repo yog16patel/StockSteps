@@ -121,16 +121,17 @@ internal fun CompanyValuationScreen(
                 }
                 item(key = "history") { HistorySection(model, state.history is org.example.stocksteps.presentation.companydetails.Section.Content, onRange, onRetry, section, onLearnTerm) }
                 item(key = "understanding") { UnderstandingCard(model, content.padding(top = spacing.md)) }
-                if (model.growth.size > 1) {
+                // C3: the section shows when it did before, without the model's P/E row (P/E leads the tiles and P/E vs History).
+                if (ValuationDisplay.growthVisible(model)) {
                     item(key = "growth") {
                         Column(section, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                             StockSectionHeader(stringResource(Res.string.valuation_growth_title))
                             StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
-                                model.growth.forEachIndexed { index, row ->
+                                ValuationDisplay.growthRows(model).forEachIndexed { index, row ->
                                     if (index > 0) StockDivider()
                                     StockInfoRow(row.label, row.value, change = null, onClick = explain(row), onClickLabel = explainLabel(row), info = hasTerm(row))
                                 }
-                                Text(model.growthNote, Modifier.padding(vertical = spacing.sm), style = StockStepsTheme.typography.small, color = colors.textBody)
+                                Text(ValuationDisplay.keepTogether(model.growthNote), Modifier.padding(vertical = spacing.sm), style = StockStepsTheme.typography.small, color = colors.textBody)
                             }
                         }
                     }
@@ -145,16 +146,14 @@ internal fun CompanyValuationScreen(
                                         StockRangeBar("${model.range.label} P/E", summary.lowest, summary.highest, position,
                                             "${model.range.label} P/E range: lowest ${summary.lowest}, highest ${summary.highest}, current ${summary.current}")
                                     }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                                        listOf(
-                                            stringResource(Res.string.valuation_lowest) to summary.lowest,
-                                            stringResource(Res.string.valuation_average) to summary.average,
-                                            stringResource(Res.string.valuation_highest) to summary.highest,
-                                            stringResource(Res.string.valuation_current) to (summary.current ?: "N/A")
-                                        ).forEach { (label, value) ->
-                                            StockMetric(label, value, Modifier.weight(1f))
-                                        }
-                                    }
+                                    // C3: a 2 × 2 grid, aligned label/value rows at large text — four equal columns split "Averag e" at 2.0× (the shared column rule fits
+                                    // at most three at 360 dp, so four would always fall back).
+                                    StockMetricGrid(listOf(
+                                        StockMetricItem(stringResource(Res.string.valuation_lowest), summary.lowest),
+                                        StockMetricItem(stringResource(Res.string.valuation_average), summary.average),
+                                        StockMetricItem(stringResource(Res.string.valuation_highest), summary.highest),
+                                        StockMetricItem(stringResource(Res.string.valuation_current), summary.current ?: "N/A")
+                                    ), maxColumns = 2, rowsWhenNarrow = true)
                                     summary.percentile?.let { Text(it, style = StockStepsTheme.typography.small, color = colors.textBody) }
                                 }
                             }
@@ -162,7 +161,7 @@ internal fun CompanyValuationScreen(
                     }
                 }
                 item(key = "insight") {
-                    StockInsightCard(title = stringResource(Res.string.valuation_insight_title), body = model.insight, modifier = section)
+                    StockInsightCard(title = stringResource(Res.string.valuation_insight_title), body = ValuationDisplay.keepTogether(model.insight), modifier = section)
                 }
                 item(key = "disclaimer") {
                     Column(content.padding(top = spacing.lg), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
@@ -195,23 +194,23 @@ private fun HistorySection(model: ValuationModel, loaded: Boolean, onRange: (Val
                 }
                 // A higher or lower P/E is not good or bad: neutral, caution amber only when above (existing rule).
                 model.badge?.let { StockBadge(it, if (model.position == ValuationPosition.ABOVE) FactTone.CAUTION else FactTone.NEUTRAL) }
-                Text(model.meaning, style = StockStepsTheme.typography.small, color = colors.textBody)
+                Text(ValuationDisplay.keepTogether(model.meaning), style = StockStepsTheme.typography.small, color = colors.textBody)
                 StockDivider()
                 if (!loaded) {
-                    StockErrorState(model.historyMessage ?: stringResource(Res.string.financials_unavailable), onRetry)
+                    StockErrorState(model.historyMessage?.let(ValuationDisplay::keepTogether) ?: stringResource(Res.string.financials_unavailable), onRetry)
                 } else {
                     StockPillSelector(ValuationRange.entries, model.range, label = { it.label }, onSelect = onRange)
                     model.chart?.let { chart ->
                         StockTrendChart(chart.values, chart.details, chart.xLabels, chart.yLabels, chart.description,
-                            reference = chart.average, referenceLabel = model.average?.let { "${model.averageLabel}: $it" })
+                            reference = chart.average, referenceLabel = model.average?.let { ValuationDisplay.keepTogether("${model.averageLabel}: $it") })
                     }
-                    Text(model.methodology, style = StockStepsTheme.typography.caption, color = colors.textSecondary)
+                    Text(ValuationDisplay.keepTogether(model.methodology), style = StockStepsTheme.typography.caption, color = colors.textSecondary)
                 }
             }
         }
         // 5D.5.3: the full P/E lesson one tap away — once on this screen.
         org.example.stocksteps.learning.MetricLearnTerms.termFor("pe")?.let { term ->
-            StockLinkAction(org.example.stocksteps.learning.MetricLearnTerms.learnMoreLabel(term), { onLearnTerm(term.id) },
+            StockLinkAction(ValuationDisplay.keepTogether(org.example.stocksteps.learning.MetricLearnTerms.learnMoreLabel(term)), { onLearnTerm(term.id) },
                 icon = org.example.stocksteps.designsystem.icons.StockIcons.School)
         }
     }
@@ -230,11 +229,11 @@ private fun UnderstandingCard(model: ValuationModel, modifier: Modifier) {
         Box(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget)
             .clickable(onClickLabel = if (open) "Hide" else "Show", role = Role.Button) { open = !open }
             .semantics { stateDescription = if (open) "Expanded" else "Collapsed" }, contentAlignment = Alignment.CenterStart) {
-            Text("${ValuationDisplay.UNDERSTANDING_TITLE} ${if (open) "↑" else "↓"}", Modifier.semantics { heading() },
+            Text("${ValuationDisplay.keepTogether(ValuationDisplay.UNDERSTANDING_TITLE)} ${if (open) "↑" else "↓"}", Modifier.semantics { heading() },
                 style = StockStepsTheme.typography.bodySemiBold, color = colors.textPrimary)
         }
         if (open) {
-            Text(model.understanding, style = StockStepsTheme.typography.small, color = colors.textBody)
+            Text(ValuationDisplay.keepTogether(model.understanding), style = StockStepsTheme.typography.small, color = colors.textBody)
             listOf(model.highReasons, model.lowReasons).forEach { explainer -> Explainer(explainer) }
         }
     }
@@ -245,7 +244,7 @@ private fun Explainer(explainer: ValuationExplainer) {
     var open by rememberSaveable(explainer.title) { mutableStateOf(false) }
     val colors = StockStepsTheme.colors
     Box(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(role = Role.Button) { open = !open }, contentAlignment = Alignment.CenterStart) {
-        Text("${explainer.title} ${if (open) "↑" else "↓"}", style = StockStepsTheme.typography.bodyMedium, color = colors.primaryText)
+        Text("${ValuationDisplay.keepTogether(explainer.title)} ${if (open) "↑" else "↓"}", style = StockStepsTheme.typography.bodyMedium, color = colors.primaryText)
     }
-    if (open) explainer.points.forEach { Text("• $it", style = StockStepsTheme.typography.small, color = colors.textBody) }
+    if (open) explainer.points.forEach { Text("• ${ValuationDisplay.keepTogether(it)}", style = StockStepsTheme.typography.small, color = colors.textBody) }
 }

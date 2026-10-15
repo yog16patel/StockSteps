@@ -95,14 +95,15 @@ struct CompanyValuationScene: View {
                     .padding(.top, CGFloat(space.md))
                     titled(ValuationDisplay.shared.HISTORY_TITLE) { history(content, colors) }
                     UnderstandingView(content: content).padding(.top, CGFloat(space.md))
-                    if content.growth.count > 1 {
+                    // C3: shown when it was before, without the model's P/E row (P/E leads the tiles and P/E vs History). The rows share one
+                    // decision (`StockInfoLineGroup`): each value under its label when any row can't share a line ("+75.5" / "%" at AX5).
+                    if ValuationDisplay.shared.growthVisible(model: content) {
                         titled("Valuation & Growth") {
                             VStack(alignment: .leading, spacing: 0) {
-                                ForEach(Array(content.growth.enumerated()), id: \.offset) { index, row in
-                                    if index > 0 { StockDivider() }
-                                    ExplainableInfoLine(label: row.label, value: row.value, explanation: metricExplanation(row)) { explaining = $0 }
-                                }
-                                Text(content.growthNote).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).padding(.vertical, CGFloat(space.sm))
+                                StockInfoLineGroup(entries: ValuationDisplay.shared.growthRows(model: content).map {
+                                    .init(label: $0.label, value: $0.value, info: metricExplanation($0)?.term != nil)
+                                }) { stacked in growthRows(content, stacked: stacked) }
+                                Text(keepTogether(content.growthNote)).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).padding(.vertical, CGFloat(space.sm))
                             }
                             .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
                         }
@@ -113,16 +114,10 @@ struct CompanyValuationScene: View {
                                 if let position = summary.position {
                                     StockRangeBar(title: "\(content.range.label) P/E", range: RangeSummary(low: summary.lowest, high: summary.highest, position: position.floatValue))
                                 }
-                                HStack(alignment: .top, spacing: CGFloat(space.sm)) {
-                                    ForEach([("Lowest", summary.lowest), ("Average", summary.average), ("Highest", summary.highest), ("Current", summary.current ?? "N/A")], id: \.0) { label, value in
-                                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                                            Text(label).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary)
-                                            Text(value).font(StockStepsTheme.font(type.numberEmphasis, relativeTo: .headline)).foregroundStyle(colors.textPrimary)
-                                        }
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .accessibilityElement(children: .combine)
-                                    }
-                                }
+                                // C3: a 2 × 2 grid, aligned label/value rows at large text (as Android); four equal columns split words at AX5.
+                                StockMetricGrid(items: [StockMetricItem(label: "Lowest", value: summary.lowest), StockMetricItem(label: "Average", value: summary.average),
+                                                        StockMetricItem(label: "Highest", value: summary.highest),
+                                                        StockMetricItem(label: "Current", value: summary.current ?? "N/A")], maxColumns: 2, rowsWhenNarrow: true)
                                 if let percentile = summary.percentile {
                                     Text(percentile).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
                                 }
@@ -130,7 +125,7 @@ struct CompanyValuationScene: View {
                             .stockCard(padding: CGFloat(space.md), bordered: false)
                         }
                     }
-                    StockInsightCard(title: "What Does This Valuation Tell Us?", message: content.insight).padding(.top, CGFloat(space.xl))
+                    StockInsightCard(title: "What Does This Valuation Tell Us?", message: keepTogether(content.insight)).padding(.top, CGFloat(space.xl))
                     Text(ValuationDisplay.shared.FOOTNOTE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary).padding(.top, CGFloat(space.lg))
                     Text("Educational information, not a recommendation to buy or sell.")
                         .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary).padding(.top, CGFloat(space.xs))
@@ -175,23 +170,23 @@ struct CompanyValuationScene: View {
                     wrappingBadge(badge, kind: tone.badgeKind)
                 }
             }
-            Text(content.meaning).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
+            Text(keepTogether(content.meaning)).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
             StockDivider()
             if model.historyLoaded {
                 StockPillSelector(options: ValuationRange.entries, selected: model.range, label: { $0.label }) { model.select(range: $0) }
                 if let chart = content.chart {
-                    StockTrendChart(chart: chart, referenceLabel: content.average.map { "\(content.averageLabel): \($0)" })
+                    StockTrendChart(chart: chart, referenceLabel: content.average.map { keepTogether("\(content.averageLabel): \($0)") })
                 }
-                Text(content.methodology).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
+                Text(keepTogether(content.methodology)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary)
             } else {
-                StockSectionMessage(message: content.historyMessage ?? "We couldn't load the valuation history right now.", actionTitle: "Try again", action: model.load)
+                StockSectionMessage(message: content.historyMessage.map(keepTogether) ?? "We couldn't load the valuation history right now.", actionTitle: "Try again", action: model.load)
             }
         }
         .stockCard(padding: CGFloat(space.md), bordered: false)
         // 5D.5.3: the full P/E lesson one tap away — once on this screen.
         if let term = MetricLearnTerms.shared.termFor(metricId: "pe") {
             Button { learnTerm = term.id } label: {
-                Label(MetricLearnTerms.shared.learnMoreLabel(entry: term), systemImage: "graduationcap")
+                Label(keepTogether(MetricLearnTerms.shared.learnMoreLabel(entry: term)), systemImage: "graduationcap")
                     .font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
                     .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget)).contentShape(Rectangle())
             }
@@ -210,6 +205,15 @@ struct CompanyValuationScene: View {
             .padding(.horizontal, CGFloat(StockStepsTheme.spacing.sm))
             .padding(.vertical, CGFloat(StockStepsTheme.spacing.xxs))
             .background(c(tone.container), in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.chip)))
+    }
+
+    private func growthRows(_ content: ValuationModel, stacked: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(ValuationDisplay.shared.growthRows(model: content).enumerated()), id: \.offset) { index, row in
+                if index > 0 { StockDivider() }
+                ExplainableInfoLine(label: row.label, value: row.value, stacked: stacked, explanation: metricExplanation(row)) { explaining = $0 }
+            }
+        }
     }
 
     private func titled<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -231,7 +235,7 @@ private struct UnderstandingView: View {
         let space = StockStepsTheme.spacing
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             Button { open.toggle() } label: {
-                Text("\(ValuationDisplay.shared.UNDERSTANDING_TITLE) \(open ? "↑" : "↓")")
+                Text(verbatim: "\(keepTogether(ValuationDisplay.shared.UNDERSTANDING_TITLE)) \(open ? "↑" : "↓")")
                     .font(StockStepsTheme.font(StockStepsTheme.typography.bodySemiBold)).foregroundStyle(colors.textPrimary)
                     .frame(maxWidth: .infinity, minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget), alignment: .leading).contentShape(Rectangle())
             }
@@ -239,7 +243,7 @@ private struct UnderstandingView: View {
             .accessibilityAddTraits(.isHeader)
             .accessibilityValue(open ? "Expanded" : "Collapsed")
             if open {
-                Text(content.understanding).font(StockStepsTheme.font(StockStepsTheme.typography.small)).foregroundStyle(colors.textBody)
+                Text(keepTogether(content.understanding)).font(StockStepsTheme.font(StockStepsTheme.typography.small)).foregroundStyle(colors.textBody)
                 ValuationExplainerView(explainer: content.highReasons)
                 ValuationExplainerView(explainer: content.lowReasons)
             }
@@ -257,14 +261,17 @@ private struct ValuationExplainerView: View {
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.xs)) {
-            Button("\(explainer.title) \(open ? "↑" : "↓")") { open.toggle() }
+            Button("\(keepTogether(explainer.title)) \(open ? "↑" : "↓")") { open.toggle() }
                 .font(StockStepsTheme.font(StockStepsTheme.typography.bodyMedium)).foregroundStyle(colors.primaryText)
                 .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget))
             if open {
                 ForEach(explainer.points, id: \.self) { point in
-                    Text("• \(point)").font(StockStepsTheme.font(StockStepsTheme.typography.small)).foregroundStyle(colors.textBody)
+                    Text(verbatim: "• \(keepTogether(point))").font(StockStepsTheme.font(StockStepsTheme.typography.small)).foregroundStyle(colors.textBody)
                 }
             }
         }
     }
 }
+
+/// C3: the Valuation page's model sentences keep "P/E" whole (invisible word joiners; the text is unchanged).
+private func keepTogether(_ text: String) -> String { ValuationDisplay.shared.keepTogether(text: text) }

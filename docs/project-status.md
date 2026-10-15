@@ -6,7 +6,17 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.4C C2 Valuation (committed locally as "Refine Company Details Valuation for Global UI Refinement Phase 5D.5.4C C2 with ratio tiles first, a P/E vs History card, one Learn link, a folded P/E explanation and a neutral ratio footnote on Android and iOS"; not pushed).**
+**2026-10-15 — Phase 5D.5.4C C3 Financials & Valuation polish (committed locally as "Polish Company Details Financials and Valuation for Global UI Refinement Phase 5D.5.4C C3 without the duplicate P/E row, with a measured range grid, row groups that keep values whole and P/E kept whole at large text on Android and iOS"; not pushed).**
+- **Valuation & Growth:** the duplicate P/E row is removed.
+- **Range stats:** a 2 × 2 grid, aligned rows at large text.
+- **iOS row groups** stack together at AX5 ("+75.5%" and "Operating Cash" whole).
+- **"P/E"** stays whole in Valuation text.
+- **iOS chart labels** no longer run together.
+- **Tests:** shared 263/0 and 259/0.
+- **Devices:** Android and iOS checks PASS (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_C3.md`).
+- **Next:** push on approval, then C4 verification.
+
+**2026-10-15 — Phase 5D.5.4C C2 Valuation (`e8265bd`, committed and pushed as "Refine Company Details Valuation for Global UI Refinement Phase 5D.5.4C C2 with ratio tiles first, a P/E vs History card, one Learn link, a folded P/E explanation and a neutral ratio footnote on Android and iOS").**
 - **Layout:**
   - ratio tiles first;
   - P/E vs History (comparison only with a reliable average);
@@ -17,7 +27,7 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 - **Large-text fixes:** iOS badge fallback, "P/E" kept whole, iOS chart dates scale.
 - **Tests:** shared 262/0 and 258/0.
 - **Devices:** Android and iOS checks PASS (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_C2.md`).
-- **Next:** push on approval, then C3 polish and C4 verification.
+- **Next:** C3 polish (see above), then C4 verification.
 
 **2026-10-15 — Phase 5D.5.4C C1 Financials (`33fa94c`, committed and pushed as "Refine Company Details Financials for Global UI Refinement Phase 5D.5.4C C1 with an Income, Balance Sheet and Cash Flow section bar, one selector row, the revenue and net income chart and key-metric tiles first on Android and iOS").**
 - Section bar, one selector row, the revenue + net income chart and key-metric tiles first; all sections and sheets kept.
