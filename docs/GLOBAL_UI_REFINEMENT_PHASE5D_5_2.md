@@ -118,3 +118,40 @@ Tests: core 534/0 (JVM) and 534/0 (iOS on rerun; one intermittent `UserDataRepos
 server 501/0; builds OK.
 
 Review package: `docs/reviews/phase5d_5_2_r2/`.
+
+## 7. Closure (2026-10-15)
+**Status:** the owner approved closing Phase 5D.5.2 Learn after polish r2. Implementation commits: `057d6e6` (redesign) and `0730773` (polish r2),
+both pushed. This closure record is a separate docs-only commit.
+
+### Final verification
+| Area | Result |
+|---|---|
+| Core tests | JVM 534/0; iOS 534/0 on rerun |
+| Shared tests | Android 246/0; iOS 242/0 |
+| Server tests | 501/0 |
+| Builds | Android `assembleDebug` and iOS `xcodebuild` PASS |
+| Android device (360 dp) | Home at 1.0× light and dark, and 2.0× (compact single-column topics, folded Start sentence); Start learning → Guided Research; topic navigation; ranked search; Practice; term-page bottom above the bottom navigation at 1.0× and 2.0× — PASS |
+| iOS device (iPhone 16, guest) | Home at Default light and dark, AX XL and AX5; topics, topic and term pages; Next term; Research any company; term-page bottom above the safe area at AX5 — PASS |
+| Review packages | `docs/reviews/phase5d_5_2/` and `docs/reviews/phase5d_5_2_r2/` |
+
+### Remaining limitations and follow-ups
+**Outstanding checks (not closed by this phase):**
+- iOS signed-in progress (Continue / Completed cards): **BLOCKED** (the simulator runs in guest mode; the owner must sign in).
+- TalkBack and VoiceOver: **NOT RUN** (they need the owner).
+- Smaller devices (iPhone SE, narrow Android): **NOT RUN**.
+- Dark mode for the r2-changed screens, Android 1.3× and iOS AX XL–AX3 after r2: **NOT RUN**.
+
+**Minor UI follow-up:**
+- iOS AX5 term-page footer rows ("Next…", "Explore all topics", "Research any company") show the icon vertically centred against a multi-line
+  label, so it doesn't line up with the label's first line.
+- Evidence: the r2 iOS sheet, "term page bottom above safe area · AX5".
+- Cosmetic; it does not affect access.
+
+**Separate investigation items (not part of Learn):**
+- `UserDataRepositoriesTest.accountsAndEnvironmentsNeverShareData` (core iOS) failed once in a full sequential run ("Expected <[AAPL]>, actual
+  <[]>" after ~1 s) and passed on rerun. Untouched watchlist-data code; needs its own investigation.
+- `PortfolioSessionStateTest` timeout: a test-only fix is uncommitted in worktree `charming-hodgkin-98e850`, waiting for the owner.
+
+**Deferred product work:**
+- new lessons and content, levels, bookmarks and share;
+- deep links to a term from other screens (D-8).

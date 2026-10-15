@@ -6,6 +6,15 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-15 — Phase 5D.5.2 Learn CLOSED (owner approval).**
+- Implementation `057d6e6` + `0730773` (pushed). Final verification and limitations: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` §7.
+- **Outstanding:** iOS signed-in progress BLOCKED; screen readers and smaller devices NOT RUN.
+- **Follow-ups:**
+  - iOS AX5 term-footer icon alignment (minor);
+  - investigate the intermittent `UserDataRepositoriesTest`;
+  - decide on the `PortfolioSessionStateTest` fix (worktree `charming-hodgkin-98e850`).
+- **Next:** Global UI Refinement step 7 (Settings, auth, remaining screens) after owner direction.
+
 **2026-10-15 — Phase 5D.5.2 Learn polish (committed and pushed as "Polish Learn for Global UI Refinement Phase 5D.5.2 with ranked term search, single-column topics at very large text, a folded Start here sentence at large text and a shorter term illustration on Android and iOS").**
 - Changes:
   - ranked term search;
