@@ -31,7 +31,7 @@ import org.example.stocksteps.designsystem.icons.StockIcons
 internal const val SEARCH_ROW_STACK_SCALE = 1.75f
 
 /**
- * One company search result (Phase 5D.5.5B): ticker-initials avatar, the name (wraps, never truncated) with an optional "Best match" badge,
+ * One company search result (Phase 5D.5.5B): the company logo when it loads (5D.5.5C), else ticker initials, the name (wraps, never truncated) with an optional "Best match" badge,
  * then ticker · exchange (never truncated — they tell listings apart), and a chevron. Borderless; the caller draws dividers. One spoken
  * element ("Apple Inc., AAPL, NASDAQ, best match") with a button role and [actionLabel]. At very large text the avatar goes above the text and
  * ticker and exchange take their own lines.
@@ -83,11 +83,11 @@ internal fun StockSearchResultRow(
     ) {
         if (stacked) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                StockTickerAvatar(result.symbol)
+                StockTickerAvatar(result.symbol, logoUrl = result.logoUrl)
                 text()
             }
         } else {
-            StockTickerAvatar(result.symbol)
+            StockTickerAvatar(result.symbol, logoUrl = result.logoUrl)
             Column(Modifier.weight(1f)) { text() }
         }
         if (enabled) Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.iconSecondary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))

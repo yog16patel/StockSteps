@@ -26,7 +26,7 @@ class StockService(
     /**
      * Scope (owner decision D1, 5D.5.5): USD listings on US exchanges. Ranking (5D.5.5B): the shared [SearchRanking] over everything both
      * provider endpoints returned — exact ticker, exact name, ticker prefix, name word/prefix matches, then substrings; major exchanges before
-     * OTC within a tier (D2), then the provider's order. Nothing is dropped by ranking.
+     * OTC within a tier (D2), then the provider's order. Nothing is dropped by ranking. Each result gets its logo URL.
      */
     private suspend fun search(query: String): List<StockSearchResult> =
         SearchRanking.rank(query, stockProvider.searchStocks(query)
@@ -34,6 +34,9 @@ class StockService(
                 it.exchange?.uppercase(Locale.ROOT) in US_EXCHANGES
             }
             .distinctBy { it.symbol.uppercase(Locale.ROOT) })
+            // Logos (5D.5.5C): FMP's public logo path for the ticker, as for movers and the screener — no profile request per result and no
+            // key; a ticker without a logo fails to load on the device and keeps its initials. Ranking and Best match are unaffected.
+            .map { it.copy(logoUrl = it.logoUrl ?: org.example.stocksteps.repository.models.fmpLogoUrl(it.symbol)) }
 
     private companion object {
         const val PROFILE_TTL = 86_400_000L

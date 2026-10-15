@@ -95,7 +95,7 @@ struct GuidedResearchScene: View {
                              watched: watched, watchlistEnabled: !accounts.state.initializing,
                              onToggleWatchlist: {
                                  let name = model.state?.name ?? target.symbol
-                                 Task { await accounts.toggle(stock: StockSearchResult(symbol: target.symbol.uppercased(), name: name, currency: nil, exchange: nil, exchangeFullName: nil)) }
+                                 Task { await accounts.toggle(stock: StockSearchResult(symbol: target.symbol.uppercased(), name: name, currency: nil, exchange: nil, exchangeFullName: nil, logoUrl: nil)) }
                              },
                              onCompany: { onCompany(target.symbol.uppercased()) },
                              onResearchAnother: onResearchAnother, onContinueLearning: onContinueLearning,

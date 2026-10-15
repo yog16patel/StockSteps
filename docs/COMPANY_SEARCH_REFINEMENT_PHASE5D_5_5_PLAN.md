@@ -333,7 +333,7 @@ Earlier large-text captures of the iOS search sheet aren't kept. Large-text "bef
 - **D3 Instrument type labels:** **recommended: none** (the provider gives no type; names are shown verbatim). Alternative: a "Fund/ETF" label
   from name keywords (heuristic, could mislabel).
 - **D4 Sector/industry in rows:** **recommended: none** (would need a profile call per result). The reference's sector line is dropped.
-- **D5 Logos:** **recommended: ticker-initials avatar** (`StockTickerAvatar`); no logo fetching.
+- **D5 Logos:** **recommended: ticker-initials avatar** (`StockTickerAvatar`); no logo fetching. **Superseded 2026-10-15:** the owner approved real logos via the server-built `fmpLogoUrl(symbol)` with an initials fallback (5D.5.5C report §9).
 - **D6 Recent searches:** **recommended: yes, local-only** (device storage, last 10 selected companies, Clear all; nothing sent to the server;
   works in guest mode). Query suggestions while typing: **no** (no data source).
 - **D7 Legacy inline detail pane:** **recommended: leave as-is in 5D.5.5;** schedule removal separately.

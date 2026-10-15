@@ -142,3 +142,34 @@ Owner review of 5D.5.5C, then 5D.5.5D:
 - full device matrix and parity, including the not-run rows above;
 - screen readers with the owner;
 - the polish items in §6.
+
+## 9. Addendum: company logos in search (owner-approved after the logo audit; committed locally as "Show company logos in Company Search results on Android and iOS with a server-built logo URL per result and a ticker-initials fallback, without extra provider calls", not pushed)
+- **Decision change:** D5 ("initials, no logo fetch") is replaced. Search shows real company logos and falls back to initials.
+- **Server:** `StockService.search` adds `logoUrl = fmpLogoUrl(symbol)` to each ranked result. This is FMP's public logo path, already used
+  for movers and the screener.
+  - **0 extra provider calls** (no profile requests) and no key on devices.
+  - Ranking, Best match, filters and the cache are unchanged; the 6 h search cache now stores the URL too.
+- **Model:** `StockSearchResult.logoUrl: String? = null` (optional). Older clients ignore it (`ignoreUnknownKeys`). Recent searches store it;
+  entries saved before this change show initials until selected again.
+- **Apps:** `StockSearchResultRow` (Compose) and `SearchResultRow` (SwiftUI) pass it to the existing `StockTickerAvatar`:
+  - Coil on Android, `AsyncImage` on iOS;
+  - initials until the image loads, and when it fails.
+  - Results never wait for images.
+- **Files:**
+  - `core/.../model/StockSearchResult.kt`, `server/.../service/StockService.kt`;
+  - `designsystem/components/StockSearchResultRow.kt`, `iosApp/DesignSystem/SearchResultRow.swift`;
+  - Swift `StockSearchResult(…)` calls gained `logoUrl: nil` (`StockSearchViewModel`, `EarningsScenes`, `CompanyDetailsScene`,
+    `GuidedResearchScenes`);
+  - tests: `StockSearchTest` (logo URL on every result, still exactly two provider calls), `FinnhubRepositoryTest` (expected value),
+    `RecentSearchesTest` (+1: logo stored; older entries without it still read).
+- **Tests:** core JVM and iOS 555/0, server 502/0, shared Android 264/0 and iOS 260/0; `assembleDebug` and `xcodebuild` PASS.
+- **Device checks (local MOCK):**
+  - **Android 1.0×:** logos for "apple" in unchanged order, with Best match. GOOGN/GOOGM have no logo and keep initials. A new recent entry
+    keeps its logo.
+  - **iOS Default:** logos for "apple"; older recents show initials.
+  - Large text and dark mode were not re-run: the avatar is the same fixed-size component as before.
+- **Contact sheet:** `docs/reviews/phase5d_5_5c_logos/CHATGPT_UI_REVIEW_LOGOS.png` (captures git-ignored).
+- **Risks:**
+  - The logos are company trademarks served from FMP's image server; display rights under the FMP plan are **not verified** (owner to
+    confirm).
+  - Images load from FMP's public image server even in MOCK (an image download, not a paid API call; as on Home and the screener).

@@ -40,7 +40,7 @@ class FinnhubRepositoryTest {
             override suspend fun getQuote(symbol: String): StockQuote = expected
         }
         val service = org.example.stocksteps.service.StockService(searchProvider, quoteProvider)
-        assertEquals(listOf(listing), service.searchStocks("apple"))
+        assertEquals(listOf(listing.copy(logoUrl = "https://images.financialmodelingprep.com/symbol/AAPL.png")), service.searchStocks("apple"))
         assertEquals(expected, service.getStock("AAPL"))
     }
 

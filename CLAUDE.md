@@ -15,14 +15,14 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.5C committed locally)
+## Current task (as of 2026-10-15, search logos committed locally)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
 Phase 5D.5.4 (Company Details, A–D) is pushed through `0c5c4c4`; the owner runs the TalkBack/VoiceOver pass manually (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md` §9).
-Phase 5D.5.5 Company Search: the plan (`docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5_PLAN.md`, D1–D8) and 5D.5.5B (`08723a6`) are pushed. 5D.5.5C ("Refine Company Search for Global UI Refinement Phase 5D.5.5C with a cleaner Android search header, local recent searches, search states with Retry and the shared result rows in the Comparison picker on Android and iOS") is committed locally, **not pushed**. Report: `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5C.md`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-5C-2026-10-15.**
-Next: push on approval; then 5D.5.5D (full device matrix, screen readers, polish items in the 5D.5.5C report §6).
+Phase 5D.5.5 Company Search: the plan (`docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5_PLAN.md`), 5D.5.5B (`08723a6`) and 5D.5.5C (`1d90195`) are pushed. The search-logo addendum ("Show company logos in Company Search results on Android and iOS with a server-built logo URL per result and a ticker-initials fallback, without extra provider calls") is committed locally, **not pushed** (report `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5C.md` §9).
+**Start with `docs/PROJECT_HANDOFF.md` §SEARCH-LOGOS-2026-10-15.**
+Next: push on approval; then 5D.5.5D (full device matrix, screen readers, polish items in the 5D.5.5C report §6). Owner to confirm FMP logo display rights.
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
@@ -141,8 +141,9 @@ Portfolio conventions (permanent):
   - Relevance comes only from core `search/SearchRanking` (exact ticker, exact name, ticker prefix, name word/prefix, later word, substring,
     provider; then major exchange before OTC, then provider order). It runs on the server (`StockService.search`) over both FMP endpoints.
     Never drop results; never use popularity, market cap or AI.
-  - Scope is USD listings on US exchanges (D1). No type or sector labels (D3/D4); initials avatars, no logo fetch (D5); no FMP `limit` change
-    (D8).
+  - Scope is USD listings on US exchanges (D1). No type or sector labels (D3/D4); no FMP `limit` change (D8). Logos (D5 superseded): the
+    server sets `StockSearchResult.logoUrl = fmpLogoUrl(symbol)` (no provider call, no key on devices); rows pass it to `StockTickerAvatar`,
+    which keeps ticker initials when there is no logo. Never fetch profiles to get logos for search.
   - Sections, "Best match" (unique exact ticker or name and no other result for the same company) and row text come only from
     `search/SearchDisplay`. The badge uses the INFO kind, never green.
   - Rows: `StockSearchResultRow` (Compose, stacks ≥ 1.75×) / `SearchResultRow` (SwiftUI, stacks ≥ AX3). The legacy inline pane and the tablet

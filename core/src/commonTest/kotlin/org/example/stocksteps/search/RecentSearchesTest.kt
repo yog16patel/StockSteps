@@ -39,6 +39,15 @@ class RecentSearchesTest {
     }
 
     @Test
+    fun logoUrlIsStoredAndOlderEntriesWithoutItStillRead() {
+        val storage = InMemoryStringStorage()
+        RecentSearchStore(storage).record(StockSearchResult("AAPL", "Apple Inc.", "USD", "NASDAQ", logoUrl = "https://images.financialmodelingprep.com/symbol/AAPL.png"))
+        assertEquals("https://images.financialmodelingprep.com/symbol/AAPL.png", RecentSearchStore(storage).current().single().logoUrl)
+        // History saved before logos existed has no logoUrl: it reads fine and shows initials.
+        assertEquals(null, RecentSearches.decode("""[{"symbol":"MSFT","name":"Microsoft Corporation","exchange":"NASDAQ"}]""").single().logoUrl)
+    }
+
+    @Test
     fun corruptOrInvalidStorageIsNoHistory() {
         assertEquals(emptyList(), RecentSearchStore(InMemoryStringStorage("{not json")).current())
         assertEquals(emptyList(), RecentSearches.decode("""{"symbol":"AAPL"}"""))

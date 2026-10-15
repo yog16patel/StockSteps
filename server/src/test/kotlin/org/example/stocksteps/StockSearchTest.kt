@@ -45,7 +45,7 @@ class StockSearchTest {
             assertEquals(HttpStatusCode.OK, response.status)
             val results = Json.decodeFromString<List<StockSearchResult>>(response.bodyAsText())
             assertEquals(listOf(
-                StockSearchResult("AAPL", "Apple Inc.", "USD", "NASDAQ")
+                StockSearchResult("AAPL", "Apple Inc.", "USD", "NASDAQ", logoUrl = "https://images.financialmodelingprep.com/symbol/AAPL.png")
             ), results)
         } finally { upstream.close() }
     }
@@ -84,6 +84,10 @@ class StockSearchTest {
             assertEquals(listOf("AAPL", "APLE"), results.map { it.symbol })
             assertEquals("Apple Inc.", results.first().name)
             assertEquals(setOf("/stable/search-name", "/stable/search-symbol"), paths.toSet())
+            // 5D.5.5C logos: every result carries its ticker's logo URL; still exactly two provider calls (no profile requests).
+            assertEquals(listOf("https://images.financialmodelingprep.com/symbol/AAPL.png", "https://images.financialmodelingprep.com/symbol/APLE.png"),
+                results.map { it.logoUrl })
+            assertEquals(2, paths.size)
         } finally { upstream.close() }
     }
 

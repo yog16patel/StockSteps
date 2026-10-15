@@ -64,7 +64,7 @@ struct CompanyDetailsScene: View {
                 if !saved, accounts.state.user != nil, (watchlists?.watchlists.count ?? 0) > 1 { choosingList = true; return }
                 // The same watchlist used by the Watchlist tab.
                 let name = model.overview.value?.name ?? symbol
-                Task { await accounts.toggle(stock: StockSearchResult(symbol: symbol, name: name, currency: nil, exchange: nil, exchangeFullName: nil)) }
+                Task { await accounts.toggle(stock: StockSearchResult(symbol: symbol, name: name, currency: nil, exchange: nil, exchangeFullName: nil, logoUrl: nil)) }
             },
             onOpenURL: { openURL($0) },
             onOpenFinancials: { showFinancials = true },

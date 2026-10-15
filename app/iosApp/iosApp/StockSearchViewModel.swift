@@ -45,7 +45,7 @@ final class StockSearchViewModel {
     @ObservationIgnored private var newsTask: Task<Void, Never>?
 
     var companyDetail: CompanyDetailUiState {
-        guard let selectedStock else { return CompanyDetailPresenter.shared.build(stock: StockSearchResult(symbol: "", name: "", currency: nil, exchange: nil, exchangeFullName: nil), quote: nil, profile: nil, fundamentals: nil) }
+        guard let selectedStock else { return CompanyDetailPresenter.shared.build(stock: StockSearchResult(symbol: "", name: "", currency: nil, exchange: nil, exchangeFullName: nil, logoUrl: nil), quote: nil, profile: nil, fundamentals: nil) }
         return CompanyDetailPresenter.shared.build(stock: selectedStock, quote: quote, profile: profile, fundamentals: fundamentals)
     }
     func detailAction(_ action: NativeCompanyDetailAction) {

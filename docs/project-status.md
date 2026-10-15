@@ -6,7 +6,12 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.5C Company Search experience (committed locally as "Refine Company Search for Global UI Refinement Phase 5D.5.5C with a cleaner Android search header, local recent searches, search states with Retry and the shared result rows in the Comparison picker on Android and iOS"; not pushed).**
+**2026-10-15 — Company logos in search (5D.5.5C addendum; committed locally as "Show company logos in Company Search results on Android and iOS with a server-built logo URL per result and a ticker-initials fallback, without extra provider calls"; not pushed).**
+- The server adds FMP's public logo URL to each search result (no extra API calls).
+- Both apps show the logo, with an initials fallback.
+- Details: `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5C.md` §9.
+
+**2026-10-15 — Phase 5D.5.5C Company Search experience (`1d90195`, committed and pushed as "Refine Company Search for Global UI Refinement Phase 5D.5.5C with a cleaner Android search header, local recent searches, search states with Retry and the shared result rows in the Comparison picker on Android and iOS").**
 - **Android header:** cleaner (the headline is removed).
 - **Recent searches:** local, max 10.
 - **States:** no results, error + Retry.

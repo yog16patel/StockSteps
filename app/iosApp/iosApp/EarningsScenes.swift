@@ -520,7 +520,7 @@ struct EarningsEventScreen: View {
             if !accounts.state.initializing {
                 let saved = accounts.state.items.contains { $0.symbol == state.symbol }
                 Button {
-                    let stock = StockSearchResult(symbol: state.symbol, name: state.name, currency: nil, exchange: state.exchange, exchangeFullName: nil)
+                    let stock = StockSearchResult(symbol: state.symbol, name: state.name, currency: nil, exchange: state.exchange, exchangeFullName: nil, logoUrl: nil)
                     Task { await accounts.toggle(stock: stock) }
                 } label: {
                     Label(saved ? "Remove from Watchlist" : "Add to Watchlist", systemImage: saved ? "star.fill" : "star").frame(maxWidth: .infinity, minHeight: 48)

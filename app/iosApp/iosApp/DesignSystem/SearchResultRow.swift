@@ -5,7 +5,7 @@ private let space = StockStepsTheme.spacing
 private let type = StockStepsTheme.typography
 private let dims = StockStepsTheme.dimensions
 
-/// One company search result (Phase 5D.5.5B, as Compose `StockSearchResultRow`): ticker-initials avatar, the name (wraps, never truncated)
+/// One company search result (Phase 5D.5.5B, as Compose `StockSearchResultRow`): the company logo when it loads, else ticker initials, the name (wraps, never truncated)
 /// with an optional "Best match" badge, then ticker · exchange (never truncated — they tell listings apart), and a chevron. Borderless; the
 /// list draws dividers. One spoken element ("Apple Inc., AAPL, NASDAQ, best match") with the button trait. From AX3 the avatar goes above
 /// the text and ticker and exchange take their own lines.
@@ -27,12 +27,12 @@ struct SearchResultRow: View {
             HStack(alignment: .center, spacing: CGFloat(space.md)) {
                 if stacked {
                     VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                        StockTickerAvatar(symbol: result.symbol)
+                        StockTickerAvatar(symbol: result.symbol, logoUrl: result.logoUrl)
                         text(colors, stacked: true)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    StockTickerAvatar(symbol: result.symbol)
+                    StockTickerAvatar(symbol: result.symbol, logoUrl: result.logoUrl)
                     text(colors, stacked: false).frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if enabled { Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(colors.iconSecondary) }
