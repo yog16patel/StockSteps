@@ -129,4 +129,31 @@ class StockSearchTest {
             }
         } finally { upstream.close() }
     }
+
+    @Test
+    fun nameSearchRanksTheCompanyThenWholeWordsMajorExchangesAndSubstringsLast() = testApplication {
+        val upstream = HttpClient(MockEngine { request ->
+            val body = when (request.url.encodedPath) {
+                "/stable/search-symbol" -> "[]"
+                else -> """[
+                    {"symbol":"PNPL","name":"Pineapple, Inc.","currency":"USD","exchange":"OTC"},
+                    {"symbol":"APPLX","name":"Appleseed Fund","currency":"USD","exchange":"NASDAQ"},
+                    {"symbol":"AAPI","name":"Apple iSports Group Inc","currency":"USD","exchange":"OTC"},
+                    {"symbol":"APLE","name":"Apple Hospitality REIT, Inc.","currency":"USD","exchange":"NYSE"},
+                    {"symbol":"AAPL","name":"Apple Inc.","currency":"USD","exchange":"NASDAQ"}
+                ]"""
+            }
+            respond(body, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+        }) { install(ClientContentNegotiation) { json() } }
+        try {
+            application {
+                install(ContentNegotiation) { json() }
+                configureApiErrors()
+                routing { stockRoutes(StockService(FmpStockProviderRepositoryImpl(upstream, "test-key"))) }
+            }
+            val results = Json.decodeFromString<List<StockSearchResult>>(client.get("/api/v1/stocks/search") { parameter("query", "Apple") }.bodyAsText())
+            // Exact name, then whole-word name starts (NYSE before OTC), then a partial word, then a substring — none dropped.
+            assertEquals(listOf("AAPL", "APLE", "AAPI", "APPLX", "PNPL"), results.map { it.symbol })
+        } finally { upstream.close() }
+    }
 }

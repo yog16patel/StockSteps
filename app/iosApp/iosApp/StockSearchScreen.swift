@@ -15,7 +15,7 @@ struct StockSearchScreen: View {
         List {
             if state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 ContentUnavailableView("Find your first stock", systemImage: "magnifyingglass",
-                    description: Text("Search for a company or ticker in USD or CAD."))
+                    description: Text("Search for a company or ticker listed on a US exchange."))
             } else if state.isSearching {
                 HStack { Spacer(); ProgressView("Searching…"); Spacer() }
             } else if let error = state.searchError {
@@ -26,38 +26,30 @@ struct StockSearchScreen: View {
             } else if state.results.isEmpty {
                 ContentUnavailableView.search(text: state.query)
             } else {
-                Section("Stocks") {
-                    ForEach(state.results, id: \.symbol) { stock in
-                        Button {
-                            onSelect(stock)
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.tiny)) {
-                                    Text(stock.name).font(StockStepsTheme.font(StockStepsTheme.typography.subtitle, relativeTo: .headline)).foregroundStyle(StockStepsTheme.color(palette.textPrimary))
-                                    Text([stock.symbol, stock.exchange, stock.currency]
-                                        .compactMap { $0 }.joined(separator: " · "))
-                                        .font(StockStepsTheme.font(StockStepsTheme.typography.body, relativeTo: .body)).foregroundStyle(StockStepsTheme.color(palette.textSecondary))
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right").foregroundStyle(.secondary)
-                            }.padding(.vertical, CGFloat(StockStepsTheme.spacing.tiny))
-                        }.buttonStyle(.plain)
+                // 5D.5.5B: server-ranked results in "Best match" / "Other results" sections (or one "Results" section) with the shared
+                // borderless row; order and contents are the server's.
+                ForEach(SearchDisplay.shared.sections(query: state.query, results: state.results), id: \.title) { section in
+                    Section {
+                        ForEach(section.results, id: \.symbol) { stock in
+                            SearchResultRow(result: stock, best: section.best) { onSelect(stock) }
+                                .listRowBackground(Color.clear)
+                                .listRowSeparatorTint(StockStepsTheme.color(palette.borderSubtle))
+                                .alignmentGuide(.listRowSeparatorLeading) { _ in CGFloat(StockStepsTheme.dimensions.logo + StockStepsTheme.spacing.md) }
+                        }
+                    } header: {
+                        Text(verbatim: section.title).font(StockStepsTheme.font(StockStepsTheme.typography.cardTitle, relativeTo: .headline))
+                            .foregroundStyle(StockStepsTheme.color(palette.textPrimary)).textCase(nil)
+                            .accessibilityAddTraits(.isHeader)
                     }
                 }
             }
         }
+        .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(StockStepsTheme.color(palette.background))
         .tint(StockStepsTheme.color(palette.primary))
         .searchable(text: $query, isPresented: $searchActive, prompt: "Company or ticker")
         .task { if query.isEmpty { searchActive = true } }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Text("USD · CAD").font(StockStepsTheme.font(StockStepsTheme.typography.caption, relativeTo: .caption1))
-                    .padding(.horizontal, CGFloat(StockStepsTheme.spacing.medium)).padding(.vertical, CGFloat(StockStepsTheme.spacing.small))
-                    .stockStepsGlassSurface()
-                    .accessibilityLabel("Search results in US and Canadian dollars")
-            }
-        }
+        // D1 (5D.5.5): search covers USD listings on US exchanges, so the former "USD · CAD" chip is gone.
     }
 }

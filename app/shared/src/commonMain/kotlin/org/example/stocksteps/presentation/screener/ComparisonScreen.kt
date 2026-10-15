@@ -705,7 +705,7 @@ private fun AddCompanyDialog(state: ComparisonUiState, replacing: String?, onSea
     }
     AlertDialog(onDismissRequest = onDismiss, title = { Text(replacing?.let { "Replace $it" } ?: "Add a company") }, confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-            StockTextField(query, { query = it }, "Search by name or ticker", Modifier.fillMaxWidth(), placeholder = "e.g. Apple or RY.TO")
+            StockTextField(query, { query = it }, "Search by name or ticker", Modifier.fillMaxWidth(), placeholder = "e.g. Apple or AAPL")
             if (searching) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (failed) Text("Search isn't available right now. Try again.", style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.cautionText)
             if (!searching && !failed && query.isNotBlank() && results.isEmpty()) Text("No matching companies.", style = StockStepsTheme.typography.caption)

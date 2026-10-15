@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -59,20 +60,19 @@ internal fun StockSearchPane(
                 )
             }
         }
-        items(state.results, key = { it.symbol }) { stock ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onSelect(stock) }
-                    .padding(vertical = ThemeSpacing.small.dp)
-            ) {
-                Text(
-                    text = stock.name,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(listOfNotNull(stock.symbol, stock.exchange, stock.currency).joinToString(" · "))
+        // 5D.5.5B: server-ranked results in "Best match" / "Other results" sections (or one "Results" section) with the shared borderless
+        // row; the order and contents are the server's.
+        org.example.stocksteps.search.SearchDisplay.sections(state.query, state.results).forEach { section ->
+            item(key = "header:${section.title}") {
+                org.example.stocksteps.designsystem.components.StockSectionHeader(section.title, Modifier.padding(top = ThemeSpacing.small.dp))
             }
-            HorizontalDivider()
+            itemsIndexed(section.results, key = { _, stock -> "result:${stock.symbol}" }) { index, stock ->
+                // The divider starts under the text; at very large text the avatar sits above the text, so it spans the row.
+                val stacked = androidx.compose.ui.platform.LocalDensity.current.fontScale >= org.example.stocksteps.designsystem.components.SEARCH_ROW_STACK_SCALE
+                if (index > 0) org.example.stocksteps.designsystem.components.StockDivider(
+                    startIndent = if (stacked) 0.dp else org.example.stocksteps.designsystem.theme.StockStepsTheme.dimensions.logo + org.example.stocksteps.designsystem.theme.StockStepsTheme.spacing.md)
+                org.example.stocksteps.designsystem.components.StockSearchResultRow(stock, best = section.best, onClick = { onSelect(stock) })
+            }
         }
     }
 }

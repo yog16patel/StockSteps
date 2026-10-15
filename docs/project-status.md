@@ -6,7 +6,14 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.4D Company Details accessibility & final verification (committed locally as "Finish Company Details accessibility for Global UI Refinement Phase 5D.5.4D with section header actions under long titles, a stacking Financials chart legend and whole Financial Highlights and Key Ratios values at large text on iOS, and the final verification record"; not pushed).**
+**2026-10-15 — Phase 5D.5.5B Company Search ranking and result rows (committed locally as "Add Company Search ranking and result rows for Global UI Refinement Phase 5D.5.5B with deterministic server-side relevance, a conservative Best match label and borderless search result rows on Android and iOS, plus the 5D.5.5A search audit and plan"; not pushed).**
+- Deterministic server-side ranking (`SearchRanking`, core).
+- Conservative Best match and the new result rows on Android and iOS.
+- USD/US scope copy fixes.
+- Plan: `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5_PLAN.md`; report: `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5B.md`.
+- **Next:** push on approval, then 5D.5.5C.
+
+**2026-10-15 — Phase 5D.5.4D Company Details accessibility & final verification (`0c5c4c4`, committed and pushed as "Finish Company Details accessibility for Global UI Refinement Phase 5D.5.4D with section header actions under long titles, a stacking Financials chart legend and whole Financial Highlights and Key Ratios values at large text on iOS, and the final verification record"; not pushed).**
 - **iOS AX5 fixes:**
   - Financials legend stacks;
   - section header action moves under the title;

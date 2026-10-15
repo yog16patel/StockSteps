@@ -6,6 +6,7 @@ import org.example.stocksteps.model.MarketMover
 import java.util.Locale
 import org.example.stocksteps.model.StockQuote
 import org.example.stocksteps.model.StockSearchResult
+import org.example.stocksteps.search.SearchRanking
 import org.example.stocksteps.repository.StockProviderRepository
 import org.example.stocksteps.repository.StockProviderException
 
@@ -22,13 +23,17 @@ class StockService(
     suspend fun searchStocks(query: String): List<StockSearchResult> =
         searchCache.getOrLoad(query.trim().lowercase(Locale.ROOT), FinancialCachePolicy.SEARCH) { search(query.trim()) }
 
+    /**
+     * Scope (owner decision D1, 5D.5.5): USD listings on US exchanges. Ranking (5D.5.5B): the shared [SearchRanking] over everything both
+     * provider endpoints returned — exact ticker, exact name, ticker prefix, name word/prefix matches, then substrings; major exchanges before
+     * OTC within a tier (D2), then the provider's order. Nothing is dropped by ranking.
+     */
     private suspend fun search(query: String): List<StockSearchResult> =
-        stockProvider.searchStocks(query)
+        SearchRanking.rank(query, stockProvider.searchStocks(query)
             .filter { it.currency.equals("USD", ignoreCase = true) &&
                 it.exchange?.uppercase(Locale.ROOT) in US_EXCHANGES
             }
-            .distinctBy { it.symbol.uppercase(Locale.ROOT) }
-            .sortedByDescending { it.symbol.equals(query, ignoreCase = true) }
+            .distinctBy { it.symbol.uppercase(Locale.ROOT) })
 
     private companion object {
         const val PROFILE_TTL = 86_400_000L

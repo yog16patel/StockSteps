@@ -15,14 +15,14 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.4D committed locally)
+## Current task (as of 2026-10-15, Phase 5D.5.5B committed locally)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
-Phase 5D.5.4B (`d4843f5`, `038aa33`) is pushed. Phase 5D.5.4C C1 (`33fa94c`), C2 (`e8265bd`) and C3 (`ebe81f4`) are pushed. Phase 5D.5.4D ("Finish Company Details accessibility for Global UI Refinement Phase 5D.5.4D with section header actions under long titles, a stacking Financials chart legend and whole Financial Highlights and Key Ratios values at large text on iOS, and the final verification record") is committed locally, **not pushed**.
-Reports: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C1.md`, `_C2.md`, `_C3.md`, `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md` (§9 = final accessibility QA).
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-4D-2026-10-15.**
-Next: push on approval; the owner runs the TalkBack/VoiceOver pass manually (report §9 steps); then close 5D.5.4.
+Phase 5D.5.4 (Company Details, A–D) is pushed through `0c5c4c4`; the owner runs the TalkBack/VoiceOver pass manually (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md` §9).
+Phase 5D.5.5 Company Search: the plan (`docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5_PLAN.md`, D1–D8 approved as recommended) and 5D.5.5B ("Add Company Search ranking and result rows for Global UI Refinement Phase 5D.5.5B with deterministic server-side relevance, a conservative Best match label and borderless search result rows on Android and iOS, plus the 5D.5.5A search audit and plan") are committed locally, **not pushed**. Report: `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5B.md`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-5B-2026-10-15.**
+Next: push on approval; then 5D.5.5C (header, states, recent searches, Comparison dialog), 5D.5.5D (device QA).
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
@@ -137,6 +137,18 @@ Portfolio conventions (permanent):
     `StockMetricGrid(maxColumns = 2, rowsWhenNarrow = true)`. Model sentences, the Learn link and the chart reference go through `keepTogether`.
   - (C3) iOS label/value row groups use `StockInfoLineGroup` (one stacking decision per group, shared `StockLayout.metricRowStacked`; values
     stay whole); `StockInfoLine.stacked` stays nil elsewhere. The Financials Profitability rows stay (owner decision).
+- **Company Search (5D.5.5).**
+  - Relevance comes only from core `search/SearchRanking` (exact ticker, exact name, ticker prefix, name word/prefix, later word, substring,
+    provider; then major exchange before OTC, then provider order). It runs on the server (`StockService.search`) over both FMP endpoints.
+    Never drop results; never use popularity, market cap or AI.
+  - Scope is USD listings on US exchanges (D1). No type or sector labels (D3/D4); initials avatars, no logo fetch (D5); no FMP `limit` change
+    (D8).
+  - Sections, "Best match" (unique exact ticker or name and no other result for the same company) and row text come only from
+    `search/SearchDisplay`. The badge uses the INFO kind, never green.
+  - Rows: `StockSearchResultRow` (Compose, stacks ≥ 1.75×) / `SearchResultRow` (SwiftUI, stacks ≥ AX3). The legacy inline pane and the tablet
+    sidebar are untouched (D7).
+  - Android debug builds use the LAN MOCK host from `~/.gradle/gradle.properties`; to test server changes on the local MOCK server, build with
+    `-PstockstepsMockBackendUrl=http://127.0.0.1:8081`.
 - **Company Details large text (5D.5.4D, iOS).** `StockSectionHeader` puts its action under the title only when the title's longest word and
   the action can't share a line (`StockLayout.metricRowStacked`); the `StockBarChart` legend stacks one entry per line instead of shrinking;
   Financial Highlights and Key Ratios rows go through `StockInfoLineGroup`. Screen readers can't be driven by injected input on the emulator
