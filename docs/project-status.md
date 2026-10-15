@@ -6,7 +6,16 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.5D Company Search final verification & polish (committed locally as "Finish Company Search for Global UI Refinement Phase 5D.5.5D with an edge-to-edge Comparison picker, iOS search refocus and empty reopen, a smaller Best match label, logos beside large text and logos for older recent searches on Android and iOS"; not pushed).**
+**2026-10-15 — Phase 5D.5.5D final verification & closure (committed locally as "Close Company Search for Global UI Refinement Phase 5D.5.5D with the final verification record and add the Phase 5D.5.6 shared navigation and top app bar planning note"; docs only, no code changes; not pushed). Recommendation: CLOSE WITH DEFERRED ITEMS.**
+- **Device checks on local MOCK, both platforms:** error + Retry, rapid typing, clear or cancel while pending, newer query wins, return from details, recents (logo refresh, initials, GOOG/GOOGL, guest persistence, Clear all), Android 1.3×. All PASS.
+- **Suites:** all green in one sequential run: core 556/0 ×2, server 502/0, shared 264/0 and 260/0, builds.
+- **Deferred:**
+  - TalkBack/VoiceOver: NOT RUN (owner checklist in report §8.3);
+  - FMP logo display licence: **UNVERIFIED**, a launch dependency for logos.
+- **Next:** owner review → 5D.5.6 Shared Navigation & Top App Bar (planning note `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6_PLAN_NOTE.md`; no implementation yet).
+- **Report:** `docs/reviews/phase5d_5_5d/PHASE5D_5_5D_VERIFICATION.md` §8.
+
+**2026-10-15 — Phase 5D.5.5D Company Search final verification & polish (`458e6a2`, committed and pushed as "Finish Company Search for Global UI Refinement Phase 5D.5.5D with an edge-to-edge Comparison picker, iOS search refocus and empty reopen, a smaller Best match label, logos beside large text and logos for older recent searches on Android and iOS").**
 - **Fixes:**
   - Android picker status bar;
   - iOS focus after "Try a different search";
