@@ -236,7 +236,7 @@ struct DailyBriefScreen: View {
                     premium(colors)
                     VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                         StockDisclosure(title: D.ABOUT_BRIEF) { StockNotes(lines: D.aboutLines(brief: brief)) }
-                        StockNavigationRow(title: D.HISTORY, icon: "calendar", action: onHistory)
+                        footerLink(D.HISTORY, systemImage: "calendar", colors, action: onHistory)
                     }
                 } else if state?.loading != false {
                     skeleton
@@ -284,33 +284,50 @@ struct DailyBriefScreen: View {
         Text(text).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(color).fixedSize(horizontal: false, vertical: true)
     }
 
+    /// 5D.5.1c (D-C4): "Previous briefs" in the same compact label style as the "About this brief" disclosure (icon, label, chevron; 48 pt).
+    private func footerLink(_ title: String, systemImage: String, _ colors: StockColors, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: CGFloat(space.xs)) {
+                Image(systemName: systemImage).accessibilityHidden(true)
+                Text(title).multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").accessibilityHidden(true)
+            }
+            .font(StockStepsTheme.font(type.label, relativeTo: .subheadline))
+            .foregroundStyle(colors.primaryText)
+            .frame(minHeight: CGFloat(dims.touchTarget))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     @ViewBuilder
     private func header(_ b: DailyBrief, _ state: DailyBriefUiState, _ colors: StockColors) -> some View {
         let now = client.now()
+        // 5D.5.1c: meta, takeaway and summary read as one block (xs); freshness and the status banner follow (sm).
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-            StockTitleWithBadge {
-                caption(D.meta(brief: b), colors.textMeta)
-            } badge: {
-                if b.sampleData { StockStatusBadge(text: D.SAMPLE, kind: .sample, size: .compact, accessibilityText: D.SAMPLE_DESCRIPTION) }
-            }
-            // D-B1: the takeaway derived from the index values leads; the server summary stays word for word below it (D-B2: folded at
-            // accessibility sizes). Without a takeaway the summary itself is the headline, as in 5D.5.1.
-            let takeaway = D.takeaway(brief: b)
-            Text(takeaway ?? b.summaryLine).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).foregroundStyle(colors.textTitle)
-                .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
-            if takeaway != nil {
-                if typeSize.isAccessibilitySize {
-                    StockDisclosure(title: D.FULL_SUMMARY, systemImage: "doc.text") {
+            VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                StockTitleWithBadge {
+                    caption(D.meta(brief: b), colors.textMeta)
+                } badge: {
+                    if b.sampleData { StockStatusBadge(text: D.SAMPLE, kind: .sample, size: .compact, accessibilityText: D.SAMPLE_DESCRIPTION) }
+                }
+                // D-B1: the takeaway derived from the index values leads; the server summary stays word for word below it (D-B2: folded at
+                // accessibility sizes). Without a takeaway the summary itself is the headline, as in 5D.5.1.
+                let takeaway = D.takeaway(brief: b)
+                Text(takeaway ?? b.summaryLine).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).foregroundStyle(colors.textTitle)
+                    .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+                if takeaway != nil {
+                    if typeSize.isAccessibilitySize {
+                        StockDisclosure(title: D.FULL_SUMMARY, systemImage: "doc.text") {
+                            Text(b.summaryLine).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                        }
+                    } else {
                         Text(b.summaryLine).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
                     }
-                } else {
-                    Text(b.summaryLine).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
                 }
             }
-            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                caption(D.freshness(brief: b, nowMillis: now), colors.textMeta)
-                ForEach(D.sessionLines(brief: b), id: \.self) { caption($0, colors.textMeta) }
-            }
+            caption(D.freshness(brief: b, nowMillis: now), colors.textMeta)
             // One banner for stale and offline, one sentence each (U-05).
             if let status = D.status(brief: b, nowMillis: now, offline: state.offline) {
                 StockBanner(kind: status.stale ? .warning : .info, message: status.message)
@@ -322,6 +339,8 @@ struct DailyBriefScreen: View {
     private func markets(_ brief: DailyBrief, _ colors: StockColors) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             sectionTitle(D.MARKETS)
+            // 5D.5.1c (D-C1): market open/closed status sits with the indices it describes.
+            ForEach(D.sessionLines(brief: brief), id: \.self) { caption($0, colors.textMeta) }
             if brief.marketSnapshot.isEmpty {
                 Text(D.NO_INDICES).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
             } else {
@@ -348,7 +367,7 @@ struct DailyBriefScreen: View {
                         storyRow(story, state, colors)
                     }
                 }
-                .stockCard()
+                .stockCard(bordered: false) // 5D.5.1c (D-C2): the tiles' borderless surface; the default is unchanged
                 StockDisclosure(title: D.ABOUT_STORIES) { StockNotes(lines: D.storyNotes(brief: brief)) }
             }
         }
@@ -415,7 +434,12 @@ struct DailyBriefScreen: View {
                 StockSectionMessage(message: D.SIGN_IN_PROMPT, actionTitle: D.SIGN_IN, action: onSignIn)
             } else if let p = state?.personal {
                 if p.watchlistCount == 0 {
-                    StockSectionMessage(message: D.WATCHLIST_EMPTY_SHORT, actionTitle: D.ADD_COMPANIES, action: onWatchlist)
+                    // 5D.5.1c (D-C3): one tinted action aligned with the text.
+                    VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+                        Text(D.WATCHLIST_EMPTY_SHORT).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button(D.ADD_COMPANIES, action: onWatchlist).buttonStyle(.stockSecondary)
+                    }
                 } else if p.watchlistHighlights.isEmpty {
                     Text(D.nothingNotable(count: p.watchlistCount)).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                 } else {
@@ -482,7 +506,9 @@ struct DailyBriefScreen: View {
                 linkButton(D.OPEN_LEARN, systemImage: "arrow.right", colors, action: onLearn)
             }
         }
-        .padding(CGFloat(space.cardPadding))
+        // 5D.5.1c: a small bottom padding — the 48 pt action row already gives the space below the links.
+        .padding([.horizontal, .top], CGFloat(space.cardPadding))
+        .padding(.bottom, CGFloat(space.xs))
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
     }

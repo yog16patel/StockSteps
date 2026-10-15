@@ -11,7 +11,11 @@ class DailyBriefDisplayTest {
 
     @Test fun metaAndFreshnessAreOneLineEach() {
         assertEquals("After-close brief · Oct 7 · 2 min read", DailyBriefDisplay.meta(brief))
+        // No index shown (sampleBrief has none): the session date stays in the freshness line.
         assertEquals("Updated 30 min ago · Market data for the Oct 7 session", DailyBriefDisplay.freshness(brief, now))
+        // Indices shown: their labels carry the session, so freshness is just the update time (5D.5.1c).
+        val idx = BriefIndex("SP500", "S&P 500", "US", 1.0, 0.0, 0.0, "USD", "points", state = QuoteState.SESSION_CLOSE, stateLabel = "Close · Oct 7")
+        assertEquals("Updated 30 min ago", DailyBriefDisplay.freshness(brief.copy(marketSnapshot = listOf(idx)), now))
     }
 
     @Test fun relativeTimesNeverGuessATimeZone() {

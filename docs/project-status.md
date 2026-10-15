@@ -6,6 +6,19 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-14 — Phase 5D.5.1c Daily Brief final polish; Daily Brief CLOSED (committed and pushed as "Polish the Daily Brief for Global UI Refinement Phase 5D.5.1c with a borderless story group, a compact header with session status under Markets, a secondary Add companies action, matching footer links and a tighter concept card on Android and iOS").**
+- Changes:
+  - borderless story group;
+  - compact header ("Updated Oct 7"; session lines under Markets);
+  - secondary "Add companies" action;
+  - matching footer links;
+  - tighter concept card;
+  - Android reader top padding removed.
+- Tests: core 522/0 ×2, shared 246/0 and 242/0, server 501/0; both builds OK. Device matrix on Android and iOS (local MOCK).
+- Verdict: PASS WITH CONDITIONS (iOS signed-in sections BLOCKED; screen readers, populated watchlist and Plus NOT RUN).
+- Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md`.
+- **Next:** Phase 5D.5.2 Learn after owner approval (D-7).
+
 **2026-10-14 — Phase 5D.5.1b Daily Brief refinement A+B (committed and pushed as "Refine the Daily Brief for Global UI Refinement Phase 5D.5.1b with a data-derived market takeaway, compact index tiles, one status banner, a grouped story card, a compact watchlist empty state and structured earnings rows on Android and iOS").**
 - Display only:
   - a takeaway headline derived from the index data (no magnitude or cause words; holiday-aware; never "today" for an older session), with the

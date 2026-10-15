@@ -11,14 +11,19 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-14, Phase 5D.5.1b Daily Brief refinement committed)
+## Current task (as of 2026-10-14, Daily Brief closed after Phase 5D.5.1c)
 
-Phase 5D.5.1b (Daily Brief refinement, Phases A and B) is committed and pushed as "Refine the Daily Brief for Global UI Refinement Phase 5D.5.1b with a data-derived market takeaway, compact index tiles, one status banner, a grouped story card, a compact watchlist empty state and structured earnings rows on Android and iOS", PASS WITH CONDITIONS.
-Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md`; plan with the owner's decisions D-B1…D-B8: `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-1B-2026-10-14.** Next: Phase C of that plan (needs approval) or Phase 5D.5.2 Learn (decision D-7).
-Still open: iOS Earnings Details after the owner signs in (5D.4.3); the iOS Home AX5 heading break and history → brief navigation (pre-existing).
-The iPhone 16 simulator app is in guest mode (its saved session had ended).
+The Daily Brief track (5D.5.1 → 5D.5.1b → 5D.5.1c) is closed by the owner. 5D.5.1c is committed and pushed as "Polish the Daily Brief for Global UI Refinement Phase 5D.5.1c with a borderless story group, a compact header with session status under Markets, a secondary Add companies action, matching footer links and a tighter concept card on Android and iOS", PASS WITH CONDITIONS.
+Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-1C-2026-10-14.**
+Next: Phase 5D.5.2 Learn — do not start without the owner's approval (decision D-7 first).
+Still open:
+- iOS Earnings Details after the owner signs in (5D.4.3);
+- the iOS Home AX5 heading break and history navigation;
+- the iOS AX5 "P/ / E ratio" wrap.
+The iPhone 16 simulator app is in guest mode.
 
+Earlier: 5D.5.1b (`5bfe273`), see §PHASE-5D-5-1B-2026-10-14 in the handoff.
 Earlier: Phase 5D.5.1 (`38002c0`), see §PHASE-5D-5-1-2026-10-14 in the handoff.
 
 Earlier (Earnings 5D.2–5D.4.3, all pushed through `7326e62`): see `docs/PROJECT_HANDOFF.md` §SESSION-END-2026-10-14-EARNINGS.
@@ -85,6 +90,14 @@ Portfolio conventions (permanent):
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,
   `PortfolioAllocationDisplay`). History loads on demand only; the chart is "Account value", never performance. No UI-computed return %. The donut
   only when `allocationDonutAllowed` (`StockAllocationLayout` geometry). Missing stays missing.
+- **Daily Brief layout (5D.5.1c).**
+  - The story group is borderless per call site (`StockCard(bordered = false)` / `.stockCard(bordered: false)`), the same surface as the index
+    tiles.
+  - The market-session lines sit under Markets.
+  - `DailyBriefDisplay.freshness` shows the session wording only when no index shows it.
+  - The empty watchlist uses one secondary "Add companies" button.
+  - The footer links share one compact label style.
+  - The global card default is unchanged.
 - **Daily Brief takeaway and tiles (5D.5.1b).**
   - The headline comes only from `DailyBriefDisplay.takeaway`:
     - index values and sessions only;

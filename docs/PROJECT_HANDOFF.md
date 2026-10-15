@@ -1,9 +1,63 @@
-# StockSteps — session handoff (2026-10-14: Phase 5D.5.1b Daily Brief refinement committed; next: Phase 5D.5.2 Learn after owner approval)
+# StockSteps — session handoff (2026-10-14: Daily Brief closed with Phase 5D.5.1c; next: Phase 5D.5.2 Learn after owner approval)
 
-Read order for a new session: `CLAUDE.md` → **§PHASE-5D-5-1B-2026-10-14 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md` → `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md` → §PHASE-5D-5-1-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → **§PHASE-5D-5-1C-2026-10-14 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C_PLAN.md` → §PHASE-5D-5-1B-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md` → `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md` → §PHASE-5D-5-1-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
+
+## PHASE-5D-5-1C-2026-10-14. Daily Brief final polish (5D.5.1c) — Daily Brief CLOSED by the owner — START HERE
+
+### 0. Repository state
+- Branch `main`. Current commit: **"Polish the Daily Brief for Global UI Refinement Phase 5D.5.1c with a borderless story group, a compact header with session status under Markets, a secondary Add companies action, matching footer links and a tighter concept card on Android and iOS"** (this commit, pushed), on top of `5bfe273` (5D.5.1b).
+- The owner approved closing the Daily Brief track (5D.5.1 → 5D.5.1c).
+
+### 1. What was done
+- Plan: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C_PLAN.md`. Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md`. Decisions D-C1…D-C5, visual only:
+  - **D-C1:** freshness is "Updated Oct 7" when indices are shown; the session wording stays when no index is shown. The market-session lines
+    moved under Markets.
+  - **D-C2:** the story group is borderless (per call site).
+  - **D-C3:** the empty watchlist has a secondary "Add companies" button.
+  - **D-C4:** "Previous briefs" uses the same compact link style as "About this brief".
+  - **D-C5:** no list top padding on the Android reader. The shared top bar is unchanged.
+  - Concept card bottom padding `xs`; header rhythm `xs` / `sm`.
+- Files:
+  - core `brief/DailyBriefDisplay.kt` (`freshness`) + test;
+  - shared `presentation/brief/DailyBriefScreens.kt`;
+  - iOS `DailyBriefScenes.swift`.
+
+### 2. Validation (final code)
+- Tests: core **522/0** JVM and **522/0** iOS. The first JVM run had one timing failure in the untouched `PortfolioSessionStateTest`, which passed
+  on rerun, and a full `--rerun` passed 522/0.
+- Tests: shared **246/0** and **242/0**; server **501/0**.
+- Builds: `assembleDebug` OK; `xcodebuild` BUILD SUCCEEDED.
+- Device checks on the local MOCK server:
+  - Android 360 dp at 1.0× / 1.3× / 2.0×, light and dark;
+  - iPhone 16 at Default, AX XL and AX5, light and dark;
+  - accuracy scenarios, offline + stale, history → brief, Add companies → Watchlist, concept sheet, Home.
+- Captures: 69 in `docs/design/phase5d_5c/` (8.6 MB).
+- Verdict: **PASS WITH CONDITIONS.**
+
+### 3. Not verified / limits
+- **BLOCKED:** iOS signed-in watchlist and earnings. The app is in guest mode; no credentials were typed.
+- **NOT RUN:** a populated watchlist, StockSteps+ / AI, TalkBack and VoiceOver, the iOS scenario submenu, iPhone SE.
+- **Known, pre-existing:**
+  - the iOS AX5 concept title wraps "P/ / E ratio";
+  - the iOS history Sample badge sits at the right edge;
+  - the iOS Home AX5 heading break;
+  - the Android shared top-bar gap.
+
+### 4. Environment at the end
+- MOCK server stopped.
+- emulator-5554: font 1.0, `wm size reset`, no `adb reverse`, app theme Light.
+- iPhone 16: light, content size large, guest mode.
+
+### 5. Next steps
+1. **Phase 5D.5.2 Learn:** start only after the owner approves; decision D-7 comes first (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` §4.3).
+2. Optional follow-ups:
+   - the iOS "P/E" slash wrap;
+   - the Home AX5 / history navigation session (proposed);
+   - B-1 sparklines.
+3. Still open: iOS Earnings Details after the owner signs in (5D.4.3).
 
 ## PHASE-5D-5-1B-2026-10-14. Daily Brief refinement, Phases A and B (5D.5.1b) — START HERE
 

@@ -75,9 +75,13 @@ object DailyBriefDisplay {
     /** "Updated 30 min ago" (relative, no time zone guessed); "Updated Oct 7" once it's older than 20 hours, as Home's freshness. */
     fun updated(brief: DailyBrief, nowMillis: Long): String = "Updated ${ago(brief.updatedAt, nowMillis) ?: BriefFormat.date(brief.briefDate)}"
 
-    /** "Updated 30 min ago · Market data for the Oct 7 session". Offline is said once, by the [OFFLINE] banner (device check 5D.5.1). */
+    /**
+     * "Updated 30 min ago". The session date is said by the index tiles ("All values: Close · Oct 7") or each row's label, so it is added here
+     * only when no index is shown: "Updated Oct 7 · Market data for the Oct 7 session" (5D.5.1c, D-C1). Offline is said once, by the banner.
+     */
     fun freshness(brief: DailyBrief, nowMillis: Long): String =
-        "${updated(brief, nowMillis)} · Market data for the ${BriefFormat.date(brief.sessionDate)} session"
+        if (brief.marketSnapshot.isNotEmpty()) updated(brief, nowMillis)
+        else "${updated(brief, nowMillis)} · Market data for the ${BriefFormat.date(brief.sessionDate)} session"
 
     /** "US stocks: Closed for the day (after-hours trading)" — one line per market (Home uses the same wording). */
     fun sessionLine(session: BriefMarketSession): String = "${sessionName(session)}: ${session.label}"
