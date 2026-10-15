@@ -6,6 +6,21 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-14 — Phase 5D.5.1b Daily Brief refinement A+B (committed and pushed as "Refine the Daily Brief for Global UI Refinement Phase 5D.5.1b with a data-derived market takeaway, compact index tiles, one status banner, a grouped story card, a compact watchlist empty state and structured earnings rows on Android and iOS").**
+- Display only:
+  - a takeaway headline derived from the index data (no magnitude or cause words; holiday-aware; never "today" for an older session), with the
+    server summary verbatim below it;
+  - compact index tiles at normal text, rows at large text;
+  - one stale/offline banner;
+  - a grouped story card;
+  - an "Add companies" empty state;
+  - structured earnings rows;
+  - Home preview = takeaway.
+- Two device fixes. Tests: core 522/0 ×2, shared 246/0 and 242/0, server 501/0; both builds OK.
+- Device matrix PASS (local MOCK). Verdict: PASS WITH CONDITIONS.
+- Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md`; plan: `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md`.
+- **Next:** Phase C (approval) or 5D.5.2 Learn.
+
 **2026-10-14 — Phase 5D.5.1 Daily Market Brief reader (committed and pushed as "Refine the Daily Market Brief reader for Global UI Refinement Phase 5D.5.1 with the summary as the headline, shared index rows, first-sentence stories, folded notes, a Sample badge and a one-line Home summary on Android and iOS").**
 - Display only, on Android and iOS: the summary is the headline; one meta line with a Sample badge; shared compact index rows; stories show the
   first sentence with "Show details"; notes fold once; a ⋯ menu; relative times; a skeleton while loading. Home adds the summary's first sentence.

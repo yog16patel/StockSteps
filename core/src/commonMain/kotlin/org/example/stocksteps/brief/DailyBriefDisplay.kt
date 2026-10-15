@@ -61,6 +61,11 @@ object DailyBriefDisplay {
     const val SEE_PLUS = "See StockSteps+"
     const val NOT_NOW = "Not now"
     const val NO_HISTORY = "No briefs yet. A new brief is prepared for each market session."
+    const val FULL_SUMMARY = "Full summary"
+    const val ABOUT_WATCHLIST = "About watchlist updates"
+    const val LEARN = "Learn"
+    const val ADD_COMPANIES = "Add companies"
+    const val WATCHLIST_EMPTY_SHORT = "Follow companies to see important news and price moves here."
 
     // ---------- Header ----------
 
@@ -83,12 +88,86 @@ object DailyBriefDisplay {
         else -> session.name
     }
 
+    // ---------- Takeaway (5D.5.1b, owner decision D-B1 A) ----------
+
+    /**
+     * A short headline derived only from the brief's index values and sessions, one sentence per market: "US stocks closed lower. Canadian stocks
+     * closed higher." Rules: only indices with a value and change whose state is a close or a live (delayed) quote count — never stale or
+     * unavailable ones; all up → "higher", all down → "lower", all within ±0.005% → "about unchanged", otherwise "mixed" (the [BriefWording]
+     * thresholds). Live quotes say "so far today (delayed)"; closes say "closed", and pre-market, weekend and holiday editions name the last
+     * session ("In the last session (Oct 9), …") so an older session is never presented as today. A market closed today for a holiday says
+     * so instead of describing its older close (one sentence when both markets share the holiday). No magnitude words, no causes. Null when no market qualifies: the screen then shows the server summary as the headline.
+     */
+    fun takeaway(brief: DailyBrief): String? {
+        val us = market(brief, "US", "US stocks", "US markets")
+        val ca = market(brief, "CA", "Canadian stocks", "Canadian markets")
+        val parts = listOfNotNull(us, ca)
+        if (parts.isEmpty()) return null
+        // Both closed for the same holiday: one sentence.
+        val holiday = brief.sessions.filter { it.phase == BriefPhase.HOLIDAY }
+        if (holiday.size == 2 && holiday.map { it.holiday }.distinct().size == 1 && us != null && ca != null)
+            return "US and Canadian markets are closed for ${holiday.first().holiday ?: "a holiday"}."
+        val lastSession = brief.edition == BriefEdition.PRE_MARKET || brief.edition == BriefEdition.WEEKEND || brief.edition == BriefEdition.HOLIDAY
+        var prefixed = false
+        return parts.joinToString(" ") { (sentence, close) ->
+            if (close && lastSession && !prefixed) { prefixed = true; "In the last session (${BriefFormat.date(brief.sessionDate)}), $sentence" }
+            else sentence
+        }
+    }
+
+    private val usable = setOf(QuoteState.SESSION_CLOSE, QuoteState.PREVIOUS_CLOSE, QuoteState.LIVE_DELAYED)
+
+    /** (sentence, built from closes) for one market, or null. */
+    private fun market(brief: DailyBrief, market: String, stocks: String, markets: String): Pair<String, Boolean>? {
+        // A market closed for a holiday says so, even when older closes exist: an earlier close next to today's live market would read as
+        // today's (device check 5D.5.1b, us-open-ca-closed). The server summary below still gives the last session's moves.
+        val session = brief.sessions.firstOrNull { it.market == market }
+        if (session?.phase == BriefPhase.HOLIDAY) return "$markets are closed for ${session.holiday ?: "a holiday"}." to false
+        val rows = brief.marketSnapshot.filter { it.market == market && it.value != null && it.changePercent != null && it.state in usable }
+        if (rows.isEmpty()) return null
+        val live = rows.all { it.state == QuoteState.LIVE_DELAYED }
+        if (!live && rows.any { it.state == QuoteState.LIVE_DELAYED }) return null // live and closed values mixed: say nothing rather than blend them
+        val signs = rows.map { BriefFormat.sign(it) }.toSet()
+        val word = when (signs) { setOf(1) -> "higher"; setOf(-1) -> "lower"; setOf(0) -> "about unchanged"; else -> "mixed" }
+        return if (live) "$stocks are $word so far today (delayed)." to false else "$stocks closed $word." to true
+    }
+
+    /** Stale and offline in one banner, one sentence each (both stay true when both apply); null when neither. WARNING when stale, else INFO. */
+    data class Status(val stale: Boolean, val message: String)
+
+    fun status(brief: DailyBrief, nowMillis: Long, offline: Boolean): Status? {
+        val lines = banners(brief, nowMillis, offline)
+        return if (lines.isEmpty()) null else Status(stale = STALE in lines, message = lines.joinToString(" "))
+    }
+
+    // ---------- Index tiles ----------
+
+    /** The state label once under the tiles when every index shares it ("All values: Close · Oct 7"); null when they differ. */
+    fun sharedStateLine(brief: DailyBrief): String? =
+        brief.marketSnapshot.map { it.stateLabel }.distinct().singleOrNull()?.takeIf { brief.marketSnapshot.size > 1 }?.let { "All values: $it" }
+
+    /** "−0.24%" (the tile's main value), or null when the brief has no change. */
+    fun indexPercent(index: BriefIndex): String? = index.changePercent?.takeIf { index.value != null }?.let {
+        "${if (it > 0.005) "+" else if (it < -0.005) "−" else ""}${BriefWording.pct(it)}"
+    }
+
+    /** "−18.59" points, or null. */
+    fun indexPoints(index: BriefIndex): String? = index.change?.takeIf { index.value != null }?.let {
+        "${if (it > 0) "+" else if (it < 0) "−" else ""}${BriefFormat.groupDigits(kotlin.math.abs(it))}"
+    }
+
+    /** Texts that must never break inside a tile (each whitespace-separated piece), for the shared tiles-or-rows decision. */
+    fun tileTokens(brief: DailyBrief): List<String> = brief.marketSnapshot.flatMap { i ->
+        listOfNotNull(i.displayName, BriefFormat.value(i), indexPercent(i), indexPoints(i), i.stateLabel.takeIf { sharedStateLine(brief) == null }, i.proxyNote)
+    }.flatMap { it.split(' ', ' ').filter(String::isNotBlank) }
+
     /** Header banners, in order: stale first, then offline. */
     fun banners(brief: DailyBrief, nowMillis: Long, offline: Boolean): List<String> =
         listOfNotNull(STALE.takeIf { BriefFormat.isStale(brief, nowMillis) }, OFFLINE.takeIf { offline })
 
-    /** D-5: Home shows the summary's first sentence under the brief entry (the reader has the full text). */
-    fun homeSummary(brief: DailyBrief): String? = brief.summaryLine.trim().takeIf { it.isNotEmpty() }?.let { ReadableText.firstSentence(it).first }
+    /** Home's brief preview: the takeaway (D-B5), else the summary's first sentence (the reader has the full text). */
+    fun homeSummary(brief: DailyBrief): String? = takeaway(brief)
+        ?: brief.summaryLine.trim().takeIf { it.isNotEmpty() }?.let { ReadableText.firstSentence(it).first }
 
     // ---------- Index rows ----------
 
@@ -154,6 +233,23 @@ object DailyBriefDisplay {
         e.epsEstimate?.let { listOfNotNull("EPS estimate", e.currency, BriefFormat.groupDigits(it)).joinToString(" ") },
         when (e.reason) { "portfolio" -> "In your portfolio"; "watchlist" -> "On your watchlist"; else -> "General example" }
     ).joinToString(" · ")
+    /** Structured earnings row (5D.5.1b): "Expected Oct 30 · After market close"; the timing only when known. */
+    fun earningsWhen(e: BriefEarnings): String = listOfNotNull("Expected ${BriefFormat.date(e.date)}", e.timing).joinToString(" · ")
+    /** The server's own date status ("Confirmed", "Estimated", "Tentative"), never upgraded. */
+    fun earningsStatus(e: BriefEarnings): String = e.dateStatus
+    fun earningsConfirmed(e: BriefEarnings): Boolean = e.dateStatus.equals("Confirmed", ignoreCase = true)
+    /** "EPS estimate USD 0.18 · General example"; the estimate only when the source has one, the currency only when given. */
+    fun earningsNote(e: BriefEarnings): String = listOfNotNull(
+        e.epsEstimate?.let { listOfNotNull("EPS estimate", e.currency, BriefFormat.groupDigits(it)).joinToString(" ") },
+        when (e.reason) { "portfolio" -> "In your portfolio"; "watchlist" -> "On your watchlist"; else -> "General example" }
+    ).joinToString(" · ")
+    fun earningsSpoken(e: BriefEarnings): String = "${earningsTitle(e)}. ${earningsWhen(e)}. ${earningsStatus(e)} date. ${earningsNote(e)}."
+
+    /** Icon key per highlight kind (neutral: the sentence says the direction in words). */
+    fun highlightIcon(h: WatchlistHighlight): String = when (h.kind) {
+        HighlightKind.PRICE_MOVE -> "chart"; HighlightKind.NEWS -> "news"; HighlightKind.EARNINGS_UPCOMING -> "calendar"; HighlightKind.EARNINGS_RESULT -> "document"
+    }
+
     fun earningsAction(e: BriefEarnings): String = if (e.eventId != null) "Open ${e.symbol} earnings event" else "Open ${e.symbol}"
 
     fun conceptExample(example: String): String = "Example: $example"
@@ -163,8 +259,9 @@ object DailyBriefDisplay {
     /** The summary's first sentence for a history row (shown in full, never cut mid-number). */
     fun historySummary(s: BriefSummary): String = ReadableText.firstSentence(s.summaryLine.trim()).first
 
-    fun historyTitle(s: BriefSummary): String = "${s.edition.label} · ${BriefFormat.date(s.briefDate)}"
-    fun historyDetail(s: BriefSummary): String = "${s.readingMinutes} min read"
+    /** History row (5D.5.1b): the brief type as the title, "Oct 7 · 1 min read" below. */
+    fun historyTitle(s: BriefSummary): String = s.edition.label
+    fun historyDetail(s: BriefSummary): String = "${BriefFormat.date(s.briefDate)} · ${s.readingMinutes} min read"
     fun lockedHistory(count: Int): String = "$count older ${if (count == 1) "brief is" else "briefs are"} included with StockSteps+."
 
     // ---------- Time ----------

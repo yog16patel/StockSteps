@@ -11,13 +11,15 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-14, Phase 5D.5.1 Daily Brief committed)
+## Current task (as of 2026-10-14, Phase 5D.5.1b Daily Brief refinement committed)
 
-Phase 5D.5.1 (Daily Market Brief reader) is committed and pushed as "Refine the Daily Market Brief reader for Global UI Refinement Phase 5D.5.1 with the summary as the headline, shared index rows, first-sentence stories, folded notes, a Sample badge and a one-line Home summary on Android and iOS", PASS WITH CONDITIONS.
-Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md`; plan with the owner's decisions: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-1-2026-10-14.** Next: Phase 5D.5.2 Learn (needs the owner's decision D-7 first); optional B-1
-(index sparkline, backend). Still open: iOS Earnings Details after the owner signs in (5D.4.3); the iOS Home AX5 heading break and history → brief
-navigation (pre-existing).
+Phase 5D.5.1b (Daily Brief refinement, Phases A and B) is committed and pushed as "Refine the Daily Brief for Global UI Refinement Phase 5D.5.1b with a data-derived market takeaway, compact index tiles, one status banner, a grouped story card, a compact watchlist empty state and structured earnings rows on Android and iOS", PASS WITH CONDITIONS.
+Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md`; plan with the owner's decisions D-B1…D-B8: `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-1B-2026-10-14.** Next: Phase C of that plan (needs approval) or Phase 5D.5.2 Learn (decision D-7).
+Still open: iOS Earnings Details after the owner signs in (5D.4.3); the iOS Home AX5 heading break and history → brief navigation (pre-existing).
+The iPhone 16 simulator app is in guest mode (its saved session had ended).
+
+Earlier: Phase 5D.5.1 (`38002c0`), see §PHASE-5D-5-1-2026-10-14 in the handoff.
 
 Earlier (Earnings 5D.2–5D.4.3, all pushed through `7326e62`): see `docs/PROJECT_HANDOFF.md` §SESSION-END-2026-10-14-EARNINGS.
 
@@ -83,6 +85,19 @@ Portfolio conventions (permanent):
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,
   `PortfolioAllocationDisplay`). History loads on demand only; the chart is "Account value", never performance. No UI-computed return %. The donut
   only when `allocationDonutAllowed` (`StockAllocationLayout` geometry). Missing stays missing.
+- **Daily Brief takeaway and tiles (5D.5.1b).**
+  - The headline comes only from `DailyBriefDisplay.takeaway`:
+    - index values and sessions only;
+    - close or live quotes only — never stale or unavailable ones;
+    - higher / lower / about unchanged / mixed;
+    - "so far today (delayed)" for live quotes; "In the last session (date)" for pre-market, weekend and holiday editions;
+    - a market closed for a holiday says so, never its older close;
+    - no magnitude ("slightly") or cause words.
+    - Owner decision D-B1: changing this wording needs approval. The server summary stays verbatim below it.
+  - Index tiles (`StockIndexTile`) only while `StockIndexTilesLayout.tiles` (measured tokens, 8 dp tile padding) says they fit; otherwise
+    `BriefIndexRow`.
+  - Stale and offline share one banner (`DailyBriefDisplay.status`).
+  - Earnings badges show the server's date status verbatim.
 - **Daily Brief (5D.5.1).**
   - Reader copy and rules come only from core `DailyBriefDisplay`.
   - The server `summaryLine` is the headline, never reworded. Never add causes ("what moved the markets"), key points or invented headlines.

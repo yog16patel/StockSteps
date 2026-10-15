@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
 import org.example.stocksteps.brief.*
 import org.example.stocksteps.designsystem.components.*
@@ -80,12 +81,7 @@ internal fun DailyBriefScreen(state: DailyBriefUiState, nowMillis: Long, modifie
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 StockSectionHeader(D.MARKETS)
                 if (brief.marketSnapshot.isEmpty()) Text(D.NO_INDICES, style = typography.small, color = colors.textSupporting)
-                else Column {
-                    brief.marketSnapshot.forEachIndexed { n, index ->
-                        if (n > 0) StockDivider()
-                        BriefIndexRow(index)
-                    }
-                }
+                else BriefIndices(brief)
                 StockDisclosure(D.INDEX_EXPLAINER_TITLE, icon = StockIcons.School) {
                     Text(brief.indexExplainer, style = typography.small, color = colors.textBody)
                 }
@@ -98,14 +94,17 @@ internal fun DailyBriefScreen(state: DailyBriefUiState, nowMillis: Long, modifie
                 if (brief.stories.isEmpty()) Text(D.NO_STORIES, style = typography.small, color = colors.textSupporting)
             }
         }
-        itemsIndexed(brief.stories, key = { _, it -> "story-${it.id}" }) { n, story ->
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                if (n > 0) StockDivider()
-                StoryRow(story, state.ai[story.id], state.plus, nowMillis, onAction)
+        // D-B7: the stories share one grouped card (rows divided inside; no card per story).
+        if (brief.stories.isNotEmpty()) item("stories") {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                    brief.stories.forEachIndexed { n, story ->
+                        if (n > 0) StockDivider()
+                        StoryRow(story, state.ai[story.id], state.plus, nowMillis, onAction)
+                    }
+                }
+                StockDisclosure(D.ABOUT_STORIES) { StockNotes(D.storyNotes(brief)) }
             }
-        }
-        if (brief.stories.isNotEmpty()) item("stories-about") {
-            StockDisclosure(D.ABOUT_STORIES) { StockNotes(D.storyNotes(brief)) }
         }
 
         item("watchlist") { WatchlistSection(state, onAction) }
@@ -116,15 +115,19 @@ internal fun DailyBriefScreen(state: DailyBriefUiState, nowMillis: Long, modifie
                     StockSectionHeader(D.EARNINGS)
                     rows.forEachIndexed { n, e ->
                         if (n > 0) StockDivider()
-                        StockNavigationRow(D.earningsTitle(e), { onAction(e.eventId?.let { BriefAction.OpenEarnings(it) } ?: BriefAction.OpenStock(e.symbol)) },
-                            detail = D.earningsDetail(e), actionLabel = D.earningsAction(e))
+                        BriefEarningsRow(e) { onAction(e.eventId?.let { BriefAction.OpenEarnings(it) } ?: BriefAction.OpenStock(e.symbol)) }
                     }
                     Text(D.EARNINGS_DATES_NOTE, style = typography.caption, color = colors.textMeta)
                 }
             }
         }
 
-        item("concept") { ConceptCard(brief.concept, onExplain = { education = BeginnerEducation.entry(brief.concept.learnTermId) }, onLearn = { onAction(BriefAction.Learn) }) }
+        item("learn") {
+            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                StockSectionHeader(D.LEARN)
+                ConceptCard(brief.concept, onExplain = { education = BeginnerEducation.entry(brief.concept.learnTermId) }, onLearn = { onAction(BriefAction.Learn) })
+            }
+        }
 
         if (state.personal != null) item("premium") { PremiumSection(state, onAction) }
 
@@ -174,14 +177,21 @@ private fun Header(brief: DailyBrief, state: DailyBriefUiState, nowMillis: Long,
                 }
             }
         }
-        Text(brief.summaryLine, Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite }, style = typography.sectionTitle, color = colors.textTitle)
+        // D-B1: a takeaway derived from the index values leads; the server summary stays word for word below it (D-B2: folded at large text).
+        // Without a takeaway the summary itself is the headline, as in 5D.5.1.
+        val takeaway = remember(brief) { D.takeaway(brief) }
+        Text(takeaway ?: brief.summaryLine, Modifier.semantics { heading(); liveRegion = LiveRegionMode.Polite }, style = typography.sectionTitle, color = colors.textTitle)
+        if (takeaway != null) {
+            if (LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale) StockDisclosure(D.FULL_SUMMARY, icon = StockIcons.Document) {
+                Text(brief.summaryLine, style = typography.small, color = colors.textBody)
+            } else Text(brief.summaryLine, style = typography.small, color = colors.textBody)
+        }
         Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
             Text(D.freshness(brief, nowMillis), style = typography.caption, color = colors.textMeta)
             D.sessionLines(brief).forEach { Text(it, style = typography.caption, color = colors.textMeta) }
         }
-        D.banners(brief, nowMillis, state.offline).forEach { message ->
-            StockBanner(if (message == D.STALE) StockBannerKind.WARNING else StockBannerKind.INFO, message)
-        }
+        // One banner for stale and offline, one sentence each (U-05).
+        D.status(brief, nowMillis, state.offline)?.let { StockBanner(if (it.stale) StockBannerKind.WARNING else StockBannerKind.INFO, it.message) }
     }
 }
 
@@ -238,14 +248,15 @@ private fun WatchlistSection(state: DailyBriefUiState, onAction: (BriefAction) -
             personal == null && state.personalLoading -> StockLoadingState { Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
                 StockSkeleton(Modifier.fillMaxWidth(0.8f)); StockSkeleton(Modifier.fillMaxWidth(0.6f)) } }
             personal == null -> Text(state.personalError ?: D.WATCHLIST_UNAVAILABLE, style = typography.small, color = colors.textSupporting)
-            personal.watchlistCount == 0 -> StockEmptyState(D.WATCHLIST_EMPTY, actionText = D.GO_TO_WATCHLIST, onAction = { onAction(BriefAction.Watchlist) })
+            personal.watchlistCount == 0 -> StockEmptyState(D.WATCHLIST_EMPTY_SHORT, actionText = D.ADD_COMPANIES, onAction = { onAction(BriefAction.Watchlist) })
             personal.watchlistHighlights.isEmpty() -> Text(D.nothingNotable(personal.watchlistCount), style = typography.small, color = colors.textSupporting)
             else -> Column {
                 personal.watchlistHighlights.forEachIndexed { n, h ->
                     if (n > 0) StockDivider()
                     StockNavigationRow(h.text, {
                         h.url?.let { onAction(BriefAction.OpenUrl(it)) } ?: h.reportId?.let { onAction(BriefAction.OpenResults(it)) } ?: onAction(BriefAction.OpenStock(h.symbol))
-                    }, detail = listOfNotNull(D.highlightTitle(h), h.publisher).joinToString(" · "), actionLabel = D.highlightAction(h))
+                    }, detail = listOfNotNull(D.highlightTitle(h), h.publisher).joinToString(" · "), actionLabel = D.highlightAction(h),
+                        icon = briefHighlightIcon(D.highlightIcon(h)))
                 }
                 if (personal.moreHighlights > 0) {
                     StockDivider()
@@ -253,7 +264,8 @@ private fun WatchlistSection(state: DailyBriefUiState, onAction: (BriefAction) -
                 }
             }
         }
-        personal?.notes?.firstOrNull { it.startsWith("Watching") }?.let { Text(it, style = typography.caption, color = colors.textMeta) }
+        // D-B6: the method note is one tap away, under a named disclosure.
+        personal?.notes?.firstOrNull { it.startsWith("Watching") }?.let { note -> StockDisclosure(D.ABOUT_WATCHLIST) { StockNotes(listOf(note)) } }
         if (state.signedIn && (personal?.watchlistCount ?: 0) > 0) {
             StockNavigationRow(D.EARNINGS_DIGEST, { onAction(BriefAction.EarningsDigest) }, icon = StockIcons.Lightbulb, badge = "StockSteps+")
         }

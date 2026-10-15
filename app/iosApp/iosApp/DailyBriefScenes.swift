@@ -56,6 +56,118 @@ struct BriefIndexRow: View {
     }
 }
 
+/// The reader's indices (5D.5.1b, as Compose `BriefIndices`): compact tiles while every unbreakable piece fits a tile
+/// (`StockIndexTilesLayout`, measured in the fonts used), otherwise full-width `BriefIndexRow`s. The shared state label appears once below the tiles.
+struct BriefIndices: View {
+    let brief: DailyBrief
+    let client: IosBriefClient
+    @State private var width: CGFloat = 0
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        let shared = D.sharedStateLine(brief: brief)
+        Group {
+            if tiles {
+                VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                    HStack(alignment: .top, spacing: CGFloat(space.sm)) {
+                        ForEach(brief.marketSnapshot, id: \.indexId) { i in
+                            StockIndexTile(name: i.displayName, percent: D.indexPercent(index: i), value: client.value(i: i), points: D.indexPoints(index: i),
+                                           direction: D.indexDirection(index: i), accessibilityText: client.accessibility(i: i),
+                                           stateLabel: shared == nil ? i.stateLabel : nil, caution: D.indexCaution(index: i), changeUnavailable: D.CHANGE_UNAVAILABLE)
+                        }
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    if let shared {
+                        Text(shared).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                    }
+                }
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(brief.marketSnapshot.enumerated()), id: \.element.indexId) { n, index in
+                        if n > 0 { StockDivider() }
+                        BriefIndexRow(index: index, client: client)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+    }
+
+    /// Shared `StockIndexTilesLayout` decision (same rule and fonts as Android).
+    private var tiles: Bool {
+        let label = StockStepsTheme.uiFont(type.label, typeSize: typeSize)
+        let number = StockStepsTheme.uiFont(type.numberMedium, typeSize: typeSize)
+        let strong = StockStepsTheme.uiFont(type.numberLabelStrong, typeSize: typeSize)
+        func w(_ t: String, _ f: UIFont) -> CGFloat { (t as NSString).size(withAttributes: [.font: f]).width }
+        let names = brief.marketSnapshot.flatMap { $0.displayName.split(separator: " ").map(String.init) }.map { w($0, label) }.max() ?? 0
+        let arrow = number.pointSize * 1.2 + CGFloat(space.xxs)
+        let percents = brief.marketSnapshot.compactMap { D.indexPercent(index: $0) }.map { w($0, number) + arrow }.max() ?? 0
+        let others = D.tileTokens(brief: brief).map { w($0, strong) }.max() ?? 0
+        return StockIndexTilesLayout.shared.tiles(widestToken: Float(max(names, percents, others)), count: Int32(brief.marketSnapshot.count),
+                                                  availableWidth: Float(width), gap: Float(space.sm), tilePadding: Float(space.sm),
+                                                  accessibilityText: typeSize.isAccessibilitySize)
+    }
+}
+
+/// One upcoming report (5D.5.1b, as Compose `BriefEarningsRow`): company and ticker, "Expected Oct 30 · After market close" with the server's date
+/// status as a badge (words, not colour alone), and the estimate/reason line.
+struct BriefEarningsRow: View {
+    let earnings: BriefEarnings
+    let action: () -> Void
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
+    var body: some View {
+        let _ = typeSize
+        let colors = StockStepsTheme.colors(scheme)
+        let e = earnings
+        Button(action: action) {
+            HStack(spacing: CGFloat(space.md)) {
+                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                    Text(D.earningsTitle(e: e)).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: CGFloat(space.sm)) { when(e, colors); badge(e) }
+                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { when(e, colors); badge(e) }
+                    }
+                    Text(D.earningsNote(e: e)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                        .multilineTextAlignment(.leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right").font(StockStepsTheme.font(type.caption, relativeTo: .caption1).weight(.semibold))
+                    .foregroundStyle(colors.textTertiary).accessibilityHidden(true)
+            }
+            .padding(.vertical, CGFloat(space.sm))
+            .frame(minHeight: CGFloat(StockStepsTheme.dimensions.rowCompactMinHeight))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(D.earningsSpoken(e: e))
+        .accessibilityHint(D.earningsAction(e: e))
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private func when(_ e: BriefEarnings, _ colors: StockColors) -> some View {
+        Text(D.earningsWhen(e: e)).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
+            .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func badge(_ e: BriefEarnings) -> some View {
+        StockStatusBadge(text: D.earningsStatus(e: e), kind: D.earningsConfirmed(e: e) ? .info : .neutral, size: .compact)
+    }
+}
+
+/// Neutral SF Symbol per watchlist highlight kind (`DailyBriefDisplay.highlightIcon`); the sentence carries the direction in words.
+func briefHighlightSymbol(_ key: String) -> String {
+    switch key {
+    case "chart": "chart.bar"
+    case "news": "newspaper"
+    case "calendar": "calendar"
+    default: "doc.text"
+    }
+}
+
 // MARK: - Reader
 
 struct DailyBriefScene: View {
@@ -117,7 +229,10 @@ struct DailyBriefScreen: View {
                     stories(brief, state, colors)
                     watchlist(colors)
                     earnings(colors)
-                    conceptCard(brief, colors)
+                    VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                        sectionTitle(D.LEARN)
+                        conceptCard(brief, colors)
+                    }
                     premium(colors)
                     VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                         StockDisclosure(title: D.ABOUT_BRIEF) { StockNotes(lines: D.aboutLines(brief: brief)) }
@@ -178,14 +293,27 @@ struct DailyBriefScreen: View {
             } badge: {
                 if b.sampleData { StockStatusBadge(text: D.SAMPLE, kind: .sample, size: .compact, accessibilityText: D.SAMPLE_DESCRIPTION) }
             }
-            Text(b.summaryLine).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).foregroundStyle(colors.textTitle)
+            // D-B1: the takeaway derived from the index values leads; the server summary stays word for word below it (D-B2: folded at
+            // accessibility sizes). Without a takeaway the summary itself is the headline, as in 5D.5.1.
+            let takeaway = D.takeaway(brief: b)
+            Text(takeaway ?? b.summaryLine).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title3)).foregroundStyle(colors.textTitle)
                 .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+            if takeaway != nil {
+                if typeSize.isAccessibilitySize {
+                    StockDisclosure(title: D.FULL_SUMMARY, systemImage: "doc.text") {
+                        Text(b.summaryLine).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    Text(b.summaryLine).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                }
+            }
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                 caption(D.freshness(brief: b, nowMillis: now), colors.textMeta)
                 ForEach(D.sessionLines(brief: b), id: \.self) { caption($0, colors.textMeta) }
             }
-            ForEach(D.banners(brief: b, nowMillis: now, offline: state.offline), id: \.self) { message in
-                StockBanner(kind: message == D.STALE ? .warning : .info, message: message)
+            // One banner for stale and offline, one sentence each (U-05).
+            if let status = D.status(brief: b, nowMillis: now, offline: state.offline) {
+                StockBanner(kind: status.stale ? .warning : .info, message: status.message)
             }
         }
     }
@@ -197,12 +325,7 @@ struct DailyBriefScreen: View {
             if brief.marketSnapshot.isEmpty {
                 Text(D.NO_INDICES).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
             } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(brief.marketSnapshot.enumerated()), id: \.element.indexId) { n, index in
-                        if n > 0 { StockDivider() }
-                        BriefIndexRow(index: index, client: client)
-                    }
-                }
+                BriefIndices(brief: brief, client: client)
             }
             StockDisclosure(title: D.INDEX_EXPLAINER_TITLE, systemImage: "graduationcap") {
                 Text(brief.indexExplainer).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
@@ -217,11 +340,15 @@ struct DailyBriefScreen: View {
             if brief.stories.isEmpty {
                 Text(D.NO_STORIES).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
             }
-            ForEach(Array(brief.stories.enumerated()), id: \.element.id) { n, story in
-                if n > 0 { StockDivider() }
-                storyRow(story, state, colors)
-            }
             if !brief.stories.isEmpty {
+                // D-B7: the stories share one grouped card (rows divided inside; no card per story).
+                VStack(alignment: .leading, spacing: CGFloat(space.md)) {
+                    ForEach(Array(brief.stories.enumerated()), id: \.element.id) { n, story in
+                        if n > 0 { StockDivider() }
+                        storyRow(story, state, colors)
+                    }
+                }
+                .stockCard()
                 StockDisclosure(title: D.ABOUT_STORIES) { StockNotes(lines: D.storyNotes(brief: brief)) }
             }
         }
@@ -288,7 +415,7 @@ struct DailyBriefScreen: View {
                 StockSectionMessage(message: D.SIGN_IN_PROMPT, actionTitle: D.SIGN_IN, action: onSignIn)
             } else if let p = state?.personal {
                 if p.watchlistCount == 0 {
-                    StockSectionMessage(message: D.WATCHLIST_EMPTY, actionTitle: D.GO_TO_WATCHLIST, action: onWatchlist)
+                    StockSectionMessage(message: D.WATCHLIST_EMPTY_SHORT, actionTitle: D.ADD_COMPANIES, action: onWatchlist)
                 } else if p.watchlistHighlights.isEmpty {
                     Text(D.nothingNotable(count: p.watchlistCount)).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
                 } else {
@@ -296,7 +423,7 @@ struct DailyBriefScreen: View {
                         ForEach(Array(p.watchlistHighlights.enumerated()), id: \.offset) { n, h in
                             if n > 0 { StockDivider() }
                             StockNavigationRow(title: h.text, detail: [D.highlightTitle(h: h), h.publisher].compactMap { $0 }.joined(separator: " · "),
-                                               hint: D.highlightAction(h: h)) {
+                                               icon: briefHighlightSymbol(D.highlightIcon(h: h)), hint: D.highlightAction(h: h)) {
                                 if let u = h.url, let url = URL(string: u) { openURL(url) }
                                 else if let id = h.reportId { onOpenResults(id) }
                                 else { onOpenStock(h.symbol) }
@@ -308,7 +435,10 @@ struct DailyBriefScreen: View {
                         }
                     }
                 }
-                if let note = p.notes.first(where: { $0.hasPrefix("Watching") }) { caption(note, colors.textMeta) }
+                // D-B6: the method note is one tap away, under a named disclosure.
+                if let note = p.notes.first(where: { $0.hasPrefix("Watching") }) {
+                    StockDisclosure(title: D.ABOUT_WATCHLIST) { StockNotes(lines: [note]) }
+                }
                 if let onOpenDigest, p.watchlistCount > 0 {
                     StockNavigationRow(title: D.EARNINGS_DIGEST, icon: "lightbulb", badge: "StockSteps+", action: onOpenDigest)
                 }
@@ -329,9 +459,7 @@ struct DailyBriefScreen: View {
                 VStack(spacing: 0) {
                     ForEach(Array(rows.enumerated()), id: \.offset) { n, e in
                         if n > 0 { StockDivider() }
-                        StockNavigationRow(title: D.earningsTitle(e: e), detail: D.earningsDetail(e: e), hint: D.earningsAction(e: e)) {
-                            if let id = e.eventId { onOpenEarnings(id) } else { onOpenStock(e.symbol) }
-                        }
+                        BriefEarningsRow(earnings: e) { if let id = e.eventId { onOpenEarnings(id) } else { onOpenStock(e.symbol) } }
                     }
                 }
                 caption(D.EARNINGS_DATES_NOTE, colors.textMeta)

@@ -104,4 +104,95 @@ class DailyBriefDisplayTest {
         headings.forEach { h -> assertTrue(h.split(' ').drop(1).none { it.first().isUpperCase() }, h) }
         headings.forEach { h -> assertFalse(h.contains("moved", ignoreCase = true) || h.contains("why", ignoreCase = true), h) }
     }
+    // ---------- 5D.5.1b ----------
+
+    private fun idx(id: String, market: String, pct: Double?, state: QuoteState = QuoteState.SESSION_CLOSE, label: String = "Close · Oct 7") =
+        BriefIndex(id, id, market, if (pct == null) null else 1000.0, pct?.let { it * 10 }, pct, "USD", "points", state = state, stateLabel = label)
+    private fun session(market: String, phase: BriefPhase, holiday: String? = null) =
+        BriefMarketSession(market, market, phase, "2026-10-07", "2026-10-07", holiday, "America/New_York")
+    private fun withIndices(vararg i: BriefIndex, edition: BriefEdition = BriefEdition.AFTER_CLOSE, sessions: List<BriefMarketSession> = emptyList()) =
+        brief.copy(marketSnapshot = i.toList(), edition = edition, sessions = sessions, sessionDate = "2026-10-09")
+
+    @Test fun takeawaySaysDirectionPerMarketWithoutMagnitudeOrCause() {
+        val b = withIndices(idx("SP500", "US", -0.24), idx("NASDAQ", "US", -0.26), idx("TSX", "CA", 0.31))
+        assertEquals("US stocks closed lower. Canadian stocks closed higher.", DailyBriefDisplay.takeaway(b))
+        assertEquals("US stocks closed mixed.", DailyBriefDisplay.takeaway(withIndices(idx("SP500", "US", -0.24), idx("NASDAQ", "US", 0.3))))
+        assertEquals("US stocks closed about unchanged.", DailyBriefDisplay.takeaway(withIndices(idx("SP500", "US", 0.001), idx("NASDAQ", "US", -0.004))))
+        val words = listOf("slight", "sharp", "soar", "plunge", "because", "after", "due to", "today")
+        val text = DailyBriefDisplay.takeaway(b)!!.lowercase()
+        words.forEach { assertFalse(text.contains(it), it) }
+    }
+
+    @Test fun takeawayNeverCallsAnOlderSessionToday() {
+        val pre = withIndices(idx("SP500", "US", -0.24, QuoteState.PREVIOUS_CLOSE), idx("TSX", "CA", 0.31, QuoteState.PREVIOUS_CLOSE), edition = BriefEdition.PRE_MARKET)
+        assertEquals("In the last session (Oct 9), US stocks closed lower. Canadian stocks closed higher.", DailyBriefDisplay.takeaway(pre))
+        val weekend = withIndices(idx("SP500", "US", 0.5, QuoteState.PREVIOUS_CLOSE), edition = BriefEdition.WEEKEND)
+        assertEquals("In the last session (Oct 9), US stocks closed higher.", DailyBriefDisplay.takeaway(weekend))
+        val live = withIndices(idx("SP500", "US", -0.24, QuoteState.LIVE_DELAYED), idx("NASDAQ", "US", -0.1, QuoteState.LIVE_DELAYED), edition = BriefEdition.MARKET_HOURS)
+        assertEquals("US stocks are lower so far today (delayed).", DailyBriefDisplay.takeaway(live))
+    }
+
+    @Test fun takeawayIgnoresStaleOrMissingValuesAndFallsBackToNull() {
+        val staleCa = withIndices(idx("SP500", "US", -0.24), idx("TSX", "CA", 0.31, QuoteState.STALE, "From an earlier session (Oct 3)"))
+        assertEquals("US stocks closed lower.", DailyBriefDisplay.takeaway(staleCa))
+        assertNull(DailyBriefDisplay.takeaway(withIndices(idx("SP500", "US", null, QuoteState.UNAVAILABLE, "Not available right now"))))
+        assertNull(DailyBriefDisplay.takeaway(withIndices()))
+        // Live and closed US values together are not blended into one sentence.
+        assertNull(DailyBriefDisplay.takeaway(withIndices(idx("SP500", "US", -0.2, QuoteState.LIVE_DELAYED), idx("NASDAQ", "US", -0.2))))
+        // Home falls back to the summary's first sentence.
+        assertEquals(brief.summaryLine, DailyBriefDisplay.homeSummary(withIndices()))
+    }
+
+    @Test fun takeawaySaysAHolidayClosureFromTheSession() {
+        val b = withIndices(idx("TSX", "CA", -0.4, QuoteState.LIVE_DELAYED), edition = BriefEdition.HOLIDAY,
+            sessions = listOf(session("US", BriefPhase.HOLIDAY, "Thanksgiving"), session("CA", BriefPhase.OPEN)))
+        assertEquals("US markets are closed for Thanksgiving. Canadian stocks are lower so far today (delayed).", DailyBriefDisplay.takeaway(b))
+        // Canada closed for its holiday while US trades: never "Canadian stocks closed higher" from an older close (us-open-ca-closed).
+        val caHoliday = withIndices(idx("SP500", "US", -0.24, QuoteState.LIVE_DELAYED), idx("TSX", "CA", 0.31, QuoteState.PREVIOUS_CLOSE, "Close · Oct 9"),
+            edition = BriefEdition.MARKET_HOURS, sessions = listOf(session("US", BriefPhase.OPEN), session("CA", BriefPhase.HOLIDAY, "Thanksgiving Day")))
+        assertEquals("US stocks are lower so far today (delayed). Canadian markets are closed for Thanksgiving Day.", DailyBriefDisplay.takeaway(caHoliday))
+        // Both closed for the same holiday: one sentence.
+        val both = withIndices(idx("SP500", "US", -0.24, QuoteState.PREVIOUS_CLOSE), idx("TSX", "CA", 0.31, QuoteState.PREVIOUS_CLOSE), edition = BriefEdition.HOLIDAY,
+            sessions = listOf(session("US", BriefPhase.HOLIDAY, "Christmas Day"), session("CA", BriefPhase.HOLIDAY, "Christmas Day")))
+        assertEquals("US and Canadian markets are closed for Christmas Day.", DailyBriefDisplay.takeaway(both))
+    }
+
+    @Test fun oneStatusBannerKeepsEachStateTrue() {
+        val stale = sampleBrief("2026-10-06T20:00:00Z")
+        assertNull(DailyBriefDisplay.status(brief, now, offline = false))
+        assertEquals(DailyBriefDisplay.Status(false, DailyBriefDisplay.OFFLINE), DailyBriefDisplay.status(brief, now, offline = true))
+        assertEquals(DailyBriefDisplay.Status(true, DailyBriefDisplay.STALE), DailyBriefDisplay.status(stale, now, offline = false))
+        assertEquals(DailyBriefDisplay.Status(true, "${DailyBriefDisplay.STALE} ${DailyBriefDisplay.OFFLINE}"), DailyBriefDisplay.status(stale, now, offline = true))
+    }
+
+    @Test fun tilesShowPercentAndPointsAndTheSharedStateOnce() {
+        val sp = BriefIndex("SP500", "S&P 500", "US", 7772.36, -18.59, -0.24, "USD", "points", state = QuoteState.SESSION_CLOSE, stateLabel = "Close · Oct 7")
+        val tsx = sp.copy(indexId = "TSX", displayName = "S&P/TSX Composite", market = "CA", value = 30544.18, change = 94.42, changePercent = 0.31)
+        assertEquals("−0.24%", DailyBriefDisplay.indexPercent(sp)); assertEquals("−18.59", DailyBriefDisplay.indexPoints(sp))
+        assertEquals("+0.31%", DailyBriefDisplay.indexPercent(tsx)); assertEquals("+94.42", DailyBriefDisplay.indexPoints(tsx))
+        assertNull(DailyBriefDisplay.indexPercent(sp.copy(value = null)))
+        val shared = brief.copy(marketSnapshot = listOf(sp, tsx))
+        assertEquals("All values: Close · Oct 7", DailyBriefDisplay.sharedStateLine(shared))
+        assertFalse("Close" in DailyBriefDisplay.tileTokens(shared))
+        val differ = brief.copy(marketSnapshot = listOf(sp, tsx.copy(state = QuoteState.STALE, stateLabel = "From an earlier session (Oct 3)")))
+        assertNull(DailyBriefDisplay.sharedStateLine(differ))
+        assertTrue("earlier" in DailyBriefDisplay.tileTokens(differ))
+        assertTrue("S&P/TSX" in DailyBriefDisplay.tileTokens(shared) && "Composite" in DailyBriefDisplay.tileTokens(shared))
+    }
+
+    @Test fun earningsRowsKeepTheServerStatusAndNeverInventAnEstimate() {
+        val e = BriefEarnings("CRBU", "Caribou Biosciences, Inc.", "2026-10-08", "Before market open", "Estimated", -0.42, "USD", "general", "CRBU:2026-Q3")
+        assertEquals("Expected Oct 8 · Before market open", DailyBriefDisplay.earningsWhen(e))
+        assertEquals("Estimated", DailyBriefDisplay.earningsStatus(e)); assertFalse(DailyBriefDisplay.earningsConfirmed(e))
+        assertTrue(DailyBriefDisplay.earningsConfirmed(e.copy(dateStatus = "Confirmed")))
+        assertEquals("EPS estimate USD −0.42 · General example", DailyBriefDisplay.earningsNote(e))
+        assertEquals("General example", DailyBriefDisplay.earningsNote(e.copy(epsEstimate = null)))
+        assertEquals("Expected Oct 8", DailyBriefDisplay.earningsWhen(e.copy(timing = null)))
+    }
+
+    @Test fun historyRowsSplitTypeFromDate() {
+        val s = brief.summary()
+        assertEquals("After-close brief", DailyBriefDisplay.historyTitle(s))
+        assertEquals("Oct 7 · 2 min read", DailyBriefDisplay.historyDetail(s))
+    }
 }

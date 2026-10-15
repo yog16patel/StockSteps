@@ -149,6 +149,16 @@ object StockComparisonLayout {
 }
 
 /**
+ * Daily Brief index tiles (5D.5.1b): the indices sit side by side as compact tiles only while the widest piece of tile text that must stay on
+ * one line ("Composite", "26,418.52", "−0.24%") fits one tile's text width; otherwise — narrow phones, 1.3× and larger text, unknown width —
+ * they are full-width `StockIndexRow`s. Same decision as [StockComparisonLayout], with the tile's inner padding taken into account.
+ */
+object StockIndexTilesLayout {
+    fun tiles(widestToken: Float, count: Int, availableWidth: Float, gap: Float, tilePadding: Float, accessibilityText: Boolean): Boolean =
+        count in 2..3 && StockComparisonLayout.sideBySide(widestToken + tilePadding * 2, count, availableWidth, gap, accessibilityText)
+}
+
+/**
  * Line styles for multi-series charts (Comparison final polish), shared by Compose `StockTrendChart` and Swift Charts so a company keeps the same
  * colour **and** dash pattern on both platforms and in the legend. Colour is never the only cue: each series also differs in dash pattern and the
  * legend names it. Dash lengths are dp / pt (on, off, …); empty = solid.

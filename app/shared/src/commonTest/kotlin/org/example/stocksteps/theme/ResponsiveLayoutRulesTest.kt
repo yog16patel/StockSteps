@@ -147,4 +147,14 @@ class ResponsiveLayoutRulesTest {
         assertEquals(null, StockLayout.labelColumn(48f, 48f, 250f, 296f))
         assertEquals(null, StockLayout.labelColumn(48f, 48f, 75f, 0f), "unmeasured: stacked (never squeezed)")
     }
+
+    @Test fun briefIndexTilesOnlyWhileEveryTokenFits() {
+        // 360 dp phone: 328 dp content, 8 dp gaps, 12 dp tile padding → 80 dp of text per tile.
+        assertTrue(StockIndexTilesLayout.tiles(76f, 3, 328f, 8f, 12f, accessibilityText = false))
+        assertFalse(StockIndexTilesLayout.tiles(99f, 3, 328f, 8f, 12f, accessibilityText = false)) // 1.3× text
+        assertFalse(StockIndexTilesLayout.tiles(40f, 3, 328f, 8f, 12f, accessibilityText = true))
+        assertFalse(StockIndexTilesLayout.tiles(40f, 3, 0f, 8f, 12f, accessibilityText = false)) // width unknown yet
+        assertFalse(StockIndexTilesLayout.tiles(40f, 1, 328f, 8f, 12f, accessibilityText = false)) // one index: a row
+        assertTrue(StockIndexTilesLayout.tiles(88f, 3, 361f, 8f, 12f, accessibilityText = false)) // iPhone 16 Default
+    }
 }
