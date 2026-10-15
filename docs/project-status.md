@@ -6,7 +6,12 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.4B r2 reference refinement (committed locally as "Refine Company Details for Global UI Refinement Phase 5D.5.4B r2 with tiled At a Glance metrics, assessment pills on the title line, Beginner Insight inside Understand and a Why Did It Move section led by the observed move and possible reasons on Android and iOS"; not pushed).**
+**2026-10-15 — Phase 5D.5.4C C1 Financials (committed locally as "Refine Company Details Financials for Global UI Refinement Phase 5D.5.4C C1 with an Income, Balance Sheet and Cash Flow section bar, one selector row, the revenue and net income chart and key-metric tiles first on Android and iOS"; not pushed).**
+- Section bar, one selector row, the revenue + net income chart and key-metric tiles first; all sections and sheets kept.
+- Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C1.md`; plan `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4C_PLAN.md`.
+- **Next:** push on approval, then C2 Valuation.
+
+**2026-10-15 — Phase 5D.5.4B r2 reference refinement (committed and pushed as "Refine Company Details for Global UI Refinement Phase 5D.5.4B r2 with tiled At a Glance metrics, assessment pills on the title line, Beginner Insight inside Understand and a Why Did It Move section led by the observed move and possible reasons on Android and iOS"; not pushed).**
 - Tiled At a Glance; pills on the title line; Beginner Insight inside Understand.
 - Why Did It Move? starts with the observed move, then "Possible reasons" (verbatim hedged text).
 - Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4B.md` §11.

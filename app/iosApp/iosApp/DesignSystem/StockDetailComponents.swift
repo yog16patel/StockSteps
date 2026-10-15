@@ -499,11 +499,12 @@ struct StockBarChart: View {
             .frame(height: 140)
             HStack(spacing: 0) {
                 ForEach(bars.indices, id: \.self) { i in
-                    Text(bars[i].label).lineLimit(1).frame(maxWidth: .infinity)
+                    Text(bars[i].label).lineLimit(1).minimumScaleFactor(0.4).frame(maxWidth: .infinity)
                         .foregroundStyle(i == index ? colors.textPrimary : colors.textTertiary)
                 }
             }
             .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2))
+            // 5D.5.4C: at large sizes a period label shrinks to fit its bar instead of truncating to "F…" (the bars are described for VoiceOver).
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(chart.description_)

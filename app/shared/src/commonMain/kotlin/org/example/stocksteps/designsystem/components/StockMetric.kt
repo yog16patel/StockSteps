@@ -56,7 +56,9 @@ internal fun StockMetric(
      * 5D.5.4B: the metric on its own surface tile (no border), ⓘ at the tile's top-right, a larger value — for a few headline metrics
      * (Company Details At a Glance). Default off (unchanged).
      */
-    tile: Boolean = false
+    tile: Boolean = false,
+    /** 5D.5.4C: the [helper] is a change ("+6.4% vs FY2024"): drawn with this direction's arrow and colour, the value stays neutral. Default none. */
+    helperDirection: PriceDirection? = null
 ) {
     val colors = StockStepsTheme.colors
     val baseValue = if (tile) StockStepsTheme.typography.sectionTitle else StockStepsTheme.typography.numberEmphasis
@@ -78,7 +80,11 @@ internal fun StockMetric(
         } else {
             Text(value, style = valueStyle, color = if (quiet) colors.textBody else colors.textPrimary)
         }
-        if (helper != null) Text(helper, style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+        if (helper != null) {
+            if (helperDirection != null && helperDirection != PriceDirection.UNAVAILABLE) {
+                StockPriceChange(helper, helperDirection, style = StockStepsTheme.typography.caption, maxLines = Int.MAX_VALUE)
+            } else Text(helper, style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+        }
     }
 }
 
@@ -105,7 +111,9 @@ internal data class StockMetricItem(
     /** 5D.4.2: see [StockMetric] `quiet`; default unchanged. */
     val quiet: Boolean = false,
     /** 5D.5.3: see [StockMetric] `info`; default off. */
-    val info: Boolean = false
+    val info: Boolean = false,
+    /** 5D.5.4C: see [StockMetric] `helperDirection`; default none. */
+    val helperDirection: PriceDirection? = null
 )
 
 /**
@@ -173,7 +181,7 @@ internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = 
                 Row(Modifier.fillMaxWidth().then(if (tiled) Modifier.height(IntrinsicSize.Min) else Modifier), horizontalArrangement = Arrangement.spacedBy(gap)) {
                     row.forEach { item ->
                         StockMetric(item.label, item.value, Modifier.weight(1f).then(if (tiled) Modifier.fillMaxHeight() else Modifier), item.helper,
-                            item.direction, item.onClick, item.onClickLabel, item.quiet, item.info, tile = tiled)
+                            item.direction, item.onClick, item.onClickLabel, item.quiet, item.info, tile = tiled, helperDirection = item.helperDirection)
                     }
                     repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }

@@ -73,9 +73,18 @@ final class CompanyFinancialsModel {
     }
 }
 
+typealias FinancialsGroup = FinancialsDisplay.Group
+
 struct CompanyFinancialsScene: View {
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var model: CompanyFinancialsModel
+    /// 5D.5.4C section bar (same pattern as Company Details 5D.5.4A): anchor tops, the inline bar's frame, viewport, page width, end of page.
+    @State private var anchorTops: [String: CGFloat] = [:]
+    @State private var barFrame: CGRect = .zero
+    @State private var viewport: CGFloat = 0
+    @State private var pageWidth: CGFloat = 0
+    @State private var atEnd = false
     /// 5D.5.3: the open metric explanation and a Learn term pushed from it (Back returns here).
     @State private var explaining: MetricExplanation?
     @State private var learnTerm: String?
@@ -91,8 +100,11 @@ struct CompanyFinancialsScene: View {
         let space = StockStepsTheme.spacing
         let type = StockStepsTheme.typography
         let content = model.model
+        let groups = FinancialsDisplay.shared.groups(model: content)
+        ScrollViewReader { proxy in
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            // A plain VStack (not lazy) so every anchor exists for scrollTo; pinned to the column width (5D.5.4A lesson).
+            VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                     Text(model.listing ?? model.symbol).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
                     Text("Understand how this company earns, grows and manages its money.").font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
@@ -100,14 +112,19 @@ struct CompanyFinancialsScene: View {
                         Text(period).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary)
                     }
                 }
-                VStack(spacing: 0) {
-                    StockPillSelector(options: FinancialPeriod.entries, selected: model.frequency, label: { $0.label }) { model.select($0) }
-                    StockDivider()
-                    StockPillSelector(options: FinancialRange.entries, selected: model.range, label: { $0.label }) { model.select(range: $0) }
+                if !groups.isEmpty {
+                    sectionBar(groups, proxy)
+                        .opacity(barPinned ? 0 : 1).accessibilityHidden(barPinned)
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("financials")) } action: { barFrame = $0 }
                 }
-                .padding(.horizontal, CGFloat(space.sm))
-                .stockCard(padding: 0, bordered: false)
-                .padding(.top, CGFloat(space.md))
+                // 5D.5.4C: both selectors on one bare row; each on its own row at accessibility sizes.
+                let period = StockPillSelector(options: FinancialPeriod.entries, selected: model.frequency, label: { $0.label }) { model.select($0) }
+                let range = StockPillSelector(options: FinancialRange.entries, selected: model.range, label: { $0.label }) { model.select(range: $0) }
+                Group {
+                    if typeSize.isAccessibilitySize { VStack(spacing: 0) { period; range } }
+                    else { HStack(spacing: CGFloat(space.md)) { period; range } }
+                }
+                .padding(.top, CGFloat(space.sm))
                 if model.loading && content != nil { ProgressView().frame(maxWidth: .infinity).padding(.top, CGFloat(space.xs)) }
                 if let note = content?.rangeNote {
                     Text(note).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSecondary).padding(.top, CGFloat(space.xs))
@@ -119,8 +136,14 @@ struct CompanyFinancialsScene: View {
                     if let empty = content.emptyMessage {
                         StockSectionMessage(message: empty, actionTitle: "Try again", action: model.load).stockCard(bordered: false).padding(.top, CGFloat(space.xl))
                     } else {
+                        overview(content, colors).padding(.top, CGFloat(space.lg))
                         ForEach(content.sections, id: \.id) { section in
-                            FinancialSectionView(section: section, onExplain: { explaining = $0 }, onLearnTerm: { learnTerm = $0 }).padding(.top, CGFloat(space.xl))
+                            VStack(alignment: .leading, spacing: 0) {
+                                anchor(section.id)
+                                FinancialSectionView(section: section, showChart: FinancialsDisplay.shared.chartInSection(model: content, sectionId: section.id),
+                                                     onExplain: { explaining = $0 }, onLearnTerm: { learnTerm = $0 })
+                            }
+                            .padding(.top, CGFloat(space.xl))
                         }
                         if !content.summary.isEmpty { FinancialSummaryView(model: content).padding(.top, CGFloat(space.xl)) }
                         if let table = content.table {
@@ -160,10 +183,21 @@ struct CompanyFinancialsScene: View {
                         .stockCard(bordered: false).padding(.top, CGFloat(space.xl))
                 }
             }
-            .frame(maxWidth: CGFloat(StockStepsTheme.dimensions.contentMaxWidth), alignment: .leading)
+            .frame(width: contentWidth, alignment: .leading)
             .padding(.horizontal, CGFloat(space.screen))
             .padding(.bottom, CGFloat(space.xl))
             .frame(maxWidth: .infinity)
+        }
+        .coordinateSpace(name: "financials")
+        .onScrollGeometryChange(for: Bool.self) { g in g.contentOffset.y + g.containerSize.height >= g.contentSize.height - 2 } action: { _, end in atEnd = end }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { viewport = $0.height; pageWidth = $0.width }
+        .overlay(alignment: .top) {
+            if barPinned && !groups.isEmpty {
+                sectionBar(groups, proxy)
+                    .frame(width: contentWidth).padding(.horizontal, CGFloat(space.screen)).frame(maxWidth: .infinity)
+                    .background(colors.appBackground)
+            }
+        }
         }
         .background(colors.appBackground.ignoresSafeArea())
         .navigationTitle("\(model.shortName) Financials")
@@ -174,10 +208,67 @@ struct CompanyFinancialsScene: View {
     }
 }
 
+// MARK: 5D.5.4C overview and section bar
+
+extension CompanyFinancialsScene {
+    private var contentWidth: CGFloat? {
+        pageWidth > 0 ? min(CGFloat(StockStepsTheme.dimensions.contentMaxWidth), max(pageWidth - 2 * CGFloat(StockStepsTheme.spacing.screen), 0)) : nil
+    }
+    private var barPinned: Bool { barFrame.height > 0 && barFrame.minY < 0 }
+
+    private func anchorID(_ sectionId: String) -> String { "financials-anchor-\(sectionId)" }
+
+    private func anchor(_ sectionId: String) -> some View {
+        Color.clear.frame(height: 0).id(anchorID(sectionId))
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("financials")).minY } action: { anchorTops[sectionId] = $0 }
+    }
+
+    private func selected(_ groups: [FinancialsGroup]) -> FinancialsGroup {
+        let barBottom = max(barFrame.maxY, barFrame.height)
+        var tops: [String: KotlinFloat] = [:]
+        for (id, top) in anchorTops { tops[id] = KotlinFloat(value: Float(top - barBottom)) }
+        return FinancialsDisplay.shared.selectedGroup(tops: tops, tolerance: 1, atEnd: atEnd, viewport: Float(max(viewport - barBottom, 0))) ?? groups[0]
+    }
+
+    private func sectionBar(_ groups: [FinancialsGroup], _ proxy: ScrollViewProxy) -> some View {
+        StockSectionBar(items: groups, selected: selected(groups), label: { $0.label }) { g in
+            guard let content = model.model, let id = FinancialsDisplay.shared.anchorSection(model: content, group: g) else { return }
+            let y = viewport > 0 ? min(max(barFrame.height / viewport, 0), 1) : 0
+            withAnimation { proxy.scrollTo(anchorID(id), anchor: UnitPoint(x: 0.5, y: y)) }
+        }
+        .padding(.top, CGFloat(StockStepsTheme.spacing.sm))
+    }
+
+    /// The revenue + net income chart and the key-metric tiles (the model's own chart, values and change texts); each tile explains its metric.
+    @ViewBuilder
+    func overview(_ content: FinancialStatementsModel, _ colors: StockColors) -> some View {
+        let space = StockStepsTheme.spacing
+        let chart = FinancialsDisplay.shared.overviewChart(model: content)
+        let metrics = FinancialsDisplay.shared.keyMetrics(model: content)
+        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+            if let chart {
+                StockSectionHeader(title: [chart.primaryLabel, chart.secondaryLabel].compactMap { $0 }.joined(separator: " & "))
+                StockBarChart(chart: chart).stockCard(bordered: false)
+            }
+            if !metrics.isEmpty {
+                StockSectionHeader(title: FinancialsDisplay.shared.keyMetricsTitle(model: content)).padding(.top, chart != nil ? CGFloat(space.sm) : 0)
+                StockMetricGrid(items: metrics.map { m in
+                    let explanation = m.metricId.flatMap { MetricLearnTerms.shared.explain(metricId: $0, title: m.label) }
+                    return StockMetricItem(label: m.label, value: m.value, helper: m.caption,
+                                           action: explanation.map { e in { explaining = e } }, hint: "Explain \(m.label)",
+                                           info: m.metricId.map { MetricLearnTerms.shared.hasTerm(metricId: $0) } ?? false, helperDirection: m.direction)
+                }, maxColumns: 2, tiled: true)
+            }
+        }
+    }
+}
+
 /// One financial area: headline + change, meaning, chart, rows, comparisons, explanation.
 private struct FinancialSectionView: View {
     @Environment(\.colorScheme) private var scheme
     let section: FinancialStatementSection
+    /// 5D.5.4C: false when this section's chart moved to the overview (D-F2).
+    var showChart = true
     var onExplain: (MetricExplanation) -> Void = { _ in }
     var onLearnTerm: (String) -> Void = { _ in }
     @State private var learn = false
@@ -202,7 +293,7 @@ private struct FinancialSectionView: View {
                         StockPriceChange(percentage: change, direction: direction, style: type.numberMedium)
                     }
                     if let meaning = section.meaning { Text(meaning).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody) }
-                    if let chart = section.chart { StockBarChart(chart: chart) }
+                    if showChart, let chart = section.chart { StockBarChart(chart: chart) }
                     if !section.rows.isEmpty {
                         VStack(spacing: 0) {
                             ForEach(Array(section.rows.enumerated()), id: \.offset) { index, row in

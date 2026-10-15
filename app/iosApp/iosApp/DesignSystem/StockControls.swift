@@ -86,6 +86,8 @@ struct StockMetric: View {
     var info = false
     /// 5D.5.4B: see Compose `StockMetric.tile` — own surface, ⓘ at the top-right, larger value. Default off.
     var tile = false
+    /// 5D.5.4C: see Compose `StockMetric.helperDirection` — the helper is a change with its arrow and colour. Default none.
+    var helperDirection: PriceDirection? = nil
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         let valueStyle = tile ? type.sectionTitle : type.numberEmphasis
@@ -107,7 +109,11 @@ struct StockMetric: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let helper {
-                Text(helper).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textTertiary)
+                if let helperDirection, helperDirection != .unavailable {
+                    StockPriceChange(percentage: helper, direction: helperDirection, style: type.caption, lineLimit: nil)
+                } else {
+                    Text(helper).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textTertiary)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -131,6 +137,8 @@ struct StockMetricItem: Identifiable {
     var quiet = false
     /// 5D.5.3: see `StockMetric.info`; default off.
     var info = false
+    /// 5D.5.4C: see `StockMetric.helperDirection`; default none.
+    var helperDirection: PriceDirection? = nil
 }
 
 /// A metric label, optionally followed by a decorative ⓘ (5D.5.3, as Compose `StockMetricLabel`); the icon scales with the label.
@@ -223,14 +231,14 @@ struct StockMetricGrid: View {
                     ForEach(items[start..<min(start + columns, items.count)]) { item in
                         if let action = item.action {
                             Button(action: action) {
-                                StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet, info: item.info, tile: tiled)
+                                StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet, info: item.info, tile: tiled, helperDirection: item.helperDirection)
                                     .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget), alignment: .topLeading)
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityHint(item.hint ?? "")
                         } else {
-                            StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet, info: item.info, tile: tiled)
+                            StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet, info: item.info, tile: tiled, helperDirection: item.helperDirection)
                         }
                     }
                     ForEach(0..<(columns - min(columns, items.count - start)), id: \.self) { _ in Color.clear.frame(height: 0) }

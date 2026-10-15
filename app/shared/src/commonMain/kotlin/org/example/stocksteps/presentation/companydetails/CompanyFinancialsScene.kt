@@ -1,5 +1,8 @@
 package org.example.stocksteps.presentation.companydetails
 
+import kotlinx.coroutines.launch
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -63,10 +66,12 @@ internal fun CompanyFinancialsScene(
 }
 
 /**
- * Financials: one vertical page — header, Annual/Quarterly and 3Y/5Y/10Y selectors, then revenue,
- * profitability, cash flow, financial health, EPS, dividends, a factual summary, detailed table,
- * advanced metrics and valuation. Every number and sentence comes from the shared presenter.
+ * Financials: one vertical page — header, a pinned Income · Balance Sheet · Cash Flow bar that scrolls within the page (5D.5.4C, D-F1),
+ * Annual/Quarterly and 3Y/5Y/10Y on one row, the revenue + net income chart and the key-metric tiles first (D-F2), then revenue,
+ * profitability, cash flow, financial health, EPS, dividends, a factual summary, detailed table, advanced metrics and valuation. Every
+ * number and sentence comes from the shared presenter; `FinancialsDisplay` only picks and orders.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun CompanyFinancialsScreen(
     state: CompanyFinancialsState,
@@ -91,6 +96,32 @@ internal fun CompanyFinancialsScreen(
     }
     val content = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxWidth()
     val section = content.padding(top = spacing.xl)
+    val groups = remember(model) { FinancialsDisplay.groups(model) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var barHeight by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    // Item keys in page order; a group's tab scrolls to its first section's item.
+    val sectionKeys = model?.takeIf { it.emptyMessage == null }?.sections?.map { it.id }.orEmpty()
+    fun indexOf(key: String): Int = listOf("header", "bar", "selectors", "overview").let { fixed ->
+        if (key in fixed) fixed.indexOf(key) else fixed.size + sectionKeys.indexOf(key)
+    }
+    val selected by remember(groups, sectionKeys) {
+        androidx.compose.runtime.derivedStateOf {
+            if (model == null) return@derivedStateOf groups.firstOrNull()
+            val info = listState.layoutInfo
+            val tops = sectionKeys.associateWith { id ->
+                val index = indexOf(id)
+                val item = info.visibleItemsInfo.firstOrNull { it.index == index }
+                when {
+                    item != null -> (item.offset - barHeight).toFloat()
+                    // Scrolled off the top: far above any visible section, in page order (a fixed -1 outranked a visible section above the bar).
+                    index in 0 until listState.firstVisibleItemIndex -> -1_000_000f + index
+                    else -> Float.MAX_VALUE
+                }
+            }
+            FinancialsDisplay.selectedGroup(tops, 1f, atEnd = !listState.canScrollForward, viewport = info.viewportEndOffset.toFloat()) ?: groups.firstOrNull()
+        }
+    }
     Column(Modifier.fillMaxSize().background(colors.appBackground)) {
         StockStepsTopBar(
             configuration = AppBarConfiguration(title = stringResource(Res.string.financials_title, state.shortName), backButton = AppBarBackButton.BACK),
@@ -100,6 +131,7 @@ internal fun CompanyFinancialsScreen(
         AdaptiveSinglePane(hinge) { region ->
             LazyColumn(
                 modifier = region,
+                state = listState,
                 contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, bottom = spacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -110,11 +142,23 @@ internal fun CompanyFinancialsScreen(
                         model?.periodLabel?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textTertiary) }
                     }
                 }
+                stickyHeader(key = "bar") {
+                    if (groups.isNotEmpty() && selected != null) {
+                        StockSectionBar(groups, selected!!, label = { it.label }, onSelect = { g ->
+                            val m = model ?: return@StockSectionBar
+                            FinancialsDisplay.anchorSection(m, g)?.let { id -> scope.launch { listState.animateScrollToItem(indexOf(id), -barHeight) } }
+                        }, modifier = content.background(colors.appBackground).padding(top = spacing.sm).onSizeChanged { barHeight = it.height })
+                    }
+                }
                 item(key = "selectors") {
-                    StockCard(content.padding(top = spacing.md), bordered = false, contentPadding = PaddingValues(horizontal = spacing.sm, vertical = spacing.xxs)) {
+                    // 5D.5.4C: both selectors on one bare row; each takes its own row at large font scale.
+                    val stack = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
+                    if (stack) Column(content.padding(top = spacing.sm)) {
                         StockPillSelector(FinancialPeriod.entries, state.frequency, label = { it.label }, onSelect = onFrequency)
-                        StockDivider()
                         StockPillSelector(FinancialRange.entries, state.range, label = { it.label }, onSelect = onRange)
+                    } else Row(content.padding(top = spacing.sm), horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                        StockPillSelector(FinancialPeriod.entries, state.frequency, label = { it.label }, onSelect = onFrequency, modifier = Modifier.weight(1.1f))
+                        StockPillSelector(FinancialRange.entries, state.range, label = { it.label }, onSelect = onRange, modifier = Modifier.weight(1f))
                     }
                     Column(content) {
                         if (state.loading && model != null) {
@@ -139,8 +183,11 @@ internal fun CompanyFinancialsScreen(
                         StockCard(section, bordered = false) { StockErrorState(model.emptyMessage!!, onRetry) }
                     }
                     else -> {
+                        item(key = "overview") { FinancialsOverview(model, content.padding(top = spacing.lg), explain) }
                         model.sections.forEach { financial ->
-                            item(key = financial.id) { FinancialSectionCard(financial, section, explain, onLearnTerm) }
+                            item(key = financial.id) {
+                                FinancialSectionCard(financial, section, explain, onLearnTerm, showChart = FinancialsDisplay.chartInSection(model, financial.id))
+                            }
                         }
                         if (model.summary.isNotEmpty()) {
                             item(key = "summary") { SummaryCard(model, section) }
@@ -182,10 +229,37 @@ internal fun CompanyFinancialsScreen(
     }
 }
 
+/**
+ * 5D.5.4C (D-F2): the revenue + net income chart and the key-metric tiles at the top — the model's own chart, values and change texts
+ * (`FinancialsDisplay`); each tile opens its metric explanation. Nothing shows when the model has neither.
+ */
+@Composable
+private fun FinancialsOverview(model: FinancialStatementsModel, modifier: Modifier, explain: (InfoRow) -> (() -> Unit)?) {
+    val spacing = StockStepsTheme.spacing
+    val chart = FinancialsDisplay.overviewChart(model)
+    val metrics = FinancialsDisplay.keyMetrics(model)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        chart?.let {
+            StockSectionHeader(listOfNotNull(it.primaryLabel, it.secondaryLabel).joinToString(" & "))
+            StockCard(bordered = false, contentPadding = PaddingValues(spacing.md)) {
+                StockBarChart(it.bars, it.description, secondary = it.secondary, primaryLabel = it.primaryLabel, secondaryLabel = it.secondaryLabel)
+            }
+        }
+        if (metrics.isNotEmpty()) {
+            StockSectionHeader(FinancialsDisplay.keyMetricsTitle(model), Modifier.padding(top = if (chart != null) spacing.sm else 0.dp))
+            StockMetricGrid(metrics.map { m ->
+                val row = InfoRow(m.label, m.value, metricId = m.metricId)
+                StockMetricItem(m.label, m.value, helper = m.caption, onClick = explain(row), onClickLabel = explainLabel(row),
+                    info = hasTerm(row), helperDirection = m.direction)
+            }, maxColumns = 2, tiled = true)
+        }
+    }
+}
+
 /** One financial area: headline + change, plain-English meaning, chart, rows, comparisons, explanation. */
 @Composable
 private fun FinancialSectionCard(section: FinancialStatementSection, modifier: Modifier, explain: (InfoRow) -> (() -> Unit)? = { null },
-                                 onLearnTerm: (String) -> Unit = {}) {
+                                 onLearnTerm: (String) -> Unit = {}, showChart: Boolean = true) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     var learn by rememberSaveable(section.id) { mutableStateOf(false) }
@@ -208,7 +282,7 @@ private fun FinancialSectionCard(section: FinancialStatementSection, modifier: M
                         StockPriceChange(section.change!!, section.changeDirection!!, style = StockStepsTheme.typography.numberMedium)
                     }
                     section.meaning?.let { Text(it, style = StockStepsTheme.typography.small, color = colors.textBody) }
-                    section.chart?.let { chart ->
+                    section.chart?.takeIf { showChart }?.let { chart ->
                         StockBarChart(chart.bars, chart.description, secondary = chart.secondary, primaryLabel = chart.primaryLabel, secondaryLabel = chart.secondaryLabel)
                     }
                     if (section.rows.isNotEmpty()) {
