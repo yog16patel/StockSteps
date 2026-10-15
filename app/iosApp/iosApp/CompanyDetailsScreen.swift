@@ -32,6 +32,8 @@ struct CompanyDetailsScreen: View {
     /// Reminder control for the next earnings event (nil hides it).
     var earningsReminder: String? = nil
     var onRemindEarnings: () -> Void = {}
+    /// 5D.5.3: opens a Learn term on top of this stock (Back returns here).
+    var onLearnTerm: (String) -> Void = { _ in }
     @State private var education: GlanceMetric?
     @State private var showEvidence = false
     @State private var showSources = false
@@ -144,7 +146,8 @@ struct CompanyDetailsScreen: View {
             }
         }
         .sheet(item: $education) { metric in
-            InfoSheet(title: educationTitle(metric), message: educationBody(metric))
+            InfoSheet(title: educationTitle(metric), message: educationBody(metric), term: metric.educationId.flatMap { MetricLearnTerms.shared.termFor(metricId: $0) },
+                      onLearn: { id in education = nil; onLearnTerm(id) })
         }
         .sheet(isPresented: $showEvidence) {
             if let rows = model.overview.value?.insightEvidence {
@@ -390,7 +393,8 @@ struct CompanyDetailsScreen: View {
             StockMetricGrid(items: overview.glance.map { metric in
                 let shown = present.glance(metric: metric)
                 return StockMetricItem(label: metric.label, value: shown.value, helper: shown.helper.isEmpty ? nil : shown.helper,
-                                       direction: metric.direction, action: { education = metric }, hint: "Learn what this means")
+                                       direction: metric.direction, action: { education = metric }, hint: "Learn what this means",
+                                       info: metricHasTerm(metric.educationId))
             }, maxColumns: 2)
             if overview.yearRange != nil || overview.dayRange != nil {
                 StockDivider()
@@ -590,6 +594,9 @@ private struct InfoSheet: View {
     var rows: [(String, String)] = []
     var links: [(String, String, URL)] = []
     var onOpen: (URL) -> Void = { _ in }
+    /// 5D.5.3: the Learn term for a metric explanation ("Learn more about …").
+    var term: EducationEntry? = nil
+    var onLearn: (String) -> Void = { _ in }
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
@@ -597,6 +604,7 @@ private struct InfoSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: CGFloat(StockStepsTheme.spacing.sm)) {
                     if !message.isEmpty { Text(message).foregroundStyle(colors.textBody) }
+                    MetricLearnMoreButton(term: term, onLearn: onLearn)
                     ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                         if index > 0 { StockDivider() }
                         HStack {

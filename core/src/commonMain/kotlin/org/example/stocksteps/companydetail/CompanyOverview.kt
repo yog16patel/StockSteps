@@ -38,7 +38,9 @@ data class InfoRow(
     val value: String,
     val helper: String? = null,
     val change: String? = null,
-    val changeDirection: PriceDirection? = null
+    val changeDirection: PriceDirection? = null,
+    /** 5D.5.3: the `MetricEducation` id this row shows, for its explanation and Learn link; null for rows without one. */
+    val metricId: String? = null
 )
 
 data class EvidenceRow(val label: String, val value: String)

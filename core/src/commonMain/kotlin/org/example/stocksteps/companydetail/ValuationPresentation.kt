@@ -127,21 +127,21 @@ object ValuationPresenter {
         val returns = fundamentals?.financials?.shareholderReturns.orEmpty()
         fun value(id: String, map: Map<String, FinancialFact> = metrics) = map[id]?.takeIf { it.availability == FinancialAvailability.AVAILABLE }?.value?.takeIf { it.isFinite() }
         val otherMetrics = listOfNotNull(
-            value("priceSales")?.takeIf { it > 0 }?.let { InfoRow("Price to Sales (P/S)", multiple(it), "Market value ÷ annual revenue.") },
-            value("priceBook")?.takeIf { it > 0 }?.let { InfoRow("Price to Book (P/B)", multiple(it), "Market value ÷ shareholders' equity (book value).") },
-            value("evEbitda")?.takeIf { it > 0 }?.let { InfoRow("EV / EBITDA", multiple(it), "Enterprise value ÷ earnings before interest, taxes, depreciation and amortization.") },
-            value("peg")?.takeIf { it > 0 }?.let { InfoRow("PEG Ratio", decimal(it, 2), "P/E ÷ expected earnings growth, as defined by the data provider; growth periods differ between sources.") },
-            if (returns["dividendYield"]?.availability == FinancialAvailability.NO_DIVIDEND) InfoRow("Dividend Yield", "No dividend", "The company doesn't currently pay a regular dividend.")
-            else value("dividendYield", returns)?.let { InfoRow("Dividend Yield", "${decimal(it, 2)}%", "Yearly dividends ÷ share price. Yield alone doesn't show whether a stock is cheap or expensive.") }
+            value("priceSales")?.takeIf { it > 0 }?.let { InfoRow("Price to Sales (P/S)", multiple(it), "Market value ÷ annual revenue.", metricId = "priceSales") },
+            value("priceBook")?.takeIf { it > 0 }?.let { InfoRow("Price to Book (P/B)", multiple(it), "Market value ÷ shareholders' equity (book value).", metricId = "priceBook") },
+            value("evEbitda")?.takeIf { it > 0 }?.let { InfoRow("EV / EBITDA", multiple(it), "Enterprise value ÷ earnings before interest, taxes, depreciation and amortization.", metricId = "evEbitda") },
+            value("peg")?.takeIf { it > 0 }?.let { InfoRow("PEG Ratio", decimal(it, 2), "P/E ÷ expected earnings growth, as defined by the data provider; growth periods differ between sources.", metricId = "peg") },
+            if (returns["dividendYield"]?.availability == FinancialAvailability.NO_DIVIDEND) InfoRow("Dividend Yield", "No dividend", "The company doesn't currently pay a regular dividend.", metricId = "dividendYield")
+            else value("dividendYield", returns)?.let { InfoRow("Dividend Yield", "${decimal(it, 2)}%", "Yearly dividends ÷ share price. Yield alone doesn't show whether a stock is cheap or expensive.", metricId = "dividendYield") }
         )
 
         val growthFacts = fundamentals?.financials?.growth.orEmpty()
         val revenueGrowth = value("revenueGrowth", growthFacts)
         val epsGrowth = value("epsGrowth", growthFacts)
         val growth = listOfNotNull(
-            current?.let { InfoRow("P/E Ratio", multiple(it)) },
-            revenueGrowth?.let { InfoRow("Revenue Growth (latest year)", signed(it), changeDirection = HomePresentation.direction(it)) },
-            epsGrowth?.let { InfoRow("EPS Growth (latest year)", signed(it), changeDirection = HomePresentation.direction(it)) }
+            current?.let { InfoRow("P/E Ratio", multiple(it), metricId = "pe") },
+            revenueGrowth?.let { InfoRow("Revenue Growth (latest year)", signed(it), changeDirection = HomePresentation.direction(it), metricId = "revenueGrowth") },
+            epsGrowth?.let { InfoRow("EPS Growth (latest year)", signed(it), changeDirection = HomePresentation.direction(it), metricId = "epsGrowth") }
         )
         val growthNote = when {
             epsGrowth == null -> "EPS growth isn't available, so earnings growth can't be compared with the P/E."

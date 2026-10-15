@@ -568,6 +568,7 @@ internal fun AppNavigation(
                     hinge = hinge,
                     backIcon = backIcon,
                     onBack = { navController.popBackStack() },
+                    onLearnTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) },
                     onOpenFinancials = { symbol -> navController.navigate(CompanyFinancialsRoute(symbol)) },
                     onOpenValuation = { symbol -> navController.navigate(CompanyValuationRoute(symbol)) },
                     onOpenNews = { symbol -> navController.navigate(CompanyNewsRoute(symbol)) },
@@ -586,10 +587,12 @@ internal fun AppNavigation(
                 )
             }
             composable<CompanyFinancialsRoute> { entry ->
-                CompanyFinancialsScene(entry.toRoute<CompanyFinancialsRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() })
+                CompanyFinancialsScene(entry.toRoute<CompanyFinancialsRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() },
+                    onLearnTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
             }
             composable<CompanyValuationRoute> { entry ->
-                CompanyValuationScene(entry.toRoute<CompanyValuationRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() })
+                CompanyValuationScene(entry.toRoute<CompanyValuationRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() },
+                    onLearnTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
             }
             composable<CompanyNewsRoute> { entry ->
                 CompanyNewsScene(entry.toRoute<CompanyNewsRoute>(), backend, environment, hinge,

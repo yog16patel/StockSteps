@@ -15,20 +15,22 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.2 Learn polish committed)
+## Current task (as of 2026-10-15, Phase 5D.5.3 contextual learning committed)
 
-Phase 5D.5.2 Learn (`057d6e6`) and its final polish ("Polish Learn for Global UI Refinement Phase 5D.5.2 with ranked term search, single-column topics at very large text, a folded Start here sentence at large text and a shorter term illustration on Android and iOS") are committed and pushed.
-Reports: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` (§6 = polish); review packages: `docs/reviews/phase5d_5_2/`, `docs/reviews/phase5d_5_2_r2/`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-2-R2-2026-10-15.**
+Phase 5D.5.3 ("Add contextual Learn links for Global UI Refinement Phase 5D.5.3 with an info mark on metrics that have a Learn term, explanation sheets for Financials and Valuation rows, and Learn more buttons that open the term page on the same stack on Android and iOS") is committed and pushed on top of the Learn closure (`600c295`).
+Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md`; review package: `docs/reviews/phase5d_5_3/`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-3-2026-10-15.**
 Next: owner review.
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
 - the intermittent `UserDataRepositoriesTest` on core iOS.
 Still open:
 - iOS Earnings Details after the owner signs in;
-- the iOS Home AX5 heading break and history navigation.
+- the iOS Home AX5 heading break and history navigation;
+- Android dark check for 5D.5.3 (the app's own theme setting).
 The iPhone 16 simulator app is in guest mode.
 
+Earlier: Learn closed with 5D.5.2 (`057d6e6`, `0730773`, `600c295`), see §PHASE-5D-5-2-CLOSED-2026-10-15 in the handoff.
 Earlier: Daily Brief closed with 5D.5.1c (`9e88678`), see §PHASE-5D-5-1C-2026-10-14 in the handoff.
 Earlier: 5D.5.1b (`5bfe273`), see §PHASE-5D-5-1B-2026-10-14 in the handoff.
 Earlier: Phase 5D.5.1 (`38002c0`), see §PHASE-5D-5-1-2026-10-14 in the handoff.
@@ -97,6 +99,11 @@ Portfolio conventions (permanent):
 - **Display only.** Overview, holdings and allocation come from the shared display objects (`PortfolioOverviewDisplay`, `PortfolioHoldingsDisplay`,
   `PortfolioAllocationDisplay`). History loads on demand only; the chart is "Account value", never performance. No UI-computed return %. The donut
   only when `allocationDonutAllowed` (`StockAllocationLayout` geometry). Missing stays missing.
+- **Contextual learning (5D.5.3).**
+  - Metric → Learn term only via core `MetricLearnTerms` (by id: exact term id, then a single `relatedMetrics` owner, else null); never match visible
+    titles and never add educational text.
+  - Rows carry `InfoRow.metricId`; the ⓘ (`info = hasTerm`) marks only mapped metrics; unmapped metrics get the sheet without a Learn button.
+  - Sheets close before navigating; term pages open on the same stack (`LearnTermRoute` / `LearnTermView`), so Back returns to the stock.
 - **Learn (5D.5.2).**
   - Learn copy and rules come only from core `LearnDisplay`.
   - Topics are the catalogue's `topic` values; never add topics, lessons or educational text without approval.

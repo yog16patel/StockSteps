@@ -144,7 +144,7 @@ internal fun CompanyDetailsScreen(
         }
     }
     if (overview != null) {
-        education?.let { id -> EducationSheet(id, overview, onDismiss = { education = null }) }
+        education?.let { id -> EducationSheet(id, overview, onDismiss = { education = null }, onLearn = { onAction(CompanyDetailsAction.LearnTerm(it)) }) }
         if (showEvidence) EvidenceSheet(overview.insightEvidence, onDismiss = { showEvidence = false })
     }
     val why = (state.whyMoving as? Section.Content)?.value
@@ -372,8 +372,10 @@ private fun GlanceSection(data: CompanyOverview, onExplain: (String) -> Unit, mo
         StockCard(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             StockMetricGrid(data.glance.map { metric ->
                 val shown = CompanyDetailsPresentation.glance(metric)
+                // 5D.5.3 (D-C2): a small ⓘ marks metrics with a Learn term; the whole tile stays the 48 dp target.
                 StockMetricItem(metric.label, shown.value, helper = shown.helper.ifBlank { null }, direction = metric.direction,
-                    onClick = metric.educationId?.let { id -> { onExplain(id) } }, onClickLabel = learn)
+                    onClick = metric.educationId?.let { id -> { onExplain(id) } }, onClickLabel = learn,
+                    info = metric.educationId?.let(org.example.stocksteps.learning.MetricLearnTerms::hasTerm) == true)
             }, maxColumns = 2)
             if (data.yearRange != null || data.dayRange != null) {
                 StockDivider()
@@ -612,7 +614,7 @@ private fun SectionTitled(title: String, modifier: Modifier, content: @Composabl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EducationSheet(id: String, overview: CompanyOverview, onDismiss: () -> Unit) {
+private fun EducationSheet(id: String, overview: CompanyOverview, onDismiss: () -> Unit, onLearn: (String) -> Unit = {}) {
     val metric = overview.glance.firstOrNull { it.id == id }
     val name = overview.shortName
     val value = metric?.value?.substringBefore(" (")?.takeIf { it != "—" && it != "N/A" && it != "None" }
@@ -626,7 +628,11 @@ private fun EducationSheet(id: String, overview: CompanyOverview, onDismiss: () 
         else -> stringResource(Res.string.edu_dividendYield_title) to
             (value?.let { stringResource(Res.string.edu_dividendYield_body, name, it) } ?: stringResource(Res.string.edu_unavailable, name))
     }
-    InfoSheet(title, onDismiss) { Text(body, style = StockStepsTheme.typography.body, color = StockStepsTheme.colors.textBody) }
+    InfoSheet(title, onDismiss) {
+        Text(body, style = StockStepsTheme.typography.body, color = StockStepsTheme.colors.textBody)
+        // 5D.5.3 (D-C5): the existing company sentence, then the full Learn lesson one tap away.
+        org.example.stocksteps.presentation.learn.MetricLearnMore(org.example.stocksteps.learning.MetricLearnTerms.termFor(id), onLearn, onDismiss)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

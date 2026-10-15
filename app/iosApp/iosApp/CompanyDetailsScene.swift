@@ -7,6 +7,8 @@ struct CompanyDetailsScene: View {
     let accounts: AccountViewModel
     var watchlists: WatchlistsModel?
     @State private var choosingList = false
+    /// 5D.5.3: a Learn term opened from a metric explanation, pushed on this stack (Back returns to the stock).
+    @State private var learnTerm: String?
     @State private var model: CompanyDetailsModel
     @State private var showFinancials = false
     @State private var showNews = false
@@ -94,7 +96,8 @@ struct CompanyDetailsScene: View {
                     reminderTarget = ReminderTargetInfo(eventId: id, symbol: symbol, name: model.overview.value?.name ?? symbol, dateText: e.dateText ?? "",
                                                         timingText: e.timingText, dateNote: e.statusText?.components(separatedBy: " · ").dropFirst().first)
                 }
-            }
+            },
+            onLearnTerm: { learnTerm = $0 }
         )
         .sheet(item: $reminderTarget) { target in
             if let reminders = earningsModel?.reminders { EarningsReminderSheet(target: target, model: reminders) { reminderTarget = nil } }
@@ -112,9 +115,10 @@ struct CompanyDetailsScene: View {
             if let compareModel { CompareStocksScene(model: compareModel, onOpenStock: { _ in showCompare = false }) }
         }
         // Deeper destinations stay inside the same navigation stack, so Back returns here.
-        .navigationDestination(isPresented: $showFinancials) { CompanyFinancialsScene(symbol: symbol, client: model.client) }
+        .navigationDestination(item: $learnTerm) { id in LearnTermView(termId: id, onSearchCompanies: onSearch) }
+        .navigationDestination(isPresented: $showFinancials) { CompanyFinancialsScene(symbol: symbol, client: model.client, onSearchCompanies: onSearch) }
         .navigationDestination(isPresented: $showNews) { CompanyNewsScene(symbol: symbol, client: model.client) }
-        .navigationDestination(isPresented: $showValuation) { CompanyValuationScene(symbol: symbol, client: model.client) }
+        .navigationDestination(isPresented: $showValuation) { CompanyValuationScene(symbol: symbol, client: model.client, onSearchCompanies: onSearch) }
         .navigationDestination(isPresented: $showMovement) { StockMovementScene(symbol: symbol, client: model.client) }
         .task {
             // One cached request for the next earnings date (the client is shared with Earnings Details).

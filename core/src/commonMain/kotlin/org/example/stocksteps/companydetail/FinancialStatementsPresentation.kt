@@ -182,10 +182,10 @@ object FinancialStatementsPresenter {
             id = "profitability", title = "Profitability",
             availability = if (netIncome != null || netMargin != null) SectionAvailability.CONTENT else if (unavailable("income")) SectionAvailability.TEMPORARILY_UNAVAILABLE else SectionAvailability.NOT_REPORTED,
             rows = listOfNotNull(
-                netIncome?.let { InfoRow("Net Income", money(it), "Profit left after expenses, interest and taxes.", netGrowth?.let(::signed), netGrowth?.let(HomePresentation::direction)) },
-                netMargin?.let { InfoRow("Net Margin", percent(it), "How much profit is kept from each dollar of revenue.") },
-                operatingMargin?.let { InfoRow("Operating Margin", percent(it), "Profit from core operations before interest and taxes.") },
-                grossMargin?.let { InfoRow("Gross Margin", percent(it), "Revenue left after the direct costs of products and services.") }
+                netIncome?.let { InfoRow("Net Income", money(it), "Profit left after expenses, interest and taxes.", netGrowth?.let(::signed), netGrowth?.let(HomePresentation::direction), metricId = "netIncome") },
+                netMargin?.let { InfoRow("Net Margin", percent(it), "How much profit is kept from each dollar of revenue.", metricId = "netMargin") },
+                operatingMargin?.let { InfoRow("Operating Margin", percent(it), "Profit from core operations before interest and taxes.", metricId = "operatingMargin") },
+                grossMargin?.let { InfoRow("Gross Margin", percent(it), "Revenue left after the direct costs of products and services.", metricId = "grossMargin") }
             ),
             chart = FinancialChart(revenueBars, incomeBars, "Revenue", "Net Income",
                 describe("Revenue", revenueBars) + ". " + describe("Net income", incomeBars)).takeIf { incomeBars.count { it.value != null } >= 2 },
@@ -210,9 +210,9 @@ object FinancialStatementsPresenter {
             id = "cashFlow", title = "Cash Flow",
             availability = if (operating != null || fcf != null) SectionAvailability.CONTENT else if (unavailable("cashFlow")) SectionAvailability.TEMPORARILY_UNAVAILABLE else SectionAvailability.NOT_REPORTED,
             rows = listOfNotNull(
-                operating?.let { InfoRow("Operating Cash Flow", money(it), "Cash generated or used by normal business operations.") },
-                capex?.let { InfoRow("Capital Expenditure", money(it), "Money spent on long-term assets such as equipment and buildings.") },
-                fcf?.let { InfoRow("Free Cash Flow", money(it), "Operating cash flow minus capital expenditure.") }
+                operating?.let { InfoRow("Operating Cash Flow", money(it), "Cash generated or used by normal business operations.", metricId = "operatingCashFlow") },
+                capex?.let { InfoRow("Capital Expenditure", money(it), "Money spent on long-term assets such as equipment and buildings.", metricId = "capex") },
+                fcf?.let { InfoRow("Free Cash Flow", money(it), "Operating cash flow minus capital expenditure.", metricId = "freeCashFlow") }
             ),
             chart = FinancialChart(fcfBars, primaryLabel = "Free Cash Flow", description = describe("Free cash flow", fcfBars)).takeIf { fcfBars.count { it.value != null } >= 2 },
             meaning = when {
@@ -240,11 +240,11 @@ object FinancialStatementsPresenter {
                 else if (unavailable("balance")) SectionAvailability.TEMPORARILY_UNAVAILABLE else SectionAvailability.NOT_REPORTED,
             headlineLabel = latest.date?.let { "As of $it" },
             rows = listOfNotNull(
-                cash?.let { InfoRow("Cash & Equivalents", money(it), "Money and highly liquid resources; excludes longer-term investments.") },
-                debt?.let { InfoRow("Total Debt", money(it), "Short- and long-term borrowings.") },
-                assets?.let { InfoRow("Total Assets", money(it)) },
-                liabilities?.let { InfoRow("Total Liabilities", money(it)) },
-                equity?.let { InfoRow("Shareholders' Equity", money(it), if (it < 0) "Negative: liabilities exceed assets." else null) }
+                cash?.let { InfoRow("Cash & Equivalents", money(it), "Money and highly liquid resources; excludes longer-term investments.", metricId = "cash") },
+                debt?.let { InfoRow("Total Debt", money(it), "Short- and long-term borrowings.", metricId = "debt") },
+                assets?.let { InfoRow("Total Assets", money(it), metricId = "assets") },
+                liabilities?.let { InfoRow("Total Liabilities", money(it), metricId = "liabilities") },
+                equity?.let { InfoRow("Shareholders' Equity", money(it), if (it < 0) "Negative: liabilities exceed assets." else null, metricId = "equity") }
             ),
             comparisons = listOfNotNull(
                 if (cash != null && debt != null && (cash > 0 || debt > 0)) FinancialComparison("Cash vs Debt", "Cash", cash, money(cash), "Debt", debt, money(debt),
@@ -257,9 +257,9 @@ object FinancialStatementsPresenter {
                     "Liabilities equal ${percent(liabilities / assets * 100, 0)} of total assets.") else null
             ),
             moreRows = listOfNotNull(
-                currentRatio?.let { InfoRow("Current Ratio", decimal(it, 2), "Short-term assets ÷ short-term liabilities.") },
-                debtToEquity?.let { InfoRow("Debt to Equity", decimal(it, 2), "Total debt ÷ shareholders' equity.") },
-                coverage?.let { InfoRow("Interest Coverage", "${decimal(it, 1)}x", "Operating profit ÷ interest expense (trailing 12 months).") }
+                currentRatio?.let { InfoRow("Current Ratio", decimal(it, 2), "Short-term assets ÷ short-term liabilities.", metricId = "currentRatio") },
+                debtToEquity?.let { InfoRow("Debt to Equity", decimal(it, 2), "Total debt ÷ shareholders' equity.", metricId = "debtEquity") },
+                coverage?.let { InfoRow("Interest Coverage", "${decimal(it, 1)}x", "Operating profit ÷ interest expense (trailing 12 months).", metricId = "interestCoverage") }
             ),
             meaning = if (cash != null && debt != null) "These are balance-sheet amounts on ${latest.date ?: label(latest)}, a single point in time." else null,
             whatIsIt = "The balance sheet lists what a company owns (assets), what it owes (liabilities) and the difference (equity).",
@@ -287,9 +287,9 @@ object FinancialStatementsPresenter {
         val dividendFact = fundamentals.financials.shareholderReturns["dividendYield"]
         val noDividend = dividendFact?.availability == FinancialAvailability.NO_DIVIDEND
         val dividendRows = listOfNotNull(
-            fact("dividendPerShare")?.let { InfoRow("Dividend per Share (TTM)", formatPerShare(it, currency)) },
-            fact("dividendYield")?.let { InfoRow("Dividend Yield (TTM)", percent(it), "Yearly dividends ÷ current share price.") },
-            fact("payoutRatio")?.let { InfoRow("Payout Ratio (TTM)", percent(it), "Share of earnings paid out as dividends.") },
+            fact("dividendPerShare")?.let { InfoRow("Dividend per Share (TTM)", formatPerShare(it, currency), metricId = "dividendPerShare") },
+            fact("dividendYield")?.let { InfoRow("Dividend Yield (TTM)", percent(it), "Yearly dividends ÷ current share price.", metricId = "dividendYield") },
+            fact("payoutRatio")?.let { InfoRow("Payout Ratio (TTM)", percent(it), "Share of earnings paid out as dividends.", metricId = "payoutRatio") },
             latest.dividendsPaid?.let { InfoRow("Dividends Paid • ${label(latest)}", money(it)) }
         )
         val dividends = FinancialStatementSection(
@@ -344,13 +344,13 @@ object FinancialStatementsPresenter {
             return FinancialMath.cagr(get(end), get(start), years)?.let { years to it }
         }
         val advanced = listOfNotNull(
-            fact("roe")?.let { InfoRow("Return on Equity", percent(it)) },
-            fact("roa")?.let { InfoRow("Return on Assets", percent(it)) },
-            fact("roic")?.let { InfoRow("Return on Invested Capital", percent(it)) },
-            fact("revenueCagr3")?.let { InfoRow("Revenue CAGR (3Y)", signed(it)) },
-            fact("revenueCagr5")?.let { InfoRow("Revenue CAGR (5Y)", signed(it)) },
-            fact("epsCagr3")?.let { InfoRow("EPS CAGR (3Y)", signed(it)) },
-            fact("epsCagr5")?.let { InfoRow("EPS CAGR (5Y)", signed(it)) },
+            fact("roe")?.let { InfoRow("Return on Equity", percent(it), metricId = "roe") },
+            fact("roa")?.let { InfoRow("Return on Assets", percent(it), metricId = "roa") },
+            fact("roic")?.let { InfoRow("Return on Invested Capital", percent(it), metricId = "roic") },
+            fact("revenueCagr3")?.let { InfoRow("Revenue CAGR (3Y)", signed(it), metricId = "revenueCagr3") },
+            fact("revenueCagr5")?.let { InfoRow("Revenue CAGR (5Y)", signed(it), metricId = "revenueCagr5") },
+            fact("epsCagr3")?.let { InfoRow("EPS CAGR (3Y)", signed(it), metricId = "epsCagr3") },
+            fact("epsCagr5")?.let { InfoRow("EPS CAGR (5Y)", signed(it), metricId = "epsCagr5") },
             if (frequency == FinancialPeriod.ANNUAL) historicalCagr { it.freeCashFlow }?.let { (years, value) -> InfoRow("Free Cash Flow CAGR (${years}Y)", signed(value)) } else null
         )
 

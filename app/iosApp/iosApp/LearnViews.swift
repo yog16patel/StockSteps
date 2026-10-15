@@ -447,3 +447,80 @@ struct LearnCardRow: View {
         .accessibilityHint(hint)
     }
 }
+
+// MARK: - Contextual learning (Phase 5D.5.3)
+
+extension MetricExplanation: @retroactive Identifiable {
+    public var id: String { metricId }
+}
+
+/// "Learn more about P/E ratio" (primary, full width) when the metric has a Learn term; nothing otherwise.
+struct MetricLearnMoreButton: View {
+    let term: EducationEntry?
+    let onLearn: (String) -> Void
+    var body: some View {
+        if let term {
+            Button(MetricLearnTerms.shared.learnMoreLabel(entry: term)) { onLearn(term.id) }
+                .buttonStyle(.stockPrimary)
+                .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+/// A tapped metric's explanation (as Compose `MetricExplanationSheet`): the screen's label, the existing metric explanation and — only when the
+/// metric has a Learn term — "Learn more about …", which closes the sheet and opens the term. No new educational text.
+struct MetricExplanationSheet: View {
+    let explanation: MetricExplanation
+    let onLearn: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var typeSize
+    var body: some View {
+        let _ = typeSize
+        let colors = StockStepsTheme.colors(scheme)
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: CGFloat(space.md)) {
+                    Text(explanation.explanation).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                    MetricLearnMoreButton(term: explanation.term) { id in dismiss(); onLearn(id) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+            }
+            .navigationTitle(explanation.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+/// Spoken hint and ⓘ rule for a tappable row (as Compose `explainLabel` / `hasTerm`).
+func metricHasTerm(_ metricId: String?) -> Bool { metricId.map { MetricLearnTerms.shared.hasTerm(metricId: $0) } ?? false }
+func metricExplanation(_ row: InfoRow) -> MetricExplanation? { row.metricId.flatMap { MetricLearnTerms.shared.explain(metricId: $0, title: row.label) } }
+
+/// A financial row that opens its explanation when the metric has one (as Compose `StockInfoRow(onClick = …)`): the whole row is a 48 pt button;
+/// the ⓘ appears only for metrics with a Learn term (D-C2). Rows without an explanation render unchanged.
+struct ExplainableInfoLine: View {
+    let label: String
+    let value: String
+    var helper: String? = nil
+    var change: String? = nil
+    var direction: PriceDirection? = nil
+    var compact = false
+    let explanation: MetricExplanation?
+    let onExplain: (MetricExplanation) -> Void
+    var body: some View {
+        if let explanation {
+            Button { onExplain(explanation) } label: {
+                StockInfoLine(label: label, value: value, helper: helper, change: change, direction: direction, compact: compact,
+                              info: explanation.term != nil)
+                    .frame(minHeight: CGFloat(dims.touchTarget)).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(MetricLearnTerms.shared.explainLabel(metricLabel: label))
+        } else {
+            StockInfoLine(label: label, value: value, helper: helper, change: change, direction: direction, compact: compact)
+        }
+    }
+}

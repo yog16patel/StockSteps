@@ -29,4 +29,6 @@ internal sealed interface CompanyDetailsAction {
     data object OpenNews : CompanyDetailsAction
     data object OpenMovement : CompanyDetailsAction
     data class OpenArticle(val url: String) : CompanyDetailsAction
+    /** 5D.5.3: "Learn more about …" from a metric explanation; opens the Learn term (Back returns here). */
+    data class LearnTerm(val id: String) : CompanyDetailsAction
 }

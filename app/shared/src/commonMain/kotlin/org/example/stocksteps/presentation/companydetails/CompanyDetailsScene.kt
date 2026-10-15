@@ -34,7 +34,9 @@ internal fun CompanyDetailsScene(
     onEarningsResults: (String) -> Unit = {},
     onSignIn: () -> Unit = {},
     onResearch: (symbol: String, name: String) -> Unit = { _, _ -> },
-    onPracticeBuy: (String) -> Unit = {}
+    onPracticeBuy: (String) -> Unit = {},
+    /** 5D.5.3: opens a Learn term page on top of this stock. */
+    onLearnTerm: (String) -> Unit = {}
 ) {
     val model = viewModel(key = "company-details:${route.symbol}:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
@@ -94,6 +96,7 @@ internal fun CompanyDetailsScene(
                 CompanyDetailsAction.OpenNews -> onOpenNews(route.symbol)
                 CompanyDetailsAction.OpenMovement -> onOpenMovement(route.symbol)
                 is CompanyDetailsAction.OpenArticle -> runCatching { uriHandler.openUri(action.url) }
+                is CompanyDetailsAction.LearnTerm -> onLearnTerm(action.id)
             }
         }
     )

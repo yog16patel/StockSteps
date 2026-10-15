@@ -20,6 +20,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import org.example.stocksteps.WindowHinge
 import org.example.stocksteps.companydetail.*
 import org.example.stocksteps.designsystem.components.*
+import org.example.stocksteps.designsystem.icons.StockIcons
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.di.StockStepsDependencies
 import org.example.stocksteps.model.AppBarBackButton
@@ -40,7 +41,9 @@ internal fun CompanyFinancialsScene(
     environment: BackendEnvironment,
     hinge: WindowHinge?,
     backIcon: @Composable () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /** 5D.5.3: opens a Learn term on top of this screen (Back returns here). */
+    onLearnTerm: (String) -> Unit = {}
 ) {
     val model = viewModel(key = "company-financials:${route.symbol}:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
@@ -54,7 +57,8 @@ internal fun CompanyFinancialsScene(
         onBack = onBack,
         onFrequency = model::selectFrequency,
         onRange = model::selectRange,
-        onRetry = model::load
+        onRetry = model::load,
+        onLearnTerm = onLearnTerm
     )
 }
 
@@ -71,8 +75,14 @@ internal fun CompanyFinancialsScreen(
     onBack: () -> Unit,
     onFrequency: (FinancialPeriod) -> Unit,
     onRange: (FinancialRange) -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onLearnTerm: (String) -> Unit = {}
 ) {
+    // 5D.5.3: one explanation sheet for every tappable row; "Learn more" only for metrics with a Learn term.
+    var explaining by remember { mutableStateOf<org.example.stocksteps.learning.MetricExplanation?>(null) }
+    val explain: (InfoRow) -> (() -> Unit)? = { row -> row.metricId?.let { id -> org.example.stocksteps.learning.MetricLearnTerms.explain(id, row.label)?.let { e -> { explaining = e } } } }
+    explaining?.let { e -> org.example.stocksteps.presentation.learn.MetricExplanationSheet(e, onLearnTerm) { explaining = null } }
+
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val model = remember(state.fundamentals, state.frequency, state.range, state.shortName) { state.model }
@@ -130,7 +140,7 @@ internal fun CompanyFinancialsScreen(
                     }
                     else -> {
                         model.sections.forEach { financial ->
-                            item(key = financial.id) { FinancialSectionCard(financial, section) }
+                            item(key = financial.id) { FinancialSectionCard(financial, section, explain, onLearnTerm) }
                         }
                         if (model.summary.isNotEmpty()) {
                             item(key = "summary") { SummaryCard(model, section) }
@@ -145,7 +155,8 @@ internal fun CompanyFinancialsScreen(
                         if (model.advanced.isNotEmpty()) {
                             item(key = "advanced") {
                                 Expandable(stringResource(Res.string.financials_advanced), stringResource(Res.string.financials_advanced), section) {
-                                    model.advanced.forEach { StockInfoRow(it.label, it.value, compact = true) }
+                                    model.advanced.forEach { StockInfoRow(it.label, it.value, compact = true, onClick = explain(it), onClickLabel = explainLabel(it),
+                                        info = hasTerm(it)) }
                                 }
                             }
                         }
@@ -156,7 +167,9 @@ internal fun CompanyFinancialsScreen(
                                     StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
                                         valuation.forEachIndexed { index, metric ->
                                             if (index > 0) StockDivider()
-                                            StockInfoRow(metric.label, CompanyDetailPresenter.metricValue(metric), helper = CompanyDetailPresenter.historicalContext(metric))
+                                            val row = InfoRow(metric.label, CompanyDetailPresenter.metricValue(metric), metricId = metric.id)
+                                            StockInfoRow(metric.label, CompanyDetailPresenter.metricValue(metric), helper = CompanyDetailPresenter.historicalContext(metric),
+                                                onClick = explain(row), onClickLabel = explainLabel(row), info = hasTerm(row))
                                         }
                                     }
                                 }
@@ -171,7 +184,8 @@ internal fun CompanyFinancialsScreen(
 
 /** One financial area: headline + change, plain-English meaning, chart, rows, comparisons, explanation. */
 @Composable
-private fun FinancialSectionCard(section: FinancialStatementSection, modifier: Modifier) {
+private fun FinancialSectionCard(section: FinancialStatementSection, modifier: Modifier, explain: (InfoRow) -> (() -> Unit)? = { null },
+                                 onLearnTerm: (String) -> Unit = {}) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     var learn by rememberSaveable(section.id) { mutableStateOf(false) }
@@ -201,7 +215,8 @@ private fun FinancialSectionCard(section: FinancialStatementSection, modifier: M
                         Column {
                             section.rows.forEachIndexed { index, row ->
                                 if (index > 0) StockDivider()
-                                StockInfoRow(row.label, row.value, helper = row.helper, change = row.change, direction = row.changeDirection)
+                                StockInfoRow(row.label, row.value, helper = row.helper, change = row.change, direction = row.changeDirection,
+                                    onClick = explain(row), onClickLabel = explainLabel(row), info = hasTerm(row))
                             }
                         }
                     }
@@ -210,7 +225,8 @@ private fun FinancialSectionCard(section: FinancialStatementSection, modifier: M
                     }
                     if (section.moreRows.isNotEmpty()) {
                         Toggle(stringResource(if (more) Res.string.financials_hide_ratios else Res.string.financials_show_ratios)) { more = !more }
-                        if (more) section.moreRows.forEach { StockInfoRow(it.label, it.value, helper = it.helper, compact = true) }
+                        if (more) section.moreRows.forEach { StockInfoRow(it.label, it.value, helper = it.helper, compact = true, onClick = explain(it),
+                            onClickLabel = explainLabel(it), info = hasTerm(it)) }
                     }
                     section.note?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textTertiary) }
                 }
@@ -223,6 +239,10 @@ private fun FinancialSectionCard(section: FinancialStatementSection, modifier: M
                         Text(section.whatIsIt, style = StockStepsTheme.typography.small, color = colors.textBody)
                         Text(stringResource(Res.string.financials_why_matters), style = StockStepsTheme.typography.label, color = colors.primaryText)
                         Text(section.whyItMatters, style = StockStepsTheme.typography.small, color = colors.textBody)
+                        // 5D.5.3: a section headline with a Learn term (Revenue, EPS) links to the full lesson.
+                        org.example.stocksteps.learning.MetricLearnTerms.termFor(section.id)?.let { term ->
+                            StockLinkAction(org.example.stocksteps.learning.MetricLearnTerms.learnMoreLabel(term), { onLearnTerm(term.id) }, icon = StockIcons.School)
+                        }
                     }
                 }
             }
@@ -269,3 +289,9 @@ private fun Toggle(text: String, onClick: () -> Unit) {
         Text("$text →", style = StockStepsTheme.typography.bodyMedium, color = StockStepsTheme.colors.primaryText)
     }
 }
+
+/** 5D.5.3: spoken label for a tappable row ("Explain Net Margin"); null when the row has no explanation. */
+internal fun explainLabel(row: InfoRow): String? = row.metricId?.let { org.example.stocksteps.learning.MetricLearnTerms.explainLabel(row.label) }
+
+/** 5D.5.3 (D-C2): the ⓘ marks only rows whose metric has a Learn term. */
+internal fun hasTerm(row: InfoRow): Boolean = row.metricId?.let(org.example.stocksteps.learning.MetricLearnTerms::hasTerm) == true

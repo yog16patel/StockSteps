@@ -38,14 +38,16 @@ internal fun CompanyValuationScene(
     environment: BackendEnvironment,
     hinge: WindowHinge?,
     backIcon: @Composable () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    /** 5D.5.3: opens a Learn term on top of this screen (Back returns here). */
+    onLearnTerm: (String) -> Unit = {}
 ) {
     val model = viewModel(key = "company-valuation:${route.symbol}:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
         CompanyValuationViewModel(route.symbol, data.getValuationHistory(), data.getCompanyFundamentals(), data.getCompanyProfile(), data::close)
     }
     val state by model.state.collectAsStateWithLifecycle()
-    CompanyValuationScreen(state, hinge, backIcon, onBack, onRange = model::selectRange, onRetry = model::load)
+    CompanyValuationScreen(state, hinge, backIcon, onBack, onRange = model::selectRange, onRetry = model::load, onLearnTerm = onLearnTerm)
 }
 
 /**
@@ -60,8 +62,14 @@ internal fun CompanyValuationScreen(
     backIcon: @Composable () -> Unit,
     onBack: () -> Unit,
     onRange: (ValuationRange) -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onLearnTerm: (String) -> Unit = {}
 ) {
+    // 5D.5.3: one explanation sheet for every tappable row; "Learn more" only for metrics with a Learn term.
+    var explaining by remember { mutableStateOf<org.example.stocksteps.learning.MetricExplanation?>(null) }
+    val explain: (InfoRow) -> (() -> Unit)? = { row -> row.metricId?.let { id -> org.example.stocksteps.learning.MetricLearnTerms.explain(id, row.label)?.let { e -> { explaining = e } } } }
+    explaining?.let { e -> org.example.stocksteps.presentation.learn.MetricExplanationSheet(e, onLearnTerm) { explaining = null } }
+
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val model = remember(state.history, state.fundamentals, state.range, state.shortName, state.profile?.currency) { state.model }
@@ -97,7 +105,7 @@ internal fun CompanyValuationScreen(
                 }
                 item(key = "current") { CurrentCard(model, content.padding(top = spacing.md)) }
                 item(key = "trend") { TrendSection(model, state.history is org.example.stocksteps.presentation.companydetails.Section.Content, onRange, onRetry, section) }
-                item(key = "understanding") { UnderstandingCard(model, section) }
+                item(key = "understanding") { UnderstandingCard(model, section, onLearnTerm) }
                 item(key = "other") {
                     Column(section, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                         StockSectionHeader(stringResource(Res.string.valuation_other_title))
@@ -107,7 +115,7 @@ internal fun CompanyValuationScreen(
                                 model.otherMetrics.isEmpty() -> StockEmptyState(stringResource(Res.string.valuation_other_empty), Modifier.padding(vertical = spacing.sm))
                                 else -> model.otherMetrics.forEachIndexed { index, row ->
                                     if (index > 0) StockDivider()
-                                    StockInfoRow(row.label, row.value, helper = row.helper)
+                                    StockInfoRow(row.label, row.value, helper = row.helper, onClick = explain(row), onClickLabel = explainLabel(row), info = hasTerm(row))
                                 }
                             }
                         }
@@ -120,7 +128,7 @@ internal fun CompanyValuationScreen(
                             StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
                                 model.growth.forEachIndexed { index, row ->
                                     if (index > 0) StockDivider()
-                                    StockInfoRow(row.label, row.value, change = null)
+                                    StockInfoRow(row.label, row.value, change = null, onClick = explain(row), onClickLabel = explainLabel(row), info = hasTerm(row))
                                 }
                                 Text(model.growthNote, Modifier.padding(vertical = spacing.sm), style = StockStepsTheme.typography.small, color = colors.textBody)
                             }
@@ -214,7 +222,7 @@ private fun TrendSection(model: ValuationModel, loaded: Boolean, onRange: (Valua
 }
 
 @Composable
-private fun UnderstandingCard(model: ValuationModel, modifier: Modifier) {
+private fun UnderstandingCard(model: ValuationModel, modifier: Modifier, onLearnTerm: (String) -> Unit = {}) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     Column(
@@ -225,6 +233,11 @@ private fun UnderstandingCard(model: ValuationModel, modifier: Modifier) {
             style = StockStepsTheme.typography.cardTitle.copy(fontWeight = FontWeight.Bold), color = colors.textPrimary)
         Text(model.understanding, style = StockStepsTheme.typography.body, color = colors.textBody)
         listOf(model.highReasons, model.lowReasons).forEach { explainer -> Explainer(explainer) }
+        // 5D.5.3: the full P/E lesson one tap away.
+        org.example.stocksteps.learning.MetricLearnTerms.termFor("pe")?.let { term ->
+            StockLinkAction(org.example.stocksteps.learning.MetricLearnTerms.learnMoreLabel(term), { onLearnTerm(term.id) },
+                icon = org.example.stocksteps.designsystem.icons.StockIcons.School)
+        }
     }
 }
 

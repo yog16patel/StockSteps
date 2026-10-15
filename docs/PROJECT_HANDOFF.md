@@ -1,15 +1,55 @@
-# StockSteps — session handoff (2026-10-15: Phase 5D.5.2 Learn CLOSED; next: follow-ups below, then the next refinement step after owner direction)
+# StockSteps — session handoff (2026-10-15: Phase 5D.5.3 contextual learning committed; next: owner review of the review package)
 
-Read order for a new session: `CLAUDE.md` → `docs/AI_REVIEW_WORKFLOW.md` (review packages, evidence and approval rules) → **§PHASE-5D-5-2-CLOSED-2026-10-15 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` §7 → §PHASE-5D-5-2-R2-2026-10-15 → `docs/reviews/phase5d_5_2_r2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-2-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` → `docs/reviews/phase5d_5_2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-1C-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C_PLAN.md` → §PHASE-5D-5-1B-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md` → `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md` → §PHASE-5D-5-1-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
+Read order for a new session: `CLAUDE.md` → `docs/AI_REVIEW_WORKFLOW.md` (review packages, evidence and approval rules) → **§PHASE-5D-5-3-2026-10-15 below** → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` → `docs/reviews/phase5d_5_3/CHATGPT_REVIEW_PACKAGE.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3_PLAN.md` → §PHASE-5D-5-2-CLOSED-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` §7 → §PHASE-5D-5-2-R2-2026-10-15 → `docs/reviews/phase5d_5_2_r2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-2-2026-10-15 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` → `docs/reviews/phase5d_5_2/CHATGPT_REVIEW_PACKAGE.md` → §PHASE-5D-5-1C-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1C_PLAN.md` → §PHASE-5D-5-1B-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1B.md` → `docs/DAILY_BRIEF_UI_REFINEMENT_PLAN.md` → §PHASE-5D-5-1-2026-10-14 → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_1.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_PLAN.md` → §SESSION-END-2026-10-14-EARNINGS → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_4_3.md` → `_5D_4_2.md` → `_5D_4.md` (incl. §5D.4.1) → `_5D_3.md` → `_5D_2.md` → §SESSION-END-2026-10-14 (earlier, superseded) → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_AUDIT.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE5D_1.md` / `_1A.md` / `_1B.md` → §PHASE-E-2-2026-10-13 → §SESSION-END-2026-10-13-PORTFOLIO → §PHASE-E-1-2026-10-13 → §PHASE-E-2026-10-13 → §D3-1-2026-10-13 → §D3-2026-10-13 → §D2-2026-10-13 → §D1-1-CLOSURE-2026-10-13 → §HANDOFF-2026-10-13-END → §D1-1-2026-10-13 → §D1-2026-10-12 → §C1-CLEANUP-2026-10-12 → §C1-CLOSURE-2026-10-12 → §HANDOFF-2026-10-12-END → §PORTFOLIO-PC1-2026-10-12 → §PORTFOLIO-PC-2026-10-12 → §PORTFOLIO-PB1-2026-10-12 → §PORTFOLIO-PB-2026-10-12 → §PORTFOLIO-PA-2026-10-12 → §HANDOFF-2026-10-12 → §A11Y-CLOSURE-5C → §FINAL-POLISH-5C → §CLOSURE-5C1-PA → §HANDOFF-2026-10-11 → §PHASE5C1 → §PHASE5C → §PHASE5B-CLOSURE → §PHASE5B → §NEXT → §PHASE5A1 → §PHASE5A → §PHASE4C3 → §PHASE4C2 → §PHASE4C1 → §PHASE4C → §PHASE4B1 → §PHASE4B → §PHASE4A → §SESSION → §000000000…§00000 (Global UI Refinement phases, newest first) →
 `docs/GLOBAL_UI_REFINEMENT_PLAN.md` → `docs/GLOBAL_UI_REFINEMENT_PHASE3_PORTFOLIO.md` + `docs/GLOBAL_UI_REFINEMENT_PHASE3_1_POLISH.md` →
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
+## PHASE-5D-5-3-2026-10-15. Contextual learning (Phase 5D.5.3) — START HERE
+
+### 0. Repository state
+- **Current commit:** "Add contextual Learn links for Global UI Refinement Phase 5D.5.3 with an info mark on metrics that have a Learn term, explanation sheets for Financials and Valuation rows, and Learn more buttons that open the term page on the same stack on Android and iOS" (this commit, pushed). Base: `600c295`.
+- Plan: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3_PLAN.md` (approved: A, then B+C, then D; D-C1 to D-C6 as recommended).
+- Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md`. Review package: `docs/reviews/phase5d_5_3/` (report, Android/iOS contact sheets, focused
+  diff; `captures/` stays local and git-ignored). Reference images: `docs/design/phase5d_5_3/`.
+
+### 1. What was done
+- Core `learning/MetricLearnTerms`: metric id → Learn term by id only (exact term id, then the single `relatedMetrics` owner, else null; `cash` →
+  `cash`). `MetricExplanation` carries the sheet title, the existing `MetricEducation` text and the optional term. No new educational text.
+- `InfoRow.metricId` (optional): 25 Financials rows and 9 Valuation rows tagged.
+- Company Details glance tiles with a term show ⓘ (Market Cap, P/E, Revenue Growth, Dividend Yield); the existing sheet adds "Learn more about
+  {term}" (D-C2, D-C5).
+- Financials and Valuation rows open an explanation sheet; only mapped rows show ⓘ and the Learn button (D-C6). Section "What is this?" panels
+  (Revenue, EPS) and the Understanding P/E card add a Learn link.
+- Navigation: Android `LearnTermRoute` on the same back stack (Learn tab highlighted, D-C3); iOS `LearnTermView` on the same `NavigationStack`.
+  No toast (D-C4); layout unchanged (D-C1).
+- Design system: `StockMetric`/`StockMetricItem(info)`, `StockMetricLabel`, `StockInfoRow(onClick, onClickLabel, info)`, iOS `StockInfoLine.info`;
+  all optional with unchanged defaults.
+
+### 2. Validation
+- core JVM 541/0 (rerun; the known `PortfolioSessionStateTest` timeout flake failed once in the full run), core iOS 541/0, shared Android 246/0,
+  shared iOS 242/0, server 501/0; `assembleDebug` and `xcodebuild` PASS.
+- Android (emulator-5554, 360 dp, MOCK): glance ⓘ, P/E sheet → term → Back, Financials and Valuation rows/sheets, Valuation link, 2.0×: PASS.
+- iOS (iPhone 16, MOCK, guest): the same journeys, dark, AX5: PASS.
+
+### 3. Not verified / limits
+- Android dark: NOT RUN (the app's own Light theme setting). TalkBack NOT RUN; VoiceOver BLOCKED (device); iOS signed-in BLOCKED (guest).
+- iOS rows resize on a live AX5 switch only after reopening the screen (existing Dynamic Type live-refresh limit).
+- The Android Company Details "Key Ratios" card is not tappable (out of scope).
+
+### 4. Environment at the end
+- MOCK server stopped; emulator font 1.0, display size reset, `adb reverse` removed; simulator light and Default text size (guest mode).
+
+### 5. Next steps
+- Owner review of `docs/reviews/phase5d_5_3/`.
+- Optional follow-ups: explainable "Key Ratios" rows; Android dark check with the in-app theme.
+- Earlier follow-ups in §PHASE-5D-5-2-CLOSED-2026-10-15 stay open.
+
 ## PHASE-5D-5-2-CLOSED-2026-10-15. Learn closed — START HERE
 
 - **Status:** the owner approved closing Phase 5D.5.2 Learn. Implementation is in `057d6e6` (redesign) and `0730773` (polish r2), both pushed.
-- **Current commit:** "Record the closure of Global UI Refinement Phase 5D.5.2 Learn with final verification, remaining checks and follow-ups" (this
-  commit). It is local only: **not pushed**, pending the owner's approval.
+- **Closure commit:** "Record the closure of Global UI Refinement Phase 5D.5.2 Learn with final verification, remaining checks and follow-ups"
+  (`600c295`, pushed).
 - **Final verification:** `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_2.md` §7 (tests, builds, Android and iOS device checks, review packages).
 - **Outstanding checks (keep open):**
   - iOS signed-in progress: BLOCKED (guest mode).

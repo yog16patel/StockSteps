@@ -76,9 +76,14 @@ final class CompanyFinancialsModel {
 struct CompanyFinancialsScene: View {
     @Environment(\.colorScheme) private var scheme
     @State private var model: CompanyFinancialsModel
+    /// 5D.5.3: the open metric explanation and a Learn term pushed from it (Back returns here).
+    @State private var explaining: MetricExplanation?
+    @State private var learnTerm: String?
+    var onSearchCompanies: () -> Void = {}
 
-    init(symbol: String, client: IosCompanyDetailsClient) {
+    init(symbol: String, client: IosCompanyDetailsClient, onSearchCompanies: @escaping () -> Void = {}) {
         _model = State(initialValue: CompanyFinancialsModel(symbol: symbol, client: client))
+        self.onSearchCompanies = onSearchCompanies
     }
 
     var body: some View {
@@ -115,7 +120,7 @@ struct CompanyFinancialsScene: View {
                         StockSectionMessage(message: empty, actionTitle: "Try again", action: model.load).stockCard(bordered: false).padding(.top, CGFloat(space.xl))
                     } else {
                         ForEach(content.sections, id: \.id) { section in
-                            FinancialSectionView(section: section).padding(.top, CGFloat(space.xl))
+                            FinancialSectionView(section: section, onExplain: { explaining = $0 }, onLearnTerm: { learnTerm = $0 }).padding(.top, CGFloat(space.xl))
                         }
                         if !content.summary.isEmpty { FinancialSummaryView(model: content).padding(.top, CGFloat(space.xl)) }
                         if let table = content.table {
@@ -123,7 +128,9 @@ struct CompanyFinancialsScene: View {
                         }
                         if !content.advanced.isEmpty {
                             FinancialExpandable(title: "Advanced Metrics") {
-                                ForEach(content.advanced, id: \.label) { StockInfoLine(label: $0.label, value: $0.value, compact: true) }
+                                ForEach(content.advanced, id: \.label) { row in
+                                    ExplainableInfoLine(label: row.label, value: row.value, compact: true, explanation: metricExplanation(row)) { explaining = $0 }
+                                }
                             }
                             .padding(.top, CGFloat(space.xl))
                         }
@@ -133,8 +140,9 @@ struct CompanyFinancialsScene: View {
                                 VStack(spacing: 0) {
                                     ForEach(Array(model.valuation.enumerated()), id: \.offset) { index, metric in
                                         if index > 0 { StockDivider() }
-                                        StockInfoLine(label: metric.label, value: CompanyDetailPresenter.shared.metricValue(metric: metric),
-                                                      helper: CompanyDetailPresenter.shared.historicalContext(metric: metric))
+                                        ExplainableInfoLine(label: metric.label, value: CompanyDetailPresenter.shared.metricValue(metric: metric),
+                                                            helper: CompanyDetailPresenter.shared.historicalContext(metric: metric),
+                                                            explanation: MetricLearnTerms.shared.explain(metricId: metric.id, title: metric.label)) { explaining = $0 }
                                     }
                                 }
                                 .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
@@ -160,6 +168,8 @@ struct CompanyFinancialsScene: View {
         .background(colors.appBackground.ignoresSafeArea())
         .navigationTitle("\(model.shortName) Financials")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $explaining) { e in MetricExplanationSheet(explanation: e) { id in explaining = nil; learnTerm = id } }
+        .navigationDestination(item: $learnTerm) { id in LearnTermView(termId: id, onSearchCompanies: onSearchCompanies) }
         .task { model.start() }
     }
 }
@@ -168,6 +178,8 @@ struct CompanyFinancialsScene: View {
 private struct FinancialSectionView: View {
     @Environment(\.colorScheme) private var scheme
     let section: FinancialStatementSection
+    var onExplain: (MetricExplanation) -> Void = { _ in }
+    var onLearnTerm: (String) -> Void = { _ in }
     @State private var learn = false
     @State private var more = false
 
@@ -195,14 +207,17 @@ private struct FinancialSectionView: View {
                         VStack(spacing: 0) {
                             ForEach(Array(section.rows.enumerated()), id: \.offset) { index, row in
                                 if index > 0 { StockDivider() }
-                                StockInfoLine(label: row.label, value: row.value, helper: row.helper, change: row.change, direction: row.changeDirection)
+                                ExplainableInfoLine(label: row.label, value: row.value, helper: row.helper, change: row.change, direction: row.changeDirection,
+                                                    explanation: metricExplanation(row), onExplain: onExplain)
                             }
                         }
                     }
                     ForEach(Array(section.comparisons.enumerated()), id: \.offset) { _, comparison in StockComparisonBars(comparison: comparison) }
                     if !section.moreRows.isEmpty {
                         toggle(more ? "Hide ratios" : "Show ratios") { more.toggle() }
-                        if more { ForEach(section.moreRows, id: \.label) { StockInfoLine(label: $0.label, value: $0.value, helper: $0.helper, compact: true) } }
+                        if more { ForEach(section.moreRows, id: \.label) { row in
+                            ExplainableInfoLine(label: row.label, value: row.value, helper: row.helper, compact: true, explanation: metricExplanation(row), onExplain: onExplain)
+                        } }
                     }
                     if let note = section.note { Text(note).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary) }
                 }
@@ -212,6 +227,15 @@ private struct FinancialSectionView: View {
                         Text(section.whatIsIt).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
                         Text("Why it matters").font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
                         Text(section.whyItMatters).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
+                        // 5D.5.3: a section with a Learn term (Revenue, EPS) links to the full lesson.
+                        if let term = MetricLearnTerms.shared.termFor(metricId: section.id) {
+                            Button { onLearnTerm(term.id) } label: {
+                                Label(MetricLearnTerms.shared.learnMoreLabel(entry: term), systemImage: "graduationcap")
+                                    .font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
+                                    .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget)).contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                     .padding(CGFloat(space.sm)).frame(maxWidth: .infinity, alignment: .leading)
                     .background(colors.primaryContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))

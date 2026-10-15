@@ -55,9 +55,14 @@ final class CompanyValuationModel {
 struct CompanyValuationScene: View {
     @Environment(\.colorScheme) private var scheme
     @State private var model: CompanyValuationModel
+    /// 5D.5.3: the open metric explanation and a Learn term pushed from it (Back returns here).
+    @State private var explaining: MetricExplanation?
+    @State private var learnTerm: String?
+    var onSearchCompanies: () -> Void = {}
 
-    init(symbol: String, client: IosCompanyDetailsClient) {
+    init(symbol: String, client: IosCompanyDetailsClient, onSearchCompanies: @escaping () -> Void = {}) {
         _model = State(initialValue: CompanyValuationModel(symbol: symbol, client: client))
+        self.onSearchCompanies = onSearchCompanies
     }
 
     var body: some View {
@@ -96,7 +101,7 @@ struct CompanyValuationScene: View {
                             } else {
                                 ForEach(Array(content.otherMetrics.enumerated()), id: \.offset) { index, row in
                                     if index > 0 { StockDivider() }
-                                    StockInfoLine(label: row.label, value: row.value, helper: row.helper)
+                                    ExplainableInfoLine(label: row.label, value: row.value, helper: row.helper, explanation: metricExplanation(row)) { explaining = $0 }
                                 }
                             }
                         }
@@ -107,7 +112,7 @@ struct CompanyValuationScene: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 ForEach(Array(content.growth.enumerated()), id: \.offset) { index, row in
                                     if index > 0 { StockDivider() }
-                                    StockInfoLine(label: row.label, value: row.value)
+                                    ExplainableInfoLine(label: row.label, value: row.value, explanation: metricExplanation(row)) { explaining = $0 }
                                 }
                                 Text(content.growthNote).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).padding(.vertical, CGFloat(space.sm))
                             }
@@ -154,6 +159,8 @@ struct CompanyValuationScene: View {
         }
         .background(colors.appBackground.ignoresSafeArea())
         .navigationTitle("\(model.shortName) Valuation")
+        .sheet(item: $explaining) { e in MetricExplanationSheet(explanation: e) { id in explaining = nil; learnTerm = id } }
+        .navigationDestination(item: $learnTerm) { id in LearnTermView(termId: id, onSearchCompanies: onSearchCompanies) }
         .navigationBarTitleDisplayMode(.inline)
         .task { model.start() }
     }
@@ -194,6 +201,15 @@ struct CompanyValuationScene: View {
             Text(content.understanding).font(StockStepsTheme.font(StockStepsTheme.typography.body)).foregroundStyle(colors.textBody)
             ValuationExplainerView(explainer: content.highReasons)
             ValuationExplainerView(explainer: content.lowReasons)
+            // 5D.5.3: the full P/E lesson one tap away.
+            if let term = MetricLearnTerms.shared.termFor(metricId: "pe") {
+                Button { learnTerm = term.id } label: {
+                    Label(MetricLearnTerms.shared.learnMoreLabel(entry: term), systemImage: "graduationcap")
+                        .font(StockStepsTheme.font(StockStepsTheme.typography.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
+                        .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget)).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(CGFloat(StockStepsTheme.spacing.lg))
         .frame(maxWidth: .infinity, alignment: .leading)

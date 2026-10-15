@@ -5,12 +5,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import org.example.stocksteps.companydetail.PriceDirection
+import org.example.stocksteps.designsystem.icons.StockIcons
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.theme.StockLayout
 
@@ -39,7 +44,9 @@ internal fun StockMetric(
     onClick: (() -> Unit)? = null,
     onClickLabel: String? = null,
     /** 5D.4.2: a secondary metric in a group (e.g. an estimate beside the reported value): same size, medium weight, body colour. Default unchanged. */
-    quiet: Boolean = false
+    quiet: Boolean = false,
+    /** 5D.5.3: a small ⓘ after the label signals that tapping explains the metric (decorative; [onClickLabel] says it). Default off. */
+    info: Boolean = false
 ) {
     val colors = StockStepsTheme.colors
     val valueStyle = if (quiet) StockStepsTheme.typography.numberEmphasis.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) else StockStepsTheme.typography.numberEmphasis
@@ -50,13 +57,25 @@ internal fun StockMetric(
             .padding(vertical = StockStepsTheme.spacing.xs),
         verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.labelValueGap)
     ) {
-        Text(label, style = StockStepsTheme.typography.label, color = colors.textSecondary)
+        StockMetricLabel(label, info)
         if (direction != null && direction != PriceDirection.UNAVAILABLE) {
             StockPriceChange(value, direction, style = valueStyle, maxLines = Int.MAX_VALUE)
         } else {
             Text(value, style = valueStyle, color = if (quiet) colors.textBody else colors.textPrimary)
         }
         if (helper != null) Text(helper, style = StockStepsTheme.typography.caption, color = colors.textTertiary)
+    }
+}
+
+/** A metric label, optionally followed by a decorative ⓘ (5D.5.3) that wraps with the label instead of squeezing it. */
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+internal fun StockMetricLabel(label: String, info: Boolean, style: androidx.compose.ui.text.TextStyle = StockStepsTheme.typography.label,
+                              color: androidx.compose.ui.graphics.Color = StockStepsTheme.colors.textSecondary, modifier: Modifier = Modifier) {
+    if (!info) { Text(label, modifier, style = style, color = color); return }
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs), itemVerticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = style, color = color)
+        Icon(StockIcons.Info, contentDescription = null, tint = StockStepsTheme.colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
     }
 }
 
@@ -69,7 +88,9 @@ internal data class StockMetricItem(
     val onClick: (() -> Unit)? = null,
     val onClickLabel: String? = null,
     /** 5D.4.2: see [StockMetric] `quiet`; default unchanged. */
-    val quiet: Boolean = false
+    val quiet: Boolean = false,
+    /** 5D.5.3: see [StockMetric] `info`; default off. */
+    val info: Boolean = false
 )
 
 /**
@@ -117,12 +138,12 @@ internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = 
                     val stacked = anyStacked
                     if (stacked) {
                         Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-                            Text(item.label, style = labelStyle, color = StockStepsTheme.colors.textSecondary)
+                            StockMetricLabel(item.label, item.info)
                             value()
                         }
                     } else Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(gap)) {
-                        Text(item.label, Modifier.weight(1f), style = labelStyle, color = StockStepsTheme.colors.textSecondary)
+                        StockMetricLabel(item.label, item.info, modifier = Modifier.weight(1f))
                         value()
                     }
                 }
@@ -133,7 +154,7 @@ internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = 
             items.chunked(columns).forEach { row ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {
                     row.forEach { item ->
-                        StockMetric(item.label, item.value, Modifier.weight(1f), item.helper, item.direction, item.onClick, item.onClickLabel, item.quiet)
+                        StockMetric(item.label, item.value, Modifier.weight(1f), item.helper, item.direction, item.onClick, item.onClickLabel, item.quiet, item.info)
                     }
                     repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
@@ -154,13 +175,20 @@ internal fun StockInfoRow(
     helper: String? = null,
     change: String? = null,
     direction: PriceDirection? = null,
-    compact: Boolean = false
+    compact: Boolean = false,
+    /** 5D.5.3: tapping the row explains the metric (the row is then a 48 dp button); [info] adds a decorative ⓘ after the label. Defaults unchanged. */
+    onClick: (() -> Unit)? = null,
+    onClickLabel: String? = null,
+    info: Boolean = false
 ) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    Column(modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(vertical = if (compact) StockStepsTheme.spacing.xs else StockStepsTheme.spacing.sm)) {
+    val tap = if (onClick != null) Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(onClickLabel = onClickLabel, role = Role.Button, onClick = onClick)
+        else Modifier.semantics(mergeDescendants = true) {}
+    Column(modifier.fillMaxWidth().then(tap).padding(vertical = if (compact) StockStepsTheme.spacing.xs else StockStepsTheme.spacing.sm)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
-            Text(label, modifier = Modifier.weight(1f), style = if (compact) typography.small else typography.body, color = if (compact) colors.textSecondary else colors.textBody)
+            StockMetricLabel(label, info, style = if (compact) typography.small else typography.body, color = if (compact) colors.textSecondary else colors.textBody,
+                modifier = Modifier.weight(1f))
             Text(value, style = if (compact) typography.numberLabelStrong else typography.numberMedium, color = colors.textPrimary, textAlign = TextAlign.End)
             if (change != null) {
                 Box(Modifier.widthIn(min = StockStepsTheme.dimensions.changeColumn), contentAlignment = Alignment.CenterEnd) {

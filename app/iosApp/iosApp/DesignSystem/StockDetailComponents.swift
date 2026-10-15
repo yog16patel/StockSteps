@@ -327,11 +327,13 @@ struct StockInfoLine: View {
     var change: String?
     var direction: PriceDirection?
     var compact = false
+    /// 5D.5.3: a decorative ⓘ after the label for rows that open a metric explanation. Default off.
+    var info = false
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
             HStack(spacing: CGFloat(space.sm)) {
-                Text(label).font(StockStepsTheme.font(compact ? type.small : type.body)).foregroundStyle(compact ? colors.textSecondary : colors.textBody)
+                StockMetricLabel(label: label, info: info, style: compact ? type.small : type.body, color: compact ? colors.textSecondary : colors.textBody)
                 Spacer(minLength: 0)
                 Text(value).font(StockStepsTheme.font(compact ? type.numberLabelStrong : type.numberMedium)).foregroundStyle(colors.textPrimary)
                 if let change {

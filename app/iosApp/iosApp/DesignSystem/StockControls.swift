@@ -82,11 +82,13 @@ struct StockMetric: View {
     var direction: PriceDirection?
     /// 5D.4.2: a secondary metric in a group: same size, medium weight, body colour (as Compose). Default unchanged.
     var quiet = false
+    /// 5D.5.3: a decorative ⓘ after the label (the tap's hint says what it does). Default off.
+    var info = false
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         let valueStyle = type.numberEmphasis
         VStack(alignment: .leading, spacing: CGFloat(space.labelValueGap)) {
-            Text(label).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
+            StockMetricLabel(label: label, info: info)
             if let direction, direction != .unavailable {
                 StockPriceChange(percentage: value, direction: direction, style: valueStyle, lineLimit: nil)
             } else {
@@ -114,6 +116,26 @@ struct StockMetricItem: Identifiable {
     var hint: String? = nil
     /// 5D.4.2: see `StockMetric.quiet`; default unchanged.
     var quiet = false
+    /// 5D.5.3: see `StockMetric.info`; default off.
+    var info = false
+}
+
+/// A metric label, optionally followed by a decorative ⓘ (5D.5.3, as Compose `StockMetricLabel`); the icon scales with the label.
+struct StockMetricLabel: View {
+    @Environment(\.colorScheme) private var scheme
+    let label: String
+    var info = false
+    var style: ThemeTextStyle = StockStepsTheme.typography.label
+    var color: Color? = nil
+    var body: some View {
+        let colors = StockStepsTheme.colors(scheme)
+        let text = Text(label).font(StockStepsTheme.font(style)).foregroundStyle(color ?? colors.textSecondary)
+        if info {
+            (Text(label) + Text("\u{00A0}") + Text(Image(systemName: "info.circle")).foregroundColor(colors.primaryText))
+                .font(StockStepsTheme.font(style)).foregroundStyle(color ?? colors.textSecondary)
+                .accessibilityLabel(label)
+        } else { text }
+    }
 }
 
 /// Metric row/grid: up to `maxColumns` equal columns, fewer (one at large text) instead of truncating — the same
@@ -165,12 +187,12 @@ struct StockMetricGrid: View {
                     Group {
                         if stacked {
                             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                                Text(item.label).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
+                                StockMetricLabel(label: item.label, info: item.info)
                                 value
                             }
                         } else {
                             HStack(spacing: CGFloat(space.md)) {
-                                Text(item.label).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
+                                StockMetricLabel(label: item.label, info: item.info)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 value
                             }
@@ -186,14 +208,14 @@ struct StockMetricGrid: View {
                     ForEach(items[start..<min(start + columns, items.count)]) { item in
                         if let action = item.action {
                             Button(action: action) {
-                                StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet)
+                                StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet, info: item.info)
                                     .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget), alignment: .topLeading)
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityHint(item.hint ?? "")
                         } else {
-                            StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet)
+                            StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet, info: item.info)
                         }
                     }
                     ForEach(0..<(columns - min(columns, items.count - start)), id: \.self) { _ in Color.clear.frame(height: 0) }
