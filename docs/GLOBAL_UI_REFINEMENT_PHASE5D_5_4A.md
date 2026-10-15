@@ -1,6 +1,6 @@
 # Global UI Refinement Phase 5D.5.4A: Company Details header, chart and overview hierarchy
 
-- **Status:** implemented and verified on Android and iOS against the local MOCK server. Committed locally as "Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS" (**not pushed**). Baseline: `73a6c23`
+- **Status:** implemented and verified on Android and iOS against the local MOCK server. Committed and pushed as "Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS" (`0fbce92`). **Closed 2026-10-15** (§8). Baseline: `73a6c23`
   "Record the closure of Global UI Refinement Phase 5D.5.3 contextual learning …".
 - **Plan:** `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md` (approved: 5D.5.4A first, D-E1 to D-B1 as recommended, borderless at every Company Details
   call site).
@@ -121,4 +121,56 @@
 - iOS uses a VStack with an overlay bar instead of `LazyVStack(pinnedViews:)`, which couldn't scroll to sections it hadn't created yet.
 
 ## 7. Verdict
-**PASS WITH CONDITIONS:** screen readers and signed-in checks remain. Committed locally at the owner's request (not pushed).
+**PASS WITH CONDITIONS:** approved and closed by the owner on 2026-10-15 (§8). The conditions are the accessibility and device items in §8.
+
+## 8. Closure verification (2026-10-15)
+- **Scope:**
+  - The implementation is `0fbce92` (pushed): 27 files, all in this phase.
+  - The working tree was clean before closure; the Portfolio worktree `charming-hodgkin-98e850` and the other scratch worktree were untouched.
+  - The closure commit contains documentation only.
+- **Disk:**
+  - At the start of closure 9.5 GB was free (the owner-approved removal of `~/Library/Developer/Xcode/DerivedData` had already been done).
+  - The full iOS rebuild recreated DerivedData; 6.4 GB was free at the end.
+  - Large shared caches were left in place, and no further cleanup was needed: CoreSimulator 19 GB, `~/.gradle` 12 GB, `~/.konan` 6.7 GB,
+    `app/shared/build` 1.2 GB.
+- **Tests:**
+  - `:app:shared:iosSimulatorArm64Test --rerun-tasks` on final code: PASS 246/0, including `ResponsiveLayoutRulesTest` 11/0 and
+    `CompanyDetailsPresentationTest` 12/0.
+  - Android targeted rerun of `ResponsiveLayoutRulesTest`, `CompanyDetailsPresentationTest`, `CompanyDetailsViewModelTest` and
+    `MetricLearnTermsTest`: PASS 27/0.
+  - Full iOS MOCK rebuild: PASS.
+- **Shared badge rule 14 → 20 (impact audit):**
+  - `StockAssessmentRow` is used only on Company Details: the Understand rows and the Why Did It Move? sources sheet, which has no badge.
+  - Of all the assessment badges, only "More cash than debt" and "More debt than cash" (19 characters) fall in the newly inline 15–20 range;
+    the others are 7–12.
+  - The valuation-screen labels ("Near Historical Average", 23–24 characters) don't use this rule and stay as before.
+- **Section bar after asynchronous loading and with optional sections absent (Android):** PASS.
+  - Opening a company ~0.4 s after the tap still shows the search screen, so no half-built bar was seen.
+  - Loaded pages show all four tabs. An ETF without the same data (AAPY) also shows all four, because its About section exists.
+  - An uncached company (MSFT) opened while the server was unreachable rendered from the app's cache with the full bar and no errors, so a truly
+    empty overview couldn't be reproduced on device.
+  - The absent-section rule is covered by `sectionBarListsOnlySectionsThePageShows` (`sections(null)` = Overview, News; no About without a
+    description, country or classification).
+- **Selection and Back:**
+  - Android: tabs scroll and select; Back from See Financials restores position and selection. PASS.
+  - iOS: the Financials tab selects; Back from Apple Financials keeps the position and the Financials selection; flings up and down update the
+    selection (News near the bottom, Overview near the top). PASS.
+- **iOS scrolling performance:** fast flings up and down rendered without visible hitching or blank frames on the simulator. This is an
+  observation, not an Instruments profile: NOT RUN.
+- **Contextual Learn (5D.5.3) preserved:**
+  - Android: Microsoft P/E tile → sheet "Learn more about P/E ratio" → "What is the P/E ratio?" → Back to the stock at the same position. PASS.
+  - iOS: Apple P/E sheet → term → Back to Overview. PASS.
+- **Large text:**
+  - Android 1.3× (new): stats, badges, bar and "What Apple does" fit without clipping. PASS.
+  - iOS AX XL (new): compact axis (first and last date), stacked stats, the badge stacks as a pill under "Financial Health", no overflow. PASS.
+  - Android 2.0× and iOS AX5 were checked earlier (§4).
+- **Tracked, not resolved:**
+  - iOS live Dynamic Type refresh (existing limit; checks were made after reopening the screen);
+  - TalkBack NOT RUN;
+  - VoiceOver BLOCKED (needs a device);
+  - signed-in iOS BLOCKED (guest mode);
+  - physical devices and smaller phones NOT RUN;
+  - an Instruments scroll profile NOT RUN.
+- **Review package:** unchanged, because no meaningful change was found. Closure captures are in `docs/reviews/phase5d_5_4a/captures/closure/`
+  (git-ignored).
+- **Next:** Phase 5D.5.4B (At a Glance and Understand) can begin after owner approval.

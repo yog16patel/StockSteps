@@ -15,12 +15,12 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.4A committed locally)
+## Current task (as of 2026-10-15, Phase 5D.5.4A closed)
 
-Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed locally, **not pushed**. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
+Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-4A-2026-10-15.**
-Next: owner review and push; then 5D.5.4B (At a Glance and Understand), 5D.5.4C (Financials and Valuation), 5D.5.4D (News, Earnings, spacing),
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-4A-CLOSED-2026-10-15** (closure: report §8).
+Next: 5D.5.4B after owner approval (At a Glance and Understand), 5D.5.4C (Financials and Valuation), 5D.5.4D (News, Earnings, spacing),
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);

@@ -6,14 +6,26 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.4A Company Details hierarchy (committed locally as "Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS"; not pushed).**
+**2026-10-15 — Phase 5D.5.4A Company Details hierarchy CLOSED (owner approval with conditions).**
+- Implementation `0fbce92` (pushed). Closure verification: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md` §8.
+  - Shared iOS tests 246/0; badge-rule audit (only the Financial Health badges move inline).
+  - Section bar, Back and Learn PASS on both platforms; Android 1.3× and iOS AX XL PASS.
+- **Outstanding:**
+  - iOS live Dynamic Type;
+  - TalkBack NOT RUN, VoiceOver BLOCKED;
+  - signed-in iOS BLOCKED;
+  - physical devices NOT RUN;
+  - scroll profiling NOT RUN.
+- **Next:** 5D.5.4B after owner approval.
+
+**2026-10-15 — Phase 5D.5.4A Company Details hierarchy (committed and pushed as "Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS").**
 - Header without tags; borderless chart with Open/Volume and the Day Range.
 - One action row; Practice Buy in "Research further".
 - Pinned in-page section bar (Overview · Financials · News · About).
 - "What … does" row; new order; borderless sections.
 - Long badges share the title line (shared rule 14 → 20 characters).
 - Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; plan `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`.
-- **Outstanding:** screen readers; iOS signed-in. **Next:** owner review, push, then 5D.5.4B.
+- Closed; see the entry above.
 
 **2026-10-15 — Phase 5D.5.3 contextual learning CLOSED (owner approval).**
 - Implementation `3b7a7f5` (pushed). Closure verification: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_3.md` §8.
