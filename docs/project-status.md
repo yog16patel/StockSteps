@@ -6,7 +6,15 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.5B Company Search ranking and result rows (committed locally as "Add Company Search ranking and result rows for Global UI Refinement Phase 5D.5.5B with deterministic server-side relevance, a conservative Best match label and borderless search result rows on Android and iOS, plus the 5D.5.5A search audit and plan"; not pushed).**
+**2026-10-15 — Phase 5D.5.5C Company Search experience (committed locally as "Refine Company Search for Global UI Refinement Phase 5D.5.5C with a cleaner Android search header, local recent searches, search states with Retry and the shared result rows in the Comparison picker on Android and iOS"; not pushed).**
+- **Android header:** cleaner (the headline is removed).
+- **Recent searches:** local, max 10.
+- **States:** no results, error + Retry.
+- **Comparison picker:** on the shared row.
+- **Not changed:** ranking and API.
+- **Report:** `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5C.md`.
+
+**2026-10-15 — Phase 5D.5.5B Company Search ranking and result rows (`08723a6`, committed and pushed as "Add Company Search ranking and result rows for Global UI Refinement Phase 5D.5.5B with deterministic server-side relevance, a conservative Best match label and borderless search result rows on Android and iOS, plus the 5D.5.5A search audit and plan").**
 - Deterministic server-side ranking (`SearchRanking`, core).
 - Conservative Best match and the new result rows on Android and iOS.
 - USD/US scope copy fixes.

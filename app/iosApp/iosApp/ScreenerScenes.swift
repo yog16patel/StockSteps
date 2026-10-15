@@ -1035,7 +1035,11 @@ struct ComparisonLearningSummaryView: View {
 
 private struct PickTarget: Identifiable { let id: String }
 
+/// "Add to comparison" (5D.5.5C): the shared search presentation — the server's ranked results in `SearchResultRow`, the same Searching /
+/// no-results / error states — with Comparison's own outcome: a pick adds (or replaces) the company here and closes, never opening Company
+/// Details; companies already in the comparison are disabled with "Already added".
 private struct AddCompanySheet: View {
+    @Environment(\.colorScheme) private var colorScheme
     let state: ComparisonUiState?
     let client: IosScreenerClient
     let replacing: String?
@@ -1044,43 +1048,68 @@ private struct AddCompanySheet: View {
     @State private var results: [StockSearchResult] = []
     @State private var failed = false
     @State private var searching = false
-    /// The text the latest finished search was for: "No matching companies." only appears for that text, not while typing (Phase 5C).
-    @State private var searched = ""
+    @State private var attempt = 0
+    @State private var searchActive = false
 
     var body: some View {
+        let palette = StockStepsTheme.palette(colorScheme)
+        let phase = SearchDisplay.shared.phase(query: query, searching: searching, failed: failed, results: results, recent: [])
         NavigationStack {
             List {
-                if searching { ProgressView() }
-                if failed { Text("Search isn't available right now. Try again.") }
-                if !searching && !failed && !query.isEmpty && searched == query && results.isEmpty { Text("No matching companies.") }
-                ForEach(results, id: \.symbol) { stock in
-                    let already = state?.selected.contains { $0.symbol.caseInsensitiveCompare(stock.symbol) == .orderedSame } ?? false
-                    Button {
-                        if let replacing { client.replaceInComparison(old: replacing, symbol: stock.symbol, name: stock.name) }
-                        else { client.addToComparison(symbol: stock.symbol, name: stock.name) }
-                        onDone()
-                    } label: {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(stock.name).lineLimit(1)
-                            Text([stock.symbol, stock.exchange, already ? "already added" : nil].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
-                        }
+                if phase == .searching {
+                    HStack(spacing: CGFloat(StockStepsTheme.spacing.sm)) {
+                        Spacer(); ProgressView(); Text(SearchDisplay.shared.SEARCHING).font(StockStepsTheme.font(StockStepsTheme.typography.small)); Spacer()
                     }
-                    .disabled(already)
+                    .padding(.vertical, CGFloat(StockStepsTheme.spacing.xl)).listRowBackground(Color.clear).listRowSeparator(.hidden)
+                } else if phase == .error {
+                    SearchStateView(systemImage: "exclamationmark.circle", title: SearchDisplay.shared.ERROR_TITLE, message: SearchDisplay.shared.ERROR_MESSAGE,
+                                    actionTitle: SearchDisplay.shared.RETRY, isError: true) { attempt += 1 }
+                        .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                } else if phase == .noResults {
+                    SearchStateView(systemImage: "magnifyingglass", title: SearchDisplay.shared.NO_RESULTS_TITLE, message: SearchDisplay.shared.NO_RESULTS_MESSAGE,
+                                    actionTitle: SearchDisplay.shared.TRY_DIFFERENT, isError: false) { query = ""; searchActive = true }
+                        .listRowBackground(Color.clear).listRowSeparator(.hidden)
+                } else if phase == .results {
+                    ForEach(results, id: \.symbol) { stock in
+                        let already = state?.selected.contains { $0.symbol.caseInsensitiveCompare(stock.symbol) == .orderedSame } ?? false
+                        SearchResultRow(result: stock, best: false, enabled: !already, note: already ? SearchDisplay.shared.ALREADY_ADDED : nil) {
+                            if let replacing { client.replaceInComparison(old: replacing, symbol: stock.symbol, name: stock.name) }
+                            else { client.addToComparison(symbol: stock.symbol, name: stock.name) }
+                            onDone()
+                        }
+                        .searchListRow(palette)
+                    }
+                } else {
+                    Text(SearchDisplay.shared.HINT).font(StockStepsTheme.font(StockStepsTheme.typography.small))
+                        .foregroundStyle(StockStepsTheme.color(palette.textSecondary)).listRowBackground(Color.clear).listRowSeparator(.hidden)
                 }
             }
-            .searchable(text: $query, prompt: "Search by name or ticker")
-            .task(id: query) {
-                guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { results = []; return }
-                try? await Task.sleep(nanoseconds: 350_000_000) // debounce; a newer query cancels this task
-                if Task.isCancelled { return }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(StockStepsTheme.color(palette.background))
+            .searchable(text: $query, isPresented: $searchActive, prompt: SearchDisplay.shared.PLACEHOLDER)
+            .task { searchActive = true }
+            .task(id: "\(query)#\(attempt)") {
+                // A newer query (or Retry) cancels this task, and a cancelled task never writes results: no stale or duplicate lists.
+                results = []; failed = false
+                let text = query.trimmingCharacters(in: .whitespaces)
+                guard !text.isEmpty else { searching = false; return }
                 searching = true
-                do { results = try await client.searchStocks(query: query); failed = false } catch { failed = true }
+                try? await Task.sleep(nanoseconds: 350_000_000) // debounce
+                if Task.isCancelled { return }
+                do {
+                    let values = Array(try await client.searchStocks(query: text).prefix(8))
+                    if Task.isCancelled { return }
+                    results = values
+                } catch {
+                    if Task.isCancelled { return }
+                    failed = true
+                }
                 searching = false
-                searched = query
             }
-            .navigationTitle(replacing.map { "Replace \($0)" } ?? "Add a company")
+            .navigationTitle(replacing.map { "Replace \($0)" } ?? SearchDisplay.shared.COMPARISON_TITLE)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close", action: onDone) } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onDone) } }
         }
     }
 }

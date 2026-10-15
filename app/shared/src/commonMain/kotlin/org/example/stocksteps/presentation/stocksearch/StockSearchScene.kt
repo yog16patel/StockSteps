@@ -16,6 +16,8 @@ internal fun StockSearchScene(
     environment: org.example.stocksteps.settings.BackendEnvironment,
     hinge: WindowHinge?,
     accounts: org.example.stocksteps.di.AccountDependencies? = null,
+    /** 5D.5.5C: selected results are recorded here (local only) and listed when the query is empty. */
+    recentSearches: org.example.stocksteps.search.RecentSearchStore? = null,
     onOpenStock: ((StockSearchResult) -> Unit)? = null
 ) {
     var savedQuery by rememberSaveable { mutableStateOf("") }
@@ -45,12 +47,17 @@ internal fun StockSearchScene(
     }
     val watchlistState by (watchlistModel?.state ?: kotlinx.coroutines.flow.MutableStateFlow(StockWatchlistState()))
         .collectAsStateWithLifecycle()
+    val recent by (recentSearches?.items ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList())).collectAsStateWithLifecycle()
     StockSearchScreen(
         state = state,
         hinge = hinge,
         onQueryChange = model::changeQuery,
-        // Results open the shared Company Details page; inline selection remains only as a fallback.
-        onSelect = { stock -> onOpenStock?.invoke(stock) ?: model.selectStock(stock) },
+        // Results open the entry point's destination (Company Details, Portfolio add, Practice); inline selection remains only as a fallback.
+        // A selected result (or recent entry) is recorded as a recent search; typed queries never are.
+        onSelect = { stock -> recentSearches?.record(stock); onOpenStock?.invoke(stock) ?: model.selectStock(stock) },
+        recent = recent,
+        onClearRecent = { recentSearches?.clear() },
+        onRetrySearch = model::retrySearch,
         onRetryQuote = model::retryQuote,
         onRetryProfile = model::retryProfile,
         saved = state.selected?.symbol in watchlistState.symbols,

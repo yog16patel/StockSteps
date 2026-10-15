@@ -15,6 +15,9 @@ struct SearchResultRow: View {
     let result: StockSearchResult
     let best: Bool
     var hint: String? = nil
+    /// 5D.5.5C (Comparison): false dims the row and disables it; `note` ("Already added") is shown and spoken after the identity line.
+    var enabled = true
+    var note: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -32,15 +35,16 @@ struct SearchResultRow: View {
                     StockTickerAvatar(symbol: result.symbol)
                     text(colors, stacked: false).frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(colors.iconSecondary)
+                if enabled { Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(colors.iconSecondary) }
             }
             .padding(.vertical, CGFloat(space.sm))
             .frame(minHeight: CGFloat(dims.touchTarget))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(!enabled)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(SearchDisplay.shared.spoken(result: result, best: best))
+        .accessibilityLabel([SearchDisplay.shared.spoken(result: result, best: best), note].compactMap { $0 }.joined(separator: ", "))
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(hint ?? "")
     }
@@ -51,7 +55,7 @@ struct SearchResultRow: View {
     private func text(_ colors: StockColors, stacked: Bool) -> some View {
         VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
             // The badge follows the name while both fit on one line (as Compose), otherwise it goes under the name; the name wraps.
-            let name = Text(verbatim: result.name).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
+            let name = Text(verbatim: result.name).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(enabled ? colors.textPrimary : colors.textTertiary)
             if best {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: CGFloat(space.sm)) { name; badge }
@@ -68,6 +72,7 @@ struct SearchResultRow: View {
             } else {
                 Text(verbatim: SearchDisplay.shared.identity(result: result)).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
             }
+            if let note { Text(verbatim: note).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textTertiary) }
         }
     }
 }

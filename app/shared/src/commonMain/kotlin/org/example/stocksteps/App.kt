@@ -34,11 +34,14 @@ fun App(
     notifications: org.example.stocksteps.presentation.watchlist.NotificationAccess? = null,
     notificationLinks: kotlinx.coroutines.flow.Flow<String>? = null,
     /** Hosts may supply the same router used by account data clients. */
-    backendRouter: BackendRouter? = null
+    backendRouter: BackendRouter? = null,
+    /** 5D.5.5C: recent company searches in the platform's local storage (in memory when the host doesn't supply one). */
+    recentSearches: org.example.stocksteps.search.RecentSearchStore? = null
 ) {
     // The root owns the theme: Settings writes the preference, everything re-themes from here.
     val preferences = themePreferences ?: remember { InMemoryThemePreferenceStore() }
     val mode by preferences.themeMode.collectAsStateWithLifecycle()
+    val recent = recentSearches ?: remember { org.example.stocksteps.search.RecentSearchStore(org.example.stocksteps.search.InMemoryStringStorage()) }
     val backend = backendRouter ?: remember(backendEndpoints, backendEnvironment, baseUrl) {
         BackendRouter(
             store = backendEnvironment ?: InMemoryBackendEnvironmentStore(),
@@ -55,7 +58,7 @@ fun App(
             androidx.compose.foundation.layout.Box(
                 if (locked) androidx.compose.ui.Modifier.clearAndSetSemantics {} else androidx.compose.ui.Modifier
             ) {
-                AppNavigation(backend, hinge, navigationIcon, accounts, backIcon, preferences, appVersion, appLock, notifications, notificationLinks)
+                AppNavigation(backend, hinge, navigationIcon, accounts, backIcon, preferences, appVersion, appLock, notifications, notificationLinks, recent)
             }
             if (locked && appLock != null) {
                 org.example.stocksteps.presentation.security.AppUnlockScreen(appLock, onUseAccountLogin = {

@@ -13,6 +13,7 @@ struct StockSearchUiState {
     let newsError: String?
     let query: String
     let results: [StockSearchResult]
+    let recent: [StockSearchResult]
     let isSearching: Bool
     let searchError: String?
     let quote: StockQuote?
@@ -29,7 +30,7 @@ extension StockSearchViewModel {
             financials: FinancialsPresenter.shared.build(fundamentals: fundamentals, loading: isLoadingFundamentals, failed: fundamentalsError != nil),
             isLoadingFundamentals: isLoadingFundamentals, fundamentalsError: fundamentalsError, financialPeriod: financialPeriod,
             detail: companyDetail, detailTab: detailTab, metricInfo: metricInfo, companyNews: companyNews, isLoadingNews: isLoadingNews, newsError: newsError,
-            query: query, results: results, isSearching: isSearching, searchError: searchError,
+            query: query, results: results, recent: recent, isSearching: isSearching, searchError: searchError,
             quote: quote, isLoadingQuote: isLoadingQuote, quoteError: quoteError,
             profile: profile, isLoadingProfile: isLoadingProfile, profileError: profileError
         )

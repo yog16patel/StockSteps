@@ -130,6 +130,50 @@ class StockSearchViewModelTest {
             assertEquals(1, calls.size)
         } finally { store.clear(); Dispatchers.resetMain() }
     }
+    @Test fun outOfOrderResponsesErrorsAndRetryKeepOnlyTheCurrentQuery() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val calls = mutableListOf<String>()
+        var fail = true
+        val repository = object : StockRepository {
+            override suspend fun searchStocks(query: String): List<StockSearchResult> {
+                calls += query
+                // The older query answers last: it must never replace the newer query's results.
+                delay(if (query == "app") 5000 else 100)
+                if (query == "xyz") { if (fail) throw StockDataException("down") else return emptyList() }
+                return listOf(StockSearchResult(query.uppercase(), "$query result"))
+            }
+            override suspend fun getProfile(symbol: String) = CompanyProfile(symbol)
+            override suspend fun getQuote(symbol: String): StockQuote = error("Not expected")
+        }
+        val store = ViewModelStore()
+        try {
+            val model = StockSearchViewModel(SearchStocks(repository), GetStockQuote(repository), GetCompanyProfile(repository))
+            store.put("search", model)
+            runCurrent()
+            model.changeQuery("app"); advanceTimeBy(301); runCurrent()
+            model.changeQuery("msft"); advanceTimeBy(301); runCurrent()
+            advanceTimeBy(6000); runCurrent()
+            assertEquals(listOf("MSFT"), model.state.value.results.map { it.symbol })
+            // An error is kept apart from "no results"; Retry runs the same query once more and replaces the error.
+            model.changeQuery("xyz"); advanceTimeBy(301); runCurrent(); advanceTimeBy(200); runCurrent()
+            assertTrue(model.state.value.searchError != null)
+            assertFalse(model.state.value.searching)
+            fail = false
+            val before = calls.size
+            model.retrySearch(); model.retrySearch(); runCurrent()
+            assertTrue(model.state.value.searching)
+            advanceTimeBy(200); runCurrent()
+            assertEquals(null, model.state.value.searchError)
+            assertTrue(model.state.value.results.isEmpty())
+            assertEquals(1, calls.size - before) // a double tap on Retry sends one request: the first is cancelled before it starts
+            // Clearing while a request is in flight leaves nothing behind.
+            model.changeQuery("msft2"); advanceTimeBy(301); runCurrent()
+            model.changeQuery(""); advanceTimeBy(500); runCurrent()
+            assertTrue(model.state.value.results.isEmpty())
+            assertFalse(model.state.value.searching)
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
+
     @Test fun profileFailureAndRetryDoNotDiscardQuote() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         var profileCalls = 0

@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.font.FontWeight
@@ -41,16 +42,20 @@ internal fun StockSearchResultRow(
     best: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    actionLabel: String? = null
+    actionLabel: String? = null,
+    /** 5D.5.5C (Comparison): false dims the row and ignores taps; [note] ("Already added") is shown and spoken after the identity line. */
+    enabled: Boolean = true,
+    note: String? = null
 ) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     val stacked = LocalDensity.current.fontScale >= SEARCH_ROW_STACK_SCALE
-    val spoken = SearchDisplay.spoken(result, best)
+    val spoken = listOfNotNull(SearchDisplay.spoken(result, best), note).joinToString(", ")
+    val nameColor = if (enabled) colors.textPrimary else colors.textTertiary
     val text: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
             StockTitleWithBadge(
-                title = { Text(result.name, style = StockStepsTheme.typography.bodySemiBold, color = colors.textPrimary) },
+                title = { Text(result.name, style = StockStepsTheme.typography.bodySemiBold, color = nameColor) },
                 badge = { if (best) StockStatusBadge(SearchDisplay.BEST_MATCH, StockBadgeKind.INFO, size = StockBadgeSize.COMPACT) }
             )
             if (stacked) {
@@ -59,17 +64,18 @@ internal fun StockSearchResultRow(
             } else {
                 Text(SearchDisplay.identity(result), style = StockStepsTheme.typography.small, color = colors.textSecondary)
             }
+            note?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textTertiary) }
         }
     }
     Row(
         modifier
             .fillMaxWidth()
             .heightIn(min = StockStepsTheme.dimensions.touchTarget)
-            .clickable(onClickLabel = actionLabel, role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, onClickLabel = actionLabel, role = Role.Button, onClick = onClick)
             .clearAndSetSemantics {
                 contentDescription = spoken
                 role = Role.Button
-                onClick(label = actionLabel) { onClick(); true }
+                if (enabled) onClick(label = actionLabel) { onClick(); true } else disabled()
             }
             .padding(vertical = spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
@@ -84,6 +90,6 @@ internal fun StockSearchResultRow(
             StockTickerAvatar(result.symbol)
             Column(Modifier.weight(1f)) { text() }
         }
-        Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.iconSecondary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+        if (enabled) Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.iconSecondary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
     }
 }

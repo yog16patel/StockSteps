@@ -1,5 +1,7 @@
 package org.example.stocksteps.presentation.screener
 
+import org.example.stocksteps.search.SearchDisplay
+import org.example.stocksteps.presentation.stocksearch.resultRows
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -687,38 +689,67 @@ private fun ChartSelectionView(selection: ChartSelection) {
     }
 }
 
+/**
+ * "Add to comparison" (5D.5.5C): a full-screen picker on the shared search presentation — the server's ranked results in the shared
+ * [StockSearchResultRow] (same name / ticker · exchange hierarchy, initials, large-text layout), the same Searching / no-results / error
+ * states. Comparison keeps its own outcome: a pick adds (or replaces) the company here, never opening Company Details; companies already in
+ * the comparison are shown disabled with "Already added"; the top 8 results as before.
+ */
 @Composable
 private fun AddCompanyDialog(state: ComparisonUiState, replacing: String?, onSearch: suspend (String) -> List<StockSearchResult>, onPick: (String, String) -> Unit, onDismiss: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var results by remember { mutableStateOf<List<StockSearchResult>>(emptyList()) }
     var failed by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
-    LaunchedEffect(query) {
-        if (query.isBlank()) { results = emptyList(); return@LaunchedEffect }
-        delay(350) // debounce: search after typing pauses; a newer query cancels this one
-        failed = false; searching = true
+    var attempt by remember { mutableStateOf(0) }
+    LaunchedEffect(query, attempt) {
+        // A newer query (or Retry) cancels this effect, so an older response can never replace newer results.
+        results = emptyList(); failed = false
+        if (query.isBlank()) { searching = false; return@LaunchedEffect }
+        searching = true
+        delay(350) // debounce: search after typing pauses
         results = try { onSearch(query).take(8) } catch (cause: Exception) {
             if (cause is kotlinx.coroutines.CancellationException) throw cause
             failed = true; emptyList()
         }
         searching = false
     }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(replacing?.let { "Replace $it" } ?: "Add a company") }, confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-            StockTextField(query, { query = it }, "Search by name or ticker", Modifier.fillMaxWidth(), placeholder = "e.g. Apple or AAPL")
-            if (searching) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (failed) Text("Search isn't available right now. Try again.", style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.cautionText)
-            if (!searching && !failed && query.isNotBlank() && results.isEmpty()) Text("No matching companies.", style = StockStepsTheme.typography.caption)
-            results.forEach { stock ->
-                val already = state.selected.any { it.symbol.equals(stock.symbol, ignoreCase = true) }
-                Column(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(enabled = !already) { onPick(stock.symbol, stock.name) }
-                    .padding(vertical = StockStepsTheme.spacing.xxs)) {
-                    Text(stock.name, style = StockStepsTheme.typography.bodySemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        color = if (already) StockStepsTheme.colors.textTertiary else StockStepsTheme.colors.textPrimary)
-                    Text(listOfNotNull(stock.symbol, stock.exchange, if (already) "already added" else null).joinToString(" · "), style = StockStepsTheme.typography.caption,
-                        color = StockStepsTheme.colors.textSecondary)
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        val spacing = StockStepsTheme.spacing
+        Column(Modifier.fillMaxSize().background(StockStepsTheme.colors.appBackground).safeDrawingPadding()) {
+            org.example.stocksteps.presentation.components.StockStepsTopBar(
+                configuration = org.example.stocksteps.model.AppBarConfiguration(title = replacing?.let { "Replace $it" } ?: SearchDisplay.COMPARISON_TITLE,
+                    backButton = org.example.stocksteps.model.AppBarBackButton.BACK),
+                onBack = onDismiss,
+                backIcon = { Icon(org.example.stocksteps.designsystem.icons.StockIcons.ArrowBack, contentDescription = "Close") }
+            )
+            Column(Modifier.fillMaxSize().padding(horizontal = spacing.screen), verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                StockSearchField(query, { query = it }, SearchDisplay.PLACEHOLDER, Modifier.fillMaxWidth(), focusRequester = focus, bordered = false)
+                val phase = SearchDisplay.phase(query, searching, failed, results, recent = emptyList())
+                androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    when (phase) {
+                        SearchDisplay.Phase.RECENT, SearchDisplay.Phase.HINT -> item { StockEmptyState(SearchDisplay.HINT) }
+                        SearchDisplay.Phase.SEARCHING -> item { org.example.stocksteps.presentation.stocksearch.SearchingRow() }
+                        SearchDisplay.Phase.RESULTS -> {
+                            resultRows("pick", results, best = false, onSelect = { onPick(it.symbol, it.name) },
+                                enabled = { stock -> state.selected.none { it.symbol.equals(stock.symbol, ignoreCase = true) } },
+                                note = { stock -> SearchDisplay.ALREADY_ADDED.takeIf { state.selected.any { it.symbol.equals(stock.symbol, ignoreCase = true) } } })
+                        }
+                        SearchDisplay.Phase.NO_RESULTS -> item {
+                            StockEmptyState(SearchDisplay.NO_RESULTS_MESSAGE, Modifier.padding(top = spacing.xl), actionText = SearchDisplay.TRY_DIFFERENT,
+                                onAction = { query = ""; runCatching { focus.requestFocus() } }, title = SearchDisplay.NO_RESULTS_TITLE,
+                                icon = org.example.stocksteps.designsystem.icons.StockIcons.Search)
+                        }
+                        SearchDisplay.Phase.ERROR -> item {
+                            StockErrorState(SearchDisplay.ERROR_MESSAGE, { attempt++ }, Modifier.padding(top = spacing.xl), title = SearchDisplay.ERROR_TITLE,
+                                icon = org.example.stocksteps.designsystem.icons.StockIcons.ErrorOutline, primaryRetry = true, retryText = SearchDisplay.RETRY)
+                        }
+                    }
                 }
             }
         }
-    })
+    }
 }

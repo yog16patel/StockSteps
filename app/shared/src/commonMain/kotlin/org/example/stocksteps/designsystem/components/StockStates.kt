@@ -74,11 +74,16 @@ internal fun StockErrorState(
     onRetry: (() -> Unit)?,
     modifier: Modifier = Modifier,
     title: String? = null,
-    icon: ImageVector? = null
+    icon: ImageVector? = null,
+    /** 5D.5.5C: the full state's retry as the primary button (when retrying is the only way forward, e.g. search). Default secondary. */
+    primaryRetry: Boolean = false,
+    /** Optional retry label (search uses "Retry", as iOS); default the shared "Try again". */
+    retryText: String? = null
 ) {
-    val retry = onRetry?.let { stringResource(Res.string.action_retry) }
+    val retry = onRetry?.let { retryText ?: stringResource(Res.string.action_retry) }
     if (title == null) SectionMessage(message, modifier, retry, onRetry)
-    else FullStateMessage(title, message, icon, retry, onRetry, StockButtonVariant.SECONDARY, isError = true, modifier)
+    else FullStateMessage(title, message, icon, retry, onRetry, if (primaryRetry) StockButtonVariant.PRIMARY else StockButtonVariant.SECONDARY,
+        isError = true, modifier)
 }
 
 @Composable

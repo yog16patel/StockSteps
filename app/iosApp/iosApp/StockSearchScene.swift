@@ -20,8 +20,11 @@ struct StockSearchScene: View {
             StockSearchScreen(
                 state: model.uiState,
                 query: $model.query,
-                onRetry: model.search
+                onRetry: model.search,
+                onClearRecent: model.clearRecent
             ) { stock in
+                // 5D.5.5C: a selected result (or recent entry) is recorded as a recent search; typed queries never are.
+                model.recordSelection(stock)
                 if let onOpenStock { onOpenStock(stock); return }
                 selectedStock = stock
                 compactColumn = .detail
@@ -59,6 +62,7 @@ struct StockSearchScene: View {
             }
         }
         .task {
+            model.refreshRecent()
             if let stock = initialStock {
                 selectedStock = stock
                 compactColumn = .detail

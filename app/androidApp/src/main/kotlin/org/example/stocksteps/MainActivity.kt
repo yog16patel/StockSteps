@@ -28,6 +28,7 @@ import androidx.compose.ui.tooling.preview.Preview
 /** FragmentActivity (a ComponentActivity) so AndroidX BiometricPrompt can host the system prompt. */
 class MainActivity : androidx.fragment.app.FragmentActivity() {
     private val themePreferences by lazy { AndroidThemePreferenceStore(applicationContext) }
+    private val recentSearches by lazy { org.example.stocksteps.search.RecentSearchStore(AndroidRecentSearchStorage(applicationContext)) }
     private val backendEnvironment by lazy { AndroidBackendEnvironmentStore(applicationContext) }
     private val backendRouter by lazy {
         BackendRouter(
@@ -169,7 +170,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 backendRouter = accountOwner.backend,
                 appLock = appLock.manager,
                 notifications = notifications,
-                notificationLinks = notificationLinks.receiveAsFlow()
+                notificationLinks = notificationLinks.receiveAsFlow(),
+                recentSearches = recentSearches
             )
         }
     }

@@ -120,7 +120,9 @@ internal fun StockSearchField(
     error: String? = null,
     onSearch: (() -> Unit)? = null,
     focusRequester: FocusRequester? = null,
-    clearLabel: String = "Clear search"
+    clearLabel: String = "Clear search",
+    /** 5D.5.5C: false = a filled field with no resting outline (the focus and error outlines stay). Default unchanged. */
+    bordered: Boolean = true
 ) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
@@ -128,8 +130,12 @@ internal fun StockSearchField(
     var focused by remember { mutableStateOf(false) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing.labelValueGap)) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clip(shape).background(colors.surface)
-                .border(StockStepsTheme.dimensions.border, when { error != null -> colors.negative; focused -> colors.primary; else -> colors.border }, shape)
+            Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clip(shape)
+                .background(if (bordered) colors.surface else colors.surfaceSecondary)
+                .border(StockStepsTheme.dimensions.border, when {
+                    error != null -> colors.negative; focused -> colors.primary; bordered -> colors.border
+                    else -> androidx.compose.ui.graphics.Color.Transparent
+                }, shape)
                 .padding(start = spacing.md),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(spacing.sm)

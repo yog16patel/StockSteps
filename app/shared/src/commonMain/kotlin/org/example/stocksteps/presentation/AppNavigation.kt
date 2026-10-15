@@ -51,7 +51,8 @@ internal fun AppNavigation(
     appLock: org.example.stocksteps.security.AppLockManager? = null,
     notifications: org.example.stocksteps.presentation.watchlist.NotificationAccess? = null,
     /** Symbols from tapped alert notifications; each opens that stock's alerts. */
-    notificationLinks: kotlinx.coroutines.flow.Flow<String>? = null
+    notificationLinks: kotlinx.coroutines.flow.Flow<String>? = null,
+    recentSearches: org.example.stocksteps.search.RecentSearchStore = org.example.stocksteps.search.RecentSearchStore(org.example.stocksteps.search.InMemoryStringStorage())
 ) {
     val session = accounts?.auth?.session?.collectAsStateWithLifecycle()?.value
     if (session?.initializing == true) {
@@ -336,6 +337,7 @@ internal fun AppNavigation(
                     environment = environment,
                     hinge = hinge,
                     accounts = accounts,
+                    recentSearches = recentSearches,
                     onOpenStock = { stock ->
                         navController.navigate(org.example.stocksteps.presentation.practice.PracticeOrderRoute(stock.symbol, "BUY")) { popUpTo<org.example.stocksteps.presentation.practice.PracticeSearchRoute> { inclusive = true } }
                     }
@@ -348,6 +350,7 @@ internal fun AppNavigation(
                     environment = environment,
                     hinge = hinge,
                     accounts = accounts,
+                    recentSearches = recentSearches,
                     onOpenStock = { stock ->
                         val selected = PortfolioEntryRoute(stock.symbol, stock.name, stock.exchange, stock.currency)
                         navController.previousBackStackEntry?.savedStateHandle?.set(
@@ -556,6 +559,7 @@ internal fun AppNavigation(
                     environment = environment,
                     hinge = hinge,
                     accounts = accounts,
+                    recentSearches = recentSearches,
                     onOpenStock = { stock -> openStock(stock.symbol) }
                 )
             }

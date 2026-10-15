@@ -82,6 +82,18 @@ internal class StockSearchViewModel(
         queries.value = text
     }
 
+    /**
+     * Retry (5D.5.5C): runs the current query again at once. The previous attempt is cancelled first, and results only apply while the query
+     * is still current, so a retry can't produce duplicate or stale lists.
+     */
+    fun retrySearch() {
+        val text = queries.value
+        if (text.isBlank()) return
+        searchJob?.cancel()
+        mutableState.update { it.copy(results = emptyList(), searchError = null, searching = true) }
+        searchJob = viewModelScope.launch { search(text) }
+    }
+
     private suspend fun search(query: String) {
         try {
             val results = searchStocks(query)

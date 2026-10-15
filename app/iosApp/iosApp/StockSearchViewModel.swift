@@ -76,6 +76,12 @@ final class StockSearchViewModel {
             }
         }
     }
+    /// 5D.5.5C: companies selected from search results (newest first, local only); shown when the query is empty.
+    private(set) var recent: [StockSearchResult] = RecentSearchesStore.shared.current()
+    func recordSelection(_ stock: StockSearchResult) { RecentSearchesStore.shared.record(result: stock); recent = RecentSearchesStore.shared.current() }
+    func clearRecent() { RecentSearchesStore.shared.clear(); recent = [] }
+    /// Another sheet (e.g. Portfolio's) may have recorded a selection.
+    func refreshRecent() { recent = RecentSearchesStore.shared.current() }
     private(set) var results: [StockSearchResult] = []
     private(set) var isSearching = false
     private(set) var searchError: String?

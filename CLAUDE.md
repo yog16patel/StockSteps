@@ -15,14 +15,14 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.5B committed locally)
+## Current task (as of 2026-10-15, Phase 5D.5.5C committed locally)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
 Phase 5D.5.4 (Company Details, A–D) is pushed through `0c5c4c4`; the owner runs the TalkBack/VoiceOver pass manually (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md` §9).
-Phase 5D.5.5 Company Search: the plan (`docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5_PLAN.md`, D1–D8 approved as recommended) and 5D.5.5B ("Add Company Search ranking and result rows for Global UI Refinement Phase 5D.5.5B with deterministic server-side relevance, a conservative Best match label and borderless search result rows on Android and iOS, plus the 5D.5.5A search audit and plan") are committed locally, **not pushed**. Report: `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5B.md`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-5B-2026-10-15.**
-Next: push on approval; then 5D.5.5C (header, states, recent searches, Comparison dialog), 5D.5.5D (device QA).
+Phase 5D.5.5 Company Search: the plan (`docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5_PLAN.md`, D1–D8) and 5D.5.5B (`08723a6`) are pushed. 5D.5.5C ("Refine Company Search for Global UI Refinement Phase 5D.5.5C with a cleaner Android search header, local recent searches, search states with Retry and the shared result rows in the Comparison picker on Android and iOS") is committed locally, **not pushed**. Report: `docs/COMPANY_SEARCH_REFINEMENT_PHASE5D_5_5C.md`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-5C-2026-10-15.**
+Next: push on approval; then 5D.5.5D (full device matrix, screen readers, polish items in the 5D.5.5C report §6).
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
@@ -147,6 +147,11 @@ Portfolio conventions (permanent):
     `search/SearchDisplay`. The badge uses the INFO kind, never green.
   - Rows: `StockSearchResultRow` (Compose, stacks ≥ 1.75×) / `SearchResultRow` (SwiftUI, stacks ≥ AX3). The legacy inline pane and the tablet
     sidebar are untouched (D7).
+  - (5D.5.5C) Recent searches come only from core `search/RecentSearchStore` (selected results only, never typed queries; newest first,
+    max 10; one entry per listing via `SearchRanking.ticker`; local key `stocksteps.recentSearches` — Android SharedPreferences, iOS
+    UserDefaults; never synced, no account). Screen states come only from `SearchDisplay.phase` and its copy; Retry re-runs the current query
+    once and stale responses never apply. The Comparison picker uses the same row (`enabled`/`note` "Already added") and keeps its own
+    add/replace outcome.
   - Android debug builds use the LAN MOCK host from `~/.gradle/gradle.properties`; to test server changes on the local MOCK server, build with
     `-PstockstepsMockBackendUrl=http://127.0.0.1:8081`.
 - **Company Details large text (5D.5.4D, iOS).** `StockSectionHeader` puts its action under the title only when the title's longest word and

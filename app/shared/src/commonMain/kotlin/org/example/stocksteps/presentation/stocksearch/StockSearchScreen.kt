@@ -26,7 +26,10 @@ internal fun StockSearchScreen(
     watchlistEnabled: Boolean = false,
     watchlistError: String? = null,
     onDetailAction: (org.example.stocksteps.presentation.companydetail.CompanyDetailAction) -> Unit = {},
-    onToggleWatchlist: () -> Unit = {}
+    onToggleWatchlist: () -> Unit = {},
+    recent: List<org.example.stocksteps.model.StockSearchResult> = emptyList(),
+    onClearRecent: () -> Unit = {},
+    onRetrySearch: () -> Unit = {}
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
@@ -65,6 +68,9 @@ internal fun StockSearchScreen(
                 state = state,
                 modifier = layout.search.modifier(),
                 inlineQuote = true,
+                recent = recent,
+                onClearRecent = onClearRecent,
+                onRetrySearch = onRetrySearch,
                 onQueryChange = onQueryChange,
                 onSelect = onSelect,
                 onRetryQuote = onRetryQuote,
