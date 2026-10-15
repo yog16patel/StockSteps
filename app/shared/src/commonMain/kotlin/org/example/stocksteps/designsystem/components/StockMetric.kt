@@ -1,6 +1,11 @@
 package org.example.stocksteps.designsystem.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -46,18 +51,28 @@ internal fun StockMetric(
     /** 5D.4.2: a secondary metric in a group (e.g. an estimate beside the reported value): same size, medium weight, body colour. Default unchanged. */
     quiet: Boolean = false,
     /** 5D.5.3: a small ⓘ after the label signals that tapping explains the metric (decorative; [onClickLabel] says it). Default off. */
-    info: Boolean = false
+    info: Boolean = false,
+    /**
+     * 5D.5.4B: the metric on its own surface tile (no border), ⓘ at the tile's top-right, a larger value — for a few headline metrics
+     * (Company Details At a Glance). Default off (unchanged).
+     */
+    tile: Boolean = false
 ) {
     val colors = StockStepsTheme.colors
-    val valueStyle = if (quiet) StockStepsTheme.typography.numberEmphasis.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) else StockStepsTheme.typography.numberEmphasis
+    val baseValue = if (tile) StockStepsTheme.typography.sectionTitle else StockStepsTheme.typography.numberEmphasis
+    val valueStyle = if (quiet) baseValue.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium) else baseValue
     Column(
         modifier = modifier
+            .then(if (tile) Modifier.clip(StockStepsTheme.shapes.card).background(colors.surface) else Modifier)
             .heightIn(min = StockStepsTheme.dimensions.touchTarget)
             .then(if (onClick != null) Modifier.clickable(onClickLabel = onClickLabel, role = Role.Button, onClick = onClick) else Modifier.semantics(mergeDescendants = true) {})
-            .padding(vertical = StockStepsTheme.spacing.xs),
+            .then(if (tile) Modifier.padding(StockStepsTheme.spacing.md) else Modifier.padding(vertical = StockStepsTheme.spacing.xs)),
         verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.labelValueGap)
     ) {
-        StockMetricLabel(label, info)
+        if (tile) Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+            Text(label, Modifier.weight(1f), style = StockStepsTheme.typography.label, color = colors.textSecondary)
+            if (info) Icon(StockIcons.Info, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+        } else StockMetricLabel(label, info)
         if (direction != null && direction != PriceDirection.UNAVAILABLE) {
             StockPriceChange(value, direction, style = valueStyle, maxLines = Int.MAX_VALUE)
         } else {
@@ -100,7 +115,9 @@ internal data class StockMetricItem(
 @Composable
 internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = Modifier, maxColumns: Int = 3,
                               /** When not every item fits on one line, show aligned label/value rows instead of an uneven grid (e.g. 2 + 1). */
-                              rowsWhenNarrow: Boolean = false) {
+                              rowsWhenNarrow: Boolean = false,
+                              /** 5D.5.4B: each metric on its own surface tile ([StockMetric] `tile`), equal heights per row. Default off. */
+                              tiled: Boolean = false) {
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val valueStyle = StockStepsTheme.typography.numberEmphasis
@@ -150,11 +167,13 @@ internal fun StockMetricGrid(items: List<StockMetricItem>, modifier: Modifier = 
             }
             return@BoxWithConstraints
         }
-        Column(verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.itemGap)) {
+        val gap = if (tiled) StockStepsTheme.spacing.sm else StockStepsTheme.spacing.md
+        Column(verticalArrangement = Arrangement.spacedBy(if (tiled) gap else StockStepsTheme.spacing.itemGap)) {
             items.chunked(columns).forEach { row ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.md)) {
+                Row(Modifier.fillMaxWidth().then(if (tiled) Modifier.height(IntrinsicSize.Min) else Modifier), horizontalArrangement = Arrangement.spacedBy(gap)) {
                     row.forEach { item ->
-                        StockMetric(item.label, item.value, Modifier.weight(1f), item.helper, item.direction, item.onClick, item.onClickLabel, item.quiet, item.info)
+                        StockMetric(item.label, item.value, Modifier.weight(1f).then(if (tiled) Modifier.fillMaxHeight() else Modifier), item.helper,
+                            item.direction, item.onClick, item.onClickLabel, item.quiet, item.info, tile = tiled)
                     }
                     repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }

@@ -6,7 +6,13 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.4B Understand and Why Did It Move? (committed locally as "Refine Company Details Understand rows and Why Did It Move for Global UI Refinement Phase 5D.5.4B with category, interpretation, one supporting fact and a note per row, an explanation sheet on every row, a bold lead sentence and one P/E comparison on Android and iOS"; not pushed).**
+**2026-10-15 — Phase 5D.5.4B r2 reference refinement (committed locally as "Refine Company Details for Global UI Refinement Phase 5D.5.4B r2 with tiled At a Glance metrics, assessment pills on the title line, Beginner Insight inside Understand and a Why Did It Move section led by the observed move and possible reasons on Android and iOS"; not pushed).**
+- Tiled At a Glance; pills on the title line; Beginner Insight inside Understand.
+- Why Did It Move? starts with the observed move, then "Possible reasons" (verbatim hedged text).
+- Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4B.md` §11.
+- **Outstanding:** iOS AX XL; screen readers; iOS signed-in. **Next:** push on approval, then 5D.5.4C.
+
+**2026-10-15 — Phase 5D.5.4B Understand and Why Did It Move? (committed and pushed as "Refine Company Details Understand rows and Why Did It Move for Global UI Refinement Phase 5D.5.4B with category, interpretation, one supporting fact and a note per row, an explanation sheet on every row, a bold lead sentence and one P/E comparison on Android and iOS").**
 - Understand rows: category, tinted interpretation, one fact, note; every row opens its explanation and Learn link.
 - P/E vs average only in the Valuation card; duplicate "Understand P/E Ratio" removed.
 - Why Did It Move?: bold lead sentence plus the verbatim rest.

@@ -135,6 +135,20 @@ class CompanyDetailsPresentationTest {
     }
 
     @Test
+    fun observedMoveUsesTheQuoteChangeAndSessionAndIsHiddenWhenUnavailable() {
+        val label = CompanyDetailsPresentation.ChangeLabel("Oct 7", "on Oct 7")
+        val move = present.observedMove(overview(), label)!!
+        assertEquals("+0.91% (+$3.04)", present.plain(move.change))
+        assertEquals(PriceDirection.UP, move.direction)
+        assertEquals("on Oct 7", move.session)
+        // A line can break only at the space between the two figures, never inside one.
+        assertEquals(1, move.change.count { it == ' ' })
+        assertEquals(2, move.change.split(' ').size)
+        assertEquals("+0.91%", present.plain(present.observedMove(overview().copy(changeAmount = null), label)!!.change))
+        assertNull(present.observedMove(overview().copy(direction = PriceDirection.UNAVAILABLE, changePercent = "—", changeAmount = null), label))
+    }
+
+    @Test
     fun whyItMovedLeadIsTheFirstSentenceAndTheRestIsVerbatim() {
         val summary = "Apple Inc. rose 0.91% on Oct 7, while the S&P 500 fell 0.24%. Company news in the same period included “Apple’s New CEO”. " +
             "It may have contributed, but timing alone doesn't prove it."

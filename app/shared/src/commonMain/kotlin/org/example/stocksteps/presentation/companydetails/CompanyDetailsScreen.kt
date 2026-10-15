@@ -171,7 +171,7 @@ internal fun CompanyDetailsScreen(
                             // source-backed explanation exists.
                             "why" -> when (why) {
                                 is Section.Content -> why.value?.let { value ->
-                                    WhyMovingSection(value, onSources = { showSources = true }, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) },
+                                    WhyMovingSection(value, move = overview?.let { o -> CompanyDetailsPresentation.observedMove(o, CompanyDetailsPresentation.changeLabel(o)) }, onSources = { showSources = true }, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) },
                                         onMore = { onAction(CompanyDetailsAction.OpenMovement) }, modifier = section)
                                 }
                                 Section.Unavailable -> SectionTitled(stringResource(Res.string.details_why_title), section) {
@@ -394,11 +394,13 @@ private fun ChartSection(
 /** Source-backed explanation on an educational (not market-colored) surface. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (String) -> Unit, onMore: () -> Unit, modifier: Modifier) {
+private fun WhyMovingSection(why: WhyMoving, move: CompanyDetailsPresentation.ObservedMove?, onSources: () -> Unit, onOpen: (String) -> Unit,
+                             onMore: () -> Unit, modifier: Modifier) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
+    // 5D.5.4B: a neutral borderless surface (no large coloured container); observed move → lead → possible reasons → caution → breakdown.
     Column(
-        modifier.clip(StockStepsTheme.shapes.cardLarge).background(colors.educationContainer).padding(spacing.md),
+        modifier.clip(StockStepsTheme.shapes.card).background(colors.surface).padding(spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.sm)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
@@ -415,17 +417,32 @@ private fun WhyMovingSection(why: WhyMoving, onSources: () -> Unit, onOpen: (Str
                     Text(
                         "$sources →",
                         modifier = Modifier.clearAndSetSemantics { contentDescription = sources }
-                            .clip(StockStepsTheme.shapes.pill).background(colors.surface).padding(horizontal = spacing.sm, vertical = spacing.xs),
+                            .clip(StockStepsTheme.shapes.pill).background(colors.primaryContainer).padding(horizontal = spacing.sm, vertical = spacing.xs),
                         style = StockStepsTheme.typography.label,
                         color = colors.primaryText
                     )
                 }
             }
         }
-        // 5D.5.4B: the first sentence (what moved) as the lead, the rest of the same summary below in a quieter style.
+        // Observed move (the quote's own change and session), then the summary's first sentence; the rest of the same summary — already
+        // hedged ("may have contributed") — under "Possible reasons". Nothing is reworded.
+        move?.let { observed ->
+            Column(Modifier.semantics(mergeDescendants = true) {}) {
+                StockPriceChange(observed.change, observed.direction, style = StockStepsTheme.typography.numberEmphasis, maxLines = 2)
+                Text(observed.session, style = StockStepsTheme.typography.caption, color = colors.textMeta)
+            }
+        }
         val shown = remember(why.summary) { CompanyDetailsPresentation.whyMoving(why.summary) }
-        Text(shown.lead, style = StockStepsTheme.typography.bodySemiBold, color = colors.textPrimary)
-        shown.rest?.let { Text(it, style = StockStepsTheme.typography.small, color = colors.textBody) }
+        Text(shown.lead, style = StockStepsTheme.typography.body, color = colors.textBody)
+        shown.rest?.let { rest ->
+            Column(
+                Modifier.fillMaxWidth().clip(StockStepsTheme.shapes.card).background(colors.surfaceSecondary).padding(spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(spacing.xxs)
+            ) {
+                Text("Possible reasons", Modifier.semantics { heading() }, style = StockStepsTheme.typography.label, color = colors.textPrimary)
+                Text(rest, style = StockStepsTheme.typography.small, color = colors.textBody)
+            }
+        }
         why.whyItMatters?.let { matters ->
             Row(
                 Modifier.fillMaxWidth().clip(StockStepsTheme.shapes.card).background(colors.learnContainerStart).padding(spacing.sm),
@@ -457,17 +474,17 @@ private fun GlanceSection(data: CompanyOverview, onExplain: (String) -> Unit, mo
     val spacing = StockStepsTheme.spacing
     val learn = stringResource(Res.string.details_learn_more)
     SectionTitled(stringResource(Res.string.details_glance_title), modifier) {
-        StockCard(bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            StockMetricGrid(data.glance.map { metric ->
+        // 5D.5.4B: each headline metric on its own borderless tile (ⓘ top-right, larger value); the 52-week range on its own surface below.
+        StockMetricGrid(data.glance.map { metric ->
                 val shown = CompanyDetailsPresentation.glance(metric)
                 // 5D.5.3 (D-C2): a small ⓘ marks metrics with a Learn term; the whole tile stays the 48 dp target.
                 StockMetricItem(metric.label, shown.value, helper = shown.helper.ifBlank { null }, direction = metric.direction,
                     onClick = metric.educationId?.let { id -> { onExplain(id) } }, onClickLabel = learn,
                     info = metric.educationId?.let(org.example.stocksteps.learning.MetricLearnTerms::hasTerm) == true)
-            }, maxColumns = 2)
-            // The day range sits with the chart (5D.5.4A); the 52-week range stays here.
-            data.yearRange?.let { range ->
-                StockDivider()
+            }, maxColumns = 2, tiled = true)
+        // The day range sits with the chart (5D.5.4A); the 52-week range stays here.
+        data.yearRange?.let { range ->
+            StockCard(bordered = false, contentPadding = PaddingValues(spacing.md)) {
                 val title = stringResource(Res.string.details_year_range)
                 StockRangeBar(title, range.low, range.high, range.position, stringResource(Res.string.details_range_a11y, title, range.low, range.high))
             }
@@ -499,21 +516,38 @@ private fun UnderstandSection(data: CompanyOverview, onExplain: (String) -> Unit
                         icon = icon, iconContainer = container, iconContent = tint,
                         title = row.title, detail = row.metric, badge = row.status, tone = row.tone, note = row.explanation,
                         onClick = row.metricId?.let { id -> { onExplain(id) } },
-                        onClickLabel = stringResource(Res.string.details_learn_more),
-                        statusBelowTitle = true
+                        onClickLabel = stringResource(Res.string.details_learn_more)
                     )
                 }
+                // 5D.5.4B: Beginner Insight inside the same group (no card on its own), compact, with its evidence action.
+                data.insight?.let { insight -> BeginnerInsight(insight, onEvidence, Modifier.padding(top = spacing.xs, bottom = spacing.md)) }
             }
-        }
-        data.insight?.let { insight ->
-            StockInsightCard(
-                title = stringResource(Res.string.details_insight_title),
-                body = insight,
-                actionText = stringResource(Res.string.details_insight_why),
-                onClick = onEvidence
-            )
+        } else data.insight?.let { insight -> BeginnerInsight(insight, onEvidence, Modifier) }
+    }
+}
+
+/** Beginner Insight (5D.5.4B): a tinted inset with the lightbulb, the existing text (verbatim, compact) and "Why does this matter?". */
+@Composable
+private fun BeginnerInsight(insight: String, onEvidence: () -> Unit, modifier: Modifier) {
+    val colors = StockStepsTheme.colors
+    val spacing = StockStepsTheme.spacing
+    val action = stringResource(Res.string.details_insight_why)
+    // At large font scale the icon goes above the text so the text keeps the full width (as StockInsightCard, Portfolio C.1).
+    val stackIcon = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
+    val icon: @Composable () -> Unit = {
+        Icon(StockIcons.Lightbulb, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+    }
+    val text: @Composable (Modifier) -> Unit = { m ->
+        Column(m, verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
+            Text(stringResource(Res.string.details_insight_title), Modifier.semantics { heading() }, style = StockStepsTheme.typography.bodySemiBold, color = colors.textPrimary)
+            Text(insight, style = StockStepsTheme.typography.small, color = colors.textBody)
+            Text("$action →", style = StockStepsTheme.typography.label, color = colors.primaryText)
         }
     }
+    val surface = modifier.fillMaxWidth().clip(StockStepsTheme.shapes.card).background(colors.primaryContainer)
+        .clickable(onClickLabel = action, role = Role.Button, onClick = onEvidence).padding(spacing.sm + spacing.xxs)
+    if (stackIcon) Column(surface, verticalArrangement = Arrangement.spacedBy(spacing.xs)) { icon(); text(Modifier) }
+    else Row(surface, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) { icon(); text(Modifier.weight(1f)) }
 }
 
 /** About (description with See more, country, sector and industry once as rows plus the context sentence); its own section since 5D.5.4A. */

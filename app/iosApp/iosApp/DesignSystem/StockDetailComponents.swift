@@ -225,6 +225,13 @@ struct StockAssessmentRow: View {
                                 Spacer(minLength: 0)
                                 if let badge { StockBadge(text: badge, tone: tone) }
                             }
+                            // 5D.5.4B: the compact pill on the title line before falling back to stacking (iOS rows are narrower than
+                            // Android's because of the chevron, so "More debt than cash" stacked at the default size).
+                            HStack(spacing: CGFloat(space.xs)) {
+                                Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).lineLimit(1).fixedSize()
+                                Spacer(minLength: 0)
+                                if let badge { StockStatusBadge(text: badge, kind: tone.badgeKind, size: .compact) }
+                            }
                             stackedTitle(colors)
                         }
                     } else {

@@ -225,6 +225,25 @@ object CompanyDetailsPresentation {
     /** The movement summary split for scanning: the first sentence as the lead, the rest (verbatim) below it; null rest when one sentence. */
     data class WhyMovingDisplay(val lead: String, val rest: String?)
 
+    /**
+     * The observed move shown first in Why Did It Move? (5D.5.4B): the quote's own percent and amount ("+0.91% (+$3.04)") and its session
+     * ("on Oct 7" / "today", the same [ChangeLabel] as the header). Null when the change is unavailable — never zero.
+     */
+    data class ObservedMove(val change: String, val direction: PriceDirection, val session: String)
+
+    fun observedMove(overview: CompanyOverview, label: ChangeLabel): ObservedMove? {
+        if (overview.direction == PriceDirection.UNAVAILABLE || overview.changePercent.isBlank() || overview.changePercent == "—") return null
+        // Each figure stays whole (word joiners inside it); a line may break only between the percent and the amount ("(+" / "$3.04)" at AX5).
+        val change = listOfNotNull(overview.changePercent, overview.changeAmount?.let { "($it)" }).joinToString(" ") { it.unbroken() }
+        return ObservedMove(change, overview.direction, label.spoken)
+    }
+
+    private fun String.unbroken(): String = toList().joinToString(WORD_JOINER)
+    private const val WORD_JOINER = "\u2060"
+
+    /** [ObservedMove.change] without its invisible word joiners (for tests and spoken text). */
+    fun plain(text: String): String = text.replace(WORD_JOINER, "")
+
     fun whyMoving(summary: String): WhyMovingDisplay {
         val lead = firstSentence(summary) ?: summary.trim()
         val rest = summary.trim().removePrefix(lead).trim().ifEmpty { null }

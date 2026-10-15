@@ -15,12 +15,13 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.4B committed locally)
+## Current task (as of 2026-10-15, Phase 5D.5.4B r2 committed locally)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
-Phase 5D.5.4B ("Refine Company Details Understand rows and Why Did It Move for Global UI Refinement Phase 5D.5.4B with category, interpretation, one supporting fact and a note per row, an explanation sheet on every row, a bold lead sentence and one P/E comparison on Android and iOS") is committed locally, **not pushed**; report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4B.md`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-4B-2026-10-15.**
+Phase 5D.5.4B (`d4843f5`, pushed) and its reference refinement r2 ("Refine Company Details for Global UI Refinement Phase 5D.5.4B r2 with tiled At a Glance metrics, assessment pills on the title line, Beginner Insight inside Understand and a Why Did It Move section led by the observed move and possible reasons on Android and iOS") are done; r2 is committed locally, **not pushed**. Report:
+`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4B.md` (§11 = r2).
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-4B-R2-2026-10-15.**
 Next: push on approval; then 5D.5.4C (At a Glance and Understand), 5D.5.4C (Financials and Valuation), 5D.5.4D (News, Earnings, spacing),
 5D.5.4E (verification).
 Tracked separately:
@@ -112,9 +113,12 @@ Portfolio conventions (permanent):
   - "What … does" text is `whatItDoes` (the first sentence, verbatim).
   - Understand rows (5D.5.4B) come from `CompanyDetailsPresentation.assessment`: labels, tones and sentences are the core rows'; the fact is
     display-formatted (`supportingMetric`: "year over year"; the Valuation row shows only the current P/E — P/E vs average lives in the
-    Valuation card). Rows use `StockAssessmentRow(statusBelowTitle = true)`. Each row opens the sheet for `metricId`: `GLANCE_SHEET_IDS` use
-    the glance sheet, others the 5D.5.3 `MetricExplanationSheet`.
-  - The Why Did It Move? lead is `whyMoving` (`firstSentence` + the verbatim rest); never reword the server summary.
+    Valuation card). Since r2 the rows use the default pill on the title line (iOS tries the compact pill before stacking). Each row opens the
+    sheet for `metricId`: `GLANCE_SHEET_IDS` use the glance sheet, others the 5D.5.3 `MetricExplanationSheet`.
+  - At a Glance uses `StockMetricGrid(tiled = true)`: borderless tiles with ⓘ at the top-right. Beginner Insight is an inset inside the
+    Understand group; its icon goes above the text at large sizes.
+  - Why Did It Move? order: observed move (`observedMove`, the header's quote values; word joiners keep each figure whole) → `whyMoving` lead →
+    "Possible reasons" holding the verbatim rest → caution → breakdown. Never reword the server summary or invent reasons.
   - Badges up to `StockBadgeLayout.INLINE_MAX_CHARACTERS` (20) share a title's line when they fit. The iOS assessment-row badge falls back to
     the compact pill, then to wrapping tinted text.
 - **Contextual learning (5D.5.3).**

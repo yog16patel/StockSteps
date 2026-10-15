@@ -486,10 +486,27 @@ struct CompanyDetailsScreen: View {
                     if !why.sources.isEmpty { sourcesPill(why, colors) }
                 }
             }
-            // 5D.5.4B: the first sentence (what moved) as the lead, the rest of the same summary below in a quieter style.
+            // Observed move (the quote's own change and session), then the summary's first sentence; the rest of the same summary — already
+            // hedged ("may have contributed") — under "Possible reasons". Nothing is reworded.
+            if let overview = model.overview.value, let move = present.observedMove(overview: overview, label: present.changeLabel(overview: overview)) {
+                VStack(alignment: .leading, spacing: 0) {
+                    StockPriceChange(percentage: move.change, direction: move.direction, style: type.numberEmphasis, lineLimit: nil)
+                    Text(move.session).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                }
+                .accessibilityElement(children: .combine)
+            }
             let shown = present.whyMoving(summary: why.summary)
-            Text(shown.lead).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
-            if let rest = shown.rest { Text(rest).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody) }
+            Text(shown.lead).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
+            if let rest = shown.rest {
+                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                    Text("Possible reasons").font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textPrimary)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(rest).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
+                }
+                .padding(CGFloat(space.sm))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(colors.surfaceSecondary, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
+            }
             if let matters = why.whyItMatters {
                 HStack(alignment: .top, spacing: CGFloat(space.sm)) {
                     Image(systemName: "info.circle.fill").foregroundStyle(colors.learnAccent).accessibilityHidden(true)
@@ -507,7 +524,8 @@ struct CompanyDetailsScreen: View {
                 .frame(minHeight: CGFloat(dims.touchTarget))
         }
         .padding(CGFloat(space.md))
-        .background(colors.educationContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.cardLarge)))
+        // 5D.5.4B: a neutral borderless surface instead of the large coloured container.
+        .background(colors.surface, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
     }
 
     private func whyTitle(_ colors: StockColors) -> some View {
@@ -525,7 +543,7 @@ struct CompanyDetailsScreen: View {
                 .font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
                 .lineLimit(1).fixedSize()
                 .padding(.horizontal, CGFloat(space.sm)).padding(.vertical, CGFloat(space.xs))
-                .background(colors.surface, in: Capsule())
+                .background(colors.primaryContainer, in: Capsule())
                 .frame(minHeight: CGFloat(dims.touchTarget))
                 .contentShape(Rectangle())
         }
@@ -543,14 +561,12 @@ struct CompanyDetailsScreen: View {
                 return StockMetricItem(label: metric.label, value: shown.value, helper: shown.helper.isEmpty ? nil : shown.helper,
                                        direction: metric.direction, action: { education = metric }, hint: "Learn what this means",
                                        info: metricHasTerm(metric.educationId))
-            }, maxColumns: 2)
-            // The day range sits with the chart (5D.5.4A); the 52-week range stays here.
+            }, maxColumns: 2, tiled: true)
+            // The day range sits with the chart (5D.5.4A); the 52-week range stays here, on its own surface (5D.5.4B tiles).
             if let range = overview.yearRange {
-                StockDivider()
-                StockRangeBar(title: "52-Week Range", range: range)
+                StockRangeBar(title: "52-Week Range", range: range).stockCard(bordered: false)
             }
         }
-        .stockCard(bordered: false)
     }
 
     /// Facts (assessment), then interpretation (insight); About and Guided Research have their own sections further down (5D.5.4A).
@@ -564,14 +580,40 @@ struct CompanyDetailsScreen: View {
                     let (icon, container, tint) = assessmentIcon(row.id, colors)
                     StockAssessmentRow(systemName: icon, iconContainer: container, iconContent: tint, title: row.title, detail: row.metric,
                                        badge: row.status, tone: row.tone, note: row.explanation,
-                                       action: row.metricId.map { id in { explain(id, overview) } }, statusBelowTitle: true)
+                                       action: row.metricId.map { id in { explain(id, overview) } })
                 }
+                // 5D.5.4B: Beginner Insight inside the same group (no card of its own), compact, with its evidence action.
+                if let insight = overview.insight { beginnerInsight(insight, colors).padding(.top, CGFloat(space.xs)).padding(.bottom, CGFloat(space.md)) }
             }
             .padding(.horizontal, CGFloat(space.md)).stockCard(padding: 0, bordered: false)
+        } else if let insight = overview.insight {
+            beginnerInsight(insight, colors)
         }
-        if let insight = overview.insight {
-            StockInsightCard(title: "Beginner Insight", message: insight, actionTitle: "Why does this matter?", action: { showEvidence = true })
+    }
+
+    /// Beginner Insight (5D.5.4B): a tinted inset with the lightbulb, the existing text (verbatim, compact) and "Why does this matter?".
+    private func beginnerInsight(_ insight: String, _ colors: StockColors) -> some View {
+        // At accessibility sizes the icon goes above the text so the text keeps the full width (a word split at AX5 beside it).
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: CGFloat(space.xs)))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: CGFloat(space.sm)))
+        return Button { showEvidence = true } label: {
+            layout {
+                Image(systemName: "lightbulb.fill").foregroundStyle(colors.primaryText).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                    Text("Beginner Insight").font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
+                    Text(insight).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                    Text("Why does this matter? →").font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.primaryText)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .multilineTextAlignment(.leading)
+            .padding(CGFloat(space.sm + space.xxs))
+            .background(colors.primaryContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Shows where this comes from")
     }
 
     private func aboutCard(_ overview: CompanyOverview, _ colors: StockColors) -> some View {

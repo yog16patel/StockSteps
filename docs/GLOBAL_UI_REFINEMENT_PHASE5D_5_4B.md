@@ -143,3 +143,55 @@ Kept deliberately (different purpose, plan §B F5):
 - Approve 5D.5.4B as implemented.
 - Keep "Near History" and the full Beginner Insight text, or plan a copy change in core (out of scope for display phases).
 - Proceed to 5D.5.4C (Financials and Valuation).
+
+## 11. Reference refinement r2 (2026-10-15, approved; committed locally as "Refine Company Details for Global UI Refinement Phase 5D.5.4B r2 with tiled At a Glance metrics, assessment pills on the title line, Beginner Insight inside Understand and a Why Did It Move section led by the observed move and possible reasons on Android and iOS", not pushed; on top of `d4843f5`)
+The owner's second reference ("Phase 5D.5.4B · Company Details — reference screens") asked to follow it closely. Changes, display only:
+
+- **B1 At a Glance:**
+  - Each metric is its own borderless surface tile, with ⓘ at the tile's top-right and a larger value (`sectionTitle`).
+  - The 52-week range sits on its own surface below.
+  - New optional `StockMetricGrid(tiled)` / `StockMetric(tile)` on both platforms, default off.
+  - Values, sheets and Learn links are unchanged; one column at large text as before.
+- **B2 Understand:**
+  - The interpretation is a pill on the title line again (the 5D.5.4A layout; `statusBelowTitle` is no longer used here). It stacks under the
+    title only when it doesn't fit.
+  - iOS tries the compact pill on the title line before stacking, then falls back to wrapping tinted words at AX5.
+  - The shared `StockBadgeLayout` rule is unchanged.
+  - **Beginner Insight** moves inside the Understand group as a tinted inset with the lightbulb (verbatim text, small type, "Why does this
+    matter?" opens the evidence sheet). At large text the icon goes above the text so no word splits.
+  - Rows stay tappable, with chevrons, to their explanation sheets.
+- **B3 Why Did It Move?:**
+  - A neutral borderless surface replaces the large orange container.
+  - The **observed move** comes first: the quote's own "+0.91% (+$3.04)" with its session ("on Oct 7", the header's `ChangeLabel`).
+    `CompanyDetailsPresentation.observedMove` returns null when the change is unavailable, never zero. Each figure stays whole: a line breaks
+    only between the percent and the amount.
+  - Then the summary's first sentence (verbatim).
+  - Then **"Possible reasons"** with the rest of the same summary (verbatim; it already says "may have contributed, but timing alone doesn't
+    prove it").
+  - The source pill, "Keep in mind" and "See full breakdown" are unchanged.
+- **Files:**
+  - shared: `StockMetric.kt`, `CompanyDetailsPresentation.kt` (+`observedMove`, `plain`), `CompanyDetailsScreen.kt`;
+  - test: `CompanyDetailsPresentationTest` (+1);
+  - iOS: `StockControls.swift`, `StockDetailComponents.swift`, `CompanyDetailsScreen.swift`.
+
+**Not followed from the reference (data or approval):**
+- The Day Range stays with the chart (approved 5D.5.4A).
+- The reference's shortened texts ("More revenue than a year earlier.", "Near historical average", the shorter insight) don't exist in the data.
+- The reference's "Possible reasons" bullets ("Positive investor sentiment…", "Tech sector strength") aren't in the data; the section shows only
+  the existing hedged sentence.
+- At 2.0× Android keeps the single-column tiles (the shared large-text rule); the reference shows two columns.
+
+**Verification r2:**
+- **Tests:** core 541/0 (JVM, iOS) and server 501/0 before the r2 Kotlin changes. Shared Android 253/0 and iOS 249/0 after B1–B3; the shared
+  rerun after the final word-joiner and icon changes is recorded in §11.1. `assembleDebug` and `xcodebuild` PASS on final code.
+- **Android** (emulator-5554, 360 dp, MOCK): PASS.
+  - Covered: 1.0× light and dark (in-app theme, restored to Light), 1.3×, 2.0×.
+  - Taps: Profitability → net margin sheet with Learn; Beginner Insight → evidence sheet; P/E tile → sheet → Learn → Back to At a Glance.
+- **iOS** (iPhone 16, MOCK, guest): PASS. Covered: Default light and dark; AX5 (badges stack or wrap, no split words, observed move whole).
+- **Not run:** iOS AX XL.
+- **Device incident:** the Android emulator's screen capture hung (adb `screencap` timed out even after an in-place reboot). I cold-restarted the
+  emulator (same AVD, headless, no snapshot); captures are now guarded by a 15–20 s timeout.
+
+### 11.1 Final shared test rerun
+`:app:shared:testAndroidHostTest` PASS 253/0 and `:app:shared:iosSimulatorArm64Test` PASS 249/0 on the final r2 code (after the word-joiner and icon
+changes). Devices were restored afterwards (emulator 1.0×, Light theme, `adb reverse` removed; simulator Default size, light); MOCK server stopped.

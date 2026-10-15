@@ -84,11 +84,21 @@ struct StockMetric: View {
     var quiet = false
     /// 5D.5.3: a decorative ⓘ after the label (the tap's hint says what it does). Default off.
     var info = false
+    /// 5D.5.4B: see Compose `StockMetric.tile` — own surface, ⓘ at the top-right, larger value. Default off.
+    var tile = false
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
-        let valueStyle = type.numberEmphasis
+        let valueStyle = tile ? type.sectionTitle : type.numberEmphasis
         VStack(alignment: .leading, spacing: CGFloat(space.labelValueGap)) {
-            StockMetricLabel(label: label, info: info)
+            if tile {
+                HStack(alignment: .top, spacing: CGFloat(space.xs)) {
+                    Text(label).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if info { Image(systemName: "info.circle").foregroundStyle(colors.primaryText).accessibilityHidden(true) }
+                }
+            } else {
+                StockMetricLabel(label: label, info: info)
+            }
             if let direction, direction != .unavailable {
                 StockPriceChange(percentage: value, direction: direction, style: valueStyle, lineLimit: nil)
             } else {
@@ -101,6 +111,9 @@ struct StockMetric: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(tile ? CGFloat(space.md) : 0)
+        .frame(maxHeight: tile ? .infinity : nil, alignment: .topLeading)
+        .background(tile ? colors.surface : Color.clear, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
         .accessibilityElement(children: .combine)
     }
 }
@@ -146,6 +159,8 @@ struct StockMetricGrid: View {
     var maxColumns = 3
     /// When not every item fits on one line, show aligned label/value rows instead of an uneven grid (e.g. 2 + 1).
     var rowsWhenNarrow = false
+    /// 5D.5.4B: each metric on its own surface tile (`StockMetric.tile`), equal heights per row. Default off.
+    var tiled = false
     @Environment(\.colorScheme) private var scheme
     @State private var width: CGFloat = 0
     var body: some View {
@@ -202,20 +217,20 @@ struct StockMetricGrid: View {
                 }
             }
         } else {
-        Grid(alignment: .topLeading, horizontalSpacing: CGFloat(space.md), verticalSpacing: CGFloat(space.itemGap)) {
+        Grid(alignment: .topLeading, horizontalSpacing: CGFloat(tiled ? space.sm : space.md), verticalSpacing: CGFloat(tiled ? space.sm : space.itemGap)) {
             ForEach(Array(stride(from: 0, to: items.count, by: columns)), id: \.self) { start in
                 GridRow {
                     ForEach(items[start..<min(start + columns, items.count)]) { item in
                         if let action = item.action {
                             Button(action: action) {
-                                StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet, info: item.info)
+                                StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet, info: item.info, tile: tiled)
                                     .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget), alignment: .topLeading)
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityHint(item.hint ?? "")
                         } else {
-                            StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet, info: item.info)
+                            StockMetric(label: item.label, value: item.value, helper: item.helper, direction: item.direction, quiet: item.quiet, info: item.info, tile: tiled)
                         }
                     }
                     ForEach(0..<(columns - min(columns, items.count - start)), id: \.self) { _ in Color.clear.frame(height: 0) }

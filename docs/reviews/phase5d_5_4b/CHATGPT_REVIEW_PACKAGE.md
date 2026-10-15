@@ -57,3 +57,21 @@ Approve 5D.5.4B; keep the existing copy; proceed to 5D.5.4C.
 
 ## 12. Links
 Report `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4B.md`; plan `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`; focused diff `CHATGPT_FOCUSED_DIFF.md`.
+
+## r2: reference refinement (approved; local commit "Refine Company Details for Global UI Refinement Phase 5D.5.4B r2 with tiled At a Glance metrics, assessment pills on the title line, Beginner Insight inside Understand and a Why Did It Move section led by the observed move and possible reasons on Android and iOS", not pushed; on top of `d4843f5`)
+- **At a Glance:**
+  - Each metric is its own borderless tile (ⓘ top-right, larger value), plus a 52-week range surface.
+  - New optional `StockMetricGrid(tiled)` (default off).
+- **Understand:**
+  - The pill sits on the title line again; iOS tries the compact pill before stacking.
+  - Beginner Insight is a tinted inset inside the group (verbatim text; icon above the text at large sizes).
+- **Why Did It Move?:**
+  - Neutral surface.
+  - Observed move "+0.91% (+$3.04) · on Oct 7" (`observedMove`, null when unavailable, figures never split).
+  - Then the first sentence, then "Possible reasons" with the verbatim hedged rest, then caution and breakdown.
+- **Not from data:** the reference's shorter copy and its bullet reasons. The Day Range stays with the chart (5D.5.4A).
+- **Device checks:**
+  - Android 1.0×/1.3×/2.0×, light and dark: PASS.
+  - iOS Default light/dark and AX5: PASS.
+  - iOS AX XL: NOT RUN.
+- **Contact sheets:** the PNGs in this folder now show r2 (BEFORE = `d4843f5`).

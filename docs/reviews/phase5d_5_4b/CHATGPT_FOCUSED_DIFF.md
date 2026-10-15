@@ -33,3 +33,18 @@ fun whyMoving(summary: String): WhyMovingDisplay {
 ## 4. Row layout option (`StockAssessmentRow`)
 - `statusBelowTitle: Boolean = false`: the title, then the status as words in `StockSemanticStyles.badge(kind).content`.
 - The default path (pill, `StockBadgeLayout`) is unchanged for other callers.
+
+## r2 additions
+```kotlin
+fun observedMove(overview: CompanyOverview, label: ChangeLabel): ObservedMove? {
+    if (overview.direction == PriceDirection.UNAVAILABLE || overview.changePercent.isBlank() || overview.changePercent == "—") return null
+    val change = listOfNotNull(overview.changePercent, overview.changeAmount?.let { "($it)" }).joinToString(" ") { it.unbroken() }  // word joiners inside each figure
+    return ObservedMove(change, overview.direction, label.spoken) }
+```
+- The same quote values and session as the header; nothing new is computed.
+- **Covered by:** `observedMoveUsesTheQuoteChangeAndSessionAndIsHiddenWhenUnavailable` (value, session, unavailable → null, one break
+  opportunity).
+- `StockMetric(tile)` / `StockMetricGrid(tiled)`: an optional surface tile with equal row heights (Compose `IntrinsicSize.Min`); defaults
+  unchanged for every other caller.
+- The iOS `StockAssessmentRow` gains one more fallback step (the compact pill on the title line) before stacking; the shared
+  `StockBadgeLayout` limit is unchanged.
