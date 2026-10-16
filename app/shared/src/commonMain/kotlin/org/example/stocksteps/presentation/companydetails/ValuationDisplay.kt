@@ -9,6 +9,9 @@ import org.example.stocksteps.companydetail.ValuationModel
  */
 object ValuationDisplay {
 
+    /** KAN-16: the top-bar title, "PFAI Valuation" (ticker, never truncated like a long company name; see `FinancialsDisplay.title`). */
+    fun title(symbol: String): String = "$symbol Valuation"
+
     const val KEY_METRICS_TITLE = "Key Valuation Metrics"
     const val HISTORY_TITLE = "P/E vs History"
     const val UNDERSTANDING_TITLE = "Understanding P/E Ratio"

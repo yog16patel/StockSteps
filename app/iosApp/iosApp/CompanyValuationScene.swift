@@ -142,7 +142,7 @@ struct CompanyValuationScene: View {
             .frame(maxWidth: .infinity)
         }
         .background(colors.appBackground.ignoresSafeArea())
-        .navigationTitle("\(model.shortName) Valuation")
+        .navigationTitle(ValuationDisplay.shared.title(symbol: model.symbol)) // KAN-16: ticker title, never truncated
         // 5D.5.6C3: terms open on Learn (canonical tab); from the sheet only once it has closed.
         .sheet(item: $explaining) { e in MetricExplanationSheet(explanation: e) { id in explaining = nil; router?.open(.learn(.term(id)), afterSheet: true) } }
         .navigationBarTitleDisplayMode(.inline)

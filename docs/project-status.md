@@ -6,6 +6,13 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — Shared top bars, safe areas & accessibility, KAN-16 (committed and pushed as "Fix iOS landing content under the status bar and shorten company page titles for UI/UX Refinement Phase 2 (KAN-16) with a page-background status strip, ticker Financials and Valuation titles, a symbol Back label from Company Details and trailing Done on iOS sheets"; KAN-16 not Done).**
+- **Done:** iOS landing content no longer scrolls under the status bar (page-background strip at each tab root); "PFAI Financials" /
+  "PFAI Valuation" titles on both platforms (were truncated full names); iOS "‹ PFAI" Back from Company Details; iOS sheet Done trailing.
+- **Validation:** suites green on rerun (606 / 604 / 278 / 275; known core flake once each), both builds PASS, device checks PASS, 0 requests
+  on tab switches. **BLOCKED:** signed-in iOS, Android guest. **NOT RUN:** screen readers.
+- **Recommendation:** APPROVE WITH FIXES. **Report:** `docs/TOP_BAR_UI_REFINEMENT_PHASE2.md`; package `docs/reviews/top_bar_ui_phase2/`.
+
 **2026-10-16 — Home UI/UX Refinement Phase 1, KAN-14 (committed and pushed as "Refine Home for UI/UX Refinement Phase 1 (KAN-14) with open sections, borderless row groups, a wider section rhythm, first-load skeletons and live Dynamic Type on Android and iOS"; KAN-14 not Done).**
 - **Done:** Home on Android and iOS uses open sections (title on the page, rows in one borderless group) instead of a bordered card per
   section; 20 dp/pt section gap; portfolio summary a borderless card; first-load skeletons (iOS restore spinner removed); iOS live Dynamic

@@ -206,8 +206,12 @@ struct CompanyDetailsScreen: View {
             .onGeometryChange(for: CGSize.self) { $0.size } action: { viewport = $0.height; pageWidth = $0.width }
         }
         .background(colors.appBackground.ignoresSafeArea())
+        // KAN-16: the symbol names the next page's back button ("‹ MSFT" on Financials, Valuation and News, as `AppDestination.backTitle`
+        // does across tabs) instead of a bare "‹ Back"; the bar itself stays title-free because the header names the company (Learn pattern).
+        .navigationTitle(model.symbol)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .principal) { Text(verbatim: " ").accessibilityHidden(true) }
             if watchlistEnabled {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: onToggleWatchlist) {

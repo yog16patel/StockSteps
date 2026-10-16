@@ -11,6 +11,13 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ValuationDisplayTest {
+
+    @Test
+    fun titleUsesTheTicker() {
+        // KAN-16: the same short top-bar title rule as Financials.
+        assertEquals("PFAI Valuation", ValuationDisplay.title("PFAI"))
+        assertEquals("SSHC.TO Valuation", ValuationDisplay.title("SSHC.TO"))
+    }
     private fun model(currentPe: String = "28.0x", average: String? = "27.5x", difference: String? = "+2%", averageLabel: String = "5-Year Average", other: List<InfoRow> = emptyList(), growth: List<InfoRow> = emptyList()) = ValuationModel(
         range = ValuationRange.FIVE_YEARS, currentPe = currentPe, currentPeAvailable = currentPe != "N/A", badge = "Near Historical Average",
         position = ValuationPosition.NEAR, meaning = "m", averageLabel = averageLabel, average = average, difference = difference, methodology = "x",

@@ -86,3 +86,27 @@ struct StockLandingIconButton: View {
         .accessibilityLabel(label)
     }
 }
+
+/// KAN-16: landing pages hide the navigation bar (they draw `StockLandingTopBar` in their scroll content), so nothing covered the status-bar
+/// inset and scrolled content ran under the clock and battery. This fills exactly that inset with the page background, above the content: a
+/// zero-height strip at the top of the safe area that extends up through the inset (`ignoresSafeArea(.top)`). No layout change — the content's
+/// own safe-area top is untouched, so there is no added padding or blank area — and the status bar keeps its native appearance. Pushed screens
+/// keep the system navigation bar and don't use it.
+private struct LandingStatusBarBackdrop: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .top) {
+            // Order matters: the colour ignores the top safe area inside a zero-height frame, so it grows up through the inset only.
+            StockStepsTheme.colors(scheme).appBackground
+                .ignoresSafeArea(edges: .top)
+                .frame(height: 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+extension View {
+    /// KAN-16: the page background behind the status bar of a landing page (no navigation bar). Applied once per tab root in `AppScene`.
+    func landingStatusBarBackdrop() -> some View { modifier(LandingStatusBarBackdrop()) }
+}

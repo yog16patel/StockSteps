@@ -200,7 +200,7 @@ struct CompanyFinancialsScene: View {
         }
         }
         .background(colors.appBackground.ignoresSafeArea())
-        .navigationTitle("\(model.shortName) Financials")
+        .navigationTitle(FinancialsDisplay.shared.title(symbol: model.symbol)) // KAN-16: ticker title, never truncated
         .navigationBarTitleDisplayMode(.inline)
         // 5D.5.6C3: the term opens on Learn (its canonical tab) once the sheet has closed; Back returns here.
         .sheet(item: $explaining) { e in MetricExplanationSheet(explanation: e) { id in explaining = nil; router?.open(.learn(.term(id)), afterSheet: true) } }

@@ -78,7 +78,7 @@ internal fun CompanyValuationScreen(
     val section = content.padding(top = spacing.xl)
     Column(Modifier.fillMaxSize().background(colors.appBackground)) {
         StockStepsTopBar(
-            configuration = AppBarConfiguration(title = stringResource(Res.string.valuation_title, state.shortName), backButton = AppBarBackButton.BACK),
+            configuration = AppBarConfiguration(title = ValuationDisplay.title(state.symbol), backButton = AppBarBackButton.BACK),
             onBack = onBack,
             backIcon = backIcon
         )

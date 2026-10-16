@@ -15,6 +15,13 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class FinancialsDisplayTest {
+
+    @Test
+    fun titleUsesTheTickerSoALongCompanyNameNeverTruncatesThePageName() {
+        // KAN-16: "Pinnacle Food Group Limited Class A Common Shares Financials" lost "Financials" to the ellipsis in the top bar.
+        assertEquals("PFAI Financials", FinancialsDisplay.title("PFAI"))
+        assertEquals("SSHC.TO Financials", FinancialsDisplay.title("SSHC.TO"))
+    }
     private val revenueChart = FinancialChart(listOf(FinancialBar("FY24", 391.0, ""), FinancialBar("FY25", 416.2, "")), primaryLabel = "Revenue", description = "r")
     private val twoSeries = revenueChart.copy(secondary = listOf(FinancialBar("FY24", 93.7, ""), FinancialBar("FY25", 133.2, "")), secondaryLabel = "Net Income")
 

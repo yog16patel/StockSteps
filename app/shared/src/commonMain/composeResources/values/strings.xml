@@ -135,7 +135,6 @@
     <string name="details_industry">Industry</string>
     <string name="details_sector_body">%1$s is part of the %2$s sector, in the %3$s industry. Comparing a company with others in its industry gives its numbers more context.</string>
     <string name="details_valuation_unavailable">Valuation history isn't available for this company.</string>
-    <string name="financials_title">%1$s Financials</string>
     <string name="financials_tagline">Understand how this company earns, grows and manages its money.</string>
     <string name="financials_unavailable">Financial data is temporarily unavailable.</string>
     <string name="financials_load_failed">We couldn't load the financial statements. Try again.</string>
@@ -152,7 +151,6 @@
     <string name="financials_advanced">Advanced Metrics</string>
     <string name="financials_valuation">Valuation</string>
     <string name="financials_updating">Updating…</string>
-    <string name="valuation_title">%1$s Valuation</string>
     <string name="valuation_tagline">Understanding what investors pay for this company.</string>
     <string name="valuation_current_title">Current P/E Ratio</string>
     <string name="valuation_current">Current</string>

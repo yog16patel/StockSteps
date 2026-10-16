@@ -124,7 +124,7 @@ internal fun CompanyFinancialsScreen(
     }
     Column(Modifier.fillMaxSize().background(colors.appBackground)) {
         StockStepsTopBar(
-            configuration = AppBarConfiguration(title = stringResource(Res.string.financials_title, state.shortName), backButton = AppBarBackButton.BACK),
+            configuration = AppBarConfiguration(title = FinancialsDisplay.title(state.symbol), backButton = AppBarBackButton.BACK),
             onBack = onBack,
             backIcon = backIcon
         )

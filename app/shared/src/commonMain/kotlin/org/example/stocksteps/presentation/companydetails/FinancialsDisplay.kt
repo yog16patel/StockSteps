@@ -11,6 +11,12 @@ import org.example.stocksteps.companydetail.SectionAvailability
  */
 object FinancialsDisplay {
 
+    /**
+     * KAN-16: the top-bar title, "PFAI Financials". The ticker keeps it short: "<company name> Financials" truncated long names to
+     * "Pinnacle Food Group Limited Class A C…" and lost the page's own name. The company's name stays in the page header.
+     */
+    fun title(symbol: String): String = "$symbol Financials"
+
     /** One headline tile under the overview chart: the model's own label, value and change text. */
     data class KeyMetric(val label: String, val value: String, val caption: String?, val direction: PriceDirection?, val metricId: String?)
 

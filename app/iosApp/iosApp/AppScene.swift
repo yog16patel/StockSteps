@@ -161,7 +161,7 @@ struct AppScene: View {
                               // Settings is itself a sheet: close it first, or SwiftUI silently drops the second presentation (Phase 5C).
                               onSignIn: { showingSettings = false; showingAuth = true }, appLock: appLock, onEarningsReminders: { showingReminderSettings = true },
                               onEarningsDigest: accounts.client == nil ? nil : { showingSettingsDigest = true })
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingSettings = false } } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showingSettings = false } } } // KAN-16: Done trailing, as every other sheet
                     .navigationDestination(isPresented: $showingReminderSettings) {
                         EarningsRemindersSettingsScene(model: earningsModel.reminders, onSignIn: { showingSettings = false; showingAuth = true })
                     }
@@ -177,7 +177,7 @@ struct AppScene: View {
         .sheet(item: Binding(get: { router.global }, set: { router.global = $0 })) { sheet in
             NavigationStack {
                 globalScreen(sheet)
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { router.global = nil } } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { router.global = nil } } } // KAN-16: Done trailing
             }
         }
         .sheet(isPresented: $showingAuth) {
@@ -212,6 +212,8 @@ struct AppScene: View {
                 // Landing pages draw their own bar; the title names the first pushed page's back button: "‹ Markets", or while that page was
                 // opened from another tab, where Back really goes ("‹ Home", "‹ AAPL"; 5D.5.6C3).
                 .stockStepsTopBar(.screen(router.rootTitle(tab), visible: false))
+                // KAN-16: no navigation bar on landing pages, so the status-bar strip gets the page background (content never runs under it).
+                .landingStatusBarBackdrop()
                 .navigationDestination(for: AppDestination.self) { destination in
                     self.destination(destination)
                         // A deeper cross-tab entry: no misleading label, just the chevron (VoiceOver still says "Back").
