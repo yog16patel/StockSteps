@@ -57,3 +57,8 @@ ui-debug.log
 # Local development server connection (Phase 5B Local) and iOS local overrides: per developer, never committed.
 deploy/local/server.env
 app/iosApp/Configuration/Local.xcconfig
+
+# Google service-account keys (REAL user data on the LAN host) never enter the repository.
+*service-account*.json
+*serviceAccount*.json
+*credentials*.json

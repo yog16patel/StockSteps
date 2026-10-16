@@ -561,7 +561,8 @@ private fun Application.realDataSources(): DataSources {
                         .build().service
                 )
             } catch (cause: Exception) {
-                log.warn("User data storage unavailable (Google credentials not found); watchlists and alerts are disabled.")
+                // Type only: the message can name the credentials file or project.
+                log.warn("User data storage unavailable (Google credentials not found: ${cause.javaClass.simpleName}); signed-in data (portfolio, practice, watchlists, alerts) answers 503.")
                 org.example.stocksteps.userdata.UnavailableUserDataStore
             }
         },

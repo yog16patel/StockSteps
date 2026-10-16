@@ -24,6 +24,11 @@ fun Application.configureApiErrors() {
             }
             call.respond(status, error)
         }
+        // Safety net for routes without their own mapping (e.g. Daily Brief's signed-in overlay): user-data failures keep their
+        // status and code (503 USER_DATA_UNAVAILABLE) instead of becoming 500. Their messages are written for users.
+        exception<org.example.stocksteps.userdata.UserDataException> { call, cause ->
+            call.respond(HttpStatusCode.fromValue(cause.status), ApiError(cause.code, cause.message))
+        }
         exception<Exception> { call, cause ->
             if (cause is CancellationException) throw cause
             // Exception messages and stack traces can contain upstream API keys.

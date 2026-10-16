@@ -1,0 +1,20 @@
+# StockSteps — LAN REAL backend: signed-in user data (Firestore) overlay. Owner opt-in only (D-R1 alternative, docs/REAL_PORTFOLIO_PRACTICE_FIX.md).
+#
+# Used only when server.env sets STOCKSTEPS_REAL_USER_DATA=1: deploy.sh then uploads this file as docker-compose.userdata.yml and writes
+# COMPOSE_FILE=docker-compose.yml:docker-compose.userdata.yml into the host's .env, so every compose command (deploy, start, restart…) uses it.
+#
+# The service-account key is created by the owner (least privilege: roles/datastore.user on the Firebase project only) and placed on the host as
+# ~/stocksteps-real/service-account.json, owned by the container user (10001) with mode 400. deploy.sh only checks its owner and mode, never
+# reads it. It is mounted read-only; it is never uploaded, never in the build context (.dockerignore) and never in the repository (.gitignore).
+# FIREBASE_PROJECT_ID must be the project the apps sign in to (google-services.json / GoogleService-Info.plist), or tokens are rejected (401).
+services:
+  api:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/stocksteps/service-account.json
+      FIREBASE_PROJECT_ID: ${STOCKSTEPS_FIREBASE_PROJECT_ID:?set STOCKSTEPS_REAL_FIREBASE_PROJECT_ID in server.env}
+      GOOGLE_CLOUD_PROJECT: ${STOCKSTEPS_FIREBASE_PROJECT_ID:?set STOCKSTEPS_REAL_FIREBASE_PROJECT_ID in server.env}
+    volumes:
+      - type: bind
+        source: ./service-account.json
+        target: /run/stocksteps/service-account.json
+        read_only: true

@@ -348,8 +348,44 @@ class FirestoreUserDataStore(private val db: Firestore) : UserDataStore {
     private fun <T> decode(serializer: KSerializer<T>, value: String) = json.decodeFromString(serializer, value)
 
     private suspend fun <T> io(block: suspend () -> T): T = withContext(Dispatchers.IO) { block() }
-    private fun <T> ApiFuture<T>.await(): T = get(OPERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+    private fun <T> ApiFuture<T>.await(): T = awaitFirestore(this, OPERATION_TIMEOUT_SECONDS)
 
     private companion object { const val OPERATION_TIMEOUT_SECONDS = 15L }
+}
+
+private val firestoreLog = org.slf4j.LoggerFactory.getLogger("org.example.stocksteps.userdata.Firestore")
+
+/**
+ * Waits for a Firestore future and gives callers the same exceptions as [InMemoryUserDataStore].
+ *
+ * A transaction function's own failure (a [UserDataException] such as Practice `409 PLUS_ACTIVE`, or the `require` behind Portfolio's
+ * `400 INVALID_PORTFOLIO`) arrives wrapped in an [ExecutionException][java.util.concurrent.ExecutionException]; it is rethrown unwrapped,
+ * so routes answer the intended status instead of 500. Storage failures (gRPC/Firestore status such as PERMISSION_DENIED or NOT_FOUND,
+ * missing or rejected credentials, timeouts) become 503 `USER_DATA_UNAVAILABLE`; only the exception type and status code are logged,
+ * never the message (it can name documents and the project).
+ */
+internal fun <T> awaitFirestore(future: ApiFuture<T>, timeoutSeconds: Long): T = try {
+    future.get(timeoutSeconds, TimeUnit.SECONDS)
+} catch (cause: java.util.concurrent.ExecutionException) {
+    val failure = cause.cause ?: cause
+    throw if (isStorageFailure(failure)) storageUnavailable(failure) else failure
+} catch (cause: java.util.concurrent.TimeoutException) {
+    throw storageUnavailable(cause)
+}
+
+private fun isStorageFailure(cause: Throwable): Boolean =
+    cause is com.google.cloud.BaseServiceException || cause is com.google.api.gax.rpc.ApiException ||
+        cause is io.grpc.StatusRuntimeException || cause is io.grpc.StatusException || cause is java.io.IOException ||
+        cause is java.util.concurrent.TimeoutException
+
+private fun storageUnavailable(cause: Throwable): UserDataException {
+    val status = when (cause) {
+        is com.google.api.gax.rpc.ApiException -> cause.statusCode.code.name
+        is io.grpc.StatusRuntimeException -> cause.status.code.name
+        is io.grpc.StatusException -> cause.status.code.name
+        else -> (cause.cause as? com.google.api.gax.rpc.ApiException)?.statusCode?.code?.name ?: "-"
+    }
+    firestoreLog.warn("User data storage request failed: type=${cause.javaClass.simpleName} status=$status")
+    return UserDataException(503, "USER_DATA_UNAVAILABLE", USER_DATA_UNAVAILABLE_MESSAGE)
 }
 

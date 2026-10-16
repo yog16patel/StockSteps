@@ -6,6 +6,16 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — REAL backend My Portfolio & Practice (committed and pushed as "Fix REAL My Portfolio and Practice on the LAN backend with Firestore user data, unwrapped transaction rejections, 503 for storage failures and an opt-in read-only service-account mount"; deployed to LAN REAL :8082 with Firestore user data).**
+- **Root cause:** the LAN REAL container (`:8082`) has no Google credentials, so every `/api/v1/me/*` route answers 503
+  `USER_DATA_UNAVAILABLE` (D-R1). Auth and networking are fine. `:8081` is MOCK.
+- **Done (server):** Firestore transaction rejections keep their 400/403/409 (were 500); storage failures → 503; personalized brief
+  500 → 503; neutral 503 copy; opt-in credential overlay for the REAL stack (enabled on the LAN host).
+- **Validation:** server 507/0, core JVM 608/0, new tests 5/5 (4/5 fail on the old code).
+  - After the owner-approved deploy, every `/me/*` GET returns 200 on the Pixel 7 (portfolio, practice, personalized brief), with 0 × 503.
+  - **NOT RUN:** Portfolio create, Practice orders. **BLOCKED:** iOS signed-in.
+- **Report:** `docs/REAL_PORTFOLIO_PRACTICE_FIX.md`; package `docs/reviews/real_portfolio_practice/`.
+
 **2026-10-16 — Shared top bars, safe areas & accessibility, KAN-16 (committed and pushed as "Fix iOS landing content under the status bar and shorten company page titles for UI/UX Refinement Phase 2 (KAN-16) with a page-background status strip, ticker Financials and Valuation titles, a symbol Back label from Company Details and trailing Done on iOS sheets"; KAN-16 not Done).**
 - **Done:** iOS landing content no longer scrolls under the status bar (page-background strip at each tab root); "PFAI Financials" /
   "PFAI Valuation" titles on both platforms (were truncated full names); iOS "‹ PFAI" Back from Company Details; iOS sheet Done trailing.

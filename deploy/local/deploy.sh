@@ -15,6 +15,8 @@
 # STOCKSTEPS_STACK=real selects the LAN REAL backend (docker-compose.real.yml, ~/stocksteps-real, port STOCKSTEPS_REAL_HOST_PORT, default 8082;
 # docs/LOCAL_REAL_BACKEND_PLAN.md). It needs ~/stocksteps-real/secrets.env on the host (owner-created, mode 600; this script only checks that it
 # exists and its mode, never reads it). "smoke" then runs smoke-real.sh (one search); "reliability" is MOCK-only. The default stack is mock.
+# STOCKSTEPS_REAL_USER_DATA=1 (server.env, owner opt-in) adds docker-compose.real.userdata.yml: signed-in data in Firestore through the
+# owner-placed ~/stocksteps-real/service-account.json (owner 10001, mode 400; checked by stat only) for STOCKSTEPS_REAL_FIREBASE_PROJECT_ID.
 #
 # Connection settings come from deploy/local/server.env (git-ignored; copy server.env.example). Only files in the .dockerignore allow-list are
 # uploaded; nothing secret is sent. The script only touches ~/stocksteps-local on the host, the Compose project "stocksteps-local" and
@@ -43,6 +45,8 @@ esac
 CONTAINER="$PROJECT-api-1"
 KEEP_RELEASES="${STOCKSTEPS_KEEP_RELEASES:-5}"
 BASE_URL="http://$STOCKSTEPS_BIND_ADDR:$STOCKSTEPS_HOST_PORT"
+USER_DATA=0
+if [[ "$STACK" == real && "${STOCKSTEPS_REAL_USER_DATA:-0}" == 1 ]]; then USER_DATA=1; fi
 
 remote() { ssh -o BatchMode=yes "$STOCKSTEPS_SSH" "$@"; }
 compose() { remote "cd ~/$REMOTE_DIR && docker compose $*"; }
@@ -67,6 +71,11 @@ PROVIDER_FMP_PER_MINUTE=${STOCKSTEPS_REAL_FMP_PER_MINUTE:?set STOCKSTEPS_REAL_FM
 PROVIDER_FINNHUB_PER_MINUTE=${STOCKSTEPS_REAL_FINNHUB_PER_MINUTE:?set STOCKSTEPS_REAL_FINNHUB_PER_MINUTE (your Finnhub plan rate) in server.env}
 PROVIDER_FMP_DAILY_TARGET=${STOCKSTEPS_REAL_FMP_DAILY_TARGET:-}
 EOF
+    fi
+    if [[ "$USER_DATA" == 1 ]]; then cat <<EOF
+COMPOSE_FILE=docker-compose.yml:docker-compose.userdata.yml
+STOCKSTEPS_FIREBASE_PROJECT_ID=${STOCKSTEPS_REAL_FIREBASE_PROJECT_ID:?set STOCKSTEPS_REAL_FIREBASE_PROJECT_ID (the Firebase project the apps sign in to) in server.env}
+EOF
     fi; } | remote "cat > ~/$REMOTE_DIR/.env"
 }
 
@@ -79,6 +88,19 @@ require_secrets() {
     exit 1
   fi
   [[ "$mode" == 600 || "$mode" == 400 ]] || { echo "~/$REMOTE_DIR/secrets.env has mode $mode; run chmod 600 on it first." >&2; exit 1; }
+  require_user_data
+}
+
+# REAL user data (opt-in): the owner-placed service-account key must exist, belong to the container user and be private. Owner and mode only.
+require_user_data() {
+  [[ "$USER_DATA" == 1 ]] || return 0
+  local stat; stat="$(remote "stat -c '%u %a' ~/$REMOTE_DIR/service-account.json 2>/dev/null" || true)"
+  if [[ -z "$stat" ]]; then
+    echo "Missing ~/$REMOTE_DIR/service-account.json on the host (docs/REAL_PORTFOLIO_PRACTICE_FIX.md §6). Place it yourself, then:" >&2
+    echo "  sudo chown 10001:10001 ~/$REMOTE_DIR/service-account.json && sudo chmod 400 ~/$REMOTE_DIR/service-account.json" >&2
+    exit 1
+  fi
+  [[ "$stat" == "10001 400" ]] || { echo "~/$REMOTE_DIR/service-account.json is '$stat' (uid mode); it must be '10001 400' (the container user, read-only)." >&2; exit 1; }
 }
 
 package() { # $1 output tarball — the .dockerignore allow-list, without macOS metadata
@@ -120,6 +142,8 @@ cmd_deploy() {
   echo "[$STACK] Release $tag → $STOCKSTEPS_SSH:~/$REMOTE_DIR/releases/$tag"
   package "$tarball"
   scp -q -o BatchMode=yes "$HERE/$COMPOSE_FILE" "$STOCKSTEPS_SSH:$REMOTE_DIR/docker-compose.yml"
+  if [[ "$USER_DATA" == 1 ]]; then scp -q -o BatchMode=yes "$HERE/docker-compose.real.userdata.yml" "$STOCKSTEPS_SSH:$REMOTE_DIR/docker-compose.userdata.yml"
+  else remote "rm -f ~/$REMOTE_DIR/docker-compose.userdata.yml"; fi
   scp -q -o BatchMode=yes "$tarball" "$STOCKSTEPS_SSH:$REMOTE_DIR/releases/$tag.tgz"
   rm -rf "$tmp"
   remote "set -e; cd ~/$REMOTE_DIR/releases; rm -rf -- '$tag'; mkdir '$tag'; tar xzf '$tag.tgz' -C '$tag' 2>/dev/null; rm '$tag.tgz'"

@@ -354,6 +354,9 @@ class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>>
     private fun key(uid: String, deviceId: String) = "$uid|$deviceId"
 }
 
+/** Shown verbatim by the apps on every signed-in screen (portfolio, practice, watchlists…), so it names no single feature. */
+const val USER_DATA_UNAVAILABLE_MESSAGE = "Your saved data is temporarily unavailable. Try again later."
+
 /**
  * REAL without storage credentials: every user-data request fails with 503 USER_DATA_UNAVAILABLE.
  * Deliberately not an in-memory fallback, which would silently lose users' watchlists and alerts.
@@ -361,7 +364,7 @@ class InMemoryUserDataStore(private val legacy: Map<String, List<InstrumentRef>>
 object UnavailableUserDataStore : UserDataStore {
     override suspend fun <T> updatePortfolio(uid: String, block: (org.example.stocksteps.portfolio.PortfolioLedger) -> Pair<org.example.stocksteps.portfolio.PortfolioLedger, T>): T = unavailable()
     private fun unavailable(): Nothing =
-        throw UserDataException(503, "USER_DATA_UNAVAILABLE", "Watchlists and alerts are temporarily unavailable.")
+        throw UserDataException(503, "USER_DATA_UNAVAILABLE", USER_DATA_UNAVAILABLE_MESSAGE)
     override suspend fun <T> updateWatchlists(uid: String, block: (UserWatchlists) -> Pair<UserWatchlists, T>): T = unavailable()
     override suspend fun entitlement(uid: String): StoredEntitlement? = unavailable()
     override suspend fun saveBrief(brief: org.example.stocksteps.brief.DailyBrief) = unavailable()
