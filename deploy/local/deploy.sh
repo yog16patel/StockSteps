@@ -12,6 +12,10 @@
 #   smoke             run deploy/local/smoke-test.sh against the server
 #   reliability       run deploy/local/reliability-check.sh on the host (restarts the StockSteps container once; MOCK state is lost)
 #
+# STOCKSTEPS_STACK=real selects the LAN REAL backend (docker-compose.real.yml, ~/stocksteps-real, port STOCKSTEPS_REAL_HOST_PORT, default 8082;
+# docs/LOCAL_REAL_BACKEND_PLAN.md). It needs ~/stocksteps-real/secrets.env on the host (owner-created, mode 600; this script only checks that it
+# exists and its mode, never reads it). "smoke" then runs smoke-real.sh (one search); "reliability" is MOCK-only. The default stack is mock.
+#
 # Connection settings come from deploy/local/server.env (git-ignored; copy server.env.example). Only files in the .dockerignore allow-list are
 # uploaded; nothing secret is sent. The script only touches ~/stocksteps-local on the host, the Compose project "stocksteps-local" and
 # images named stocksteps-local:* — never other containers, networks, volumes or global prunes.
@@ -24,8 +28,19 @@ HERE="$ROOT/deploy/local"
 source "$HERE/server.env"
 : "${STOCKSTEPS_SSH:?set STOCKSTEPS_SSH (user@host) in server.env}"
 : "${STOCKSTEPS_BIND_ADDR:?set STOCKSTEPS_BIND_ADDR (the host LAN IP) in server.env}"
-STOCKSTEPS_HOST_PORT="${STOCKSTEPS_HOST_PORT:-8081}"
-REMOTE_DIR="${STOCKSTEPS_REMOTE_DIR:-stocksteps-local}"   # relative to the remote home directory
+STACK="${STOCKSTEPS_STACK:-mock}"
+case "$STACK" in
+  mock)
+    COMPOSE_FILE="docker-compose.yml"; PROJECT="stocksteps-local"
+    STOCKSTEPS_HOST_PORT="${STOCKSTEPS_HOST_PORT:-8081}"
+    REMOTE_DIR="${STOCKSTEPS_REMOTE_DIR:-stocksteps-local}" ;;   # relative to the remote home directory
+  real)
+    COMPOSE_FILE="docker-compose.real.yml"; PROJECT="stocksteps-real"
+    STOCKSTEPS_HOST_PORT="${STOCKSTEPS_REAL_HOST_PORT:-8082}"
+    REMOTE_DIR="${STOCKSTEPS_REAL_REMOTE_DIR:-stocksteps-real}" ;;
+  *) echo "STOCKSTEPS_STACK must be mock or real." >&2; exit 1 ;;
+esac
+CONTAINER="$PROJECT-api-1"
 KEEP_RELEASES="${STOCKSTEPS_KEEP_RELEASES:-5}"
 BASE_URL="http://$STOCKSTEPS_BIND_ADDR:$STOCKSTEPS_HOST_PORT"
 
@@ -40,13 +55,30 @@ release_tag() {
   else echo "$sha"; fi
 }
 
-write_env() { # $1 tag — the Compose .env on the host holds no secrets
-  remote "cat > ~/$REMOTE_DIR/.env" <<EOF
+write_env() { # $1 tag — the Compose .env on the host holds no secrets (REAL keys stay in secrets.env)
+  { cat <<EOF
 STOCKSTEPS_IMAGE_TAG=$1
 STOCKSTEPS_CONTEXT=./releases/$1
 STOCKSTEPS_BIND_ADDR=$STOCKSTEPS_BIND_ADDR
 STOCKSTEPS_HOST_PORT=$STOCKSTEPS_HOST_PORT
 EOF
+    if [[ "$STACK" == real ]]; then cat <<EOF
+PROVIDER_FMP_PER_MINUTE=${STOCKSTEPS_REAL_FMP_PER_MINUTE:?set STOCKSTEPS_REAL_FMP_PER_MINUTE (your FMP plan rate) in server.env}
+PROVIDER_FINNHUB_PER_MINUTE=${STOCKSTEPS_REAL_FINNHUB_PER_MINUTE:?set STOCKSTEPS_REAL_FINNHUB_PER_MINUTE (your Finnhub plan rate) in server.env}
+PROVIDER_FMP_DAILY_TARGET=${STOCKSTEPS_REAL_FMP_DAILY_TARGET:-}
+EOF
+    fi; } | remote "cat > ~/$REMOTE_DIR/.env"
+}
+
+# REAL only: the owner-created key file must exist and be private. Checks existence and mode only; the contents are never read.
+require_secrets() {
+  [[ "$STACK" == real ]] || return 0
+  local mode; mode="$(remote "stat -c %a ~/$REMOTE_DIR/secrets.env 2>/dev/null" || true)"
+  if [[ -z "$mode" ]]; then
+    echo "Missing ~/$REMOTE_DIR/secrets.env on the host. Create it yourself (FMP_API_KEY=..., FINNHUB_API_KEY=...), then chmod 600 it." >&2
+    exit 1
+  fi
+  [[ "$mode" == 600 || "$mode" == 400 ]] || { echo "~/$REMOTE_DIR/secrets.env has mode $mode; run chmod 600 on it first." >&2; exit 1; }
 }
 
 package() { # $1 output tarball — the .dockerignore allow-list, without macOS metadata
@@ -81,11 +113,13 @@ EOF
 }
 
 cmd_deploy() {
-  local tag tmp tarball; tag="$(release_tag)"; tmp="$(mktemp -d)"; tarball="$tmp/context.tgz"
-  echo "Release $tag → $STOCKSTEPS_SSH:~/$REMOTE_DIR/releases/$tag"
-  package "$tarball"
+  local tag tmp tarball; tag="$(release_tag)"
   remote "mkdir -p ~/$REMOTE_DIR/releases && chmod 700 ~/$REMOTE_DIR"
-  scp -q -o BatchMode=yes "$HERE/docker-compose.yml" "$STOCKSTEPS_SSH:$REMOTE_DIR/docker-compose.yml"
+  require_secrets
+  tmp="$(mktemp -d)"; tarball="$tmp/context.tgz"
+  echo "[$STACK] Release $tag → $STOCKSTEPS_SSH:~/$REMOTE_DIR/releases/$tag"
+  package "$tarball"
+  scp -q -o BatchMode=yes "$HERE/$COMPOSE_FILE" "$STOCKSTEPS_SSH:$REMOTE_DIR/docker-compose.yml"
   scp -q -o BatchMode=yes "$tarball" "$STOCKSTEPS_SSH:$REMOTE_DIR/releases/$tag.tgz"
   rm -rf "$tmp"
   remote "set -e; cd ~/$REMOTE_DIR/releases; rm -rf -- '$tag'; mkdir '$tag'; tar xzf '$tag.tgz' -C '$tag' 2>/dev/null; rm '$tag.tgz'"
@@ -107,12 +141,12 @@ cmd_health() {
 
 cmd_status() {
   compose ps
-  remote "docker inspect -f 'health={{.State.Health.Status}} restarts={{.RestartCount}} started={{.State.StartedAt}} user={{.Config.User}} readonly={{.HostConfig.ReadonlyRootfs}}' stocksteps-local-api-1; docker stats --no-stream --format 'cpu={{.CPUPerc}} mem={{.MemUsage}} pids={{.PIDs}}' stocksteps-local-api-1; cat ~/$REMOTE_DIR/.env | grep TAG"
+  remote "docker inspect -f 'health={{.State.Health.Status}} restarts={{.RestartCount}} started={{.State.StartedAt}} user={{.Config.User}} readonly={{.HostConfig.ReadonlyRootfs}}' $CONTAINER; docker stats --no-stream --format 'cpu={{.CPUPerc}} mem={{.MemUsage}} pids={{.PIDs}}' $CONTAINER; cat ~/$REMOTE_DIR/.env | grep TAG"
 }
 
 case "${1:-}" in
   deploy) cmd_deploy ;;
-  start) compose up -d --no-build --wait api ;;
+  start) require_secrets; compose up -d --no-build --wait api ;;
   stop) compose stop api ;;
   restart) compose restart api ;;
   status) cmd_status ;;
@@ -123,10 +157,13 @@ case "${1:-}" in
     tag="${2:?usage: rollback <tag> (see: releases)}"
     remote "docker image inspect stocksteps-local:$tag >/dev/null" || { echo "No image stocksteps-local:$tag on the host." >&2; exit 1; }
     remote "test -d ~/$REMOTE_DIR/releases/$tag" || remote "mkdir -p ~/$REMOTE_DIR/releases/$tag"   # build context only needed for rebuilds
-    write_env "$tag"; compose up -d --no-build --wait api; cmd_health ;;
-  smoke) STOCKSTEPS_BASE_URL="$BASE_URL" "$HERE/smoke-test.sh" ;;
+    require_secrets; write_env "$tag"; compose up -d --no-build --wait api; cmd_health ;;
+  smoke)
+    if [[ "$STACK" == real ]]; then STOCKSTEPS_BASE_URL="$BASE_URL" "$HERE/smoke-real.sh"
+    else STOCKSTEPS_BASE_URL="$BASE_URL" "$HERE/smoke-test.sh"; fi ;;
   reliability)
+    [[ "$STACK" == mock ]] || { echo "reliability is MOCK-only (it restarts the container and exercises many routes)." >&2; exit 1; }
     scp -q -o BatchMode=yes "$HERE/reliability-check.sh" "$STOCKSTEPS_SSH:$REMOTE_DIR/reliability-check.sh"
     remote "chmod 700 ~/$REMOTE_DIR/reliability-check.sh && ~/$REMOTE_DIR/reliability-check.sh" ;;
-  *) sed -n '2,16p' "$0"; exit 1 ;;
+  *) sed -n '2,21p' "$0"; exit 1 ;;
 esac

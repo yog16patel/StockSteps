@@ -61,11 +61,13 @@ android {
         // Backend URL is configuration, not code: -PstockstepsBackendUrl=... (or gradle.properties).
         // Debug defaults to the local server via `adb reverse tcp:8080 tcp:8080`; release has no default.
         val backendUrl = providers.gradleProperty("stockstepsBackendUrl")
+        // Debug-only REAL backend override (e.g. the LAN REAL server, docs/LOCAL_DEVELOPMENT_SERVER.md), so a LAN URL never reaches release.
+        val debugRealBackendUrl = providers.gradleProperty("stockstepsDebugRealBackendUrl")
         // Local mock backend (`./gradlew :server:runMock`, then `adb reverse tcp:8081 tcp:8081`).
         val mockBackendUrl = providers.gradleProperty("stockstepsMockBackendUrl")
         debug {
             buildConfigField("boolean", "FIREBASE_EMULATORS", providers.gradleProperty("firebaseEmulators").orElse("false").get())
-            buildConfigField("String", "BACKEND_URL", "\"${backendUrl.orElse("http://127.0.0.1:8080").get()}\"")
+            buildConfigField("String", "BACKEND_URL", "\"${debugRealBackendUrl.orElse(backendUrl).orElse("http://127.0.0.1:8080").get()}\"")
             buildConfigField("String", "MOCK_BACKEND_URL", "\"${mockBackendUrl.orElse("http://127.0.0.1:8081").get()}\"")
         }
         release {

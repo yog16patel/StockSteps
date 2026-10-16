@@ -5,6 +5,39 @@ Read order for a new session: `CLAUDE.md` → `docs/AI_REVIEW_WORKFLOW.md` (revi
 §0000 (Phase 5C.1) → `docs/project-status.md` §0 → root `PROJECT_HANDOFF.md` → the code.
 Always start with `git status` and `git log -5 --oneline`; the repository is authoritative when docs disagree.
 
+## LAN-REAL-BACKEND-2026-10-16. Android Real-mode search fix and LAN REAL backend on the Ubuntu host
+
+- **Current commit:** "Add a LAN REAL backend on the Ubuntu host with a debug-only Android Real URL, debug backend request diagnostics and a REAL stack in the local deploy script" (this commit), committed locally, **not pushed**.
+- **Problem:** on the physical Pixel 7, Real mode never reached Ubuntu. Root cause: the debug REAL URL defaulted to `http://127.0.0.1:8080`
+  (the phone itself), and the Ubuntu host had no REAL StockSteps server (MOCK only on 8081; 8080 is an unrelated service). The toggle,
+  per-request URL resolution, re-running the search after a mode switch and error display were all correct.
+- **Done** (plan and decisions D-R1 to D-R6, approved: `docs/LOCAL_REAL_BACKEND_PLAN.md`):
+  - Android: debug-only `stockstepsDebugRealBackendUrl` (release `BACKEND_URL` unchanged); iOS uses `STOCKSTEPS_BACKEND_URL[config=Debug]`
+    in `Local.xcconfig` (example updated, no code change);
+  - debug-only `BackendDiagnostics` (OkHttp interceptor, `adb logcat -s StockStepsBackend`): mode, base URL, redacted URL, status or
+    exception; never headers or bodies; off in release;
+  - `deploy/local/docker-compose.real.yml` (project `stocksteps-real`, port 8082, same hardening; keys only from the owner-created host
+    `~/stocksteps-real/secrets.env`, mode 600; FMP 250/min, Finnhub 60/min, margin 0.5, warm-up off, no Firebase or Gemini);
+  - `STOCKSTEPS_STACK=real` in `deploy.sh` (checks `secrets.env` exists and its mode, never its contents; `reliability` stays MOCK-only);
+    `smoke-real.sh` (health, meta, one search); docs `LOCAL_DEVELOPMENT_SERVER.md` §10.
+- **Deployed:** `stocksteps-local:d85eb3e8fb04` from a clean checkout of `d85eb3e`. Two compose fixes during deployment: Gemini rate set
+  (stops a misleading "development defaults" warning); SQLite news store removed (native library can't load from the noexec `/tmp`).
+- **Validation** (record: plan §10):
+  - REAL smoke 4/4, and 4/4 again after a restart; logs contain no keys or provider URLs; MOCK container untouched;
+  - Pixel 7: REAL `:8082` 200 with live results, MOCK `:8081` 200 with fixtures, each also after a cold restart and after switching in the
+    same session; the phone is left on REAL;
+  - Android `assembleDebug` PASS; `:app:shared:testAndroidHostTest` PASS (run before the other session's C4 edits). Core and server are
+    unchanged.
+- **Not verified:** iOS against REAL (needs the `Local.xcconfig` line and a rebuild); signed-in features against REAL (no Firestore
+  credentials, D-R1).
+- **Machine state:**
+  - `~/.gradle/gradle.properties` has `stockstepsDebugRealBackendUrl` (LAN 8082);
+  - `deploy/local/server.env` (git-ignored) has the plan rates;
+  - a release worktree is in the session scratchpad;
+  - another session builds this checkout with `-PstockstepsMockBackendUrl=http://127.0.0.1:8082` (local mock), which overwrites
+    `app/androidApp/build`; the startup diagnostics line shows which URLs a build carries.
+- **Not in this commit:** the other session's uncommitted Portfolio C4, navigation and iOS work.
+
 ## PHASE-5D-5-6C3-2026-10-16. iOS cross-tab navigation, Back labels & lifecycle audit (Phase 5D.5.6C3, KAN-10) — START HERE
 
 - **Current commit:** "Finish iOS cross-tab navigation for Phase 5D.5.6C3 with every tab screen on the router, truthful back labels, reused-top Back, reselection from any depth and no repeated requests on tab switches" (this commit), committed and pushed on the owner's approval. Base: `8fce9d1` (5D.5.6C2, pushed).

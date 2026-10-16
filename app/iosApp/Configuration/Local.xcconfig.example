@@ -3,3 +3,5 @@
 // `$()` keeps xcconfig from treating `//` as a comment. Use the server's .local name: App Transport Security
 // allows plain HTTP to .local hosts through the existing NSAllowsLocalNetworking setting.
 STOCKSTEPS_MOCK_BACKEND_URL = http:/$()/yourserver.local:8081
+// LAN REAL backend (docs/LOCAL_DEVELOPMENT_SERVER.md §10). `[config=Debug]` keeps the LAN URL out of Release builds.
+// STOCKSTEPS_BACKEND_URL[config=Debug] = http:/$()/yourserver.local:8082

@@ -115,3 +115,25 @@ lost when the container restarts or is redeployed. Debug plan records (StockStep
 
 `deploy.sh stop`, then on the host: `cd ~/stocksteps-local && docker compose down` (removes the container and the `stocksteps-local`
 network), `docker image rm stocksteps-local:<tag>` for each tag, and `rm -rf ~/stocksteps-local`. Nothing else on the host is involved.
+
+## 10. LAN REAL backend (optional, paid quota)
+
+A second Compose project, `stocksteps-real`, runs the same image in **REAL** mode on port **8082** next to the MOCK server (plan and decisions:
+`docs/LOCAL_REAL_BACKEND_PLAN.md`). Every request may use FMP/Finnhub quota. No Firebase credentials, so signed-in features answer
+`USER_DATA_UNAVAILABLE`. No Gemini key, so AI uses its fallbacks. The screener warm-up is off and the safety margin is 0.5.
+
+1. **Owner, on the host:** `mkdir -p ~/stocksteps-real && chmod 700 ~/stocksteps-real`, create `~/stocksteps-real/secrets.env` with
+   `FMP_API_KEY=…` and `FINNHUB_API_KEY=…`, then `chmod 600` it. Never commit, paste or upload it; `deploy.sh` only checks that it exists and
+   its mode.
+2. In `deploy/local/server.env`: `STOCKSTEPS_REAL_FMP_PER_MINUTE` and `STOCKSTEPS_REAL_FINNHUB_PER_MINUTE` (your plans' rates), and optionally
+   `STOCKSTEPS_REAL_FMP_DAILY_TARGET` and `STOCKSTEPS_REAL_HOST_PORT`.
+3. `STOCKSTEPS_STACK=real deploy/local/deploy.sh deploy`, then `… smoke` (health, meta `real`, one search). All §4 commands accept
+   `STOCKSTEPS_STACK=real`, except `reliability` (MOCK only). Never run the MOCK `smoke-test.sh` against REAL.
+4. **Android:** `stockstepsDebugRealBackendUrl=http://<server-lan-ip>:8082` in `~/.gradle/gradle.properties`. This is debug only:
+   `stockstepsBackendUrl` would also change release builds. Then choose **Real Data** in Settings → Development. Debug builds log each
+   request's mode, URL and status: `adb logcat -s StockStepsBackend`.
+5. **iOS:** `STOCKSTEPS_BACKEND_URL[config=Debug] = http:/$()/<server-lan-ip>:8082` in `Local.xcconfig` (`[config=Debug]` keeps it out of
+   Release).
+
+Removal: `STOCKSTEPS_STACK=real deploy/local/deploy.sh stop`, then `cd ~/stocksteps-real && docker compose down && rm -rf ~/stocksteps-real`
+on the host (this also deletes `secrets.env`).
