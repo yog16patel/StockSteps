@@ -18,6 +18,7 @@ On the physical Pixel 7 (debug build, `adb logcat -s StockStepsBackend`):
 - **Root cause:** the debug REAL URL defaults to `http://127.0.0.1:8080` (`app/androidApp/build.gradle.kts`, `stockstepsBackendUrl` is unset),
   which on a phone is the phone itself (no `adb reverse tcp:8080`). The Ubuntu host has **no REAL StockSteps server** to point at: the LAN
   deployment is MOCK-only by design (`docs/LOCAL_DEVELOPMENT_SERVER.md`), and port 8080 on the host belongs to an unrelated service.
+- (2026-10-16 later: replaced by the shared DEBUG-only API log, tag `StockSteps-API`, `docs/DEBUG_API_LOGGING.md`.)
 - Added (uncommitted, debug only): `app/shared/src/androidMain/.../BackendDiagnostics.kt`, an OkHttp interceptor that logs mode, base URL,
   redacted request URL, status or exception, enabled from `MainActivity` only when `BuildConfig.DEBUG`. It never logs headers or bodies.
 

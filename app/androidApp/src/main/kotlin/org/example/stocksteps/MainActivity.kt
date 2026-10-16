@@ -110,13 +110,13 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         appLock.authenticator.attach(this)
         handleNotification(intent)
         if (BuildConfig.DEBUG) {
-            // Debug-only backend diagnostics (`adb logcat -s StockStepsBackend`); never in release builds.
-            BackendDiagnostics.enabled = true
-            BackendDiagnostics.describe = { "${backendRouter.currentEnvironment()} ${backendRouter.currentUrl()}" }
-            BackendDiagnostics.log(
-                "start stored=${backendEnvironment.environment.value} effective=${backendRouter.currentEnvironment()} " +
-                    "real=${backendRouter.endpoints.real} mock=${backendRouter.endpoints.mock}"
-            )
+            // Debug-only API log (`adb logcat -s StockSteps-API`); release builds can't enable it.
+            if (AndroidApiLogging.enable(applicationContext, BuildConfig.DEBUG) { backendRouter.currentEnvironment().name }) {
+                AndroidApiLogging.start(
+                    stored = backendEnvironment.environment.value.name, effective = backendRouter.currentEnvironment().name,
+                    real = backendRouter.endpoints.real, mock = backendRouter.endpoints.mock
+                )
+            }
         }
 
         setContent {

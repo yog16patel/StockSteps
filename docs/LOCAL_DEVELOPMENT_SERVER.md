@@ -130,8 +130,9 @@ A second Compose project, `stocksteps-real`, runs the same image in **REAL** mod
 3. `STOCKSTEPS_STACK=real deploy/local/deploy.sh deploy`, then `… smoke` (health, meta `real`, one search). All §4 commands accept
    `STOCKSTEPS_STACK=real`, except `reliability` (MOCK only). Never run the MOCK `smoke-test.sh` against REAL.
 4. **Android:** `stockstepsDebugRealBackendUrl=http://<server-lan-ip>:8082` in `~/.gradle/gradle.properties`. This is debug only:
-   `stockstepsBackendUrl` would also change release builds. Then choose **Real Data** in Settings → Development. Debug builds log each
-   request's mode, URL and status: `adb logcat -s StockStepsBackend`.
+   `stockstepsBackendUrl` would also change release builds. Then choose **Real Data** in Settings → Development. Debug builds log every
+   request (environment, redacted URL, status, safe body): `adb logcat -s StockSteps-API` (`docs/DEBUG_API_LOGGING.md`; it replaced the
+   earlier `StockStepsBackend` tag). Signed-in routes answer 503 `USER_DATA_UNAVAILABLE` on this stack (no Google credentials, D-R1).
 5. **iOS:** `STOCKSTEPS_BACKEND_URL[config=Debug] = http:/$()/<server-lan-ip>:8082` in `Local.xcconfig` (`[config=Debug]` keeps it out of
    Release).
 

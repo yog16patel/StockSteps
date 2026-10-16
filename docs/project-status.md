@@ -6,6 +6,17 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — DEBUG-only API logging and My Portfolio / Practice REAL diagnosis (committed and pushed as "Add DEBUG-only API request and response logging on Android and iOS with default-deny redaction and record why My Portfolio and Practice fail on the LAN REAL backend")**
+- **Done:**
+  - shared Ktor plugin `StockStepsApiLogging` (core `network/ApiLogging.kt`, `ApiLogRedaction.kt`);
+  - Android tag `StockSteps-API`, iOS `[StockSteps-API]` (NSLog);
+  - debug builds only; default-deny redaction; signed-in bodies metadata only;
+  - replaces `BackendDiagnostics`.
+- **Validation:** all suites green; Android device checks PASS on MOCK and REAL; iOS guest PASS; signed-in iOS BLOCKED.
+- **Finding:** on the LAN REAL stack every `/api/v1/me/*` route (My Portfolio, Practice, watchlists, alerts…) is 503
+  `USER_DATA_UNAVAILABLE`, because the container has no Google credentials (D-R1). Auth and client handling are fine. Not fixed.
+- **Report:** `docs/DEBUG_API_LOGGING.md`. **Next:** owner review; owner decision on REAL user-data credentials.
+
 **2026-10-16 — Phase 5D.5.6D final navigation QA & stabilization (committed locally as "Stabilize navigation for Phase 5D.5.6D with once-per-screen loading on Android, a kept company model and reading position after reused-top Back on iOS, no duplicate reminders request, readable Practice tabs and title at large text and a guest sign-in card in My Alerts", not pushed).**
 - **Done:**
   - full Android and iOS navigation matrix (stacks, cross-tab Back and swipe-back, reselect, nested Portfolio tabs, modals, notification
