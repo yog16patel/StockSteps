@@ -133,6 +133,7 @@ private struct GainLabel: View {
 
 struct PracticeScene: View {
     let model: PracticeModel
+    @Environment(TabRouter.self) private var router: TabRouter?
     let onBuy: () -> Void
     let onExplore: () -> Void
     let onLearn: () -> Void
@@ -147,7 +148,8 @@ struct PracticeScene: View {
             .navigationTitle("Practice")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { model.presenter.refresh() }
-            .onAppear { model.presenter.refresh() }
+            // 5D.5.6C3: refresh when Practice is shown and whenever it is the top again (back from an order), not on tab switches.
+            .onChange(of: router?.path(.portfolio).last == .practice, initial: true) { _, top in if top || router == nil { model.presenter.refresh() } }
     }
 }
 

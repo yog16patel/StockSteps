@@ -132,14 +132,11 @@ struct CompareStocksScene: View {
     var onDiscover: () -> Void = {}
     var onUpgrade: () -> Void = {}
     var onSignIn: () -> Void = {}
-    @State private var showingResearch = false
-    @State private var showingAi = false
+    @Environment(TabRouter.self) private var router: TabRouter?
 
     var body: some View {
         CompareStocksScreen(state: model.comparison, client: model.client, onOpen: onOpenStock, onDiscover: onDiscover, onUpgrade: onUpgrade, onSignIn: onSignIn,
-                            onResearch: { showingResearch = true }, onAskAi: { showingAi = true })
-            .navigationDestination(isPresented: $showingResearch) { ComparisonResearchView(model: model, onUpgrade: onUpgrade, onSignIn: onSignIn) }
-            .navigationDestination(isPresented: $showingAi) { ComparisonAiView(model: model, onUpgrade: onUpgrade, onSignIn: onSignIn) }
+                            onResearch: { router?.open(.comparisonResearch) }, onAskAi: { router?.open(.comparisonAi(nil)) })
             .navigationTitle("Compare")
             .navigationBarTitleDisplayMode(.inline)
     }

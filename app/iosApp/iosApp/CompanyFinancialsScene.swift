@@ -87,7 +87,7 @@ struct CompanyFinancialsScene: View {
     @State private var atEnd = false
     /// 5D.5.3: the open metric explanation and a Learn term pushed from it (Back returns here).
     @State private var explaining: MetricExplanation?
-    @State private var learnTerm: String?
+    @Environment(TabRouter.self) private var router: TabRouter?
     var onSearchCompanies: () -> Void = {}
 
     init(symbol: String, client: IosCompanyDetailsClient, onSearchCompanies: @escaping () -> Void = {}) {
@@ -141,7 +141,7 @@ struct CompanyFinancialsScene: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 anchor(section.id)
                                 FinancialSectionView(section: section, showChart: FinancialsDisplay.shared.chartInSection(model: content, sectionId: section.id),
-                                                     onExplain: { explaining = $0 }, onLearnTerm: { learnTerm = $0 })
+                                                     onExplain: { explaining = $0 }, onLearnTerm: { router?.open(.learn(.term($0))) })
                             }
                             .padding(.top, CGFloat(space.xl))
                         }
@@ -202,8 +202,8 @@ struct CompanyFinancialsScene: View {
         .background(colors.appBackground.ignoresSafeArea())
         .navigationTitle("\(model.shortName) Financials")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $explaining) { e in MetricExplanationSheet(explanation: e) { id in explaining = nil; learnTerm = id } }
-        .navigationDestination(item: $learnTerm) { id in LearnTermView(termId: id, onSearchCompanies: onSearchCompanies) }
+        // 5D.5.6C3: the term opens on Learn (its canonical tab) once the sheet has closed; Back returns here.
+        .sheet(item: $explaining) { e in MetricExplanationSheet(explanation: e) { id in explaining = nil; router?.open(.learn(.term(id)), afterSheet: true) } }
         .task { model.start() }
     }
 }

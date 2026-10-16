@@ -46,8 +46,7 @@ struct CompanyNewsScene: View {
     /// Not `@Environment(\.openURL)`: see `ExternalURLOpener` (that environment value re-rendered this scene in a loop once a destination was pushed).
     private let openURL = ExternalURLOpener()
     @State private var model: CompanyNewsViewModel
-    @State private var insightArticle: String?
-    @State private var showMovement = false
+    @Environment(TabRouter.self) private var router: TabRouter?
 
     init(symbol: String, client: IosCompanyDetailsClient) {
         _model = State(initialValue: CompanyNewsViewModel(symbol: symbol, client: client))
@@ -58,7 +57,7 @@ struct CompanyNewsScene: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                 if let preview = model.preview {
-                    MovementPreviewCard(preview: preview) { showMovement = true }
+                    MovementPreviewCard(preview: preview) { router?.open(.stockMovement(model.symbol)) }
                 }
                 switch model.feed {
                 case .loading:
@@ -80,8 +79,6 @@ struct CompanyNewsScene: View {
         .background(colors.appBackground.ignoresSafeArea())
         .navigationTitle("Company news")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $insightArticle) { id in NewsInsightScene(symbol: model.symbol, articleId: id, client: model.client) }
-        .navigationDestination(isPresented: $showMovement) { StockMovementScene(symbol: model.symbol, client: model.client) }
         .task { model.start() }
     }
 
@@ -102,7 +99,7 @@ struct CompanyNewsScene: View {
         let learnAt = min(3, feed.items.count)
         ForEach(Array(feed.items.enumerated()), id: \.element.news.id) { index, item in
             if index == learnAt && !feed.learnTerms.isEmpty { LearnTermsCard(terms: feed.learnTerms) }
-            CompanyNewsCard(item: item, onOpen: { openURL($0) }, onExplain: { insightArticle = $0 })
+            CompanyNewsCard(item: item, onOpen: { openURL($0) }, onExplain: { router?.open(.newsInsight(symbol: model.symbol, articleId: $0)) })
         }
         if learnAt == feed.items.count && !feed.learnTerms.isEmpty && !feed.items.isEmpty { LearnTermsCard(terms: feed.learnTerms) }
     }

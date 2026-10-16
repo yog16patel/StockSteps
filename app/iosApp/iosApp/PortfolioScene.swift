@@ -16,6 +16,8 @@ import Shared
 struct PortfolioScene: View {
     let accounts: AccountViewModel
     let watchlists: WatchlistsModel
+    /// 5D.5.6C3: the app's Portfolio model, shared with the Holding, Transactions and Transaction-details destinations (one subscription).
+    let model: PortfolioViewModel
     let onCompany: (String) -> Void
     var onSignIn: () -> Void = {}
     var onAlerts: (String) -> Void = { _ in }
@@ -24,31 +26,26 @@ struct PortfolioScene: View {
     /// 5D.5.6B landing bar: the all-alerts history and Settings.
     var onNotifications: () -> Void = {}
     var onSettings: () -> Void = {}
-    @State private var model = PortfolioViewModel()
-    @State private var holdingSymbol: String?
+    @Environment(TabRouter.self) private var router: TabRouter?
     @State private var showAccount = false
     @State private var editingAccount: PortfolioAccount?
     @State private var showTransaction = false
     @State private var editingTransaction: PortfolioTransaction?
     @State private var watchlistError: String?
     @State private var watchlistInstrument: InstrumentRef?
-    @State private var showInsights = false
-    @State private var showTransactions = false
-    /// The account a holding-scoped history was opened for, captured on tap (destination builders re-run on every parent update).
-    @State private var transactionsAccount: String?
-    @State private var openTransactionId: String?
 
     var body: some View {
         PortfolioScreen(state: model.state, holdingSymbol: initialSymbol,
             onRefresh: model.refresh, onHistory: model.history, onScenario: model.scenario, onSelect: model.select,
             onAddAccount: { editingAccount = nil; showAccount = true },
             onEditAccount: { editingAccount = $0; showAccount = true }, onDeleteAccount: model.deleteAccount,
-            onAdd: { editingTransaction = nil; showTransaction = true }, onHolding: { if initialSymbol == nil { holdingSymbol = $0 } }, onCompany: onCompany, onSignIn: onSignIn, onAlerts: onAlerts,
+            onAdd: { editingTransaction = nil; showTransaction = true }, onHolding: { if initialSymbol == nil { router?.open(.holdingDetails($0)) } }, onCompany: onCompany, onSignIn: onSignIn, onAlerts: onAlerts,
             onWatchlist: { row in if model.state?.mockScenario == nil { watchlistInstrument = InstrumentRef(symbol: row.symbol, name: row.name, exchange: row.exchange, currency: row.currency) } },
             onEditTransaction: { editingTransaction = $0; showTransaction = true }, onDeleteTransaction: model.deleteTransaction,
-            onInsights: { showInsights = true }, onPractice: initialSymbol == nil ? onPractice : nil,
-            onTransactions: { transactionsAccount = model.state?.selectedAccountId; showTransactions = true },
-            onOpenTransaction: { openTransactionId = $0 }, onDismissError: model.clearError,
+            onInsights: { router?.open(.portfolioInsights) }, onPractice: initialSymbol == nil ? onPractice : nil,
+            // The account a holding-scoped history is for is captured on tap.
+            onTransactions: { router?.open(.portfolioTransactions(symbol: initialSymbol, accountId: initialSymbol == nil ? nil : model.state?.selectedAccountId)) },
+            onOpenTransaction: { router?.open(.portfolioTransaction($0)) }, onDismissError: model.clearError,
             onSignInAgain: portfolioSignInAgain(accounts, then: onSignIn),
             onNotifications: onNotifications, onSettings: onSettings)
         .onAppear { model.connect(accounts); model.clearError() } // D1: no stale failure from another action on a fresh form
@@ -77,21 +74,6 @@ struct PortfolioScene: View {
             }
         }
         .alert("Could not save to watchlist", isPresented: Binding(get: { watchlistError != nil }, set: { if !$0 { watchlistError = nil } })) { Button("OK") { watchlistError = nil } } message: { Text(watchlistError ?? "Try again.") }
-        .navigationDestination(isPresented: $showInsights) {
-            PortfolioInsightsScene(accounts: accounts, onCompany: onCompany, onSignIn: onSignIn)
-        }
-        // Phase D2: Transaction history inside Portfolio (not a tab), on this scene's model (no second load).
-        .navigationDestination(isPresented: $showTransactions) {
-            PortfolioTransactionsScene(accounts: accounts, model: model, symbol: initialSymbol, accountId: initialSymbol == nil ? nil : transactionsAccount,
-                                       onSignIn: onSignIn)
-        }
-        // Phase D3: Transaction details on this scene's model.
-        .navigationDestination(item: $openTransactionId) { id in
-            PortfolioTransactionDetailsScene(accounts: accounts, model: model, transactionId: id, onSignIn: onSignIn)
-        }
-        .navigationDestination(item: $holdingSymbol) { symbol in
-            PortfolioScene(accounts: accounts, watchlists: watchlists, onCompany: onCompany, onSignIn: onSignIn, onAlerts: onAlerts, initialSymbol: symbol)
-        }
     }
 }
 

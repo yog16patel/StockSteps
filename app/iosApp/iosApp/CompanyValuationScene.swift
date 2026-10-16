@@ -57,7 +57,7 @@ struct CompanyValuationScene: View {
     @State private var model: CompanyValuationModel
     /// 5D.5.3: the open metric explanation and a Learn term pushed from it (Back returns here).
     @State private var explaining: MetricExplanation?
-    @State private var learnTerm: String?
+    @Environment(TabRouter.self) private var router: TabRouter?
     var onSearchCompanies: () -> Void = {}
 
     init(symbol: String, client: IosCompanyDetailsClient, onSearchCompanies: @escaping () -> Void = {}) {
@@ -143,8 +143,8 @@ struct CompanyValuationScene: View {
         }
         .background(colors.appBackground.ignoresSafeArea())
         .navigationTitle("\(model.shortName) Valuation")
-        .sheet(item: $explaining) { e in MetricExplanationSheet(explanation: e) { id in explaining = nil; learnTerm = id } }
-        .navigationDestination(item: $learnTerm) { id in LearnTermView(termId: id, onSearchCompanies: onSearchCompanies) }
+        // 5D.5.6C3: terms open on Learn (canonical tab); from the sheet only once it has closed.
+        .sheet(item: $explaining) { e in MetricExplanationSheet(explanation: e) { id in explaining = nil; router?.open(.learn(.term(id)), afterSheet: true) } }
         .navigationBarTitleDisplayMode(.inline)
         .task { model.start() }
     }
@@ -185,7 +185,7 @@ struct CompanyValuationScene: View {
         .stockCard(padding: CGFloat(space.md), bordered: false)
         // 5D.5.3: the full P/E lesson one tap away — once on this screen.
         if let term = MetricLearnTerms.shared.termFor(metricId: "pe") {
-            Button { learnTerm = term.id } label: {
+            Button { router?.open(.learn(.term(term.id))) } label: {
                 Label(keepTogether(MetricLearnTerms.shared.learnMoreLabel(entry: term)), systemImage: "graduationcap")
                     .font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
                     .frame(minHeight: CGFloat(StockStepsTheme.dimensions.touchTarget)).contentShape(Rectangle())

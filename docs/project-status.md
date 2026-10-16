@@ -6,6 +6,16 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — Phase 5D.5.6C3 iOS cross-tab navigation, Back labels & lifecycle audit (committed and pushed as "Finish iOS cross-tab navigation for Phase 5D.5.6C3 with every tab screen on the router, truthful back labels, reused-top Back, reselection from any depth and no repeated requests on tab switches").**
+- **Done:**
+  - every iOS tab push on the router with canonical tabs (Company Details → Learn term/research on Learn);
+  - Back and swipe-back across tabs with truthful back labels;
+  - reselect from any depth; reused-top return;
+  - no repeated requests on tab switches (0 measured).
+- **Validation:** all suites green.
+- **Report:** `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C3.md`.
+- **Next:** C4 on the owner's go-ahead.
+
 **2026-10-16 — Phase 5D.5.6C2 iOS independent tab stacks (committed and pushed as "Add iOS independent tab stacks for Phase 5D.5.6C2 with a NavigationStack per tab, typed destinations owned by the shared navigation policy, a cross-tab Back trail and a visible tab bar on pushed screens").**
 - **Done:**
   - five `NavigationStack(path:)` inside the `TabView`;

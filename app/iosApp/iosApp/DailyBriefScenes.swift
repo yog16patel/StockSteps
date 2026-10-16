@@ -188,7 +188,7 @@ struct DailyBriefScene: View {
                          onLearn: onLearn, onSignIn: onSignIn, onUpgrade: { model.presenter.dismissUpgrade(); onUpgrade() }, onOpenDigest: onOpenDigest)
             .navigationTitle(D.TITLE)
             .navigationBarTitleDisplayMode(.inline)
-            .task(id: target.id) { model.presenter.open(id: target.briefId) }
+            .taskOnce(id: target.id) { model.presenter.open(id: target.briefId) } // 5D.5.6C3: not again on tab switches
             .refreshable { model.presenter.loadLatest() }
     }
 }
@@ -620,6 +620,6 @@ struct DailyBriefHistoryScene: View {
         .background(colors.appBackground.ignoresSafeArea())
         .navigationTitle(D.HISTORY)
         .navigationBarTitleDisplayMode(.inline)
-        .task { model.presenter.loadHistory() }
+        .taskOnce { model.presenter.loadHistory() }
     }
 }

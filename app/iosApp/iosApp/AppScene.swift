@@ -27,6 +27,9 @@ struct AppScene: View {
     /// Search opened from Practice: picking a company opens its simulated order directly.
     @State private var searchForPractice = false
     @State private var briefModel: BriefModel?
+    /// 5D.5.6C3: shared state of the former nested destinations — one company model per symbol and the app's Portfolio model.
+    @State private var companies: CompanyModelStore
+    @State private var portfolioModel = PortfolioViewModel()
 
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
 
@@ -43,6 +46,7 @@ struct AppScene: View {
         _earningsModel = State(initialValue: EarningsModel(accounts: accounts, baseURL: baseURL, start: false))
         _learningModel = State(initialValue: LearningModel(accounts: accounts, baseURL: baseURL, start: false))
         _briefModel = State(initialValue: accounts.client.map { BriefModel(account: $0, start: false) })
+        _companies = State(initialValue: CompanyModelStore(baseURL: baseURL))
     }
 
     var body: some View {
@@ -88,7 +92,7 @@ struct AppScene: View {
 
             tabStack(.portfolio, title: "Portfolio") {
                 if appLock?.locked != true {
-                    PortfolioScene(accounts: accounts, watchlists: watchlistsModel, onCompany: explore,
+                    PortfolioScene(accounts: accounts, watchlists: watchlistsModel, model: portfolioModel, onCompany: explore,
                         onSignIn: { showingAuth = true }, onAlerts: { router.open(.stockAlerts($0)) }, onPractice: openPractice,
                         onNotifications: openNotifications, onSettings: { showingSettings = true })
                 } else { Color.clear }
@@ -147,6 +151,8 @@ struct AppScene: View {
         }
         // A signed-out or changed account never sees the previous account's screens (I11).
         .onChange(of: accounts.state.user?.id) { _, _ in router.reset() }
+        // A company's shared model lives while any of its pages is on a stack.
+        .onChange(of: router.revision) { _, _ in companies.retain(only: router.symbolsInUse) }
         .sheet(isPresented: $showingSettings, onDismiss: { NotificationCenter.default.post(name: .stockStepsPlanMayHaveChanged, object: nil) }) {
             NavigationStack {
                 SettingsScene(model: accounts,
@@ -201,9 +207,14 @@ struct AppScene: View {
     private func tabStack<Root: View>(_ tab: AppRoute, title: String, @ViewBuilder root: () -> Root) -> some View {
         NavigationStack(path: router.pathBinding(tab)) {
             root()
-                // Landing pages draw their own bar; the title names the next page's back button ("‹ Markets").
-                .stockStepsTopBar(.screen(title, visible: false))
-                .navigationDestination(for: AppDestination.self) { destination($0) }
+                // Landing pages draw their own bar; the title names the first pushed page's back button: "‹ Markets", or while that page was
+                // opened from another tab, where Back really goes ("‹ Home", "‹ AAPL"; 5D.5.6C3).
+                .stockStepsTopBar(.screen(router.rootTitle(tab), visible: false))
+                .navigationDestination(for: AppDestination.self) { destination in
+                    self.destination(destination)
+                        // A deeper cross-tab entry: no misleading label, just the chevron (VoiceOver still says "Back").
+                        .toolbarRole(router.hidesBackTitle(destination, on: tab) ? .editor : .automatic)
+                }
         }
         .sampleDataInset()
     }
@@ -231,7 +242,32 @@ struct AppScene: View {
                                 onSearch: { initialStock = nil; showingSearch = true }, onLearn: { router.selectTab(.learn) },
                                 onUpgrade: { showingSettings = true }, onPracticeBuy: { practiceTrade(PracticeOrderTarget(symbol: $0, sell: false)) },
                                 onEarningsCalendar: { router.open(.earningsCalendar(EarningsCalendarTarget(date: $0))) },
-                                onEarningsResults: { router.open(.earningsResults($0)) })
+                                onEarningsResults: { router.open(.earningsResults($0)) },
+                                model: companies.model(symbol), earnings: earningsModel)
+        case let .companyFinancials(symbol):
+            CompanyFinancialsScene(symbol: symbol, client: companies.model(symbol).client, onSearchCompanies: { initialStock = nil; showingSearch = true })
+        case let .companyValuation(symbol):
+            CompanyValuationScene(symbol: symbol, client: companies.model(symbol).client, onSearchCompanies: { initialStock = nil; showingSearch = true })
+        case let .companyNews(symbol):
+            CompanyNewsScene(symbol: symbol, client: companies.model(symbol).client)
+        case let .newsInsight(symbol, articleId):
+            NewsInsightScene(symbol: symbol, articleId: articleId, client: companies.model(symbol).client)
+        case let .stockMovement(symbol):
+            StockMovementScene(symbol: symbol, client: companies.model(symbol).client)
+        case .comparisonResearch:
+            ComparisonResearchView(model: screenerModel, onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true })
+        case let .comparisonAi(target):
+            ComparisonAiView(model: screenerModel, researchQuestionId: target?.questionId, researchSessionId: target?.sessionId,
+                             researchHasNote: target?.hasNote ?? false, onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true })
+        case .portfolioInsights:
+            PortfolioInsightsScene(accounts: accounts, onCompany: explore, onSignIn: { showingAuth = true })
+        case let .portfolioTransactions(symbol, accountId):
+            PortfolioTransactionsScene(accounts: accounts, model: portfolioModel, symbol: symbol, accountId: accountId, onSignIn: { showingAuth = true })
+        case let .portfolioTransaction(id):
+            PortfolioTransactionDetailsScene(accounts: accounts, model: portfolioModel, transactionId: id, onSignIn: { showingAuth = true })
+        case let .holdingDetails(symbol):
+            PortfolioScene(accounts: accounts, watchlists: watchlistsModel, model: portfolioModel, onCompany: explore, onSignIn: { showingAuth = true },
+                           onAlerts: { router.open(.stockAlerts($0)) }, initialSymbol: symbol)
         case let .learn(target):
             switch target {
             case let .topics(topic, search):
@@ -297,13 +333,13 @@ struct AppScene: View {
                                 onSettings: { router.global = .digestSettings }, onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true },
                                 onRecentWatchlist: { router.open(.earningsCalendar(EarningsCalendarTarget(filter: "WATCHLIST"))) })
         case let .earningsDetails(symbol):
-            EarningsDetailsScene(symbol: symbol, client: earningsModel.client, onCompany: { explore(symbol) },
+            EarningsDetailsScene(symbol: symbol, client: earningsModel.client, onCompany: { backToCompany(symbol) },
                                  onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true })
         case .discover:
             DiscoverStocksScene(model: screenerModel, accounts: accounts, watchlists: watchlistsModel, onOpenStock: explore,
                                 onCompare: { router.open(.compare) }, onSignIn: { showingAuth = true })
         case .compare:
-            CompareStocksScene(model: screenerModel, onOpenStock: explore, onDiscover: { router.open(.discover) },
+            CompareStocksScene(model: screenerModel, onOpenStock: backToCompany, onDiscover: { router.open(.discover) },
                                onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true })
         case let .stockAlerts(symbol):
             AlertsScene(model: watchlistsModel, symbol: symbol, onOpenStock: explore)
@@ -324,4 +360,6 @@ struct AppScene: View {
     private func openAlerts(_ symbol: String?) { if let symbol, !symbol.isEmpty { router.open(.stockAlerts(symbol)) } else { openNotifications() } }
     /// Company Details always opens on Markets, its canonical tab (D1), whatever it was opened from.
     private func explore(_ symbol: String) { router.open(.companyDetails(symbol)) }
+    /// Back to that company's page when it is already below on this stack (Earnings, Compare opened from it), else open it.
+    private func backToCompany(_ symbol: String) { if !router.popTo(where: { $0 == .companyDetails(symbol) }) { explore(symbol) } }
 }

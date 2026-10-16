@@ -280,8 +280,7 @@ struct LearnTopicsView: View {
     var focusSearch = false
     var onSearchCompanies: () -> Void = {}
     @State private var query = ""
-    @State private var openTopic: String?
-    @State private var openTerm: String?
+    @Environment(TabRouter.self) private var router: TabRouter?
     @FocusState private var searchFocused: Bool
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -315,7 +314,7 @@ struct LearnTopicsView: View {
                 } else {
                     ForEach(L.topics(), id: \.name) { t in
                         LearnCardRow(title: t.name, detail: L.topicSummary(topic: t), hint: "Open \(t.name)",
-                                     symbol: learnTopicFilledSymbol(L.topicIcon(name: t.name)), tint: learnTopicTint(L.topicTone(name: t.name), colors)) { openTopic = t.name }
+                                     symbol: learnTopicFilledSymbol(L.topicIcon(name: t.name)), tint: learnTopicTint(L.topicTone(name: t.name), colors)) { router?.open(.learn(.topics(topic: t.name, search: false))) }
                     }
                 }
             }
@@ -329,13 +328,11 @@ struct LearnTopicsView: View {
         .toolbar { ToolbarItem(placement: .principal) { Text(verbatim: " ").accessibilityHidden(true) } } // … while the bar itself shows no repeated title (reference)
         .navigationBarTitleDisplayMode(.inline)
         .task { if focusSearch && topic == nil { searchFocused = true } }
-        .navigationDestination(item: $openTopic) { name in LearnTopicsView(topic: name, onSearchCompanies: onSearchCompanies) }
-        .navigationDestination(item: $openTerm) { id in LearnTermView(termId: id, onSearchCompanies: onSearchCompanies) }
     }
 
     @ViewBuilder private func termRows(_ terms: [EducationEntry]) -> some View {
         ForEach(terms, id: \.id) { e in
-            LearnCardRow(title: e.title, detail: L.preview(entry: e), hint: "Read \(e.title)") { openTerm = e.id }
+            LearnCardRow(title: e.title, detail: L.preview(entry: e), hint: "Read \(e.title)") { router?.open(.learn(.term(e.id))) }
         }
     }
 }
@@ -347,8 +344,7 @@ struct LearnTopicsView: View {
 struct LearnTermView: View {
     let termId: String
     var onSearchCompanies: () -> Void = {}
-    @State private var nextTerm: String?
-    @State private var showTopics = false
+    @Environment(TabRouter.self) private var router: TabRouter?
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -385,10 +381,10 @@ struct LearnTermView: View {
                     }
                     VStack(spacing: 0) {
                         if let next {
-                            StockNavigationRow(title: L.nextLabel(next: next), detail: next.topic, icon: "arrow.right") { nextTerm = next.id }
+                            StockNavigationRow(title: L.nextLabel(next: next), detail: next.topic, icon: "arrow.right") { router?.open(.learn(.term(next.id))) }
                             StockDivider()
                         }
-                        StockNavigationRow(title: L.ALL_TOPICS, icon: "graduationcap") { showTopics = true }
+                        StockNavigationRow(title: L.ALL_TOPICS, icon: "graduationcap") { router?.open(.learn(.topics(topic: nil, search: false))) }
                         StockDivider()
                         StockNavigationRow(title: L.RESEARCH_ANY, detail: L.RESEARCH_ANY_DETAIL, icon: "magnifyingglass", action: onSearchCompanies)
                     }
@@ -402,8 +398,6 @@ struct LearnTermView: View {
             .navigationTitle(L.TITLE) // names the next page's back button "‹ Learn" …
         .toolbar { ToolbarItem(placement: .principal) { Text(verbatim: " ").accessibilityHidden(true) } } // … while the bar itself shows no repeated title (reference)
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(item: $nextTerm) { id in LearnTermView(termId: id, onSearchCompanies: onSearchCompanies) }
-            .navigationDestination(isPresented: $showTopics) { LearnTopicsView(topic: nil, onSearchCompanies: onSearchCompanies) }
         }
     }
 }

@@ -76,6 +76,19 @@ class TabNavigationModelTest {
     }
 
     @Test
+    fun reusedTopThenANestedHopUnwindsWithoutDamage() { // 5D.5.6C3 (iOS reused-top + nested cross-tab): Markets already shows AAPL
+        val markets = N.open(N.selectTab(start(), MARKETS), ScreenId.COMPANY_DETAILS, "AAPL")
+        val s0 = N.selectTab(markets, HOME)
+        val s1 = N.open(s0, ScreenId.COMPANY_DETAILS, "AAPL") // reused: no duplicate
+        val s2 = N.open(s1, ScreenId.LEARN_TERM, "pe-ratio")
+        assertEquals(LEARN, s2.selected); assertEquals(s0.stack(MARKETS), s2.stack(MARKETS)); assertTrue(s2.hops.first().reused)
+        val b1 = N.back(s2)
+        assertEquals(MARKETS, b1.selected); assertEquals(listOf(ScreenId.LEARN), b1.screens(LEARN))
+        val b2 = N.back(b1)
+        assertEquals(s0, b2) // Home again; Markets still shows AAPL (not popped by the reused hop)
+    }
+
+    @Test
     fun manualTabSwitchClearsTheTrail() { // I8, D2
         val s1 = N.open(N.selectTab(start(), WATCHLIST), ScreenId.COMPANY_DETAILS, "AAPL")
         val s2 = N.selectTab(N.selectTab(s1, PORTFOLIO), MARKETS)

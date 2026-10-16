@@ -41,7 +41,7 @@ struct ComparisonAiView: View {
         .background(colors.appBackground)
         .navigationTitle("Ask AI")
         .navigationBarTitleDisplayMode(.inline)
-        .task { presenter?.refreshUsage() }
+        .taskOnce { presenter?.refreshUsage() }
         .onChange(of: state?.usage != nil) { _, loaded in
             // Opened from a research question: ask once (a saved note is only included after the user agrees).
             if loaded, !startedResearch, let id = researchQuestionId {

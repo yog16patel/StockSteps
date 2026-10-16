@@ -16,17 +16,13 @@ struct ComparisonResearchView: View {
     @Environment(\.colorScheme) private var scheme
     @State private var deleting: ResearchSessionInfo?
     /// Phase 5: the research question to ask StockSteps AI about (its note is only sent after the user agrees there).
-    @State private var asking: AskAiTarget?
+    @Environment(TabRouter.self) private var router: TabRouter?
 
     private var client: IosScreenerClient { model.client }
     private var presenter: ComparisonResearchPresenter? { model.client.research }
 
     var body: some View {
         dialogs(exporter(page))
-            .navigationDestination(item: $asking) { target in
-                ComparisonAiView(model: model, researchQuestionId: target.questionId, researchSessionId: target.sessionId, researchHasNote: target.hasNote,
-                                 onUpgrade: onUpgrade, onSignIn: onSignIn)
-            }
     }
 
     private var page: some View {
@@ -46,7 +42,7 @@ struct ComparisonResearchView: View {
         .background(colors.appBackground)
         .navigationTitle("Research")
         .navigationBarTitleDisplayMode(.inline)
-        .task { presenter?.reload() }
+        .taskOnce { presenter?.reload() }
         .onChange(of: model.research?.open?.session.id) { _, _ in
             if let symbols = model.research?.open?.session.symbols { client.selectResearchCompanies(symbols: symbols) }
         }
@@ -220,7 +216,7 @@ struct ComparisonResearchView: View {
                 } else if q.saving { Text("Saving…").font(.caption).foregroundStyle(colors.textSecondary) }
             }
             Button("Ask StockSteps AI about this") {
-                asking = AskAiTarget(questionId: q.question.id, sessionId: model.research?.open?.session.id, hasNote: !q.note.isEmpty)
+                router?.open(.comparisonAi(AskAiTarget(questionId: q.question.id, sessionId: model.research?.open?.session.id, hasNote: !q.note.isEmpty)))
             }
             .frame(minHeight: 44)
             .accessibilityLabel("Ask StockSteps AI about: \(q.question.text). StockSteps+.")

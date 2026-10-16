@@ -20,6 +20,18 @@ enum AppDestination: Hashable {
     case discover
     case compare
     case stockAlerts(String)
+    // 5D.5.6C3: formerly nested `navigationDestination`s inside feature scenes, now on the router (one navigation system).
+    case companyFinancials(String)
+    case companyValuation(String)
+    case companyNews(String)
+    case newsInsight(symbol: String, articleId: String)
+    case stockMovement(String)
+    case comparisonResearch
+    case comparisonAi(AskAiTarget?)
+    case portfolioInsights
+    case portfolioTransactions(symbol: String?, accountId: String?)
+    case portfolioTransaction(String)
+    case holdingDetails(String)
 
     var screen: ScreenId {
         switch self {
@@ -43,8 +55,68 @@ enum AppDestination: Hashable {
         case .discover: .discover
         case .compare: .compare
         case .stockAlerts: .stockAlerts
+        case .companyFinancials: .companyFinancials
+        case .companyValuation: .companyValuation
+        case .companyNews: .companyNews
+        case .newsInsight: .newsInsight
+        case .stockMovement: .stockMovement
+        case .comparisonResearch: .comparisonResearch
+        case .comparisonAi: .comparisonAi
+        case .portfolioInsights: .portfolioInsights
+        case .portfolioTransactions: .portfolioTransactions
+        case .portfolioTransaction: .portfolioTransaction
+        case .holdingDetails: .holdingDetails
         }
     }
+
+    /// The short name the back button shows for this screen (5D.5.6C3): "‹ AAPL" back to a company, "‹ Watchlist" back to a landing page.
+    var backTitle: String {
+        switch self {
+        case let .companyDetails(symbol), let .holdingDetails(symbol): symbol
+        case let .stockAlerts(symbol): "\(symbol) alerts"
+        case .learn(.topics): "Topics"
+        case .learn(.term): "Learn"
+        case .dailyBrief: "Daily Brief"
+        case .briefHistory: "Previous briefs"
+        case .practice, .practiceOrder: "Practice"
+        case .research: "Research"
+        case .earningsCalendar, .earningsEvent, .earningsResults, .earningsDetails: "Earnings"
+        case .earningsDigest: "Digest"
+        case .earningsReminders: "Reminders"
+        case .discover: "Discover"
+        case .compare: "Compare"
+        case .companyFinancials: "Financials"
+        case .companyValuation: "Valuation"
+        case .companyNews, .newsInsight: "News"
+        case .stockMovement: "Why it moved"
+        case .comparisonResearch: "Research"
+        case .comparisonAi: "Ask AI"
+        case .portfolioInsights: "Insights"
+        case .portfolioTransactions: "Transactions"
+        case .portfolioTransaction: "Transaction"
+        }
+    }
+
+    /// The company a destination shows (its company model is kept while any of these is on a stack).
+    var symbol: String? {
+        switch self {
+        case let .companyDetails(s), let .companyFinancials(s), let .companyValuation(s), let .companyNews(s), let .stockMovement(s): s
+        case let .newsInsight(s, _): s
+        default: nil
+        }
+    }
+
+    #if DEBUG
+    /// One sample per case: every tab screen of core `ScreenId` must have an iOS destination (checked once at launch in debug builds).
+    static let samples: [AppDestination] = [
+        .companyDetails("AAPL"), .learn(.topics(topic: nil, search: false)), .learn(.term("pe-ratio")), .dailyBrief(BriefTarget(briefId: nil)),
+        .briefHistory, .practice, .practiceOrder(PracticeOrderTarget(symbol: "AAPL", sell: false)), .research(ResearchTarget(symbol: "AAPL", name: nil)),
+        .earningsCalendar(EarningsCalendarTarget()), .earningsEvent("AAPL:2026-Q3"), .earningsReminders, .earningsResults("AAPL:2026-Q3"), .earningsDigest,
+        .earningsDetails("AAPL"), .discover, .compare, .stockAlerts("AAPL"), .companyFinancials("AAPL"), .companyValuation("AAPL"), .companyNews("AAPL"),
+        .newsInsight(symbol: "AAPL", articleId: "a"), .stockMovement("AAPL"), .comparisonResearch, .comparisonAi(nil), .portfolioInsights,
+        .portfolioTransactions(symbol: nil, accountId: nil), .portfolioTransaction("t"), .holdingDetails("AAPL")
+    ]
+    #endif
 
     /// The entry's identity in the shared model (screen + arguments), so the same screen with other arguments is a new entry.
     var key: String { String(describing: self) }
@@ -94,6 +166,33 @@ final class TabRouter {
     private(set) var scrollToTop: [AppRoute: Int] = [:]
 
     private let nav = TabNavigation.shared
+    /// Bumped on every path change (company models are released when their symbol leaves every stack).
+    private(set) var revision = 0
+
+    init() {
+        #if DEBUG
+        let tabScreens = Set(ScreenId.entries.filter { $0.kind == .tabScreen })
+        assert(tabScreens.isSubset(of: Set(AppDestination.samples.map(\.screen))), "a tab screen has no AppDestination")
+        #endif
+    }
+
+    /// Symbols of every company destination on any stack.
+    var symbolsInUse: Set<String> { Set(paths.values.flatMap { $0.compactMap(\.symbol) }) }
+
+    /// The navigation title of a tab's landing page, which names its first pushed screen's back button (5D.5.6C3). While that first screen was
+    /// opened from another tab (a hop), the button names where Back goes: the origin tab's visible screen ("‹ Home", "‹ AAPL").
+    func rootTitle(_ tab: AppRoute) -> String {
+        if let hop = state.hops.first(where: { $0.tab == tab.tab && Int($0.depth) == 2 }) { return visibleTitle(AppRoute.of(hop.origin)) }
+        return tab.tab.label
+    }
+
+    /// Whether `destination` on `tab` is a hop's entry with other screens below it, whose native back label would name the wrong place.
+    func hidesBackTitle(_ destination: AppDestination, on tab: AppRoute) -> Bool {
+        let p = path(tab)
+        return state.hops.contains { hop in hop.tab == tab.tab && Int(hop.depth) > 2 && Int(hop.depth) - 2 < p.count && p[Int(hop.depth) - 2] == destination }
+    }
+
+    private func visibleTitle(_ tab: AppRoute) -> String { path(tab).last?.backTitle ?? tab.tab.label }
 
     func path(_ tab: AppRoute) -> [AppDestination] { paths[tab] ?? [] }
 
@@ -117,15 +216,21 @@ final class TabRouter {
     private func setPath(_ new: [AppDestination], for tab: AppRoute) {
         let old = path(tab)
         guard new != old else { return }
-        paths[tab] = new
-        if tab == selected, new.count < old.count, let hop = state.hops.last, hop.tab == tab.tab, Int(hop.depth) == old.count + 1,
-           !hop.reused, new.count + 1 < Int(hop.depth) {
-            let origin = AppRoute.of(hop.origin)
-            sync(tab)
-            selected = origin
-            state = nav.sync(state: state, tab: origin.tab, entries: entries(origin))
+        defer { revision += 1 }
+        // One Back (button or swipe) on the latest hop's entry: core `back` returns to the hop's origin. A reused entry (it was already on top of
+        // this tab before the hop) stays on its stack, so the native pop is undone while the tab switches away (I1, no duplicate).
+        if tab == selected, new.count == old.count - 1, Array(old.dropLast()) == new,
+           let hop = state.hops.last, hop.tab == tab.tab, Int(hop.depth) == old.count + 1 {
+            let next = nav.back(state: state)
+            paths[tab] = new
+            selected = AppRoute.of(next.selected)
+            state = next
+            sync(selected)
+            // SwiftUI ignores a path restored inside its own pop, so the reused entry goes back on the next turn, after the tab switched away.
+            if hop.reused { DispatchQueue.main.async { if self.path(tab) == new { self.paths[tab] = old; self.revision += 1 } } }
             return
         }
+        paths[tab] = new
         sync(tab)
     }
 
@@ -139,10 +244,16 @@ final class TabRouter {
         let pushed = next.stack(tab: owner).count > state.stack(tab: owner).count
         if pushed { paths[tab, default: []].append(destination) }
         selected = tab
-        // iOS can't observe a Back that pops nothing, so an open onto an identical top keeps no return hop (C3 revisits it).
-        state = pushed || next.hops.count == state.hops.count ? next
-            : TabNavigationState(stacks: next.stacks, selected: next.selected, hops: Array(next.hops.dropLast()))
+        // 5D.5.6C3: an identical top is reused (no duplicate) and its hop kept; Back on it returns to the origin (see `setPath`).
+        state = next
         sync(tab)
+        revision += 1
+    }
+
+    /// Opens once a sheet the call came from has finished closing (SwiftUI drops a navigation started mid-dismissal).
+    func open(_ destination: AppDestination, afterSheet: Bool) {
+        guard afterSheet else { open(destination); return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { self.open(destination) }
     }
 
     /// A tab tap or a programmatic jump to a landing page: that tab's stack is shown as it was; the trail is cleared (D2, rule 6).
@@ -157,7 +268,7 @@ final class TabRouter {
     /// The visible tab tapped again: back to its root, or at the root scroll to the top (D3/D12).
     func reselect() {
         let tab = selected
-        if path(tab).isEmpty { scrollToTop[tab, default: 0] += 1 } else { paths[tab] = [] }
+        if path(tab).isEmpty { scrollToTop[tab, default: 0] += 1 } else { paths[tab] = []; revision += 1 }
         state = nav.reselect(state: state).first ?? state
         sync(tab)
     }
@@ -180,6 +291,7 @@ final class TabRouter {
 
     /// Sign-out or an ended session: every stack back to its root, Home selected, no trail or global screen (I11).
     func reset() {
+        revision += 1
         paths = [:]
         global = nil
         selected = .home
@@ -201,4 +313,41 @@ struct ScrollToTopOnReselect: ViewModifier {
 
 extension View {
     func scrollsToTopOnReselect(_ tab: AppRoute) -> some View { modifier(ScrollToTopOnReselect(tab: tab)) }
+}
+
+/// 5D.5.6C3: one company model (and its details client) per symbol, shared by Company Details and its Financials, Valuation, News, News insight and
+/// Why-it-moved pages now that they are separate router destinations — they reuse the data Company Details already loaded instead of a second
+/// client. A model is released when its symbol is on no stack any more.
+@MainActor
+final class CompanyModelStore {
+    private var models: [String: CompanyDetailsModel] = [:]
+    private let baseURL: () -> String
+    init(baseURL: @escaping () -> String) { self.baseURL = baseURL }
+    func model(_ symbol: String) -> CompanyDetailsModel {
+        if let model = models[symbol] { return model }
+        let model = CompanyDetailsModel(symbol: symbol, baseURL: baseURL)
+        models[symbol] = model
+        return model
+    }
+    func retain(only symbols: Set<String>) { models = models.filter { symbols.contains($0.key) } }
+}
+
+/// 5D.5.6C3 lifecycle rule: with five live tab stacks a pushed screen reappears on every tab switch, so work that fetches runs once per screen
+/// (and again only when `id` changes) — never just because the view came back on screen. Pull-to-refresh and Retry stay explicit.
+private struct TaskOnce<ID: Equatable>: ViewModifier {
+    let id: ID
+    let action: () async -> Void
+    @State private var done: ID?
+    func body(content: Content) -> some View {
+        content.task(id: id) {
+            guard done != id else { return }
+            done = id
+            await action()
+        }
+    }
+}
+
+extension View {
+    func taskOnce<ID: Equatable>(id: ID, _ action: @escaping () async -> Void) -> some View { modifier(TaskOnce(id: id, action: action)) }
+    func taskOnce(_ action: @escaping () async -> Void) -> some View { modifier(TaskOnce(id: 0, action: action)) }
 }

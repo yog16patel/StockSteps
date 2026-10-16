@@ -193,7 +193,8 @@ struct EarningsRemindersSettingsScene: View {
         }
         .navigationTitle("Earnings Reminders")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await model.refreshPermission(); model.client.refreshReminders() }
+        .task { await model.refreshPermission() } // local permission check on every appearance
+        .taskOnce { model.client.refreshReminders() } // 5D.5.6C3: the request once per screen
         .refreshable { model.client.refreshReminders() }
     }
 

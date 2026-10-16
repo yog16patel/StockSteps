@@ -97,7 +97,7 @@ struct MarketsScene: View {
     @State private var lesson: MarketLesson?
     /// Width of the indices card; the trend sparkline needs `TREND_MIN_ROW_WIDTH` so names keep their room.
     @State private var indexCardWidth: CGFloat = 0
-    @State private var movementSymbol: String?
+    @Environment(TabRouter.self) private var router: TabRouter?
 
     private let present = MarketsScreenPresentation.shared
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -146,7 +146,6 @@ struct MarketsScene: View {
         .scrollsToTopOnReselect(.markets) // 5D.5.6C2 (D12)
         .refreshable { await model.refresh() }
         .background(colors.appBackground.ignoresSafeArea())
-        .navigationDestination(item: $movementSymbol) { symbol in StockMovementScene(symbol: symbol, client: model.detailsClient) }
         .sheet(item: Binding(get: { lesson.map(LessonItem.init) }, set: { lesson = $0?.lesson })) { item in
             LessonSheet(lesson: item.lesson).presentationDetents([.medium, .large])
         }
@@ -350,7 +349,7 @@ struct MarketsScene: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(mover.accessibilityLabel)
             if tab != .mostActive && row.direction != .unavailable {
-                Button { movementSymbol = row.symbol } label: {
+                Button { router?.open(.stockMovement(row.symbol)) } label: {
                     Image(systemName: "questionmark.circle").foregroundStyle(colors.iconSecondary)
                         .frame(width: CGFloat(dims.touchTarget), height: CGFloat(dims.touchTarget))
                 }

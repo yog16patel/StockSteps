@@ -7,18 +7,14 @@ struct CompanyDetailsScene: View {
     let accounts: AccountViewModel
     var watchlists: WatchlistsModel?
     @State private var choosingList = false
-    /// 5D.5.3: a Learn term opened from a metric explanation, pushed on this stack (Back returns to the stock).
-    @State private var learnTerm: String?
+    /// 5D.5.6C3: deeper pages (Financials, Valuation, News, Why it moved, Earnings, Compare, Learn terms, Research) open through the tab router
+    /// on their canonical tab's stack; Back returns here.
+    @Environment(TabRouter.self) private var router: TabRouter?
     @State private var model: CompanyDetailsModel
-    @State private var showFinancials = false
-    @State private var showNews = false
-    @State private var showValuation = false
-    @State private var showMovement = false
     @State private var showPortfolio = false
-    @State private var showCompare = false
-    @State private var compareModel: ScreenerModel?
     @State private var earningsModel: EarningsModel?
-    @State private var showEarnings = false
+    /// Viewed-company history is recorded once per visit, not on every reappearance after a tab switch (5D.5.6C3 lifecycle audit).
+    @State private var recordedView = false
     @State private var nextEarnings: CompanyEarningsModel?
     @State private var reminderTarget: ReminderTargetInfo?
     /// Opens the app-level Earnings Calendar on a date (nil = today); nil hides the action.
@@ -30,7 +26,6 @@ struct CompanyDetailsScene: View {
     var onLearn: () -> Void = {}
     var onUpgrade: () -> Void = {}
     var onPracticeBuy: (String) -> Void = { _ in }
-    @State private var research: ResearchTarget?
     /// Not `@Environment(\.openURL)`: see `ExternalURLOpener` (that environment value re-rendered this scene in a loop once a destination was pushed).
     private let openURL = ExternalURLOpener()
 
@@ -39,6 +34,7 @@ struct CompanyDetailsScene: View {
          onPracticeBuy: @escaping (String) -> Void = { _ in },
          onEarningsCalendar: ((String?) -> Void)? = nil,
          onEarningsResults: ((String) -> Void)? = nil,
+         model: CompanyDetailsModel? = nil, earnings: EarningsModel? = nil,
          baseURL: @escaping () -> String = { BackendSettings.currentURL }) {
         self.onEarningsCalendar = onEarningsCalendar
         self.onEarningsResults = onEarningsResults
@@ -50,7 +46,9 @@ struct CompanyDetailsScene: View {
         self.onLearn = onLearn
         self.onUpgrade = onUpgrade
         self.onPracticeBuy = onPracticeBuy
-        _model = State(initialValue: CompanyDetailsModel(symbol: symbol, baseURL: baseURL))
+        // The app's shared company model (its sub-pages reuse it) and earnings model (one cached next-earnings request, shared with Earnings).
+        _model = State(initialValue: model ?? CompanyDetailsModel(symbol: symbol, baseURL: baseURL))
+        _earningsModel = State(initialValue: earnings)
     }
 
     var body: some View {
@@ -67,24 +65,20 @@ struct CompanyDetailsScene: View {
                 Task { await accounts.toggle(stock: StockSearchResult(symbol: symbol, name: name, currency: nil, exchange: nil, exchangeFullName: nil, logoUrl: nil)) }
             },
             onOpenURL: { openURL($0) },
-            onOpenFinancials: { showFinancials = true },
-            onOpenValuation: { showValuation = true },
-            onOpenNews: { showNews = true },
-            onOpenMovement: { showMovement = true },
+            onOpenFinancials: { router?.open(.companyFinancials(symbol)) },
+            onOpenValuation: { router?.open(.companyValuation(symbol)) },
+            onOpenNews: { router?.open(.companyNews(symbol)) },
+            onOpenMovement: { router?.open(.stockMovement(symbol)) },
             onAddPortfolio: { showPortfolio = true },
             onCompare: {
-                // Adds this company to the shared selection, then opens Compare in this stack.
+                // Adds this company to the shared selection, then opens Compare (Markets).
                 SharedComparisonSelection.shared.instance.add(symbol: symbol, name: model.overview.value?.name ?? symbol)
-                if compareModel == nil { compareModel = ScreenerModel(accounts: accounts) }
-                showCompare = true
+                router?.open(.compare)
             },
-            onEarnings: {
-                if earningsModel == nil { earningsModel = EarningsModel(accounts: accounts) }
-                showEarnings = true
-            },
+            onEarnings: { router?.open(.earningsDetails(symbol)) },
             researchCompleted: learning?.completed(symbol),
             showResearch: learning != nil,
-            onResearch: { research = ResearchTarget(symbol: symbol, name: model.overview.value?.name) },
+            onResearch: { router?.open(.research(ResearchTarget(symbol: symbol, name: model.overview.value?.name))) },
             onPracticeBuy: { onPracticeBuy(symbol) },
             nextEarnings: nextEarnings?.state,
             onEarningsCalendar: onEarningsCalendar.map { open in { open(nextEarnings?.state?.date) } },
@@ -97,34 +91,16 @@ struct CompanyDetailsScene: View {
                                                         timingText: e.timingText, dateNote: e.statusText?.components(separatedBy: " · ").dropFirst().first)
                 }
             },
-            onLearnTerm: { learnTerm = $0 }
+            onLearnTerm: { router?.open(.learn(.term($0))) }
         )
         .sheet(item: $reminderTarget) { target in
             if let reminders = earningsModel?.reminders { EarningsReminderSheet(target: target, model: reminders) { reminderTarget = nil } }
         }
-        .navigationDestination(item: $research) { target in
-            if let learning {
-                GuidedResearchScene(target: target, learning: learning, accounts: accounts, onCompany: { _ in research = nil },
-                                    onResearchAnother: onSearch, onContinueLearning: onLearn, onUpgrade: onUpgrade)
-            }
-        }
-        .navigationDestination(isPresented: $showEarnings) {
-            if let earningsModel { EarningsDetailsScene(symbol: symbol, client: earningsModel.client, onCompany: { showEarnings = false }) }
-        }
-        .navigationDestination(isPresented: $showCompare) {
-            if let compareModel { CompareStocksScene(model: compareModel, onOpenStock: { _ in showCompare = false }) }
-        }
-        // Deeper destinations stay inside the same navigation stack, so Back returns here.
-        .navigationDestination(item: $learnTerm) { id in LearnTermView(termId: id, onSearchCompanies: onSearch) }
-        .navigationDestination(isPresented: $showFinancials) { CompanyFinancialsScene(symbol: symbol, client: model.client, onSearchCompanies: onSearch) }
-        .navigationDestination(isPresented: $showNews) { CompanyNewsScene(symbol: symbol, client: model.client) }
-        .navigationDestination(isPresented: $showValuation) { CompanyValuationScene(symbol: symbol, client: model.client, onSearchCompanies: onSearch) }
-        .navigationDestination(isPresented: $showMovement) { StockMovementScene(symbol: symbol, client: model.client) }
         .task {
             // One cached request for the next earnings date (the client is shared with Earnings Details).
             if earningsModel == nil { earningsModel = EarningsModel(accounts: accounts) }
             if nextEarnings == nil, let client = earningsModel?.client { nextEarnings = CompanyEarningsModel(symbol: symbol, client: client) }
-            accounts.client?.recordViewedCompany(symbol: symbol)
+            if !recordedView { recordedView = true; accounts.client?.recordViewedCompany(symbol: symbol) }
             if model.overview.value == nil { model.load() }
         }
         .sheet(isPresented: $showPortfolio) {

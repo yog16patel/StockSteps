@@ -211,14 +211,14 @@ struct PortfolioTransactionsScene: View {
     var onSignIn: () -> Void = {}
     @State private var scopeCleared = false
     @State private var editing: PortfolioTransaction?
-    @State private var openTransactionId: String?
+    @Environment(TabRouter.self) private var router: TabRouter?
 
     var body: some View {
         let state = model.state
         let active = scopeCleared ? nil : PortfolioTransactionsDisplay.shared.activeSymbol(symbol: symbol, scopeAccountId: accountId, selectedAccountId: state?.selectedAccountId)
         PortfolioTransactionsScreen(state: state, symbol: active, onClearSymbol: { scopeCleared = true }, onSelectAccount: model.select,
                                     onRefresh: model.refresh, onSignIn: onSignIn,
-                                    onEdit: { editing = $0 }, onDelete: model.deleteTransaction, onOpen: { openTransactionId = $0 },
+                                    onEdit: { editing = $0 }, onDelete: model.deleteTransaction, onOpen: { router?.open(.portfolioTransaction($0)) },
                                     onDismissError: model.clearError, onSignInAgain: portfolioSignInAgain(accounts, then: onSignIn))
             .portfolioFeedback(accounts: accounts, result: state?.actionResult)
             .navigationTitle(PortfolioTransactionsDisplay.shared.TITLE)
@@ -231,9 +231,6 @@ struct PortfolioTransactionsScene: View {
                 PortfolioEntryScene(accounts: accounts, model: model, existing: transaction, initialInstrument: nil)
             }
             // Phase D3: Transaction details on the same model (no second load).
-            .navigationDestination(item: $openTransactionId) { id in
-                PortfolioTransactionDetailsScene(accounts: accounts, model: model, transactionId: id, onSignIn: onSignIn)
-            }
     }
 }
 
