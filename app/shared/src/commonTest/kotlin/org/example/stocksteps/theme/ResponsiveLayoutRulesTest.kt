@@ -9,6 +9,17 @@ import kotlin.test.assertTrue
 /** Phase 4C.3: the shared responsive rules both Company Details implementations use. */
 class ResponsiveLayoutRulesTest {
     @Test
+    fun landingBarIconsMoveUnderTheTitleOnlyWhenTheyCannotShareItsLine() {
+        // 5D.5.6B landing bar (StockLayout.metricRowStacked with the title width and (actions + 2) × 48 dp icons, 8 dp gap).
+        // 360 dp phone (328 dp content): "Watchlist" (≈ 115 dp) + Search, menu, bell, gear (192 dp) shares the line.
+        assertFalse(StockLayout.metricRowStacked(115f, 4 * 48f, 328f, 8f))
+        // The same bar at 2.0× (≈ 230 dp title): the icons move to their own row instead of squeezing the heading.
+        assertTrue(StockLayout.metricRowStacked(230f, 4 * 48f, 328f, 8f))
+        // An unmeasured width never stacks.
+        assertFalse(StockLayout.metricRowStacked(230f, 4 * 48f, 0f, 8f))
+    }
+
+    @Test
     fun headerActionsPairOnlyWhenBothLabelsFitTheirEqualShare() {
         // iPhone 16 content width (≈ 361 pt): "Add to portfolio" (≈ 120 incl. icon) + 2 × 24 padding = 168 fits half of 361 − 8 (176.5).
         assertTrue(StockActionLayout.sideBySide(listOf(120f, 90f), 361f, 24f, 8f, accessibilityText = false))

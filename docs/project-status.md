@@ -6,7 +6,15 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-15 — Phase 5D.5.6A Shared Navigation & Top App Bar audit and plan (committed locally as "Add the Phase 5D.5.6A shared navigation and top app bar audit and plan with a canonical parent tab per screen, independent tab stacks with a cross-tab Back trail and a shared landing top bar, approved with decisions D1 to D12"; docs only; not pushed). Approved: D1–D12 as recommended.**
+**2026-10-15 — Phase 5D.5.6B shared navigation policy & landing top bars (committed and pushed as "Add the Phase 5D.5.6B shared navigation policy and landing top bars with a canonical parent tab per screen, a tested cross-tab trail model and Notifications and Settings on all five landing pages on Android and iOS").**
+- **Done:**
+  - core `navigation/` policy (canonical tab per screen, kinds, chrome) and the tested trail model (not wired);
+  - one landing top bar on Home, Markets, Portfolio, Watchlist and Learn on both platforms: existing actions, then Notifications (all-alerts history) and Settings.
+- **Unchanged:** navigation.
+- **Report:** `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6B.md`.
+- **Next:** 5D.5.6C1 on the owner's go-ahead.
+
+**2026-10-15 — Phase 5D.5.6A Shared Navigation & Top App Bar audit and plan (committed and pushed as `912ec7f` "Add the Phase 5D.5.6A shared navigation and top app bar audit and plan with a canonical parent tab per screen, independent tab stacks with a cross-tab Back trail and a shared landing top bar, approved with decisions D1 to D12"; docs only). Approved: D1–D12 as recommended.**
 - **Plan:** `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6_PLAN.md`.
   - Canonical parent tab per screen (Company Search/Details/Financials/Valuation/News → Markets).
   - Independent per-tab stacks with a cross-tab trail for Back.

@@ -18,12 +18,16 @@ internal fun LearnScene(
     onSearch: () -> Unit,
     onPractice: () -> Unit = {},
     onTopics: (topic: String?, search: Boolean) -> Unit = { _, _ -> },
-    onTerm: (String) -> Unit = {}
+    onTerm: (String) -> Unit = {},
+    /** 5D.5.6B landing bar: the all-alerts history and Settings. */
+    onNotifications: () -> Unit = {},
+    onSettings: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val repository = accounts?.learning ?: remember { ephemeralLearningProgress(scope) }
     val progress by repository.state.collectAsStateWithLifecycle()
-    LearnScreen(progress, hinge, onResearch = onResearch, onSearch = onSearch, onPractice = onPractice, onTopics = onTopics, onTerm = onTerm)
+    LearnScreen(progress, hinge, onResearch = onResearch, onSearch = onSearch, onPractice = onPractice, onTopics = onTopics, onTerm = onTerm,
+        onNotifications = onNotifications, onSettings = onSettings)
 }
 
 /** Topics or one topic's terms (Phase 5D.5.2); the route only names the topic. */

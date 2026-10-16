@@ -409,7 +409,7 @@ No provider-call change: tab switches only restore entries. The server and API a
 ---
 
 ## 11. Implementation phases
-- **5D.5.6B — Shared policy and landing top bar (both platforms, no stack migration):**
+- **5D.5.6B — Shared policy and landing top bar (both platforms, no stack migration)** — implemented 2026-10-15, report `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6B.md`. Notifications and Settings keep their current presentation until the Phase C hosts make them global modals:
   - core `navigation/`: `AppTab`, `ScreenId`, `NavigationPolicy`, `CrossTabTrail`, `TopBarDisplay`, with tests (every transition in §4 and
     §9);
   - Android route→`ScreenId` list + coverage test; iOS `ScreenId` mapping;
@@ -428,6 +428,11 @@ No provider-call change: tab switches only restore entries. The server and API a
   - Company Details/Financials/Valuation → Learn term and Guided research via the router;
   - `.task` audit;
   - optional `@SceneStorage` (if D8 = yes).
+- **5D.5.6C4 — Portfolio nested tabs (§13), both platforms:**
+  - My Portfolio / Practice as genuine inner tabs of the Portfolio tab;
+  - the selection, scroll and filters are preserved across tab switches;
+  - pushed Portfolio and Practice screens return to their inner tab;
+  - guests keep separate experiences; no reloads.
 - **5D.5.6D — Final QA:**
   - the §9 matrix on both platforms;
   - TalkBack/VoiceOver checklist (owner): tab announcements and the selected state;
@@ -457,3 +462,89 @@ Each phase is independently shippable: B changes no Back behaviour; C1 and C2 ca
 | D10 | Resume a gated feature after sign-in (guest → Practice) | Out of scope; keep returning to the opener |
 | D11 | Android Add transaction | **Modal form** (matches iOS) instead of a push with the tab bar |
 | D12 | Reselect at root → scroll to top | **Yes** on both platforms |
+
+---
+
+## 13. Portfolio nested tabs (owner requirement, added 2026-10-15 with 5D.5.6B)
+The My Portfolio / Practice control on the Portfolio landing page becomes a pair of **genuine nested tabs** inside the canonical Portfolio tab.
+Today on Android it is a `StockSegmentedControl` whose Practice segment *pushes* `PracticeRoute`; on iOS it opens Practice through `openPractice`.
+
+- **Ownership:** both inner tabs belong to the Portfolio bottom tab (`ScreenId.PORTFOLIO` with an inner tab `MY_PORTFOLIO` / `PRACTICE`).
+  - Practice is no longer a pushed screen from the landing page. `ScreenId.PRACTICE` stays for links from other tabs (Learn, Home, Company
+    Details), which open the Portfolio tab with the Practice inner tab selected (canonical rule 1).
+- **State:** the selected inner tab is part of the Portfolio tab state.
+  - Android: `rememberSaveable` on the Portfolio graph's root entry.
+  - iOS: `TabRouter.portfolioInner`.
+
+  It survives primary-tab switches, and each inner tab keeps its own scroll position, filters and loaded data (two lazy-list states; the
+  presenters are app-level and already loaded, so no reload).
+- **Returning:** Holding Details, Transactions and Transaction details return to My Portfolio. Practice Order and Practice holdings return to
+  Practice. Each pushed entry records its inner tab, and Back restores it.
+- **Guests:**
+  - My Portfolio keeps its signed-out state (sign-in prompt, samples in MOCK);
+  - Practice keeps its own gate (it needs an account: the server keeps the simulated ledger);
+  - neither experience leaks into the other.
+- **Loads:** switching inner tabs never refetches. Practice loads once, when it is first shown, as today.
+- **Schedule:** a focused follow-up during the Portfolio part of the stack migration: **5D.5.6C4** (after C1/C2). It is not part of Phase B.
+
+## 14. Cross-tab trail: state model and invariants (contract for Phase C)
+**Model (pure; `core/.../navigation/TabNavigationModel.kt`, added in 5D.5.6B as a tested reference, not wired into any host):**
+- `stacks: Map<AppTab, List<Entry>>` — every tab always has its root entry at index 0.
+- `selected: AppTab` — the visible tab.
+- `hops: List<Hop>` — LIFO. A `Hop(origin, tab, depth)` means "the entry at `stacks[tab][depth - 1]` was opened from `origin`".
+- An `Entry(screen, key)` holds a `ScreenId` plus an argument key (e.g. a symbol). Platforms keep their real stacks and follow the same
+  transitions.
+
+**Transitions:**
+| Event | Rule |
+|---|---|
+| `open(screen, key)` (tab destination) | owner `C`. If `C == selected`: push (no duplicate of an identical top). Else: select `C`, push (or reuse an identical top), and add `Hop(previous selected, C, depth)` |
+| `open` of a modal/global | no stack or selection change (the host presents it) |
+| `back()` | if the selected stack has > 1 entry: pop. If the popped depth ends the latest hop on this tab, select `hop.origin` and drop the hop. At a root: no change (the platform decides: Android goes to Home, then exits) |
+| `selectTab(tab)` (user or programmatic jump) | select `tab`; **clear all hops** (D2) |
+| `reselect()` (tap the selected tab) | stack deeper than its root → pop to root; at the root → scroll-to-top signal. **Clear all hops** (D3) |
+| `reset()` (sign-out, session ended) | every stack back to its root, `selected = HOME`, no hops |
+| `deepLink(screen, key)` | `open` from the current tab; on cold start the current tab is Home, so Back returns to Home (Android) |
+
+**Invariants (each is a unit test):**
+1. **I1 — No foreign damage:** `open`, `back`, `selectTab` and `reselect` change at most the stack of the tab they act on. Every other tab's stack
+   is identical before and after. A cross-tab `open` appends to the canonical tab only, and the origin tab is untouched.
+2. **I2 — Roots:** every tab's stack is non-empty and starts with that tab's root screen.
+3. **I3 — Ownership:** every non-root entry in `stacks[t]` has `parentTab(screen) == t`.
+4. **I4 — Hop validity:** for every hop, `depth <= stacks[hop.tab].size`. Hops are removed when their entry is popped (by `back` or
+   `reselect`), so no hop outlives its entry.
+5. **I5 — Back round trip:** for any state S, `open(x)` on a tab destination followed by `back()` returns S, except that an identical top
+   (reuse) yields S with the selection restored.
+6. **I6 — Repeated navigation:** opening the same `(screen, key)` twice in a row never creates two identical adjacent entries.
+7. **I7 — Nested hops:** W → CD (Markets) → Term (Learn): `back` twice returns to Watchlist; Markets and Learn are back to their previous
+   stacks.
+8. **I8 — Manual switch:** `selectTab` clears hops. `back` afterwards stays in the current tab.
+9. **I9 — Reselect:** pop to root, and the hops for that tab are gone; other tabs are unchanged (I1).
+10. **I10 — Modal neutrality:** modal/global opens don't change `stacks`, `selected` or `hops`.
+11. **I11 — Reset:** after `reset()`, all stacks are roots and there are no hops.
+
+**Platform notes:**
+- **Android system Back** maps to `back()`. Predictive Back animates in-stack pops natively, and a hop end switches tabs after the pop.
+- **iOS Back button and swipe-back** both change the tab's path. The router derives `back()` from the path shrinking, and calls it once per
+  removed entry.
+- **Process restoration:**
+  - Android: the hops are saved with the NavController state (`rememberSaveable`); a hop whose entry no longer exists after restoration is
+    dropped (I4).
+  - iOS restoration is deferred (D8).
+
+## 15. Phase C test scenarios (defined before implementation)
+Pure model (core): I1–I11 plus the §9 matrix rows 1–8, 11, 14 and 15 as reducer sequences.
+
+Android (`app:shared` host tests with a `TestNavHostController`):
+- tab switch keeps saved stacks;
+- cross-tab open selects the canonical tab;
+- Back across a hop;
+- reselect;
+- process recreation of the hops.
+
+iOS (unit tests of `TabRouter`):
+- path shrink → hop end;
+- swipe-back equivalence;
+- reselect.
+
+Devices: the §9 matrix.

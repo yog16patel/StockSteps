@@ -20,7 +20,10 @@ internal fun WatchListScene(
     onOpenAlerts: (String?) -> Unit,
     onEarnings: () -> Unit = {},
     onEarningsReminders: () -> Unit = {},
-    onCompare: () -> Unit = {}
+    onCompare: () -> Unit = {},
+    /** 5D.5.6B landing bar: the all-alerts history and Settings. */
+    onNotifications: () -> Unit = {},
+    onSettings: () -> Unit = {}
 ) {
     val model = viewModel(key = "watchlist") {
         WatchListViewModel(accounts.auth, accounts.watchlists, accounts.alerts, accounts.watchData, accounts.watchlist, accounts.environment)
@@ -35,6 +38,8 @@ internal fun WatchListScene(
             WatchListAction.Refresh -> model.refresh()
             WatchListAction.SignIn -> onSignIn()
             WatchListAction.Search -> onSearch()
+            WatchListAction.Notifications -> onNotifications()
+            WatchListAction.Settings -> onSettings()
             is WatchListAction.OpenAlerts -> onOpenAlerts(action.symbol)
             is WatchListAction.Select -> model.select(action.id)
             is WatchListAction.OpenStock -> onOpenStock(action.symbol)

@@ -66,6 +66,9 @@ struct LearnScreen: View {
     let onSearch: () -> Void
     var onPractice: () -> Void = {}
     var onLearnTarget: (LearnTarget) -> Void = { _ in }
+    /// 5D.5.6B landing bar: the all-alerts history and Settings.
+    var onNotifications: () -> Void = {}
+    var onSettings: () -> Void = {}
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var width: CGFloat = 0
@@ -79,15 +82,9 @@ struct LearnScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: CGFloat(space.xl)) {
                 VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(L.TITLE).font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).foregroundStyle(colors.textTitle)
-                            .accessibilityAddTraits(.isHeader)
-                        Spacer()
-                        Button { onLearnTarget(.topics(topic: nil, search: true)) } label: {
-                            Image(systemName: "magnifyingglass").font(StockStepsTheme.font(type.cardTitle, relativeTo: .title3)).foregroundStyle(colors.iconSecondary)
-                                .frame(minWidth: CGFloat(dims.touchTarget), minHeight: CGFloat(dims.touchTarget))
-                        }
-                        .accessibilityLabel(L.SEARCH_ACTION)
+                    // 5D.5.6B: the shared landing bar ("Learn", term search, Notifications, Settings).
+                    StockLandingTopBar(tab: .learn, actionCount: 1, onNotifications: onNotifications, onSettings: onSettings) {
+                        StockLandingIconButton(systemImage: "magnifyingglass", label: L.SEARCH_ACTION) { onLearnTarget(.topics(topic: nil, search: true)) }
                     }
                     Text(L.INTRO).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
                     if progress?.syncFailed == true {

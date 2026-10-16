@@ -101,13 +101,10 @@ struct HomeScreen: View {
         }
     }
 
+    /// 5D.5.6B: the shared landing bar — brand, Search, then Notifications (the alert history; no unread contract, so no badge) and Settings.
     private var header: some View {
-        HStack(spacing: 0) {
-            StockBrandMark(name: "StockSteps")
-            Spacer(minLength: 0)
-            headerButton("Search stocks", icon: "magnifyingglass", action: onSearch)
-            headerButton("Your alerts", icon: "bell", action: { onAlerts(nil) })
-            headerButton("Profile and settings", icon: "person.crop.circle", action: onSettings)
+        StockLandingTopBar(tab: .home, actionCount: 1, onNotifications: { onAlerts(nil) }, onSettings: onSettings) {
+            StockLandingIconButton(systemImage: "magnifyingglass", label: LandingTopBarDisplay.shared.SEARCH_STOCKS_SPOKEN, action: onSearch)
         }
     }
     private func headerButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {

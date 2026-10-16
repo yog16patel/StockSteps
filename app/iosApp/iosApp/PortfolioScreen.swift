@@ -34,6 +34,9 @@ struct PortfolioScreen: View {
     var onDismissError: () -> Void = {}
     /// E.2: "Sign in again" for an ended session (`portfolioSignInAgain`).
     var onSignInAgain: () -> Void = {}
+    /// 5D.5.6B landing bar (the dashboard only): the all-alerts history and Settings.
+    var onNotifications: () -> Void = {}
+    var onSettings: () -> Void = {}
     @State private var deleteAccount: PortfolioAccount?
     @State private var deleteTransaction: PortfolioTransaction?
     @State private var showAbout = false
@@ -108,14 +111,24 @@ struct PortfolioScreen: View {
     }
 
     @ViewBuilder private func header(_ colors: StockColors) -> some View {
-        HStack(spacing: CGFloat(space.xs)) {
-            Text(holdingSymbol == nil ? display.TITLE : display.HOLDING_DETAILS_TITLE)
+        if holdingSymbol == nil {
+            // 5D.5.6B: the shared landing bar — "Portfolio", About and the ⋯ account menu, then Notifications and Settings.
+            StockLandingTopBar(tab: .portfolio, actionCount: state == nil ? 0 : 2, onNotifications: onNotifications, onSettings: onSettings) {
+                pageActions(colors)
+            }
+        } else {
+            Text(display.HOLDING_DETAILS_TITLE)
                 .font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).foregroundStyle(colors.textTitle)
                 .accessibilityAddTraits(.isHeader)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if holdingSymbol == nil, let state {
+        }
+    }
+
+    @ViewBuilder private func pageActions(_ colors: StockColors) -> some View {
+        HStack(spacing: 0) {
+            if let state {
                 Button { showAbout = true } label: {
-                    Image(systemName: "info.circle").foregroundStyle(colors.iconSecondary)
+                    Image(systemName: "info.circle").font(.system(size: 20, weight: .regular)).foregroundStyle(colors.textPrimary)
                         .frame(width: CGFloat(StockStepsTheme.dimensions.touchTarget), height: CGFloat(StockStepsTheme.dimensions.touchTarget))
                 }.accessibilityLabel(display.ABOUT_TITLE)
                 let account = state.accounts.first { $0.id == state.selectedAccountId && !$0.archived }
@@ -130,7 +143,7 @@ struct PortfolioScreen: View {
                         Button(display.SCENARIO_MENU, systemImage: "square.stack.3d.up") { choosingScenario = true }
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle").foregroundStyle(colors.iconSecondary)
+                    Image(systemName: "ellipsis.circle").font(.system(size: 20, weight: .regular)).foregroundStyle(colors.textPrimary)
                         .frame(width: CGFloat(StockStepsTheme.dimensions.touchTarget), height: CGFloat(StockStepsTheme.dimensions.touchTarget))
                 }.accessibilityLabel("Portfolio actions")
             }

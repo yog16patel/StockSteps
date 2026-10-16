@@ -43,6 +43,9 @@ internal sealed interface MarketsAction {
     data object BriefHistory : MarketsAction
     data object Retry : MarketsAction
     data object Search : MarketsAction
+    /** 5D.5.6B landing bar. */
+    data object Notifications : MarketsAction
+    data object Settings : MarketsAction
     data class SelectTab(val tab: MoversTab) : MarketsAction
     data object ToggleExpanded : MarketsAction
     data class OpenStock(val symbol: String) : MarketsAction
@@ -70,7 +73,10 @@ internal fun MarketsScene(
     onDailyBrief: () -> Unit = {},
     onBriefHistory: () -> Unit = {},
     /** Account graph for the watchlist count on the Earnings Center entry (null when unavailable). */
-    accounts: org.example.stocksteps.di.AccountDependencies? = null
+    accounts: org.example.stocksteps.di.AccountDependencies? = null,
+    /** 5D.5.6B landing bar: the all-alerts history and Settings. */
+    onNotifications: () -> Unit = {},
+    onSettings: () -> Unit = {}
 ) {
     val model = viewModel(key = "markets:$environment") {
         val data = StockStepsDependencies(backend::currentUrl)
@@ -89,6 +95,8 @@ internal fun MarketsScene(
             MarketsAction.Refresh -> { model.refresh(); earnings.presenter.refresh() }
             MarketsAction.Retry -> model.retry()
             MarketsAction.Search -> onSearch()
+            MarketsAction.Notifications -> onNotifications()
+            MarketsAction.Settings -> onSettings()
             is MarketsAction.SelectTab -> model.selectTab(action.tab)
             MarketsAction.ToggleExpanded -> model.toggleExpanded()
             is MarketsAction.OpenStock -> onOpenStock(action.symbol)
@@ -133,7 +141,8 @@ internal fun MarketsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    item(key = "title") { Title(content.padding(top = spacing.md), onSearch = { onAction(MarketsAction.Search) }) }
+                    item(key = "title") { Title(content.padding(top = spacing.md), onSearch = { onAction(MarketsAction.Search) },
+                        onNotifications = { onAction(MarketsAction.Notifications) }, onSettings = { onAction(MarketsAction.Settings) }) }
                     if (model == null) {
                         item(key = "state") {
                             if (state.loading) LoadingSkeleton(content.padding(top = spacing.md))
@@ -183,15 +192,12 @@ internal fun MarketsScreen(
 }
 
 @Composable
-private fun Title(modifier: Modifier, onSearch: () -> Unit) {
+private fun Title(modifier: Modifier, onSearch: () -> Unit, onNotifications: () -> Unit, onSettings: () -> Unit) {
     val colors = StockStepsTheme.colors
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(Res.string.markets_title), Modifier.weight(1f).semantics { heading() }, style = StockStepsTheme.typography.screenTitle,
-            color = colors.textTitle)
-        IconButton(onClick = onSearch) {
-            Icon(StockIcons.Search, contentDescription = stringResource(Res.string.markets_search), tint = colors.iconPrimary)
-        }
-    }
+    val searchLabel = stringResource(Res.string.markets_search)
+    // 5D.5.6B: the shared landing bar ("Markets", Search, Notifications, Settings).
+    org.example.stocksteps.designsystem.components.StockLandingTopBar(org.example.stocksteps.navigation.AppTab.MARKETS, onNotifications, onSettings, modifier,
+        actions = listOf { IconButton(onClick = onSearch) { Icon(StockIcons.Search, contentDescription = searchLabel, tint = colors.iconPrimary) } })
 }
 
 /**

@@ -70,7 +70,10 @@ internal fun PortfolioScreen(
     /** E.2: "Sign in again" for an ended session (signs out, so the app's sign-out handling opens Login). */
     onSignInAgain: () -> Unit = {},
     /** Phase D3: shared "already announced" tracker for confirmed adds / edits / deletes; null shows no feedback. */
-    feedback: PortfolioFeedbackTracker? = null
+    feedback: PortfolioFeedbackTracker? = null,
+    /** 5D.5.6B landing bar: the all-alerts history and Settings (dashboard only; Holding details keeps the back bar). */
+    onNotifications: () -> Unit = {},
+    onSettings: () -> Unit = {}
 ) {
     var accountEditor by remember { mutableStateOf(false) }
     var editingAccount by remember { mutableStateOf<PortfolioAccount?>(null) }
@@ -100,20 +103,17 @@ internal fun PortfolioScreen(
             verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
             // C.1: on Holding details the top bar already says "Holding details"; a second large title repeated it.
+            // 5D.5.6B: the shared landing bar — "Portfolio", About and the ⋯ account menu, then Notifications and Settings.
             if (listMode) item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(PortfolioDisplay.TITLE, Modifier.weight(1f).semantics { heading() },
-                        style = typography.screenTitle, color = colors.textTitle)
-                    run {
-                        IconButton(onClick = { showAbout = true }) {
-                            Icon(StockIcons.Info, contentDescription = PortfolioDisplay.ABOUT_TITLE, tint = colors.iconSecondary)
-                        }
-                        PortfolioOverflowMenu(
-                            account = selectedAccount, busy = state.busy, onRefresh = onRefresh,
-                            onSettings = { editingAccount = it; accountEditor = true }, onDelete = { deletingAccount = it },
-                            onChooseScenario = if (state.mockAvailable) ({ choosingScenario = true }) else null)
-                    }
-                }
+                org.example.stocksteps.designsystem.components.StockLandingTopBar(org.example.stocksteps.navigation.AppTab.PORTFOLIO, onNotifications, onSettings,
+                    actions = listOf(
+                        { IconButton(onClick = { showAbout = true }) { Icon(StockIcons.Info, contentDescription = PortfolioDisplay.ABOUT_TITLE, tint = colors.iconPrimary) } },
+                        {
+                            PortfolioOverflowMenu(
+                                account = selectedAccount, busy = state.busy, onRefresh = onRefresh,
+                                onSettings = { editingAccount = it; accountEditor = true }, onDelete = { deletingAccount = it },
+                                onChooseScenario = if (state.mockAvailable) ({ choosingScenario = true }) else null)
+                        }))
             }
             if (listMode && onPractice != null) item {
                 StockSegmentedControl(
@@ -319,7 +319,7 @@ private fun PortfolioOverflowMenu(account: PortfolioAccount?, busy: Boolean, onR
     var open by remember { mutableStateOf(false) }
     val colors = StockStepsTheme.colors
     Box {
-        IconButton(onClick = { open = true }) { Icon(StockIcons.More, contentDescription = "Portfolio actions", tint = colors.iconSecondary) }
+        IconButton(onClick = { open = true }) { Icon(StockIcons.More, contentDescription = "Portfolio actions", tint = colors.iconPrimary) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(text = { Text("Refresh portfolio") }, enabled = !busy, onClick = { open = false; onRefresh() })
             if (account != null) {

@@ -54,7 +54,10 @@ internal fun PortfolioScene(
     /** Phase D2: Transaction history for (account, holding symbol); the symbol is null on the dashboard. */
     onTransactions: (String?, String?) -> Unit = { _, _ -> },
     /** Phase D3: Transaction details for a transaction id. */
-    onOpenTransaction: (String) -> Unit = {}
+    onOpenTransaction: (String) -> Unit = {},
+    /** 5D.5.6B landing bar (the dashboard only): the all-alerts history and Settings. */
+    onNotifications: () -> Unit = {},
+    onSettings: () -> Unit = {}
 ) {
     val model = viewModel(key = "portfolio") { PortfolioViewModel(accounts.portfolioPresenter) }
     val state by model.state.collectAsStateWithLifecycle()
@@ -89,6 +92,7 @@ internal fun PortfolioScene(
                 onPractice = onPractice,
                 onTransactions = { onTransactions(holding?.accountId ?: state.selectedAccountId, holding?.symbol) },
                 onOpenTransaction = onOpenTransaction,
+                onNotifications = onNotifications, onSettings = onSettings,
                 feedback = accounts.portfolioFeedback,
                 onDismissError = model.presenter::clearError,
                 onSignInAgain = { scope.signInAgain(accounts) },

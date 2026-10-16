@@ -81,7 +81,7 @@ struct AppScene: View {
                             onWatchlist: { selectedTab = .watchlist },
                             onSettings: { showingSettings = true },
                             onPortfolio: { selectedTab = .portfolio },
-                            onAlerts: { alertsTarget = $0 ?? "" },
+                            onAlerts: { if let symbol = $0 { alertsTarget = symbol } else { openNotifications() } },
                             onExplore: explore,
                             onEarnings: { earningsSymbol = $0 },
                             learning: learningModel,
@@ -100,7 +100,8 @@ struct AppScene: View {
 
                 MarketsScene(model: marketsModel, onOpenStock: explore, onSearch: { initialStock = nil; showingSearch = true },
                              onDiscover: { showingDiscover = true }, onCompare: { showingCompare = true }, onEarnings: { earningsCalendar = EarningsCalendarTarget() }, earnings: earningsModel,
-                             brief: briefModel, onDailyBrief: { briefTarget = BriefTarget(briefId: nil) }, onBriefHistory: { showingBriefHistory = true })
+                             brief: briefModel, onDailyBrief: { briefTarget = BriefTarget(briefId: nil) }, onBriefHistory: { showingBriefHistory = true },
+                             onNotifications: openNotifications, onSettings: { showingSettings = true })
                     .sampleDataInset()
                     .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
                     .tag(AppRoute.markets)
@@ -108,7 +109,8 @@ struct AppScene: View {
                 Group {
                     if appLock?.locked != true {
                         PortfolioScene(accounts: accounts, watchlists: watchlistsModel, onCompany: explore,
-                            onSignIn: { showingAuth = true }, onAlerts: { alertsTarget = $0 }, onPractice: openPractice)
+                            onSignIn: { showingAuth = true }, onAlerts: { alertsTarget = $0 }, onPractice: openPractice,
+                            onNotifications: openNotifications, onSettings: { showingSettings = true })
                     } else { Color.clear }
                 }
                 .sampleDataInset()
@@ -119,13 +121,14 @@ struct AppScene: View {
                                onExplore: explore, onOpenAlerts: { alertsTarget = $0 ?? "" },
                                onEarnings: { earningsCalendar = EarningsCalendarTarget(filter: "WATCHLIST") },
                                onEarningsReminders: { showingEarningsReminders = true },
-                               onCompare: { symbols, names in screenerModel.client.compareCompanies(symbols: symbols, names: names); showingCompare = true })
+                               onCompare: { symbols, names in screenerModel.client.compareCompanies(symbols: symbols, names: names); showingCompare = true },
+                               onNotifications: openNotifications, onSettings: { showingSettings = true })
                     .sampleDataInset()
                     .tabItem { Label("Watchlist", systemImage: "star") }
                     .tag(AppRoute.watchlist)
 
                 LearnScene(learning: learningModel, onResearch: { researchTarget = $0 }, onSearch: { initialStock = nil; showingSearch = true }, onPractice: openPractice,
-                           onLearnTarget: { learnTarget = $0 })
+                           onLearnTarget: { learnTarget = $0 }, onNotifications: openNotifications, onSettings: { showingSettings = true })
                     .sampleDataInset()
                     .tabItem { Label("Learn", systemImage: "book") }
                     .tag(AppRoute.learn)
@@ -323,6 +326,9 @@ struct AppScene: View {
     }
     private func openPractice() { if ensurePractice() { showingPractice = true } }
     private func practiceTrade(_ target: PracticeOrderTarget) { if ensurePractice() { practiceTarget = target } }
+    /// 5D.5.6B landing bars: Notifications is the all-alerts history ("" = no stock filter), pushed as before so Back returns to the exact landing
+    /// page; the global-modal presentation (plan §6) arrives with Phase C.
+    private func openNotifications() { alertsTarget = "" }
     private func explore(_ symbol: String) {
         detailsSymbol = symbol
     }

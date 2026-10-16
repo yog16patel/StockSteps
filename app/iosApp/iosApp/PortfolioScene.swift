@@ -21,6 +21,9 @@ struct PortfolioScene: View {
     var onAlerts: (String) -> Void = { _ in }
     var initialSymbol: String? = nil
     var onPractice: (() -> Void)? = nil
+    /// 5D.5.6B landing bar: the all-alerts history and Settings.
+    var onNotifications: () -> Void = {}
+    var onSettings: () -> Void = {}
     @State private var model = PortfolioViewModel()
     @State private var holdingSymbol: String?
     @State private var showAccount = false
@@ -46,7 +49,8 @@ struct PortfolioScene: View {
             onInsights: { showInsights = true }, onPractice: initialSymbol == nil ? onPractice : nil,
             onTransactions: { transactionsAccount = model.state?.selectedAccountId; showTransactions = true },
             onOpenTransaction: { openTransactionId = $0 }, onDismissError: model.clearError,
-            onSignInAgain: portfolioSignInAgain(accounts, then: onSignIn))
+            onSignInAgain: portfolioSignInAgain(accounts, then: onSignIn),
+            onNotifications: onNotifications, onSettings: onSettings)
         .onAppear { model.connect(accounts); model.clearError() } // D1: no stale failure from another action on a fresh form
         .portfolioFeedback(accounts: accounts, result: model.state?.actionResult) // D3: confirmed add / edit / delete
         .sheet(isPresented: $showAccount) {

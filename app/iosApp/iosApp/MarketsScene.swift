@@ -91,6 +91,9 @@ struct MarketsScene: View {
     var brief: BriefModel? = nil
     var onDailyBrief: () -> Void = {}
     var onBriefHistory: () -> Void = {}
+    /// 5D.5.6B landing bar: the all-alerts history and Settings.
+    var onNotifications: () -> Void = {}
+    var onSettings: () -> Void = {}
     @State private var lesson: MarketLesson?
     /// Width of the indices card; the trend sparkline needs `TREND_MIN_ROW_WIDTH` so names keep their room.
     @State private var indexCardWidth: CGFloat = 0
@@ -150,15 +153,9 @@ struct MarketsScene: View {
     }
 
     private func title(_ colors: StockColors) -> some View {
-        HStack(alignment: .center) {
-            Text(present.TITLE).font(StockStepsTheme.font(type.screenTitle, relativeTo: .title2)).foregroundStyle(colors.textTitle)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: CGFloat(space.sm))
-            Button(action: onSearch) {
-                Image(systemName: "magnifyingglass").font(.title3).foregroundStyle(colors.textPrimary)
-                    .frame(width: CGFloat(dims.touchTarget), height: CGFloat(dims.touchTarget))
-            }
-            .accessibilityLabel("Search stocks")
+        // 5D.5.6B: the shared landing bar ("Markets", Search, Notifications, Settings).
+        StockLandingTopBar(tab: .markets, actionCount: 1, onNotifications: onNotifications, onSettings: onSettings) {
+            StockLandingIconButton(systemImage: "magnifyingglass", label: LandingTopBarDisplay.shared.SEARCH_STOCKS_SPOKEN, action: onSearch)
         }
     }
 

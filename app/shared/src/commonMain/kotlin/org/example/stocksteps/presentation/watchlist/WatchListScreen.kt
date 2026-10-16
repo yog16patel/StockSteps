@@ -38,6 +38,9 @@ internal sealed interface WatchListAction {
     data object Refresh : WatchListAction
     data object SignIn : WatchListAction
     data object Search : WatchListAction
+    /** 5D.5.6B landing bar. */
+    data object Notifications : WatchListAction
+    data object Settings : WatchListAction
     data class OpenAlerts(val symbol: String?) : WatchListAction
     data class Select(val id: String) : WatchListAction
     data class OpenStock(val symbol: String) : WatchListAction
@@ -189,19 +192,28 @@ internal fun WatchListScreen(state: WatchListState, hinge: WindowHinge?, onActio
 @Composable
 private fun Header(state: WatchListState, model: WatchlistModel?, modifier: Modifier, onAction: (WatchListAction) -> Unit, onManage: (Sheet) -> Unit) {
     val colors = StockStepsTheme.colors
-    var menu by remember { mutableStateOf(false) }
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
-            Text("Watchlist", Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
-            // Count and freshness under the title; wraps only between parts, never inside "5:16 PM ET" (Phase 5A.1).
-            model?.headerLine?.let { line ->
-                Text(line, style = StockStepsTheme.typography.small, color = if (model.headerCaution) colors.cautionText else colors.textSecondary)
-            }
+    val selected = state.selected
+    val manage = state.signedIn && model != null && selected != null
+    // 5D.5.6B: the shared landing bar ("Watchlist", Search, the list menu when signed in, then Notifications and Settings); the count and
+    // freshness line stays under it.
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+        org.example.stocksteps.designsystem.components.StockLandingTopBar(org.example.stocksteps.navigation.AppTab.WATCHLIST,
+            onNotifications = { onAction(WatchListAction.Notifications) }, onSettings = { onAction(WatchListAction.Settings) },
+            actions = listOfNotNull<@Composable () -> Unit>(
+                { IconButton(onClick = { onAction(WatchListAction.Search) }) { Icon(StockIcons.Search, "Add a company", tint = colors.textPrimary) } },
+                if (manage) ({ ManageMenu(state, selected!!, onAction, onManage) }) else null))
+        // Count and freshness under the title; wraps only between parts, never inside "5:16 PM ET" (Phase 5A.1).
+        model?.headerLine?.let { line ->
+            Text(line, style = StockStepsTheme.typography.small, color = if (model.headerCaution) colors.cautionText else colors.textSecondary)
         }
-        IconButton(onClick = { onAction(WatchListAction.Search) }) { Icon(StockIcons.Search, "Add a company", tint = colors.textPrimary) }
-        val selected = state.selected
-        if (state.signedIn && model != null && selected != null) {
-            Box {
+    }
+}
+
+@Composable
+private fun ManageMenu(state: WatchListState, selected: org.example.stocksteps.model.Watchlist, onAction: (WatchListAction) -> Unit, onManage: (Sheet) -> Unit) {
+    val colors = StockStepsTheme.colors
+    var menu by remember { mutableStateOf(false) }
+    Box {
                 IconButton(onClick = { menu = true }) { Icon(StockIcons.More, stringResource(Res.string.watchlist_manage), tint = colors.textPrimary) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = colors.surface) {
                     DropdownMenuItem(text = { Text(stringResource(Res.string.watchlist_new)) }, onClick = { menu = false; onManage(Sheet.Name(null)) })
@@ -211,8 +223,6 @@ private fun Header(state: WatchListState, model: WatchlistModel?, modifier: Modi
                         if (selected.entries.isEmpty()) onAction(WatchListAction.DeleteList(selected.id)) else onManage(Sheet.ConfirmDelete(selected))
                     })
                 }
-            }
-        }
     }
 }
 

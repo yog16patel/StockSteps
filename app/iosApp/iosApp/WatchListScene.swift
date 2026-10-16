@@ -128,6 +128,9 @@ struct WatchListScene: View {
     var onEarningsReminders: () -> Void = {}
     /// Company Comparison with the first three companies of the shown list (symbols, names).
     var onCompare: ([String], [String]) -> Void = { _, _ in }
+    /// 5D.5.6B landing bar: the all-alerts history and Settings.
+    var onNotifications: () -> Void = {}
+    var onSettings: () -> Void = {}
     @State private var portfolioInstrument: InstrumentRef?
     @State private var portfolioModel = PortfolioViewModel()
     @State private var sheet: WatchSheet?
@@ -265,18 +268,24 @@ struct WatchListScene: View {
 
     /// "Watchlist", the company count and update time, then search and (signed in) the watchlist menu. Alerts, earnings and comparison moved to
     /// the related-actions group under the stocks (Phase 5A), so the header stays compact.
+    /// 5D.5.6B: the shared landing bar ("Watchlist", Search, the list menu when signed in, then Notifications and Settings); the count and
+    /// freshness line stays under it.
     private func header(_ content: WatchlistModel?, signedIn: Bool, _ colors: StockColors) -> some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                Text("Watchlist").font(StockStepsTheme.font(type.screenTitle, relativeTo: .title2)).foregroundStyle(colors.textPrimary).accessibilityAddTraits(.isHeader)
-                // Count and freshness under the title; wraps only between parts, never inside "5:16 PM ET" (Phase 5A.1).
-                if let line = content?.headerLine {
-                    Text(verbatim: line).font(StockStepsTheme.font(type.small, relativeTo: .subheadline))
-                        .foregroundStyle(content?.headerCaution == true ? colors.cautionText : colors.textSecondary)
-                }
+        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+            StockLandingTopBar(tab: .watchlist, actionCount: signedIn && model.selected != nil ? 2 : 1, onNotifications: onNotifications, onSettings: onSettings) {
+                StockLandingIconButton(systemImage: "magnifyingglass", label: "Add a company", action: onSearch)
+                manageMenu(signedIn: signedIn, colors)
             }
-            Spacer(minLength: CGFloat(space.sm))
-            iconButton("magnifyingglass", label: "Add a company", colors, action: onSearch)
+            // Count and freshness under the title; wraps only between parts, never inside "5:16 PM ET" (Phase 5A.1).
+            if let line = content?.headerLine {
+                Text(verbatim: line).font(StockStepsTheme.font(type.small, relativeTo: .subheadline))
+                    .foregroundStyle(content?.headerCaution == true ? colors.cautionText : colors.textSecondary)
+            }
+        }
+    }
+
+    @ViewBuilder private func manageMenu(signedIn: Bool, _ colors: StockColors) -> some View {
+        HStack(spacing: 0) {
             if signedIn, let selected = model.selected {
                 Menu {
                     Button("New watchlist", systemImage: "plus") { name = ""; naming = .some(nil) }
@@ -288,7 +297,7 @@ struct WatchListScene: View {
                         }
                     }
                 } label: {
-                    Image(systemName: "ellipsis").font(.title3).foregroundStyle(colors.textPrimary)
+                    Image(systemName: "ellipsis").font(.system(size: 20, weight: .regular)).foregroundStyle(colors.textPrimary)
                         .frame(width: CGFloat(dims.touchTarget), height: CGFloat(dims.touchTarget))
                 }
                 .accessibilityLabel("Manage watchlist")

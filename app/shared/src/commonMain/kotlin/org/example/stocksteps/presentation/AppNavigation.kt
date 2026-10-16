@@ -159,6 +159,10 @@ internal fun AppNavigation(
         navController.navigate(PortfolioEntryRoute(instrument.symbol, instrument.name, instrument.exchange, instrument.currency))
     }
     val openStock: (String) -> Unit = { symbol -> navController.navigate(CompanyDetailsRoute(symbol)) }
+    // 5D.5.6B landing bars: Notifications is the all-alerts history (never a stock filter) and Settings the existing screen, both pushed on the
+    // current stack as before, so Back returns to the exact landing page; the global-modal presentation (plan §6) arrives with Phase C.
+    val openNotifications: () -> Unit = { navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(null)) { launchSingleTop = true } }
+    val openSettings: () -> Unit = { navController.navigate(SettingsRoute) { launchSingleTop = true } }
     // Scaffold applies status/navigation-bar insets once and consumes them for the content,
     // so screens' own safe-content padding does not double them.
     Scaffold(
@@ -258,8 +262,8 @@ internal fun AppNavigation(
                     onSearch = { navController.navigate(StockSearchRoute()) },
                     onWatchlist = { openTab(MainDestination.WATCHLIST) },
                     onPortfolio = { openTab(MainDestination.PORTFOLIO) },
-                    onSettings = { navController.navigate(SettingsRoute) },
-                    onAlerts = { symbol -> navController.navigate(AlertsRoute(symbol)) },
+                    onSettings = openSettings,
+                    onAlerts = { symbol -> if (symbol == null) openNotifications() else navController.navigate(AlertsRoute(symbol)) },
                     onExplore = openStock,
                     onEarnings = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
                     onResearch = openResearch,
@@ -276,7 +280,8 @@ internal fun AppNavigation(
                     onInsights = { navController.navigate(PortfolioInsightsRoute) },
                     onPractice = openPractice,
                     onTransactions = { account, symbol -> navController.navigate(PortfolioTransactionsRoute(account, symbol)) },
-                    onOpenTransaction = { navController.navigate(PortfolioTransactionRoute(it)) })
+                    onOpenTransaction = { navController.navigate(PortfolioTransactionRoute(it)) },
+                    onNotifications = openNotifications, onSettings = openSettings)
             }
             composable<org.example.stocksteps.presentation.screener.ScreenerRoute> { entry ->
                 org.example.stocksteps.presentation.screener.ScreenerScene(
@@ -393,7 +398,8 @@ internal fun AppNavigation(
                     accounts = accounts,
                     brief = accounts?.dailyBrief,
                     onDailyBrief = { navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefRoute()) },
-                    onBriefHistory = { navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute) }
+                    onBriefHistory = { navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute) },
+                    onNotifications = openNotifications, onSettings = openSettings
                 )
             }
             composable<org.example.stocksteps.presentation.brief.DailyBriefRoute> { entry ->
@@ -452,7 +458,8 @@ internal fun AppNavigation(
                     onOpenAlerts = { symbol -> navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(symbol)) },
                     onEarnings = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(filter = "WATCHLIST")) },
                     onEarningsReminders = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsRemindersRoute) },
-                    onCompare = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute) }
+                    onCompare = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute) },
+                    onNotifications = openNotifications, onSettings = openSettings
                 )
             }
             composable<org.example.stocksteps.presentation.watchlist.AlertsRoute> { entry ->
@@ -470,7 +477,8 @@ internal fun AppNavigation(
             composable<LearnRoute> {
                 LearnScene(hinge, accounts, onResearch = openResearch, onSearch = { navController.navigate(StockSearchRoute()) }, onPractice = openPractice,
                     onTopics = { topic, search -> navController.navigate(org.example.stocksteps.presentation.learn.LearnTopicsRoute(topic, search)) },
-                    onTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
+                    onTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) },
+                    onNotifications = openNotifications, onSettings = openSettings)
             }
             composable<org.example.stocksteps.presentation.learn.LearnTopicsRoute> { entry ->
                 org.example.stocksteps.presentation.learn.LearnTopicsScene(entry.toRoute(), hinge,

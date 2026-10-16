@@ -15,15 +15,16 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.6A navigation plan committed locally)
+## Current task (as of 2026-10-15, Phase 5D.5.6B committed and pushed)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
 Phase 5D.5.4 (Company Details, A–D) is pushed through `0c5c4c4`; the owner runs the TalkBack/VoiceOver pass manually (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md` §9).
 Phase 5D.5.5 Company Search: the plan, 5D.5.5B (`08723a6`), 5D.5.5C (`1d90195`), search logos (`65ad004`) and 5D.5.5D (`458e6a2`) are pushed. The final verification and closure record ("Close Company Search for Global UI Refinement Phase 5D.5.5D with the final verification record and add the Phase 5D.5.6 shared navigation and top app bar planning note") is committed locally, **not pushed**: recommendation CLOSE WITH DEFERRED ITEMS (owner TalkBack/VoiceOver pass; FMP logo display licence **UNVERIFIED**, a launch dependency for logos). Report: `docs/reviews/phase5d_5_5d/PHASE5D_5_5D_VERIFICATION.md` §8.
-Phase 5D.5.5D closure (`ebadf96`) is pushed. Phase 5D.5.6A ("Add the Phase 5D.5.6A shared navigation and top app bar audit and plan with a canonical parent tab per screen, independent tab stacks with a cross-tab Back trail and a shared landing top bar, approved with decisions D1 to D12") is committed locally, **not pushed**: plan `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6_PLAN.md`, owner-approved D1–D12 (canonical parent tab per screen; per-tab stacks with a cross-tab Back trail; tab bar visible on pushes, hidden on modals; shared landing top bar with Notifications and Settings).
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-6A-2026-10-15.**
-Next: push on approval; then 5D.5.6B (core navigation policy + landing top bar) on the owner's go-ahead — no implementation before that.
+Phase 5D.5.5D closure (`ebadf96`) and the 5D.5.6A plan (`912ec7f`, D1–D12 approved; `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6_PLAN.md`) are pushed.
+Phase 5D.5.6B ("Add the Phase 5D.5.6B shared navigation policy and landing top bars with a canonical parent tab per screen, a tested cross-tab trail model and Notifications and Settings on all five landing pages on Android and iOS") is committed and pushed. Report: `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6B.md`; review package: `docs/reviews/phase5d_5_6b/`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-6B-2026-10-15.**
+Next: 5D.5.6C1 (Android per-tab stacks) on the owner's go-ahead, then C2 (iOS), C3, C4 (Portfolio nested tabs), D (QA).
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
@@ -164,6 +165,13 @@ Portfolio conventions (permanent):
   the action can't share a line (`StockLayout.metricRowStacked`); the `StockBarChart` legend stacks one entry per line instead of shrinking;
   Financial Highlights and Key Ratios rows go through `StockInfoLineGroup`. Screen readers can't be driven by injected input on the emulator
   (TalkBack focus doesn't move) — the owner runs them manually.
+- **Navigation (5D.5.6B).**
+  - Canonical ownership, presentation kind and chrome per screen come only from core `navigation/NavigationPolicy` (`ScreenId(kind, tab)`);
+    never decide a screen's tab from titles or call sites. Android routes map through `presentation/AppScreens.screenIdOf` (keep
+    `AppScreensTest` exhaustive when adding a route).
+  - The five landing pages use `StockLandingTopBar` (Compose / SwiftUI): page actions, then Notifications (bell, all-alerts history, no badge)
+    and Settings (gear), copy from `LandingTopBarDisplay`; icons move under the title only via `StockLayout.metricRowStacked`.
+  - `TabNavigation` (core) is the tested Phase C contract (invariants I1–I11, plan §14); hosts don't use it until 5D.5.6C.
 - **Contextual learning (5D.5.3).**
   - Metric → Learn term only via core `MetricLearnTerms` (by id: exact term id, then a single `relatedMetrics` owner, else null); never match visible
     titles and never add educational text.

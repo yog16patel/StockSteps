@@ -113,21 +113,17 @@ internal fun HomeScreen(
     }
 }
 
+/** 5D.5.6B: the shared landing bar — brand, Search, then Notifications (alert history; no unread contract, so no badge) and Settings. */
 @Composable
 private fun PersonalHomeHeader(onAction: (HomeAction) -> Unit, modifier: Modifier) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.weight(1f)) { StockBrandMark("StockSteps") }
-        IconButton(onClick = { onAction(HomeAction.Search) }) {
-            Icon(StockIcons.Search, contentDescription = "Search stocks")
-        }
-        // Alert history has no unread/read contract, so no invented unread badge.
-        IconButton(onClick = { onAction(HomeAction.Alerts) }) {
-            Icon(StockIcons.Bell, contentDescription = "Your alerts")
-        }
-        IconButton(onClick = { onAction(HomeAction.Settings) }) {
-            Icon(StockIcons.Person, contentDescription = "Profile and settings")
-        }
-    }
+    org.example.stocksteps.designsystem.components.StockLandingTopBar(
+        org.example.stocksteps.navigation.AppTab.HOME,
+        onNotifications = { onAction(HomeAction.Alerts) }, onSettings = { onAction(HomeAction.Settings) }, modifier = modifier,
+        actions = listOf {
+            IconButton(onClick = { onAction(HomeAction.Search) }) {
+                Icon(StockIcons.Search, contentDescription = org.example.stocksteps.navigation.LandingTopBarDisplay.SEARCH_STOCKS_SPOKEN, tint = StockStepsTheme.colors.iconPrimary)
+            }
+        })
 }
 
 @Composable

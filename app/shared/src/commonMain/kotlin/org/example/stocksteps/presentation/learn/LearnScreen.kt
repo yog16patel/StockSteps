@@ -78,7 +78,9 @@ internal fun LearnScreen(
     onSearch: () -> Unit,
     onPractice: () -> Unit = {},
     onTopics: (topic: String?, search: Boolean) -> Unit = { _, _ -> },
-    onTerm: (String) -> Unit = {}
+    onTerm: (String) -> Unit = {},
+    onNotifications: () -> Unit = {},
+    onSettings: () -> Unit = {}
 ) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
@@ -99,10 +101,9 @@ internal fun LearnScreen(
                 verticalArrangement = Arrangement.spacedBy(spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
                 item("header") {
                     Column(content, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(L.TITLE, Modifier.weight(1f).semantics { heading() }, style = typography.screenTitle, color = colors.textTitle)
-                            IconButton(onClick = { onTopics(null, true) }) { Icon(StockIcons.Search, L.SEARCH_ACTION, tint = colors.iconSecondary) }
-                        }
+                        // 5D.5.6B: the shared landing bar ("Learn", term search, Notifications, Settings).
+                        org.example.stocksteps.designsystem.components.StockLandingTopBar(org.example.stocksteps.navigation.AppTab.LEARN, onNotifications, onSettings,
+                            actions = listOf { IconButton(onClick = { onTopics(null, true) }) { Icon(StockIcons.Search, L.SEARCH_ACTION, tint = colors.iconPrimary) } })
                         Text(L.INTRO, style = typography.body, color = colors.textBody)
                         if (progress.syncFailed) Text(L.SYNC_NOTE, style = typography.caption, color = colors.textMeta)
                     }
