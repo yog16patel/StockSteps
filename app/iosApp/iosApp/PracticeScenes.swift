@@ -79,8 +79,11 @@ struct PracticeEntryCard: View {
     var message = "Learn with simulated investments."
     let action: () -> Void
     @Environment(\.colorScheme) private var scheme
+    /// KAN-14: read in `body` so the text follows a live Dynamic Type change (its inputs never change, so nothing else redraws it).
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
+        let _ = typeSize
         Button(action: action) {
             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                 StockTitleWithBadge {

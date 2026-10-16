@@ -18,6 +18,7 @@ import org.example.stocksteps.presentation.AdaptiveSinglePane
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 
 /** One keyed lazy scroll. Unsupported portfolio and lesson progress are deliberately absent. */
 @Composable
@@ -45,8 +46,9 @@ internal fun HomeScreen(
             LazyColumn(
                 modifier = region,
                 state = listState,
-                contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
-                verticalArrangement = Arrangement.spacedBy(spacing.sectionGap),
+                // KAN-14: open sections need more air than bordered cards did — the Learn / Daily Brief section gap (xl).
+                contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, top = spacing.md, bottom = spacing.xl),
+                verticalArrangement = Arrangement.spacedBy(spacing.xl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 item("header") {
@@ -57,12 +59,12 @@ internal fun HomeScreen(
                         Text("What matters to you today", style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textSupporting)
                     }
                 }
-                // Market first (Phase 4A): the brief's index snapshot and its entry share one card.
+                // Market first (Phase 4A): the brief's index snapshot and its entry share one group.
                 item("markets") {
                     HomeMarketOverview(dailyBrief, org.example.stocksteps.presentation.brief.briefNow(), { onAction(HomeAction.DailyBrief) }, content)
                 }
                 if (state.initializing) {
-                    item("restoring") { StockLoadingState(content) { StockRowSkeleton() } }
+                    item("restoring") { HomeRowGroup(content, inset = 0.dp) { StockLoadingState { Column { repeat(3) { StockRowSkeleton() } } } } }
                 } else {
                     if (portfolio != null) item("portfolio") { HomePortfolioSummary(portfolio, onPortfolio, content) }
                     item("watchlist") { HomeWatchlistSection(state, onAction, content) }
@@ -74,15 +76,14 @@ internal fun HomeScreen(
                     }
                     // Learn and practice: a quieter second tier. Continue Learning shows only real saved progress.
                     item("learn") {
-                        Column(content, verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                            StockSectionHeader("Learn and practice")
+                        HomeSection("Learn and practice", content) {
                             if (research != null) HomeLearnCard({ onAction(HomeAction.ContinueResearch(research.symbol, research.name)) },
                                 title = "Continue learning",
                                 body = "Researching ${research.name} · ${research.completedCount} of ${org.example.stocksteps.learning.ResearchStep.COUNT} steps completed",
                                 actionLabel = "Continue researching ${research.name}")
                             else HomeLearnCard({ onAction(HomeAction.Learn) })
                             org.example.stocksteps.presentation.practice.PracticeEntryCard({ onAction(HomeAction.Practice) },
-                                body = "Practice investing with virtual money. No real money is used.")
+                                Modifier.padding(top = spacing.xs), body = "Practice investing with virtual money. No real money is used.")
                         }
                     }
                     if (state.watchlistCount > 0) {
@@ -94,12 +95,12 @@ internal fun HomeScreen(
                     }
                     if (state.recent.isNotEmpty()) {
                         item("recent") {
-                            StockCard(modifier = content, contentPadding = PaddingValues(vertical = spacing.xs)) {
-                                StockSectionHeader("Recently viewed", Modifier.padding(horizontal = spacing.cardPadding), actionText = "Clear",
-                                    onActionClick = { onAction(HomeAction.ClearRecent) })
-                                state.recent.forEach { recent ->
-                                    StockRow(symbol = recent.instrument.symbol, name = recent.instrument.name, compact = true,
-                                        onClick = { onAction(HomeAction.OpenStock(recent.instrument.symbol)) })
+                            HomeSection("Recently viewed", content, actionText = "Clear", onAction = { onAction(HomeAction.ClearRecent) }) {
+                                HomeRowGroup(inset = 0.dp) {
+                                    state.recent.forEach { recent ->
+                                        StockRow(symbol = recent.instrument.symbol, name = recent.instrument.name, compact = true,
+                                            onClick = { onAction(HomeAction.OpenStock(recent.instrument.symbol)) })
+                                    }
                                 }
                             }
                         }
@@ -129,68 +130,76 @@ private fun PersonalHomeHeader(onAction: (HomeAction) -> Unit, modifier: Modifie
         })
 }
 
+/** KAN-14: an open section; saved companies sit in one borderless row group, the empty state is plain text and a button. */
 @Composable
 private fun HomeWatchlistSection(state: PersonalDashboard, onAction: (HomeAction) -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    // Rows run edge to edge inside the card (as on Portfolio); messages keep the card padding.
+    // Rows run edge to edge inside the group (as on Portfolio); messages keep the card padding.
     val inset = Modifier.padding(horizontal = spacing.cardPadding)
-    StockCard(modifier = modifier, contentPadding = PaddingValues(vertical = spacing.xs), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        StockSectionHeader("Watchlist highlights", inset, actionText = "View all", onActionClick = { onAction(HomeAction.Watchlist) })
+    HomeSection("Watchlist highlights", modifier, actionText = "View all", onAction = { onAction(HomeAction.Watchlist) }) {
         when {
-            state.watchlistLoading && state.watchlistCount == 0 -> StockLoadingState(inset) { StockRowSkeleton() }
-            state.watchlistError != null && state.watchlistCount == 0 -> StockErrorState(state.watchlistError.orEmpty(), { onAction(HomeAction.RetryWatchlists) }, inset)
-            state.watchlistCount == 0 -> Column(inset.padding(bottom = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            state.watchlistLoading && state.watchlistCount == 0 -> HomeRowGroup(inset = 0.dp) { StockLoadingState { StockRowSkeleton() } }
+            state.watchlistError != null && state.watchlistCount == 0 -> StockErrorState(state.watchlistError.orEmpty(), { onAction(HomeAction.RetryWatchlists) })
+            state.watchlistCount == 0 -> Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 Text("Start with a company you know. Save it to follow its price and news.", style = typography.small, color = colors.textBody)
                 StockButton("Find stocks", { onAction(HomeAction.Search) }, variant = StockButtonVariant.SECONDARY, icon = StockIcons.Search)
             }
-            else -> {
+            else -> HomeRowGroup(inset = 0.dp, verticalSpacing = spacing.xs) {
                 state.highlights.forEachIndexed { n, highlight ->
                     if (n > 0) StockDivider(startIndent = spacing.cardPadding)
                     StockRow(model = highlight.row, onClick = { onAction(HomeAction.OpenStock(highlight.instrument.symbol)) })
                     if (highlight.stale) Text("${highlight.instrument.symbol} · Saved or delayed price", inset, style = typography.caption, color = colors.cautionText)
                 }
+                // Refreshing prices keeps the rows visible; only this thin bar shows the update.
                 if (state.quotesLoading) LinearProgressIndicator(inset.fillMaxWidth().semantics { contentDescription = "Updating prices" })
                 state.quotesError?.let { StockErrorState(it, { onAction(HomeAction.RetryQuotes) }, inset) }
                 state.watchlistError?.let { StockErrorState("Showing your saved watchlist.", { onAction(HomeAction.RetryWatchlists) }, inset) }
-                state.quoteNotice?.let { Text(it, inset, style = typography.caption, color = colors.textMeta) }
+                state.quoteNotice?.let { Text(it, inset.padding(bottom = spacing.xs), style = typography.caption, color = colors.textMeta) }
             }
         }
     }
 }
 
-/** Personal facts as plain tappable rows (title, muted detail, chevron); a failed alerts load is reported inside the same card. */
+/** Personal facts as plain tappable rows (title, muted detail, chevron); a failed alerts load is reported inside the same group. */
 @Composable
 private fun HomeFactsSection(title: String, facts: List<HomeFact>, onAction: (HomeAction) -> Unit, modifier: Modifier = Modifier,
                              alertsError: String? = null) {
-    StockCard(modifier = modifier) {
-        StockSectionHeader(title)
-        facts.forEachIndexed { n, fact ->
-            if (n > 0) StockDivider()
-            HomeLinkRow(fact.title, fact.detail, onClick = {
-                onAction(if (fact.alerts) HomeAction.OpenStockAlerts(fact.symbol) else if (fact.earnings) HomeAction.OpenEarnings(fact.symbol) else HomeAction.OpenStock(fact.symbol))
-            })
+    HomeSection(title, modifier) {
+        HomeRowGroup {
+            facts.forEachIndexed { n, fact ->
+                if (n > 0) StockDivider()
+                HomeLinkRow(fact.title, fact.detail, onClick = {
+                    onAction(if (fact.alerts) HomeAction.OpenStockAlerts(fact.symbol) else if (fact.earnings) HomeAction.OpenEarnings(fact.symbol) else HomeAction.OpenStock(fact.symbol))
+                })
+            }
+            alertsError?.let { StockErrorState("Alerts unavailable. Try again.", { onAction(HomeAction.RetryAlerts) }) }
         }
-        alertsError?.let { StockErrorState("Alerts unavailable. Try again.", { onAction(HomeAction.RetryAlerts) }) }
     }
 }
 
+/** KAN-14: stories in one borderless group, each under its company label and divided from the next (no card per story). */
 @Composable
 private fun PersonalHomeNews(state: PersonalDashboard, onAction: (HomeAction) -> Unit, modifier: Modifier) {
     val spacing = StockStepsTheme.spacing
-    StockCard(modifier = modifier, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        StockSectionHeader("News for you")
-        state.newsNotice?.let { Text(it, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textMeta) }
-        if (state.newsLoading && state.stories.isEmpty()) StockNewsCardSkeleton()
-        state.stories.forEach { story ->
-            // The company is context for the story, so it reads as a muted label rather than a link-coloured one.
-            Text(story.symbol, Modifier.padding(top = spacing.xs), style = StockStepsTheme.typography.label, color = StockStepsTheme.colors.textSupporting)
-            StockNewsCard(model = NewsPresentation.model(story.article), onClick = { onAction(HomeAction.OpenArticle(story.article.url)) })
+    val colors = StockStepsTheme.colors
+    val typography = StockStepsTheme.typography
+    HomeSection("News for you", modifier) {
+        state.newsNotice?.let { Text(it, style = typography.caption, color = colors.textMeta) }
+        val stories = state.stories.isNotEmpty() || state.newsLoading
+        if (stories) HomeRowGroup {
+            if (state.newsLoading && state.stories.isEmpty()) StockNewsCardSkeleton()
+            state.stories.forEachIndexed { n, story ->
+                if (n > 0) StockDivider()
+                // The company is context for the story, so it reads as a muted label rather than a link-coloured one.
+                Text(story.symbol, Modifier.padding(top = spacing.sm), style = typography.label, color = colors.textSupporting)
+                StockNewsCard(model = NewsPresentation.model(story.article), onClick = { onAction(HomeAction.OpenArticle(story.article.url)) })
+            }
         }
         state.newsError?.let { StockErrorState(it, { onAction(HomeAction.RetryNews) }) }
         if (!state.newsLoading && state.newsError == null && state.stories.isEmpty()) {
-            Text("No recent company news for your watchlist.", style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textSupporting)
+            Text("No recent company news for your watchlist.", style = typography.small, color = colors.textSupporting)
         }
     }
 }

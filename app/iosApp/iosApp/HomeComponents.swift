@@ -14,8 +14,11 @@ struct HomeLearnBanner: View {
     var title = "Learn the Basics"
     var message = "Research a company in five simple steps."
     var hint = "Start learning"
+    /// KAN-14: read in `body` so the text follows a live Dynamic Type change (the default inputs never change).
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
+        let _ = typeSize
         Button(action: action) {
             HStack(spacing: CGFloat(space.md)) {
                 Image("LearnBasics")
@@ -54,48 +57,103 @@ struct HomeLearnBanner: View {
 
 private let home = HomeDashboardPresentation.shared
 
+/// KAN-14 (Home UI Phase 1): a Home page section — the title (with an optional action or badge) sits on the page background and the
+/// content follows. Hierarchy comes from spacing and type, not a border around every section.
+struct HomeSection<Trailing: View, Content: View>: View {
+    let title: String
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
+    @ViewBuilder var trailing: () -> Trailing
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+            StockSectionHeader(title: title, actionTitle: actionTitle, action: action, trailing: trailing)
+            content()
+        }
+    }
+}
+
+extension HomeSection where Trailing == EmptyView {
+    init(title: String, actionTitle: String? = nil, action: (() -> Void)? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.init(title: title, actionTitle: actionTitle, action: action, trailing: { EmptyView() }, content: content)
+    }
+}
+
+extension View {
+    /// KAN-14: the rows of one Home section on the plain surface, borderless per call site (the `.stockCard` default is unchanged).
+    /// `inset` pads rows that have no inset of their own; `StockRow` keeps its own (pass 0).
+    func homeRowGroup(inset: CGFloat = CGFloat(space.cardPadding)) -> some View {
+        padding(.horizontal, inset).padding(.vertical, CGFloat(space.xs)).stockCard(padding: 0, bordered: false)
+    }
+}
+
+/// KAN-14: first-load placeholder for label/value rows (index rows, portfolio lines); one spoken label for screen readers.
+struct HomeRowsSkeleton: View {
+    let rows: Int
+    var label = "Loading"
+    var body: some View {
+        VStack(spacing: CGFloat(space.lg)) {
+            ForEach(0..<rows, id: \.self) { _ in
+                HStack(spacing: CGFloat(space.md)) {
+                    StockSkeleton(width: 140)
+                    Spacer(minLength: 0)
+                    StockSkeleton(width: CGFloat(space.xxxl * 2))
+                }
+            }
+        }
+        .padding(.vertical, CGFloat(space.sm))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+    }
+}
+
 /// "Markets today" (Phase 4A): market sessions, the brief's first indices as compact rows (value, signed change with arrow and words,
 /// quote state) and the Daily Market Brief entry. Uses the brief already loaded on Home — no extra requests, never placeholder values.
+/// KAN-14: an open section; the index rows and the brief entry share one borderless group.
 struct HomeMarketOverview: View {
     let model: BriefModel
     let onOpenBrief: () -> Void
     @Environment(\.colorScheme) private var scheme
+    /// KAN-14: the session lines stayed small after a live switch to AX5 (correct after a relaunch); see `.id(typeSize)` below.
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         let state = model.state
-        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            StockSectionHeader(title: "Markets today") {
-                if state?.latest?.sampleData == true { StockStatusBadge(text: "Sample", kind: .sample, size: .compact) }
-            }
+        HomeSection(title: "Markets today") {
+            if state?.latest?.sampleData == true { StockStatusBadge(text: "Sample", kind: .sample, size: .compact) }
+        } content: {
             if let brief = state?.latest {
                 ForEach(home.sessionLines(brief: brief), id: \.self) {
                     Text($0).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
                 }
-                let indices = home.indices(brief: brief)
-                if indices.isEmpty {
-                    Text(home.INDICES_UNAVAILABLE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
-                } else {
-                    VStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    let indices = home.indices(brief: brief)
+                    if indices.isEmpty {
+                        Text(home.INDICES_UNAVAILABLE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, CGFloat(space.sm))
+                    } else {
                         ForEach(Array(indices.enumerated()), id: \.element.indexId) { n, index in
                             if n > 0 { StockDivider() }
                             BriefIndexRow(index: index, client: model.client)
                         }
                     }
+                    StockDivider()
+                    let now = model.client.now()
+                    let caution = model.client.isStale(brief: brief) || state?.offline == true
+                    HomeLinkRow(title: "Your Daily Market Brief", detail: home.briefMeta(brief: brief, nowMillis: now, offline: state?.offline == true),
+                                detailColor: caution ? colors.cautionText : colors.textMeta,
+                                hint: home.briefAction(brief: brief, nowMillis: now), summary: home.briefSummary(brief: brief), action: onOpenBrief)
                 }
-                StockDivider()
-                let now = model.client.now()
-                let caution = model.client.isStale(brief: brief) || state?.offline == true
-                HomeLinkRow(title: "Your Daily Market Brief", detail: home.briefMeta(brief: brief, nowMillis: now, offline: state?.offline == true),
-                            detailColor: caution ? colors.cautionText : colors.textMeta,
-                            hint: home.briefAction(brief: brief, nowMillis: now), summary: home.briefSummary(brief: brief), action: onOpenBrief)
+                .homeRowGroup()
             } else if state?.loading != false {
-                ProgressView().frame(maxWidth: .infinity).accessibilityLabel("Loading market overview")
+                HomeRowsSkeleton(rows: Int(home.MAX_INDICES), label: "Loading market overview").homeRowGroup()
             } else {
                 Text(state?.error ?? "Market overview isn't available right now.")
                     .font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
             }
         }
-        .stockCard()
+        // The session-line `ForEach` keeps its data on a type change, so it is rebuilt explicitly (repo rule: `.id(typeSize)`).
+        .id(typeSize)
     }
 }
 
@@ -160,13 +218,14 @@ struct HomePortfolioSummary: View {
                     Text(fresh).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textMeta)
                 }
             } else if state.loading {
-                ProgressView().frame(maxWidth: .infinity).accessibilityLabel("Loading your portfolio")
+                HomeRowsSkeleton(rows: 2, label: "Loading your portfolio")
             } else {
                 Text(home.PORTFOLIO_EMPTY).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
                 Button(home.portfolioAction(state: state), action: onOpen).buttonStyle(.stockSecondary)
             }
             if let sample = state.mockScenario { StockStatusBadge(text: "Sample · \(sample)", kind: .sample, size: .compact) }
         }
-        .stockCard()
+        // KAN-14: one tappable summary, so it stays a card (borderless per call site; the chevron carries the affordance).
+        .stockCard(bordered: false)
     }
 }

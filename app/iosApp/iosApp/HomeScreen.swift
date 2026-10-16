@@ -36,7 +36,8 @@ struct HomeScreen: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: CGFloat(space.sectionGap)) {
+            // KAN-14: open sections need more air than bordered cards did — the Learn / Daily Brief section gap (xl).
+            LazyVStack(alignment: .leading, spacing: CGFloat(space.xl)) {
                 VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                     header
                     Text(PersonalDashboardRules.shared.greeting(hour: Int32(localHour)))
@@ -47,7 +48,7 @@ struct HomeScreen: View {
                         .font(StockStepsTheme.font(type.small, relativeTo: .subheadline))
                         .foregroundStyle(StockStepsTheme.colors(scheme).textSupporting)
                 }
-                // Market first (Phase 4A): the brief's index snapshot and its entry share one card.
+                // Market first (Phase 4A): the brief's index snapshot and its entry share one group.
                 if let briefModel { HomeMarketOverview(model: briefModel, onOpenBrief: onDailyBrief) }
                 if let state, !state.initializing {
                     if let portfolio { HomePortfolioSummary(state: portfolio, onOpen: onPortfolio) }
@@ -55,8 +56,8 @@ struct HomeScreen: View {
                     if !state.brief.isEmpty { facts("Today in your watchlist", state.brief) }
                     if !state.events.isEmpty || state.alertsError != nil { facts("Upcoming & alerts", state.events, alertsError: state.alertsError != nil) }
                     // Learn and practice: a quieter second tier. Continue Learning shows only real saved progress.
-                    VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-                        StockSectionHeader(title: "Learn and practice")
+                    HomeSection(title: "Learn and practice") {
+                        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                         if let research {
                             HomeLearnBanner(action: { onResearch(ResearchTarget(symbol: research.symbol, name: research.name)) },
                                             title: "Continue learning",
@@ -66,17 +67,22 @@ struct HomeScreen: View {
                             HomeLearnBanner(action: onLearn)
                         }
                         PracticeEntryCard(message: "Practice investing with virtual money. No real money is used.", action: onPractice)
+                        }
                     }
                     if state.watchlistCount > 0 { news(state) } else if state.mockPersona != nil, let notice = state.newsNotice { caption(notice) }
                     if !state.recent.isEmpty { recentlyViewed(state) }
                     if showMockPersonas { personaPicker(state) }
                 } else {
-                    ProgressView("Restoring your dashboard").frame(maxWidth: .infinity)
+                    // KAN-14: first load shows row placeholders (as on Android), never a full-width spinner.
+                    VStack(spacing: 0) { ForEach(0..<3, id: \.self) { _ in StockRowSkeleton() } }
+                        .accessibilityElement(children: .ignore).accessibilityLabel("Restoring your dashboard")
+                        .homeRowGroup(inset: 0)
                 }
             }
             .frame(maxWidth: CGFloat(StockStepsTheme.dimensions.contentMaxWidth))
             .padding(.horizontal, CGFloat(space.screen))
-            .padding(.vertical, CGFloat(space.md))
+            .padding(.top, CGFloat(space.md))
+            .padding(.bottom, CGFloat(space.xl))
             .frame(maxWidth: .infinity)
         }
         .scrollsToTopOnReselect(.home) // 5D.5.6C2 (D12)
@@ -115,83 +121,95 @@ struct HomeScreen: View {
         }.accessibilityLabel(title)
     }
 
+    /// KAN-14: an open section; saved companies sit in one borderless row group, the empty state is plain text and a button.
     private func watchlist(_ state: PersonalDashboard) -> some View {
         let colors = StockStepsTheme.colors(scheme)
         let inset = CGFloat(space.cardPadding)
-        return VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-            StockSectionHeader(title: "Watchlist highlights", actionTitle: "View all", action: onWatchlist).padding(.horizontal, inset)
-            Group {
-                if state.watchlistLoading && state.watchlistCount == 0 {
-                    StockRowSkeleton()
-                } else if state.watchlistError != nil && state.watchlistCount == 0 {
-                    StockSectionMessage(message: state.watchlistError!, actionTitle: "Try again", action: onRetryWatchlists)
-                } else if state.watchlistCount == 0 {
-                    VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-                        Text("Start with a company you know. Save it to follow its price and news.")
-                            .font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
-                        Button(action: onSearch) { Label("Find stocks", systemImage: "magnifyingglass") }.buttonStyle(.stockSecondary)
-                    }.padding(.bottom, CGFloat(space.sm))
+        return HomeSection(title: "Watchlist highlights", actionTitle: "View all", action: onWatchlist) {
+            if state.watchlistLoading && state.watchlistCount == 0 {
+                StockRowSkeleton().accessibilityElement(children: .ignore).accessibilityLabel("Loading").homeRowGroup(inset: 0)
+            } else if state.watchlistError != nil && state.watchlistCount == 0 {
+                StockSectionMessage(message: state.watchlistError!, actionTitle: "Try again", action: onRetryWatchlists)
+            } else if state.watchlistCount == 0 {
+                VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+                    Text("Start with a company you know. Save it to follow its price and news.")
+                        .font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
+                    Button(action: onSearch) { Label("Find stocks", systemImage: "magnifyingglass") }.buttonStyle(.stockSecondary)
                 }
-            }.padding(.horizontal, inset)
-            if state.watchlistCount > 0 {
-                ForEach(Array(state.highlights.enumerated()), id: \.element.instrument.symbol) { n, highlight in
-                    if n > 0 { StockDivider().padding(.leading, inset) }
-                    StockRow(model: highlight.row) { onExplore(highlight.instrument.symbol) }
-                    if highlight.stale {
-                        Text("\(highlight.instrument.symbol) · Saved or delayed price").font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
-                            .foregroundStyle(colors.cautionText).padding(.horizontal, inset)
+            } else {
+                VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                    ForEach(Array(state.highlights.enumerated()), id: \.element.instrument.symbol) { n, highlight in
+                        if n > 0 { StockDivider().padding(.leading, inset) }
+                        StockRow(model: highlight.row) { onExplore(highlight.instrument.symbol) }
+                        if highlight.stale {
+                            Text("\(highlight.instrument.symbol) · Saved or delayed price").font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
+                                .foregroundStyle(colors.cautionText).padding(.horizontal, inset)
+                        }
+                    }
+                    Group {
+                        // Refreshing prices keeps the rows visible; only this thin bar shows the update (as on Android).
+                        if state.quotesLoading { ProgressView().progressViewStyle(.linear).accessibilityLabel("Updating prices") }
+                        if let error = state.quotesError { StockSectionMessage(message: error, actionTitle: "Try again", action: onRetryQuotes) }
+                        if state.watchlistError != nil { StockSectionMessage(message: "Showing your saved watchlist.", actionTitle: "Try again", action: onRetryWatchlists) }
+                        if let notice = state.quoteNotice { caption(notice).padding(.bottom, CGFloat(space.xs)) }
+                    }.padding(.horizontal, inset)
+                }
+                .homeRowGroup(inset: 0)
+            }
+        }
+    }
+
+    /// Personal facts as plain tappable rows (title, muted detail, chevron); a failed alerts load is reported inside the same group.
+    private func facts(_ title: String, _ values: [HomeFact], alertsError: Bool = false) -> some View {
+        HomeSection(title: title) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(values.enumerated()), id: \.element.id) { n, fact in
+                    if n > 0 { StockDivider() }
+                    HomeLinkRow(title: fact.title, detail: fact.detail) {
+                        if fact.alerts { onAlerts(fact.symbol) } else if fact.earnings { onEarnings(fact.symbol) } else { onExplore(fact.symbol) }
                     }
                 }
-                Group {
-                    if state.quotesLoading { ProgressView().frame(maxWidth: .infinity).accessibilityLabel("Updating prices") }
-                    if let error = state.quotesError { StockSectionMessage(message: error, actionTitle: "Try again", action: onRetryQuotes) }
-                    if state.watchlistError != nil { StockSectionMessage(message: "Showing your saved watchlist.", actionTitle: "Try again", action: onRetryWatchlists) }
-                    if let notice = state.quoteNotice { caption(notice) }
-                }.padding(.horizontal, inset)
+                if alertsError { StockSectionMessage(message: "Alerts unavailable.", actionTitle: "Try again", action: onRetryAlerts) }
             }
-        }.padding(.vertical, CGFloat(space.xs)).stockCard(padding: 0)
+            .homeRowGroup()
+        }
     }
 
-    /// Personal facts as plain tappable rows (title, muted detail, chevron); a failed alerts load is reported inside the same card.
-    private func facts(_ title: String, _ values: [HomeFact], alertsError: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            StockSectionHeader(title: title)
-            ForEach(Array(values.enumerated()), id: \.element.id) { n, fact in
-                if n > 0 { StockDivider() }
-                HomeLinkRow(title: fact.title, detail: fact.detail) {
-                    if fact.alerts { onAlerts(fact.symbol) } else if fact.earnings { onEarnings(fact.symbol) } else { onExplore(fact.symbol) }
-                }
-            }
-            if alertsError { StockSectionMessage(message: "Alerts unavailable.", actionTitle: "Try again", action: onRetryAlerts) }
-        }.stockCard()
-    }
-
+    /// KAN-14: stories in one borderless group, each under its company label and divided from the next (no card per story).
     private func news(_ state: PersonalDashboard) -> some View {
         let colors = StockStepsTheme.colors(scheme)
-        return VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
-            StockSectionHeader(title: "News for you")
+        return HomeSection(title: "News for you") {
             if let notice = state.newsNotice { caption(notice) }
-            if state.newsLoading && state.stories.isEmpty { StockNewsCardSkeleton() }
-            ForEach(state.stories, id: \.article.url) { story in
-                // The company is context for the story, so it reads as a muted label rather than a link-coloured one.
-                Text(story.symbol).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSupporting)
-                StockNewsCard(model: NewsPresentation.shared.model(article: story.article)) { _ in onArticle(story.article.url) }
+            if !state.stories.isEmpty || state.newsLoading {
+                VStack(alignment: .leading, spacing: 0) {
+                    if state.newsLoading && state.stories.isEmpty { StockNewsCardSkeleton() }
+                    ForEach(Array(state.stories.enumerated()), id: \.element.article.url) { n, story in
+                        if n > 0 { StockDivider() }
+                        // The company is context for the story, so it reads as a muted label rather than a link-coloured one.
+                        Text(story.symbol).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSupporting)
+                            .padding(.top, CGFloat(space.sm))
+                        StockNewsCard(model: NewsPresentation.shared.model(article: story.article)) { _ in onArticle(story.article.url) }
+                    }
+                }
+                .homeRowGroup()
             }
             if let error = state.newsError { StockSectionMessage(message: error, actionTitle: "Try again", action: onRetryNews) }
             if !state.newsLoading && state.newsError == nil && state.stories.isEmpty {
                 caption("No recent company news for your watchlist.")
             }
-        }.stockCard()
+        }
     }
 
     private func recentlyViewed(_ state: PersonalDashboard) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            StockSectionHeader(title: "Recently viewed", actionTitle: "Clear", action: onClearRecent).padding(.horizontal, CGFloat(space.cardPadding))
-            ForEach(state.recent, id: \.instrument.symbol) { recent in
-                StockRow(symbol: recent.instrument.symbol, name: recent.instrument.name, compact: true,
-                    action: { onExplore(recent.instrument.symbol) }) { EmptyView() }
+        HomeSection(title: "Recently viewed", actionTitle: "Clear", action: onClearRecent) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(state.recent, id: \.instrument.symbol) { recent in
+                    StockRow(symbol: recent.instrument.symbol, name: recent.instrument.name, compact: true,
+                        action: { onExplore(recent.instrument.symbol) }) { EmptyView() }
+                }
             }
-        }.padding(.vertical, CGFloat(space.xs)).stockCard(padding: 0)
+            .homeRowGroup(inset: 0)
+        }
     }
     private func caption(_ text: String) -> some View {
         Text(text).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))

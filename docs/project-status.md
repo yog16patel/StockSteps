@@ -6,6 +6,14 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — Home UI/UX Refinement Phase 1, KAN-14 (committed and pushed as "Refine Home for UI/UX Refinement Phase 1 (KAN-14) with open sections, borderless row groups, a wider section rhythm, first-load skeletons and live Dynamic Type on Android and iOS"; KAN-14 not Done).**
+- **Done:** Home on Android and iOS uses open sections (title on the page, rows in one borderless group) instead of a bordered card per
+  section; 20 dp/pt section gap; portfolio summary a borderless card; first-load skeletons (iOS restore spinner removed); iOS live Dynamic
+  Type fixes on Home. No data, request, navigation, auth or design-system default changes.
+- **Validation:** all four suites green (606 / 604 / 276 / 273), both builds PASS, device checks PASS on MOCK (Android signed in, iOS guest).
+- **BLOCKED:** Android guest, iOS signed-in. **NOT RUN:** screen readers, skeleton captures.
+- **Recommendation:** APPROVE WITH FIXES. **Report:** `docs/HOME_UI_REFINEMENT_PHASE1.md`; package `docs/reviews/home_ui_phase1/`.
+
 **2026-10-16 — DEBUG-only API logging and My Portfolio / Practice REAL diagnosis (committed and pushed as "Add DEBUG-only API request and response logging on Android and iOS with default-deny redaction and record why My Portfolio and Practice fail on the LAN REAL backend")**
 - **Done:**
   - shared Ktor plugin `StockStepsApiLogging` (core `network/ApiLogging.kt`, `ApiLogRedaction.kt`);

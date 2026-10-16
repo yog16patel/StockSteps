@@ -15,10 +15,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import org.example.stocksteps.brief.BriefFormat
 import org.example.stocksteps.brief.DailyBriefUiState
 import org.example.stocksteps.designsystem.components.*
@@ -91,43 +90,86 @@ internal fun HomeLearnCard(
 }
 
 /**
+ * KAN-14 (Home UI Phase 1): a Home page section — the title (with an optional action or badge) sits on the page background and the
+ * content follows. Hierarchy comes from spacing and type, not a border around every section.
+ */
+@Composable
+internal fun HomeSection(
+    title: String,
+    modifier: Modifier = Modifier,
+    actionText: String? = null,
+    onAction: (() -> Unit)? = null,
+    trailing: (@Composable RowScope.() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) = Column(modifier, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+    StockSectionHeader(title, actionText = actionText, onActionClick = onAction, trailing = trailing)
+    content()
+}
+
+/**
+ * KAN-14: the rows of one Home section on the plain surface, borderless per call site (the [StockCard] default is unchanged). [inset]
+ * pads rows that have no inset of their own; [StockRow] keeps its own (pass 0).
+ */
+@Composable
+internal fun HomeRowGroup(modifier: Modifier = Modifier, inset: Dp = StockStepsTheme.spacing.cardPadding, verticalSpacing: Dp = 0.dp,
+                          content: @Composable ColumnScope.() -> Unit) =
+    StockCard(modifier, bordered = false, contentPadding = PaddingValues(horizontal = inset, vertical = StockStepsTheme.spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(verticalSpacing), content = content)
+
+/** KAN-14: first-load placeholder for label/value rows (index rows, portfolio lines); one "Loading" for screen readers. */
+@Composable
+internal fun HomeRowsSkeleton(rows: Int, modifier: Modifier = Modifier) {
+    val spacing = StockStepsTheme.spacing
+    StockLoadingState(modifier.fillMaxWidth()) {
+        Column(Modifier.padding(vertical = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.lg)) {
+            repeat(rows) {
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.md)) {
+                    StockSkeleton(Modifier.weight(1f))
+                    StockSkeleton(Modifier.width(spacing.xxxl * 2))
+                }
+            }
+        }
+    }
+}
+
+/**
  * "Markets today" (Phase 4A): market sessions, the brief's first indices as compact rows (value, signed change with arrow and words,
  * quote state) and the Daily Market Brief entry. Uses the brief already loaded on Home — no extra requests, never placeholder values.
+ * KAN-14: an open section; the index rows and the brief entry share one borderless group.
  */
 @Composable
 internal fun HomeMarketOverview(state: DailyBriefUiState?, nowMillis: Long, onOpenBrief: () -> Unit, modifier: Modifier = Modifier) {
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
-    val spacing = StockStepsTheme.spacing
     val brief = state?.latest
-    StockCard(modifier, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        StockSectionHeader("Markets today", trailing = if (brief?.sampleData == true) {
-            { StockStatusBadge("Sample", StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT) }
-        } else null)
+    HomeSection("Markets today", modifier, trailing = if (brief?.sampleData == true) {
+        { StockStatusBadge("Sample", StockBadgeKind.SAMPLE, size = StockBadgeSize.COMPACT) }
+    } else null) {
         when {
             brief != null -> {
                 HomeDashboardPresentation.sessionLines(brief).forEach { Text(it, style = typography.caption, color = colors.textSupporting) }
-                val indices = HomeDashboardPresentation.indices(brief)
-                if (indices.isEmpty()) {
-                    Text(HomeDashboardPresentation.INDICES_UNAVAILABLE, style = typography.small, color = colors.textSupporting)
-                } else Column {
-                    indices.forEachIndexed { n, index ->
+                HomeRowGroup {
+                    val indices = HomeDashboardPresentation.indices(brief)
+                    if (indices.isEmpty()) {
+                        Text(HomeDashboardPresentation.INDICES_UNAVAILABLE, Modifier.padding(vertical = StockStepsTheme.spacing.sm),
+                            style = typography.small, color = colors.textSupporting)
+                    } else indices.forEachIndexed { n, index ->
                         if (n > 0) StockDivider()
                         org.example.stocksteps.presentation.brief.BriefIndexRow(index)
                     }
+                    StockDivider()
+                    val caution = BriefFormat.isStale(brief, nowMillis) || state.offline
+                    HomeLinkRow(
+                        title = "Your Daily Market Brief",
+                        summary = HomeDashboardPresentation.briefSummary(brief),
+                        detail = HomeDashboardPresentation.briefMeta(brief, nowMillis, state.offline),
+                        detailColor = if (caution) colors.cautionText else colors.textMeta,
+                        actionLabel = HomeDashboardPresentation.briefAction(brief, nowMillis),
+                        onClick = onOpenBrief
+                    )
                 }
-                StockDivider()
-                val caution = BriefFormat.isStale(brief, nowMillis) || state.offline
-                HomeLinkRow(
-                    title = "Your Daily Market Brief",
-                    summary = HomeDashboardPresentation.briefSummary(brief),
-                    detail = HomeDashboardPresentation.briefMeta(brief, nowMillis, state.offline),
-                    detailColor = if (caution) colors.cautionText else colors.textMeta,
-                    actionLabel = HomeDashboardPresentation.briefAction(brief, nowMillis),
-                    onClick = onOpenBrief
-                )
             }
-            state?.loading != false -> LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading market overview" })
+            state?.loading != false -> HomeRowGroup { HomeRowsSkeleton(HomeDashboardPresentation.MAX_INDICES) }
             else -> Text(state.error ?: "Market overview isn't available right now.", style = typography.small, color = colors.textSupporting)
         }
     }
@@ -150,7 +192,8 @@ internal fun HomePortfolioSummary(state: PortfolioUiState, onOpen: () -> Unit, m
     val spacing = StockStepsTheme.spacing
     val present = HomeDashboardPresentation
     val owned = present.hasPortfolio(state)
-    StockCard(modifier, onClick = if (owned) onOpen else null, onClickLabel = present.portfolioAction(state),
+    // KAN-14: one tappable summary, so it stays a card (borderless per call site; the chevron carries the affordance).
+    StockCard(modifier, onClick = if (owned) onOpen else null, onClickLabel = present.portfolioAction(state), bordered = false,
         verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         StockSectionHeader("Your portfolio", trailing = if (owned) {
             { Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.textTertiary, modifier = Modifier.size(StockStepsTheme.dimensions.icon)) }
@@ -170,7 +213,7 @@ internal fun HomePortfolioSummary(state: PortfolioUiState, onOpen: () -> Unit, m
             state.notice?.let { Text(it, style = typography.caption, color = colors.cautionText) }
             present.portfolioFreshness(state)?.let { Text(it, style = typography.caption, color = colors.textMeta) }
         } else if (state.loading) {
-            LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading your portfolio" })
+            HomeRowsSkeleton(2)
         } else {
             Text(present.PORTFOLIO_EMPTY, style = typography.small, color = colors.textBody)
             StockButton(present.portfolioAction(state), onOpen, variant = StockButtonVariant.SECONDARY)
