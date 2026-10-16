@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.Density
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -25,21 +23,20 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.text.font.FontWeight
 import org.example.stocksteps.model.StockSearchResult
 import org.example.stocksteps.search.SearchDisplay
-import org.example.stocksteps.theme.StockBadgeKind
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 import org.example.stocksteps.designsystem.icons.StockIcons
 
 /** Font scale at which a search row puts ticker and exchange on their own lines. */
 internal const val SEARCH_ROW_STACK_SCALE = 1.75f
 
-/** The "Best match" label's largest text scale (5D.5.5D): a small label beside the name, never as large as the name itself. */
-internal const val SEARCH_BADGE_MAX_SCALE = 1.3f
-
 /**
- * One company search result (Phase 5D.5.5B): the company logo when it loads (5D.5.5C), else ticker initials, the name (wraps, never truncated) with an optional "Best match" badge,
+ * One company search result (Phase 5D.5.5B): the company logo when it loads (5D.5.5C), else ticker initials, the name (wraps, never truncated),
  * then ticker · exchange (never truncated — they tell listings apart), and a chevron. Borderless; the caller draws dividers. One spoken
- * element ("Apple Inc., AAPL, NASDAQ, best match") with a button role and [actionLabel]. At very large text the avatar goes above the text and
- * ticker and exchange take their own lines.
+ * element ("Apple Inc., AAPL, NASDAQ, best match") with a button role and [actionLabel]. At very large text ticker and exchange take their
+ * own lines; the logo stays on the left.
+ *
+ * Typography & Spacing Phase 5: name [listTitle] (16), ticker · exchange [small] (14), a 40 dp logo, 12 dp above and below and 4 dp between
+ * the lines. The "Best match" badge is gone: the section heading already says it ([best] is still spoken, for a reader moving row by row).
  */
 @Composable
 internal fun StockSearchResultRow(
@@ -58,20 +55,8 @@ internal fun StockSearchResultRow(
     val spoken = listOfNotNull(SearchDisplay.spoken(result, best), note).joinToString(", ")
     val nameColor = if (enabled) colors.textPrimary else colors.textTertiary
     val text: @Composable () -> Unit = {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            StockTitleWithBadge(
-                title = { Text(result.name, style = StockStepsTheme.typography.bodySemiBold, color = nameColor) },
-                badge = {
-                    // 5D.5.5D: the label grows with the text only up to SEARCH_BADGE_MAX_SCALE, so it never outweighs the company name (the
-                    // name, ticker and exchange keep the full user size; the label is also spoken in the row's description).
-                    if (best) {
-                        val density = LocalDensity.current
-                        CompositionLocalProvider(LocalDensity provides Density(density.density, minOf(density.fontScale, SEARCH_BADGE_MAX_SCALE))) {
-                            StockStatusBadge(SearchDisplay.BEST_MATCH, StockBadgeKind.INFO, size = StockBadgeSize.COMPACT)
-                        }
-                    }
-                }
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.listTitleSubtitle)) {
+            Text(result.name, style = StockStepsTheme.typography.listTitle, color = nameColor)
             if (stacked) {
                 Text(result.symbol, style = StockStepsTheme.typography.small, fontWeight = FontWeight.SemiBold, color = colors.textSecondary)
                 result.exchange?.takeIf { it.isNotBlank() }?.let { Text(it, style = StockStepsTheme.typography.small, color = colors.textSecondary) }
@@ -91,12 +76,12 @@ internal fun StockSearchResultRow(
                 role = Role.Button
                 if (enabled) onClick(label = actionLabel) { onClick(); true } else disabled()
             }
-            .padding(vertical = spacing.sm),
+            .padding(vertical = spacing.listRowVertical),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(spacing.md)
     ) {
         // 5D.5.5D (owner reference): the logo stays beside the text at every size; at very large text only ticker and exchange stack.
-        StockTickerAvatar(result.symbol, logoUrl = result.logoUrl)
+        StockTickerAvatar(result.symbol, logoUrl = result.logoUrl, size = StockStepsTheme.dimensions.logoList)
         Column(Modifier.weight(1f)) { text() }
         if (enabled) Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.iconSecondary, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
     }

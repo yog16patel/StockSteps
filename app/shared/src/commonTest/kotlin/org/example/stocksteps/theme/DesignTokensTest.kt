@@ -111,7 +111,8 @@ class DesignTokensTest {
     @Test
     fun typographyIsAStrictHierarchy() {
         val t = ThemeTypography
-        val sizes = listOf(t.display, t.largeNumber, t.screenTitle, t.sectionTitle, t.cardTitle, t.body, t.small, t.label, t.caption, t.tiny)
+        val sizes = listOf(t.display, t.largeNumber, t.screenTitle, t.sectionTitle, t.sectionHeading, t.cardTitle, t.listTitle, t.body, t.small,
+            t.label, t.caption, t.tiny)
             .map { it.size }
         assertEquals(sizes.sortedDescending(), sizes)
         assertEquals(sizes.size, sizes.toSet().size, "two hierarchy levels share a size: $sizes")
@@ -125,7 +126,8 @@ class DesignTokensTest {
     fun typographyLineHeightsAndWeightsAreConsistent() {
         val t = ThemeTypography
         val all = listOf(t.display, t.largeNumber, t.screenTitle, t.sectionTitle, t.cardTitle, t.body, t.bodyMedium, t.bodySemiBold,
-            t.small, t.label, t.caption, t.tiny, t.numberEmphasis, t.numberMedium, t.numberLabel, t.numberLabelStrong)
+            t.small, t.label, t.caption, t.tiny, t.numberEmphasis, t.numberMedium, t.numberLabel, t.numberLabelStrong, t.sectionHeading, t.listTitle,
+            t.numberCompact)
         all.forEach { s ->
             assertTrue(s.weight in setOf(400, 500, 600, 700), "weight ${s.weight}")
             assertTrue(s.lineHeight.toDouble() / s.size in 1.2..1.5, "line height ${s.lineHeight} for ${s.size}")
@@ -133,10 +135,42 @@ class DesignTokensTest {
         listOf(t.body, t.bodyMedium, t.bodySemiBold, t.small).forEach { s ->
             assertTrue(s.lineHeight.toDouble() / s.size in 1.3..1.45, "readable text line height ${s.lineHeight}/${s.size}")
         }
-        listOf(t.largeNumber, t.numberEmphasis, t.numberMedium, t.numberLabel, t.numberLabelStrong).forEach {
+        listOf(t.largeNumber, t.numberEmphasis, t.numberMedium, t.numberLabel, t.numberLabelStrong, t.numberCompact).forEach {
             assertTrue(it.tabular, "financial values use tabular digits")
         }
         assertEquals(listOf(t.screenTitle, t.sectionTitle, t.cardTitle), listOf(t.headline, t.title, t.subtitle))
+    }
+
+    /**
+     * Typography & Spacing Phase 5: the semantic roles the brief asks for (screen title 24–28, section heading 18, primary list text 16,
+     * body 15, secondary 14, caption 12–13) and the rules that fixed confirmed defects: a compact value is never smaller than its label
+     * (Key Ratios showed 13 values under 14 labels), and a section heading outranks the card titles under it.
+     */
+    @Test
+    fun phase5SemanticRolesKeepTheReadingOrder() {
+        val t = ThemeTypography
+        assertEquals(18, t.sectionHeading.size)
+        assertEquals(16, t.listTitle.size)
+        assertEquals(15, t.body.size)
+        assertEquals(14, t.small.size)
+        assertTrue(t.caption.size in 12..13 && t.label.size in 12..13)
+        assertTrue(t.screenTitle.size in 24..28)
+        assertTrue(t.sectionHeading.size > t.cardTitle.size, "a section heading outranks the card titles under it")
+        assertTrue(t.listTitle.size > t.small.size + 1, "a list row's name stands out from its supporting line")
+        assertTrue(t.numberCompact.size >= t.small.size, "compact values are never smaller than their small labels")
+        assertTrue(t.numberCompact.weight > t.small.weight)
+    }
+
+    @Test
+    fun phase5ListRowSpacingStaysOnTheGridAndDense() {
+        val s = ThemeSpacing
+        val d = ThemeDimensions
+        listOf(s.listRowVertical, s.listTitleSubtitle, s.sectionBreak, d.logoList).forEach { assertEquals(0, it % 4, "$it is off the 4-pt grid") }
+        assertTrue(d.logoList > d.logo && d.logoList < d.avatar + 1)
+        // A two-line search row at default text: padding + name + gap + identity line, between the 48 touch target and a card-like 80.
+        val row = 2 * s.listRowVertical + ThemeTypography.listTitle.lineHeight + s.listTitleSubtitle + ThemeTypography.small.lineHeight
+        assertTrue(row in d.touchTarget..80, "search row height $row")
+        assertTrue(row >= d.logoList + 2 * s.xs, "the logo fits the row with room to spare")
     }
 
     @Test

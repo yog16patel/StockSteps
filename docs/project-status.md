@@ -6,6 +6,17 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — App-wide Typography & Spacing Refinement, Phase 5 (APPROVED by the owner; committed locally as "Refine app-wide typography and spacing for Phase 5 with section heading, list title and compact value roles, roomier Company Search rows without the Best match badge, readable navigation rows, two-line company names and clearer Key Ratios on Android and iOS"; not pushed or deployed).**
+- **Done (Android and iOS):** new shared roles (section heading 18, list title 16, compact value 14; list row 12/4 spacing, section break 8,
+  40 list logos); Company Search rows refined (no Best match badge, Android margins 46 → 16 dp, iOS header alignment); section headers 18;
+  navigation rows 16/14; two-line company names in stock rows (Top Movers); Key Ratios values 14; Company Details sub-section spacing and
+  "P/E" kept whole. No backend, ranking, navigation or data change.
+- **Validation:** core 612/0 and 610/0, shared 284/0 and 281/0, both builds PASS; device BEFORE/AFTER PASS (Android 1.0×/2.0×, iOS
+  Default/AX5/Dark). **NOT RUN:** Android dark, small phones, screen readers. **BLOCKED:** iOS signed-in.
+- **Report:** `docs/TYPOGRAPHY_SPACING_REFINEMENT_PHASE5.md`; package `docs/reviews/typography_spacing_phase5/`. Owner decisions D1–D3 approved.
+- **QA follow-ups:** Android dark mode, small phones (≤ 360 dp / iPhone SE), signed-in iOS, TalkBack/VoiceOver, Search loading/error/no-results states and Practice AFTER screenshots.
+- **Open:** the `:8083` MOCK server answers 500 for markets/screener (rebuilt jars); restart by its owner.
+
 **2026-10-16 — Company Search Phase 4 relevance & performance audit (APPROVED by the owner; committed locally as "Normalize inner whitespace in Company Search queries for Phase 4 so the provider query and search cache key match, with ranking, stale-response and cache regression tests and the relevance and performance audit"; not pushed or deployed).**
 - **Found:** search relevance, debounce, cancellation, stale-response handling and the server search cache already work. One defect:
   inner whitespace wasn't collapsed before the FMP query and cache key (`apple  inc` → no results).

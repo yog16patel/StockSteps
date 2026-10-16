@@ -97,7 +97,9 @@ internal data class StockStepsTypography(
     val largeNumber: TextStyle,
     val screenTitle: TextStyle,
     val sectionTitle: TextStyle,
+    val sectionHeading: TextStyle,
     val cardTitle: TextStyle,
+    val listTitle: TextStyle,
     val body: TextStyle,
     val bodyMedium: TextStyle,
     val bodySemiBold: TextStyle,
@@ -108,7 +110,8 @@ internal data class StockStepsTypography(
     val numberEmphasis: TextStyle,
     val numberMedium: TextStyle,
     val numberLabel: TextStyle,
-    val numberLabelStrong: TextStyle
+    val numberLabelStrong: TextStyle,
+    val numberCompact: TextStyle
 )
 
 @Immutable
@@ -134,7 +137,10 @@ internal data class StockStepsSpacing(
     val labelValueGap: Dp = ThemeSpacing.labelValueGap.dp,
     val formFieldGap: Dp = ThemeSpacing.formFieldGap.dp,
     val related: Dp = ThemeSpacing.related.dp,
-    val iconText: Dp = ThemeSpacing.iconText.dp
+    val iconText: Dp = ThemeSpacing.iconText.dp,
+    val listRowVertical: Dp = ThemeSpacing.listRowVertical.dp,
+    val listTitleSubtitle: Dp = ThemeSpacing.listTitleSubtitle.dp,
+    val sectionBreak: Dp = ThemeSpacing.sectionBreak.dp
 )
 
 @Immutable
@@ -145,6 +151,7 @@ internal data class StockStepsDimensions(
     val iconLarge: Dp = ThemeDimensions.iconLarge.dp,
     val navIcon: Dp = ThemeDimensions.navIcon.dp,
     val logo: Dp = ThemeDimensions.logo.dp,
+    val logoList: Dp = ThemeDimensions.logoList.dp,
     val bottomBarHeight: Dp = ThemeDimensions.bottomBarHeight.dp,
     val rowMinHeight: Dp = ThemeDimensions.rowMinHeight.dp,
     val chipHeight: Dp = ThemeDimensions.chipHeight.dp,
@@ -296,7 +303,9 @@ private fun stockStepsTypography() = StockStepsTypography(
     largeNumber = ThemeTypography.largeNumber.compose(),
     screenTitle = ThemeTypography.screenTitle.compose(),
     sectionTitle = ThemeTypography.sectionTitle.compose(),
+    sectionHeading = ThemeTypography.sectionHeading.compose(),
     cardTitle = ThemeTypography.cardTitle.compose(),
+    listTitle = ThemeTypography.listTitle.compose(),
     body = ThemeTypography.body.compose(),
     bodyMedium = ThemeTypography.bodyMedium.compose(),
     bodySemiBold = ThemeTypography.bodySemiBold.compose(),
@@ -307,7 +316,8 @@ private fun stockStepsTypography() = StockStepsTypography(
     numberEmphasis = ThemeTypography.numberEmphasis.compose(),
     numberMedium = ThemeTypography.numberMedium.compose(),
     numberLabel = ThemeTypography.numberLabel.compose(),
-    numberLabelStrong = ThemeTypography.numberLabelStrong.compose()
+    numberLabelStrong = ThemeTypography.numberLabelStrong.compose(),
+    numberCompact = ThemeTypography.numberCompact.compose()
 )
 
 private fun StockStepsTypography.toMaterialTypography() = Typography(

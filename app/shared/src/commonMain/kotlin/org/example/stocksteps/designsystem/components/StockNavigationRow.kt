@@ -17,6 +17,9 @@ import org.example.stocksteps.designsystem.theme.StockStepsTheme
  * Full-width navigation row inside a card (Phase 4B, generalised from Home's link row): optional icon, title, muted detail lines and a
  * chevron. One tap target of at least `rowCompactMinHeight`; the title and detail wrap instead of truncating. [actionLabel] is the
  * click label screen readers announce ("Opens the Earnings Calendar").
+ *
+ * Phase 5: title `listTitle` (16, the primary list line) and [detail] `small` (14, was the 12 caption, too small for the sentence that says
+ * what a row opens); [secondaryDetail] stays a caption (metadata such as "Sample data").
  */
 @Composable
 internal fun StockNavigationRow(
@@ -46,11 +49,11 @@ internal fun StockNavigationRow(
     ) {
         if (icon != null) Icon(icon, contentDescription = null, tint = colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.icon))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-            if (badge == null) Text(title, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle)
-            else StockTitleWithBadge(title = { Text(title, style = StockStepsTheme.typography.bodySemiBold, color = colors.textTitle) },
+            if (badge == null) Text(title, style = StockStepsTheme.typography.listTitle, color = colors.textTitle)
+            else StockTitleWithBadge(title = { Text(title, style = StockStepsTheme.typography.listTitle, color = colors.textTitle) },
                 badge = { StockStatusBadge(badge, badgeKind, size = StockBadgeSize.COMPACT) })
             if (summary != null) Text(summary, style = StockStepsTheme.typography.small, color = colors.textBody)
-            if (detail != null) Text(detail, style = StockStepsTheme.typography.caption, color = detailColor)
+            if (detail != null) Text(detail, style = StockStepsTheme.typography.small, color = detailColor)
             if (secondaryDetail != null) Text(secondaryDetail, style = StockStepsTheme.typography.caption, color = colors.textSupporting)
         }
         Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.textTertiary, modifier = Modifier.size(StockStepsTheme.dimensions.icon))

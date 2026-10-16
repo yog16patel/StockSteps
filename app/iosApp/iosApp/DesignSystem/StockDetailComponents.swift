@@ -430,13 +430,13 @@ struct StockInfoLine: View {
         VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
             if stacked == true {
                 StockMetricLabel(label: label, info: info, style: compact ? type.small : type.body, color: compact ? colors.textSecondary : colors.textBody)
-                Text(value).font(StockStepsTheme.font(compact ? type.numberLabelStrong : type.numberMedium)).foregroundStyle(colors.textPrimary)
+                Text(value).font(StockStepsTheme.font(compact ? type.numberCompact : type.numberMedium)).foregroundStyle(colors.textPrimary)
                 changeView(colors)
             } else {
             HStack(spacing: CGFloat(space.sm)) {
                 StockMetricLabel(label: label, info: info, style: compact ? type.small : type.body, color: compact ? colors.textSecondary : colors.textBody)
                 Spacer(minLength: 0)
-                Text(value).font(StockStepsTheme.font(compact ? type.numberLabelStrong : type.numberMedium)).foregroundStyle(colors.textPrimary)
+                Text(value).font(StockStepsTheme.font(compact ? type.numberCompact : type.numberMedium)).foregroundStyle(colors.textPrimary)
                     .fixedSize(horizontal: stacked == false, vertical: false)
                 if change != nil {
                     changeView(colors).fixedSize(horizontal: stacked == false, vertical: false).frame(minWidth: CGFloat(dims.changeColumn), alignment: .trailing)

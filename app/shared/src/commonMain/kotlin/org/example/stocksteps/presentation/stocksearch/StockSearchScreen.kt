@@ -37,7 +37,9 @@ internal fun StockSearchScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .safeContentPadding()
+            // Phase 5: safe *drawing* insets (bars, cutout, keyboard). safeContent also adds the edge-swipe gesture zones (~30 dp per side
+            // with gesture navigation), which pushed the field and results ~46 dp from the edges instead of the 16 dp screen margin.
+            .safeDrawingPadding()
             .padding(ThemeSpacing.screen.dp)
             .onGloballyPositioned { origin = it.positionInWindow() }
     ) {

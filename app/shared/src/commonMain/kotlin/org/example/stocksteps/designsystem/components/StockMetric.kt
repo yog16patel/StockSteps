@@ -226,7 +226,8 @@ internal fun StockInfoRow(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
             StockMetricLabel(label, info, style = if (compact) typography.small else typography.body, color = if (compact) colors.textSecondary else colors.textBody,
                 modifier = Modifier.weight(1f))
-            Text(value, style = if (compact) typography.numberLabelStrong else typography.numberMedium, color = colors.textPrimary, textAlign = TextAlign.End)
+            // Phase 5: a compact value is numberCompact (14, as its label), never smaller than the label it answers.
+            Text(value, style = if (compact) typography.numberCompact else typography.numberMedium, color = colors.textPrimary, textAlign = TextAlign.End)
             if (change != null) {
                 Box(Modifier.widthIn(min = StockStepsTheme.dimensions.changeColumn), contentAlignment = Alignment.CenterEnd) {
                     if (direction != null && direction != PriceDirection.UNAVAILABLE) StockPriceChange(change, direction, style = typography.numberLabel)

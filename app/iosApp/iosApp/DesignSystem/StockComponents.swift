@@ -67,7 +67,8 @@ struct StockSectionHeader<Trailing: View>: View {
 
     private var titleText: some View {
         Text(title)
-            .font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline))
+            // Phase 5: sectionHeading (18), one step above the card titles (17) under it (as Compose).
+            .font(StockStepsTheme.font(type.sectionHeading, relativeTo: .headline))
             .foregroundStyle(StockStepsTheme.colors(scheme).textPrimary)
             .accessibilityAddTraits(.isHeader)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -85,7 +86,7 @@ struct StockSectionHeader<Trailing: View>: View {
     /// Shared `StockLayout.metricRowStacked` rule on text widths only (never this row's frame): the longest title word + gap + the action.
     private var actionStacked: Bool {
         guard width > 0, let actionTitle, action != nil else { return false }
-        let titleFont = StockStepsTheme.uiFont(type.cardTitle, typeSize: liveTypeSize)
+        let titleFont = StockStepsTheme.uiFont(type.sectionHeading, typeSize: liveTypeSize)
         let actionFont = StockStepsTheme.uiFont(type.label, typeSize: liveTypeSize)
         let longest = title.split(separator: " ").map { (String($0) as NSString).size(withAttributes: [.font: titleFont]).width }.max() ?? 0
         let actionWidth = max((actionTitle as NSString).size(withAttributes: [.font: actionFont]).width, CGFloat(dims.touchTarget))
@@ -165,7 +166,7 @@ struct StockRow<Trailing: View>: View {
     var compact = false
     var horizontalPadding: CGFloat = CGFloat(space.cardPadding)
     var sparkline: AnyView? = nil
-    /// Lines for the company name; nil keeps the default (1, or 2 at accessibility sizes). Watchlist rows pass 2 (Phase 5A.1).
+    /// Lines for the company name; nil keeps the default (2 since Phase 5, so long names in movers aren't cut after a few letters).
     var nameLineLimit: Int? = nil
     let action: () -> Void
     @ViewBuilder var trailing: () -> Trailing
@@ -179,8 +180,8 @@ struct StockRow<Trailing: View>: View {
                     if let name {
                         Text(name)
                             .font(StockStepsTheme.font(compact ? type.caption : type.small, relativeTo: compact ? .caption1 : .subheadline))
-                            // Large text gets a second line so long company names stay readable (Phase 4A); prices never truncate.
-                            .foregroundStyle(colors.textSupporting).lineLimit(nameLineLimit ?? (typeSize >= .xxxLarge ? 2 : 1))
+                            // Long company names get a second line (Phase 4A at large text, every size since Phase 5); prices never truncate.
+                            .foregroundStyle(colors.textSupporting).lineLimit(nameLineLimit ?? 2)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -571,17 +572,18 @@ struct StockNavigationRow: View {
                 VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                     if let badge {
                         StockTitleWithBadge {
-                            Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+                            Text(title).font(StockStepsTheme.font(type.listTitle)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
                         } badge: { StockStatusBadge(text: badge, kind: badgeKind, size: .compact) }
                     } else {
-                        Text(title).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
+                        // Phase 5: listTitle (16) and a 14 detail (was the 12 caption), as Compose `StockNavigationRow`.
+                        Text(title).font(StockStepsTheme.font(type.listTitle)).foregroundStyle(colors.textTitle).multilineTextAlignment(.leading)
                     }
                     if let summary {
                         Text(summary).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textBody)
                             .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
                     }
                     if let detail {
-                        Text(detail).font(StockStepsTheme.font(type.caption, relativeTo: .caption1))
+                        Text(detail).font(StockStepsTheme.font(type.small, relativeTo: .subheadline))
                             .foregroundStyle(detailColor ?? colors.textSupporting).multilineTextAlignment(.leading)
                     }
                     if let secondaryDetail {

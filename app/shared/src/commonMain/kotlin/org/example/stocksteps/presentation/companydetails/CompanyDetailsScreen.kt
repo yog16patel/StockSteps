@@ -614,14 +614,17 @@ private fun ValuationHealthSection(data: CompanyOverview, onValuation: () -> Uni
                         Text(headline, style = StockStepsTheme.typography.bodyMedium, color = accent)
                     }
                 }
-                Text(valuation.explanation, style = StockStepsTheme.typography.small, color = colors.textBody)
+                // Phase 5: "P/E" never breaks after the slash ("average P/" + "E." at default text).
+                Text(ValuationDisplay.keepTogether(valuation.explanation), style = StockStepsTheme.typography.small, color = colors.textBody)
             }
             // 5D.5.4B: "Understand P/E Ratio" removed here; the same P/E sheet opens from the P/E tile and the Understand Valuation row.
             StockDivider()
             StockNavigationRow(stringResource(Res.string.details_see_valuation), onValuation, icon = StockIcons.TrendingUp,
                 detail = "Historical P/E and how it has changed")
         }
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        // Phase 5: Financial Highlights and Key Ratios are sub-sections; sectionBreak above each keeps a caption (the highlights basis) from
+        // reading as the next heading's subtitle.
+        Column(Modifier.padding(top = spacing.sectionBreak), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             StockSectionHeader(stringResource(Res.string.details_highlights_title), actionText = stringResource(Res.string.details_see_financials), onActionClick = onFinancials)
             StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xxs)) {
                 if (data.highlights.isEmpty()) {
@@ -639,7 +642,7 @@ private fun ValuationHealthSection(data: CompanyOverview, onValuation: () -> Uni
         }
         val ratios = CompanyDetailsPresentation.keyRatios(data)
         if (ratios.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Column(Modifier.padding(top = spacing.sectionBreak), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 StockSectionHeader(stringResource(Res.string.details_key_ratios))
                 StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
                     ratios.forEach { StockInfoRow(it.label, it.value, compact = true, onClick = explain(it), onClickLabel = learn, info = info(it)) }

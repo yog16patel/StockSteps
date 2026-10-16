@@ -17,7 +17,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
 
-/** Compact section title with an optional "See All"-style action or custom trailing content. */
+/**
+ * Compact section title with an optional "See All"-style action or custom trailing content. Phase 5: the title is `sectionHeading` (18), one
+ * step above the card titles (17) it sits over.
+ */
 @Composable
 internal fun StockSectionHeader(
     title: String,
@@ -36,7 +39,7 @@ internal fun StockSectionHeader(
             modifier = Modifier
                 .weight(1f)
                 .semantics { heading() },
-            style = StockStepsTheme.typography.cardTitle,
+            style = StockStepsTheme.typography.sectionHeading,
             color = StockStepsTheme.colors.textPrimary
         )
         trailing?.invoke(this)

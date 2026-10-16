@@ -17,7 +17,17 @@ object ThemeTypography {
     val largeNumber = ThemeTextStyle(32, 40, 700, tabular = true)
     val screenTitle = ThemeTextStyle(28, 34, 700)
     val sectionTitle = ThemeTextStyle(20, 26, 600)
+    /**
+     * Typography & Spacing Phase 5: in-page section headings (`StockSectionHeader`, search "Best match" / "Other results"). One step above
+     * [cardTitle] so a heading outranks the card titles under it (both were 17), one step below [sectionTitle] (landing hero sections).
+     */
+    val sectionHeading = ThemeTextStyle(18, 24, 600)
     val cardTitle = ThemeTextStyle(17, 22, 600)
+    /**
+     * Phase 5: the primary line of a list row (search result names, navigation rows). One step above [bodySemiBold] so a row's name reads
+     * first; its supporting line uses [small] (14).
+     */
+    val listTitle = ThemeTextStyle(16, 22, 600)
     val body = ThemeTextStyle(15, 21, 400)
     val bodyMedium = ThemeTextStyle(15, 21, 500)
     val bodySemiBold = ThemeTextStyle(15, 21, 600)
@@ -35,6 +45,11 @@ object ThemeTypography {
     val numberMedium = ThemeTextStyle(17, 22, 600, tabular = true)
     val numberLabel = ThemeTextStyle(13, 18, 400, tabular = true)
     val numberLabelStrong = ThemeTextStyle(13, 18, 500, tabular = true)
+    /**
+     * Phase 5: values in compact label/value rows (Key Ratios, classification). Their labels are [small] (14); the value was
+     * [numberLabelStrong] (13), smaller than its own label. Same size as the label, heavier and tabular.
+     */
+    val numberCompact = ThemeTextStyle(14, 20, 600, tabular = true)
 
     // Legacy names used by screens that have not migrated to the design system yet.
     val headline = screenTitle

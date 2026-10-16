@@ -26,7 +26,8 @@ struct StockSearchScreen: View {
                     rows(state.recent, best: false)
                 } header: {
                     HStack {
-                        sectionTitle(SearchDisplay.shared.RECENT_TITLE)
+                        Text(verbatim: SearchDisplay.shared.RECENT_TITLE).font(StockStepsTheme.font(StockStepsTheme.typography.sectionHeading, relativeTo: .headline))
+                            .foregroundStyle(StockStepsTheme.color(palette.textPrimary)).textCase(nil).accessibilityAddTraits(.isHeader)
                         Spacer()
                         Button(SearchDisplay.shared.CLEAR_RECENT, action: onClearRecent)
                             .font(StockStepsTheme.font(StockStepsTheme.typography.label, relativeTo: .footnote))
@@ -34,6 +35,7 @@ struct StockSearchScreen: View {
                             .accessibilityLabel(SearchDisplay.shared.CLEAR_RECENT_SPOKEN)
                             .textCase(nil)
                     }
+                    .searchListHeader()
                 }
             } else if phase == .hint {
                 Text(SearchDisplay.shared.HINT).font(StockStepsTheme.font(StockStepsTheme.typography.small))
@@ -57,6 +59,7 @@ struct StockSearchScreen: View {
             } else {
                 // 5D.5.5B: server-ranked results in "Best match" / "Other results" sections (or one "Results" section); order and contents
                 // are the server's.
+                // Phase 5: the plain list already leaves a group gap above a following section header (Compose adds `sectionBreak` for the same look).
                 ForEach(SearchDisplay.shared.sections(query: state.query, results: state.results), id: \.title) { section in
                     Section { rows(section.results, best: section.best) } header: { sectionTitle(section.title) }
                 }
@@ -78,18 +81,29 @@ struct StockSearchScreen: View {
     }
 
     private func sectionTitle(_ title: String) -> some View {
-        Text(verbatim: title).font(StockStepsTheme.font(StockStepsTheme.typography.cardTitle, relativeTo: .headline))
+        Text(verbatim: title).font(StockStepsTheme.font(StockStepsTheme.typography.sectionHeading, relativeTo: .headline))
             .foregroundStyle(StockStepsTheme.color(palette.textPrimary)).textCase(nil)
             .accessibilityAddTraits(.isHeader)
+            .searchListHeader()
     }
 }
 
 extension View {
-    /// A borderless search-result list row: page background, a subtle divider starting under the text.
+    /// Phase 5: section headers on the same 16 pt margin as the rows and the search field (the plain list's default is ~20 pt).
+    func searchListHeader() -> some View {
+        let side = CGFloat(StockStepsTheme.spacing.screen)
+        return frame(maxWidth: .infinity, alignment: .leading)
+            .listRowInsets(EdgeInsets(top: CGFloat(StockStepsTheme.spacing.sm), leading: side, bottom: CGFloat(StockStepsTheme.spacing.xs), trailing: side))
+    }
+
+    /// A borderless search-result list row: page background, a subtle divider starting under the text. Phase 5: the row draws its own 12 pt
+    /// vertical padding (`SearchResultRow`), so the list adds none, and the sides use the 16 pt screen margin of the search field above.
     func searchListRow(_ palette: ThemePalette) -> some View {
-        listRowBackground(Color.clear)
+        let side = CGFloat(StockStepsTheme.spacing.screen)
+        return listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 0, leading: side, bottom: 0, trailing: side))
             .listRowSeparatorTint(StockStepsTheme.color(palette.borderSubtle))
-            .alignmentGuide(.listRowSeparatorLeading) { _ in CGFloat(StockStepsTheme.dimensions.logo + StockStepsTheme.spacing.md) }
+            .alignmentGuide(.listRowSeparatorLeading) { _ in CGFloat(StockStepsTheme.dimensions.logoList + StockStepsTheme.spacing.md) }
     }
 }
 

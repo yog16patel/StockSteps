@@ -78,8 +78,11 @@ internal fun StockSearchPane(
                     StockEmptyState(SearchDisplay.HINT, Modifier.padding(top = spacing.sm))
                 }
                 Phase.SEARCHING -> item(key = "searching") { SearchingRow() }
-                Phase.RESULTS -> SearchDisplay.sections(state.query, state.results).forEach { section ->
-                    item(key = "header:${section.title}") { StockSectionHeader(section.title, Modifier.padding(top = spacing.sm)) }
+                // Phase 5: a section after the first gets extra room above its heading, so "Other results" reads as a new group.
+                Phase.RESULTS -> SearchDisplay.sections(state.query, state.results).forEachIndexed { index, section ->
+                    item(key = "header:${section.title}") {
+                        StockSectionHeader(section.title, Modifier.padding(top = if (index > 0) spacing.md + spacing.sectionBreak else spacing.sm))
+                    }
                     resultRows("result", section.results, section.best, onSelect)
                 }
                 Phase.NO_RESULTS -> item(key = "none") {
@@ -96,11 +99,11 @@ internal fun StockSearchPane(
     }
 }
 
-/** Result rows with dividers inset to the text (the logo stays on the left at every size). */
+/** Result rows with subtle dividers inset to the text (the logo stays on the left at every size). */
 internal fun LazyListScope.resultRows(prefix: String, rows: List<StockSearchResult>, best: Boolean, onSelect: (StockSearchResult) -> Unit,
                                       enabled: (StockSearchResult) -> Boolean = { true }, note: (StockSearchResult) -> String? = { null }) {
     itemsIndexed(rows, key = { _, stock -> "$prefix:${stock.symbol}" }) { index, stock ->
-        if (index > 0) StockDivider(startIndent = StockStepsTheme.dimensions.logo + StockStepsTheme.spacing.md)
+        if (index > 0) StockDivider(startIndent = StockStepsTheme.dimensions.logoList + StockStepsTheme.spacing.md)
         StockSearchResultRow(stock, best = best, onClick = { onSelect(stock) }, enabled = enabled(stock), note = note(stock))
     }
 }

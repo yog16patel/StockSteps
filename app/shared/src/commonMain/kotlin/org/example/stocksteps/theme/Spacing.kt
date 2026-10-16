@@ -46,6 +46,15 @@ object ThemeSpacing {
     val iconText = sm
     /** Title to subtitle inside a compact row. */
     val titleSubtitle = xxs
+    /**
+     * Typography & Spacing Phase 5: vertical padding of a primary list row (search results). The rows were 8 + 8 around two lines and
+     * read as congested next to logos; 12 + 12 gives a ~68 dp/pt row at default text without making each result a card.
+     */
+    val listRowVertical = md
+    /** Phase 5: name to ticker/exchange inside a primary list row (was [titleSubtitle], 2). */
+    val listTitleSubtitle = xs
+    /** Phase 5: extra space above a section that follows another in the same list or page group ("Other results" after "Best match"). */
+    val sectionBreak = sm
 
     // Legacy names used by screens that have not migrated to the design system yet (tiny/small/medium/large/extraLarge are
     // still used; migrate them to the scale names when their screens are refined). The off-grid values have no users left.
@@ -85,6 +94,8 @@ object ThemeDimensions {
     val iconLarge = 24
     val navIcon = 22
     val logo = 32
+    /** Phase 5: company logo in primary list rows (search results, recent searches); [logo] stays for dense rows. */
+    val logoList = 40
     val topBarMaxHeight = 56
     val bottomBarHeight = 56
     val rowMinHeight = 56

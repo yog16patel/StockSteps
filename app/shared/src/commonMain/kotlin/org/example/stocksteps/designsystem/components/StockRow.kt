@@ -56,7 +56,7 @@ internal fun StockRow(
     ),
     onClick: (() -> Unit)? = null,
     sparkline: (@Composable () -> Unit)? = null,
-    /** Lines for the company name; null keeps the default (1, or 2 at large text). Watchlist rows pass 2 (Phase 5A.1). */
+    /** Lines for the company name; null keeps the default (2 since Phase 5, so "Pinnacle Food Group Limited Class A" isn't cut in movers). */
     nameMaxLines: Int? = null,
     trailing: (@Composable ColumnScope.() -> Unit)? = null
 ) {
@@ -91,8 +91,8 @@ internal fun StockRow(
                     text = name,
                     style = if (compact) typography.caption else typography.small,
                     color = StockStepsTheme.colors.textSupporting,
-                    // Large text gets a second line so long company names stay readable (Phase 4A); prices never truncate.
-                    maxLines = nameMaxLines ?: if (LocalDensity.current.fontScale >= dimensions.largeFontScale) 2 else 1,
+                    // Long company names get a second line (Phase 4A at large text, every size since Phase 5); prices never truncate.
+                    maxLines = nameMaxLines ?: 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }

@@ -677,7 +677,8 @@ struct CompanyDetailsScreen: View {
                 if let headline = present.valuationHeadline(overview: overview) {
                     Label(headline, systemImage: "tag.fill").font(StockStepsTheme.font(type.bodyMedium)).foregroundStyle(accent)
                 }
-                Text(valuation.explanation).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
+                // Phase 5 (as Compose): "P/E" never breaks after the slash.
+                Text(ValuationDisplay.shared.keepTogether(text: valuation.explanation)).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody)
             } else {
                 StockSectionMessage(message: "Valuation history isn't available for this company.")
             }
@@ -688,6 +689,8 @@ struct CompanyDetailsScreen: View {
         }
         .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.sm))
         .stockCard(padding: 0, bordered: false)
+        // Phase 5 (as Compose): sectionBreak above Financial Highlights and Key Ratios, so the highlights basis caption doesn't read as the
+        // next heading's subtitle.
         VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
             StockSectionHeader(title: "Financial Highlights", actionTitle: "See Financials", action: onOpenFinancials)
             VStack(spacing: 0) {
@@ -715,6 +718,7 @@ struct CompanyDetailsScreen: View {
                 Text(basis).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
             }
         }
+        .padding(.top, CGFloat(space.sectionBreak))
         let ratios = present.keyRatios(overview: overview)
         if !ratios.isEmpty {
             VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
@@ -728,6 +732,7 @@ struct CompanyDetailsScreen: View {
                 }
                     .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.xs)).stockCard(padding: 0, bordered: false)
             }
+            .padding(.top, CGFloat(space.sectionBreak))
         }
     }
 
