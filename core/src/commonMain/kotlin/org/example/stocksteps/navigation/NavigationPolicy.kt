@@ -69,6 +69,8 @@ enum class ScreenId(val kind: ScreenKind, val tab: AppTab?) {
     // Global, outside the tabs
     SETTINGS(ScreenKind.GLOBAL, null),
     EARNINGS_DIGEST_SETTINGS(ScreenKind.GLOBAL, null),
+    /** 5D.5.6C1: Earnings reminders opened from Settings stay inside the Settings flow (plan §2 row 30); from a tab they are Watchlist's. */
+    SETTINGS_EARNINGS_REMINDERS(ScreenKind.GLOBAL, null),
     NOTIFICATIONS(ScreenKind.GLOBAL, null),
     AUTH(ScreenKind.GLOBAL, null),
     APP_LOCK(ScreenKind.GLOBAL, null)

@@ -15,16 +15,17 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.6B committed and pushed)
+## Current task (as of 2026-10-15, Phase 5D.5.6C1 committed and pushed)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
 Phase 5D.5.4 (Company Details, A–D) is pushed through `0c5c4c4`; the owner runs the TalkBack/VoiceOver pass manually (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md` §9).
 Phase 5D.5.5 Company Search: the plan, 5D.5.5B (`08723a6`), 5D.5.5C (`1d90195`), search logos (`65ad004`) and 5D.5.5D (`458e6a2`) are pushed. The final verification and closure record ("Close Company Search for Global UI Refinement Phase 5D.5.5D with the final verification record and add the Phase 5D.5.6 shared navigation and top app bar planning note") is committed locally, **not pushed**: recommendation CLOSE WITH DEFERRED ITEMS (owner TalkBack/VoiceOver pass; FMP logo display licence **UNVERIFIED**, a launch dependency for logos). Report: `docs/reviews/phase5d_5_5d/PHASE5D_5_5D_VERIFICATION.md` §8.
 Phase 5D.5.5D closure (`ebadf96`) and the 5D.5.6A plan (`912ec7f`, D1–D12 approved; `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6_PLAN.md`) are pushed.
-Phase 5D.5.6B ("Add the Phase 5D.5.6B shared navigation policy and landing top bars with a canonical parent tab per screen, a tested cross-tab trail model and Notifications and Settings on all five landing pages on Android and iOS") is committed and pushed. Report: `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6B.md`; review package: `docs/reviews/phase5d_5_6b/`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-6B-2026-10-15.**
-Next: 5D.5.6C1 (Android per-tab stacks) on the owner's go-ahead, then C2 (iOS), C3, C4 (Portfolio nested tabs), D (QA).
+Phase 5D.5.6B (`11b1e5b`, shared navigation policy + landing top bars) is pushed. Phase 5D.5.6C1 ("Add Android independent tab stacks for Phase 5D.5.6C1 with canonical tab selection, a cross-tab Back trail from the shared navigation model, tab reselection and global Settings and Notifications screens") is committed and pushed (Android only).
+Report: `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C1.md`; review package: `docs/reviews/phase5d_5_6c1/`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-6C1-2026-10-15.**
+Next: 5D.5.6C2 (iOS per-tab stacks) on the owner's go-ahead, then C3, C4 (Portfolio nested tabs), D (QA).
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
@@ -88,7 +89,7 @@ Portfolio conventions (permanent):
     renormalize.
   - Negative cash is a supported state: show `PortfolioPresentation.moneyLine` ("-USD 51.50") + "Unfunded", never clamp.
   - Error banners use `PortfolioDisplay.errorTitle` / `errorRetries` (from `PortfolioUiState.errorSource`).
-  - The Portfolio tab's destinations are listed once in `PortfolioTabRoutes`.
+  - The Portfolio tab's own destinations are listed in `PortfolioTabRoutes` (D3.1 record); tab selection comes from `NavigationPolicy` (5D.5.6C1).
   - Samples have no row actions.
 - **Accessibility (Phase E).** Error and rejection messages are announced once: Compose live region / iOS `AccessibilityNotification`, with the
   screen banner quiet for a rejected save (`PortfolioDisplay.errorAnnounced`). Draw metric labels through `PortfolioPresentation.keepTogether`
@@ -171,7 +172,13 @@ Portfolio conventions (permanent):
     `AppScreensTest` exhaustive when adding a route).
   - The five landing pages use `StockLandingTopBar` (Compose / SwiftUI): page actions, then Notifications (bell, all-alerts history, no badge)
     and Settings (gear), copy from `LandingTopBarDisplay`; icons move under the title only via `StockLayout.metricRowStacked`.
-  - `TabNavigation` (core) is the tested Phase C contract (invariants I1–I11, plan §14); hosts don't use it until 5D.5.6C.
+  - `TabNavigation` (core) is the tested contract (invariants I1–I11, plan §14; `sync` adapts a host's real stack).
+  - (C1, Android) Every route is registered in its policy tab's nested graph through `RouteTable` (modal and global routes at the top level);
+    all navigation goes through `TabNavigator` (`open`, `back`, `selectTab`, `reset`) — never `navController.navigate` to a tab route directly.
+    Tab switches pop the current tab graph with `saveState` and restore the target. One Back path: `AppBackHandler` (after the NavHost) →
+    `TabNavigator.back()`. The bottom bar selects the visible destination's graph and hides on modal/global screens. Notifications is
+    `NotificationsRoute` (global); `AlertsRoute(symbol)` is a stock's alerts (Watchlist); reminders opened from Settings use
+    `SettingsRemindersRoute`. Landing pages call `ScrollToTopOnReselect`.
 - **Contextual learning (5D.5.3).**
   - Metric → Learn term only via core `MetricLearnTerms` (by id: exact term id, then a single `relatedMetrics` owner, else null); never match visible
     titles and never add educational text.

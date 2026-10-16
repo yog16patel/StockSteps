@@ -97,7 +97,9 @@ internal fun LearnScreen(
     }
     Box(Modifier.fillMaxSize().background(colors.appBackground)) {
         AdaptiveSinglePane(hinge) { region ->
-            LazyColumn(region, contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            org.example.stocksteps.presentation.ScrollToTopOnReselect(org.example.stocksteps.navigation.AppTab.LEARN, listState) // D12
+            LazyColumn(region, listState, contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
                 verticalArrangement = Arrangement.spacedBy(spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
                 item("header") {
                     Column(content, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {

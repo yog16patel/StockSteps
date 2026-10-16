@@ -34,9 +34,13 @@ import org.example.stocksteps.watchlist.AlertFilter
 import org.example.stocksteps.watchlist.AlertPresenter
 import org.jetbrains.compose.resources.stringResource
 
-/** All alerts, or one stock's alerts (from a watchlist row or a notification). */
+/** One stock's alerts (from a watchlist row, a holding or a notification); Watchlist's (5D.5.6C1: all alerts are [NotificationsRoute]). */
 @Serializable
 internal data class AlertsRoute(val symbol: String? = null)
+
+/** 5D.5.6C1: Notifications — all alerts and their history — a global screen outside the tabs (plan D5; the bell on every landing page). */
+@Serializable
+internal data object NotificationsRoute
 
 @Composable
 internal fun AlertsScene(

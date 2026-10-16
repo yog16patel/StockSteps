@@ -1,6 +1,5 @@
 package org.example.stocksteps.presentation.portfolio
 
-import androidx.navigation.NavDestination.Companion.hasRoute
 import kotlinx.serialization.Serializable
 
 @Serializable internal data object PortfolioSearchRoute
@@ -14,10 +13,9 @@ import kotlinx.serialization.Serializable
 @Serializable internal data class PortfolioTransactionRoute(val transactionId: String)
 
 /**
- * Phase D3.1: every destination that belongs to the Portfolio tab, so the bottom bar keeps Portfolio selected on them (one rule; screens don't
- * decide). The Add-transaction screen is not listed: it is also opened from Company details on other tabs.
+ * Phase D3.1: the Portfolio dashboard's own destinations (5D.5.6C1: the bottom bar now follows core `NavigationPolicy`; this list stays as
+ * the D3.1 record). The Add-transaction screen is not listed: it is also opened from Company details on other tabs.
  */
 internal val PortfolioTabRoutes: List<kotlin.reflect.KClass<*>> = listOf(PortfolioRoute::class, PortfolioTransactionsRoute::class,
     PortfolioTransactionRoute::class, HoldingDetailsRoute::class, PortfolioInsightsRoute::class)
 
-internal fun androidx.navigation.NavDestination.inPortfolioTab(): Boolean = PortfolioTabRoutes.any { hasRoute(it) }

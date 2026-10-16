@@ -26,6 +26,9 @@ import org.example.stocksteps.presentation.watchlist.NotificationAccess
 /** Settings → Notifications → Earnings Reminders (also from the Watchlist shortcut). */
 @Serializable internal data object EarningsRemindersRoute
 
+/** 5D.5.6C1: the same reminders screen opened from Settings, kept inside the Settings flow (global, no tab change). */
+@Serializable internal data object SettingsRemindersRoute
+
 /** Platform notification permission for earnings screens (provided by the app shell; null in previews). */
 internal val LocalNotificationAccess = staticCompositionLocalOf<NotificationAccess?> { null }
 

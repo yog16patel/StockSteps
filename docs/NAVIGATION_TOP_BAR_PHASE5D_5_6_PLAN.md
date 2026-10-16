@@ -416,7 +416,7 @@ No provider-call change: tab switches only restore entries. The server and API a
   - `StockLandingTopBar` (Compose + SwiftUI) on the five landing pages; Notifications (Alerts modal) and Settings (modal) entry points;
   - Android Settings as a modal route.
   - Verify: device screenshots of all five landing pages (light, dark, 1.3×, 2.0×, AX XL, AX5).
-- **5D.5.6C1 — Android stacks:**
+- **5D.5.6C1 — Android stacks** — implemented 2026-10-15, report `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C1.md`. Added: `TabNavigation.sync` (host adapter), `NotificationsRoute` and `SettingsRemindersRoute` (`ScreenId.SETTINGS_EARNINGS_REMINDERS`):
   - nested tab graphs, `TabNavigator`, canonical cross-tab open, trail Back, reselect (root, then scroll to top);
   - global modals (Search, pickers, transaction form, Auth) without the tab bar;
   - Home restore; process-death check.

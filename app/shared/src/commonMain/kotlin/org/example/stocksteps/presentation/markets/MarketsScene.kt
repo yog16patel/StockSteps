@@ -129,6 +129,7 @@ internal fun MarketsScreen(
     val colors = StockStepsTheme.colors
     val model = remember(state.overview, state.tab, state.expanded, state.loadedAt) { state.model }
     val listState = rememberLazyListState()
+    org.example.stocksteps.presentation.ScrollToTopOnReselect(org.example.stocksteps.navigation.AppTab.MARKETS, listState) // D12: reselecting Markets at its root scrolls to the top
     var lesson by remember { mutableStateOf<MarketLesson?>(null) }
     val content = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxWidth()
     val section = content.padding(top = spacing.sectionGap)

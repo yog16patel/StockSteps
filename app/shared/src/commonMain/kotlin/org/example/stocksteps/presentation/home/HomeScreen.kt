@@ -40,8 +40,11 @@ internal fun HomeScreen(
         .fillMaxWidth()
     Box(Modifier.fillMaxSize().background(StockStepsTheme.colors.appBackground)) {
         AdaptiveSinglePane(hinge) { region ->
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            org.example.stocksteps.presentation.ScrollToTopOnReselect(org.example.stocksteps.navigation.AppTab.HOME, listState) // D12
             LazyColumn(
                 modifier = region,
+                state = listState,
                 contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
                 verticalArrangement = Arrangement.spacedBy(spacing.sectionGap),
                 horizontalAlignment = Alignment.CenterHorizontally

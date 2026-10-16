@@ -29,10 +29,10 @@ class NavigationPolicyTest {
 
     @Test
     fun auditedInventoryIsCovered() {
-        // 5D.5.6A §2: 33 tab destinations + 9 modal/global rows (Company Search is modal; in-screen sheets excluded) = 42 ids.
+        // 5D.5.6A §2: 33 tab destinations + 9 modal/global rows (Company Search is modal; in-screen sheets excluded) = 42 ids, plus the Settings-scope Earnings reminders (5D.5.6C1).
         assertEquals(33, ScreenId.entries.count { NavigationPolicy.isTabScreen(it) })
         assertEquals(4, ScreenId.entries.count { it.kind == ScreenKind.MODAL })
-        assertEquals(5, ScreenId.entries.count { it.kind == ScreenKind.GLOBAL })
+        assertEquals(6, ScreenId.entries.count { it.kind == ScreenKind.GLOBAL })
     }
 
     @Test

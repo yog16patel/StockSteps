@@ -133,6 +133,27 @@ class TabNavigationModelTest {
     }
 
     @Test
+    fun syncFollowsTheHostAndDropsStaleHops() { // 5D.5.6C1 adapter contract, I4
+        val s1 = N.open(N.selectTab(start(), WATCHLIST), ScreenId.COMPANY_DETAILS, "AAPL")
+        val cd = NavEntry(ScreenId.COMPANY_DETAILS, "AAPL"); val root = NavEntry(ScreenId.MARKETS)
+        // The host shows the same stack: nothing changes.
+        assertEquals(s1, N.sync(s1, MARKETS, listOf(root, cd)))
+        // The host popped Company Details itself (an in-screen Back): the hop is gone, Back stays in Markets.
+        val popped = N.sync(s1, MARKETS, listOf(root))
+        assertTrue(popped.hops.isEmpty()); assertEquals(popped, N.back(popped))
+        // The host replaced the entry at the hop's depth (a pop-to flow): the hop no longer points at it.
+        assertTrue(N.sync(s1, MARKETS, listOf(root, NavEntry(ScreenId.COMPANY_DETAILS, "MSFT"))).hops.isEmpty())
+        // Deeper pushes keep the hop; a stack that doesn't start at the tab's root, or holds another tab's screen, is ignored.
+        val deeper = N.sync(s1, MARKETS, listOf(root, cd, NavEntry(ScreenId.COMPANY_NEWS, "AAPL")))
+        assertEquals(s1.hops, deeper.hops); assertEquals(3, deeper.stack(MARKETS).size)
+        assertEquals(s1, N.sync(s1, MARKETS, listOf(cd)))
+        assertEquals(s1, N.sync(s1, MARKETS, listOf(root, NavEntry(ScreenId.LEARN_TERM, "pe"))))
+        // Process restoration: hops survive when the restored stack matches.
+        val restored = N.sync(s1.copy(selected = WATCHLIST), MARKETS, listOf(root, cd))
+        assertEquals(MARKETS, restored.selected); assertEquals(s1.hops, restored.hops)
+    }
+
+    @Test
     fun randomWalksKeepInvariants() { // I1–I4 over long deterministic sequences of every operation
         val screens = ScreenId.entries
         var seed = 7L

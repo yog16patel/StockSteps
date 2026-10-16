@@ -86,8 +86,11 @@ internal fun WatchListScreen(state: WatchListState, hinge: WindowHinge?, onActio
     val content = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxWidth()
     Box(Modifier.fillMaxSize().background(colors.appBackground)) {
         AdaptiveSinglePane(hinge) { region ->
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+            org.example.stocksteps.presentation.ScrollToTopOnReselect(org.example.stocksteps.navigation.AppTab.WATCHLIST, listState) // D12
             PullToRefreshBox(isRefreshing = state.lists.loading && state.lists.value != null, onRefresh = { onAction(WatchListAction.Refresh) }, modifier = region) {
                 LazyColumn(
+                    state = listState,
                     contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, bottom = spacing.xl),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxSize()

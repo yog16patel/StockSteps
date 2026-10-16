@@ -65,6 +65,19 @@ object TabNavigation {
         else state.copy(hops = emptyList()) to ReselectEffect.SCROLL_TO_TOP
     }
 
+    /**
+     * Platform adapter (5D.5.6C1): the host's real stack for [tab] (root first) replaces the model's, [tab] becomes the visible tab, and every hop
+     * whose entry is gone or was replaced (a different entry now sits at its depth) is dropped (I4). Hosts call it after each change of their
+     * back stack, so pops they perform themselves (in-screen Back, pop-to flows) can never leave a stale hop. A stack that doesn't start with
+     * [tab]'s root is ignored.
+     */
+    fun sync(state: TabNavigationState, tab: AppTab, entries: List<NavEntry>): TabNavigationState {
+        if (entries.firstOrNull()?.screen != NavigationPolicy.root(tab) || entries.drop(1).any { it.screen.tab != tab }) return state
+        val old = state.stack(tab)
+        val hops = state.hops.filter { it.tab != tab || (it.depth <= entries.size && it.depth <= old.size && entries[it.depth - 1] == old[it.depth - 1]) }
+        return TabNavigationState(state.stacks + (tab to entries), tab, hops)
+    }
+
     /** Sign-out or an ended session: every stack back to its root, Home selected, no trail (I11). */
     fun reset(): TabNavigationState = TabNavigationState.initial()
 }

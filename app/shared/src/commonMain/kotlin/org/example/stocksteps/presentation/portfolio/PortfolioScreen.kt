@@ -97,8 +97,11 @@ internal fun PortfolioScreen(
     // D3: the confirmation sits above the list (an empty list item would still take a gap), like the iOS top inset.
     Column(modifier) {
         feedback?.let { PortfolioActionBanner(it, state.actionResult, Modifier.padding(start = spacing.screen, end = spacing.screen, top = spacing.sm)) } // nonblocking, auto-hides
+        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+        if (listMode) org.example.stocksteps.presentation.ScrollToTopOnReselect(org.example.stocksteps.navigation.AppTab.PORTFOLIO, listState) // D12 (the dashboard only)
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
+            state = listState,
             contentPadding = PaddingValues(spacing.screen),
             verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {

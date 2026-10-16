@@ -66,9 +66,12 @@ internal fun AppNavigation(
     }
     // Choose once after Firebase restoration; later account changes must not reset navigation.
     val initialRoute: Any = remember {
-        if (accounts == null || session?.user != null) DiscoveryRoute else AuthRoute()
+        if (accounts == null || session?.user != null) HomeGraph else AuthRoute()
     }
     val navController = rememberNavController()
+    // 5D.5.6C1: five independent tab stacks with canonical tab selection and the cross-tab Back trail (core TabNavigation, plan §4–5).
+    val trail = androidx.compose.runtime.saveable.rememberSaveable(saver = TabNavigator.SnapshotSaver) { mutableStateOf(TrailSnapshot()) }
+    val nav = remember(navController) { TabNavigator(navController, trail) }
     // Signing out (or Firebase ending the session) always lands on Login with an empty back stack,
     // so Back can't reopen screens from the previous account.
     var previousUser by remember { mutableStateOf(session?.user?.id) }
@@ -79,26 +82,16 @@ internal fun AppNavigation(
                 popUpTo(navController.graph.id) { inclusive = true }
                 launchSingleTop = true
             }
+            nav.reset() // no saved tab stack or trail of the previous account survives (I11)
         }
         previousUser = current
     }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
 
-    fun openTab(tab: MainDestination) {
-        val route: Any = when (tab) {
-            MainDestination.HOME -> DiscoveryRoute
-            MainDestination.PORTFOLIO -> PortfolioRoute
-            MainDestination.MARKETS -> MarketsRoute
-            MainDestination.WATCHLIST -> WatchListRoute
-            MainDestination.LEARN -> LearnRoute
-        }
-        navController.navigate(route) {
-            popUpTo(DiscoveryRoute) { saveState = true }
-            launchSingleTop = true
-            restoreState = tab != MainDestination.HOME
-        }
-    }
+    /** A tab tap or a programmatic jump to a landing page (restores that tab's stack; the visible tab is reselected). */
+    fun openTab(tab: MainDestination) = nav.selectTab(org.example.stocksteps.navigation.AppTab.valueOf(tab.name))
+    LaunchedEffect(backStackEntry) { nav.sync() } // pops performed anywhere (in-screen Back, pop-to flows) reach the trail model
 
     val isAuth = destination?.hasRoute<AuthRoute>() == true
     val isSearch = destination?.hasRoute<StockSearchRoute>() == true || destination?.hasRoute<PortfolioSearchRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeSearchRoute>() == true
@@ -116,19 +109,20 @@ internal fun AppNavigation(
     val isSettings = destination?.hasRoute<SettingsRoute>() == true
     val isMarkets = destination?.hasRoute<MarketsRoute>() == true
     val isWatchlist = destination?.hasRoute<WatchListRoute>() == true
-    val isAlerts = destination?.hasRoute<org.example.stocksteps.presentation.watchlist.AlertsRoute>() == true
+    val isAlerts = destination?.hasRoute<org.example.stocksteps.presentation.watchlist.AlertsRoute>() == true ||
+        destination?.hasRoute<org.example.stocksteps.presentation.watchlist.NotificationsRoute>() == true
     androidx.compose.runtime.LaunchedEffect(notificationLinks) {
         // "brief:<id>" opens a Daily Market Brief, "earnings:<eventId>" an earnings event, "earnings-calendar" the calendar;
         // anything else is an alert's stock symbol.
         notificationLinks?.collect { link ->
             when {
-                link.startsWith("brief:") -> navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefRoute(link.removePrefix("brief:").takeIf { it.isNotBlank() }))
-                link.startsWith("earnings-results:") -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(link.removePrefix("earnings-results:"))?.let { navController.navigate(it) }
-                link.startsWith("earnings:") -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(link.removePrefix("earnings:")))
-                link == "earnings-calendar" -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute())
+                link.startsWith("brief:") -> nav.open(org.example.stocksteps.presentation.brief.DailyBriefRoute(link.removePrefix("brief:").takeIf { it.isNotBlank() }))
+                link.startsWith("earnings-results:") -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(link.removePrefix("earnings-results:"))?.let { nav.open(it) }
+                link.startsWith("earnings:") -> nav.open(org.example.stocksteps.presentation.earnings.EarningsEventRoute(link.removePrefix("earnings:")))
+                link == "earnings-calendar" -> nav.open(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute())
                 // Weekly digest (StockSteps+): the app fetches the digest with the signed-in token.
-                link == "earnings-digest" -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDigestRoute)
-                else -> navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(link))
+                link == "earnings-digest" -> nav.open(org.example.stocksteps.presentation.earnings.EarningsDigestRoute)
+                else -> nav.open(org.example.stocksteps.presentation.watchlist.AlertsRoute(link))
             }
         }
     }
@@ -143,26 +137,29 @@ internal fun AppNavigation(
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonResearchRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.screener.ComparisonAiRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCalendarRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true ||
-        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsResultsRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute>() == true ||
+        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsResultsRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.SettingsRemindersRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.learn.LearnTopicsRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.learn.LearnTermRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeOrderRoute>() == true
     // Practice needs an account: the server keeps the simulated ledger.
-    val openPractice: () -> Unit = { if (accounts?.auth?.session?.value?.user == null) navController.navigate(AuthRoute()) else navController.navigate(org.example.stocksteps.presentation.practice.PracticeRoute) { launchSingleTop = true } }
-    val practiceTrade: (String, String) -> Unit = { symbol, side -> if (accounts?.auth?.session?.value?.user == null) navController.navigate(AuthRoute()) else navController.navigate(org.example.stocksteps.presentation.practice.PracticeOrderRoute(symbol, side)) }
-    val backToPractice: () -> Unit = { navController.navigate(org.example.stocksteps.presentation.practice.PracticeRoute) { popUpTo<org.example.stocksteps.presentation.practice.PracticeRoute> { inclusive = true }; launchSingleTop = true } }
-    val openResearch: (String, String?) -> Unit = { symbol, name -> navController.navigate(org.example.stocksteps.presentation.research.GuidedResearchRoute(symbol, name)) }
+    val openPractice: () -> Unit = { if (accounts?.auth?.session?.value?.user == null) nav.open(AuthRoute()) else nav.open(org.example.stocksteps.presentation.practice.PracticeRoute) }
+    val practiceTrade: (String, String) -> Unit = { symbol, side -> if (accounts?.auth?.session?.value?.user == null) nav.open(AuthRoute()) else nav.open(org.example.stocksteps.presentation.practice.PracticeOrderRoute(symbol, side)) }
+    // Back to the Practice entry already on the stack (keeps its entry, so a cross-tab hop to it stays valid), else open Practice.
+    val backToPractice: () -> Unit = { if (!navController.popBackStack<org.example.stocksteps.presentation.practice.PracticeRoute>(inclusive = false)) nav.open(org.example.stocksteps.presentation.practice.PracticeRoute) }
+    val openResearch: (String, String?) -> Unit = { symbol, name -> nav.open(org.example.stocksteps.presentation.research.GuidedResearchRoute(symbol, name)) }
     // Every stock tap (Home movers, Watchlist, Search) opens the same Company Details page.
     val addPortfolio: (InstrumentRef) -> Unit = { instrument ->
-        navController.navigate(PortfolioEntryRoute(instrument.symbol, instrument.name, instrument.exchange, instrument.currency))
+        nav.open(PortfolioEntryRoute(instrument.symbol, instrument.name, instrument.exchange, instrument.currency))
     }
-    val openStock: (String) -> Unit = { symbol -> navController.navigate(CompanyDetailsRoute(symbol)) }
+    val openStock: (String) -> Unit = { symbol -> nav.open(CompanyDetailsRoute(symbol)) }
     // 5D.5.6B landing bars: Notifications is the all-alerts history (never a stock filter) and Settings the existing screen, both pushed on the
     // current stack as before, so Back returns to the exact landing page; the global-modal presentation (plan §6) arrives with Phase C.
-    val openNotifications: () -> Unit = { navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(null)) { launchSingleTop = true } }
-    val openSettings: () -> Unit = { navController.navigate(SettingsRoute) { launchSingleTop = true } }
+    val openNotifications: () -> Unit = { nav.open(org.example.stocksteps.presentation.watchlist.NotificationsRoute) }
+    val openSettings: () -> Unit = { nav.open(SettingsRoute) }
+    // A stock's alerts are Watchlist's; all alerts are Notifications (global, 5D.5.6C1).
+    val openAlerts: (String?) -> Unit = { symbol -> if (symbol == null) openNotifications() else nav.open(AlertsRoute(symbol)) }
     // Scaffold applies status/navigation-bar insets once and consumes them for the content,
     // so screens' own safe-content padding does not double them.
     Scaffold(
@@ -183,7 +180,8 @@ internal fun AppNavigation(
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsCalendarRoute>() == true -> "Earnings"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsEventRoute>() == true -> "Earnings event"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsResultsRoute>() == true -> "Earnings results"
-                        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute>() == true -> "Earnings reminders"
+                        destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute>() == true ||
+                            destination?.hasRoute<org.example.stocksteps.presentation.earnings.SettingsRemindersRoute>() == true -> "Earnings reminders"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestRoute>() == true -> "Earnings digest"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute>() == true -> "Earnings digest & AI"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true -> "Earnings details"
@@ -206,12 +204,15 @@ internal fun AppNavigation(
                     visible = !isAuth && !isHome && destination?.hasRoute<LearnRoute>() != true && destination?.hasRoute<PortfolioRoute>() != true && !isMarkets && !isWatchlist && !isAlerts && !isCompanyDetails && !isCompanyFinancials && !isCompanyValuation && !isNewsInsight && !isMovement,
                     backButton = if (hasBack) AppBarBackButton.BACK else AppBarBackButton.NONE
                 ),
-                onBack = { navController.popBackStack() },
+                onBack = { nav.back() },
                 backIcon = backIcon
             )
         },
         bottomBar = {
-            val showTabs = destination != null && !isSearch && !isAuth
+            // 5D.5.6C1: tabs show on every tab screen and never on modal or global ones (NavigationPolicy); the selected tab is the visible
+            // screen's canonical tab — the graph it lives in — whatever it was opened from.
+            val showTabs = destination?.let(::screenIdOf)?.let(org.example.stocksteps.navigation.NavigationPolicy::showsBottomNavigation) == true
+            val currentTab = destination?.tab()
             Column {
                 if (sampleData) {
                     StockSampleDataBanner(
@@ -222,14 +223,7 @@ internal fun AppNavigation(
                 if (showTabs) {
                     StockBottomNavigation(labels = MainDestination.entries.map { stringResource(it.labelResource()) }) {
                         MainDestination.entries.forEach { tab ->
-                            val selected = when (tab) {
-                                MainDestination.HOME -> isHome
-                                MainDestination.PORTFOLIO -> destination.inPortfolioTab() // D3.1: one rule for every Portfolio destination
-                                MainDestination.MARKETS -> isMarkets
-                                MainDestination.WATCHLIST -> destination.hasRoute<WatchListRoute>()
-                                MainDestination.LEARN -> destination.hasRoute<LearnRoute>() || destination.hasRoute<org.example.stocksteps.presentation.learn.LearnTopicsRoute>() ||
-                                    destination.hasRoute<org.example.stocksteps.presentation.learn.LearnTermRoute>()
-                            }
+                            val selected = currentTab?.name == tab.name
                             StockBottomNavigationItem(
                                 selected = selected,
                                 label = stringResource(tab.labelResource()),
@@ -242,7 +236,8 @@ internal fun AppNavigation(
             }
         }
     ) { innerPadding ->
-      androidx.compose.runtime.CompositionLocalProvider(org.example.stocksteps.presentation.earnings.LocalNotificationAccess provides notifications) {
+      androidx.compose.runtime.CompositionLocalProvider(org.example.stocksteps.presentation.earnings.LocalNotificationAccess provides notifications,
+          LocalTabReselect provides nav.reselects) {
         NavHost(
             navController = navController,
             startDestination = initialRoute,
@@ -251,376 +246,419 @@ internal fun AppNavigation(
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding)
         ) {
-            composable<DiscoveryRoute> {
-                val homeLocked = appLock?.state?.collectAsStateWithLifecycle()?.value == org.example.stocksteps.security.AppLockState.LOCKED
-                if (accounts != null && !homeLocked) HomeScene(
-                    backend = backend,
-                    environment = environment,
-                    accounts = accounts,
-                    hinge = hinge,
-                    onLearn = { openTab(MainDestination.LEARN) },
-                    onSearch = { navController.navigate(StockSearchRoute()) },
-                    onWatchlist = { openTab(MainDestination.WATCHLIST) },
-                    onPortfolio = { openTab(MainDestination.PORTFOLIO) },
-                    onSettings = openSettings,
-                    onAlerts = { symbol -> if (symbol == null) openNotifications() else navController.navigate(AlertsRoute(symbol)) },
-                    onExplore = openStock,
-                    onEarnings = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
-                    onResearch = openResearch,
-                    onPractice = openPractice,
-                    onDailyBrief = { navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefRoute()) }
-                )
-            }
-            composable<PortfolioRoute> {
-                if (accounts != null) PortfolioScene(accounts,
-                    onAdd = { navController.navigate(PortfolioEntryRoute()) },
-                    onHolding = { account, symbol -> navController.navigate(HoldingDetailsRoute(account, symbol)) },
-                    onOpenCompany = openStock, hinge = hinge,
-                    onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) },
-                    onInsights = { navController.navigate(PortfolioInsightsRoute) },
-                    onPractice = openPractice,
-                    onTransactions = { account, symbol -> navController.navigate(PortfolioTransactionsRoute(account, symbol)) },
-                    onOpenTransaction = { navController.navigate(PortfolioTransactionRoute(it)) },
-                    onNotifications = openNotifications, onSettings = openSettings)
-            }
-            composable<org.example.stocksteps.presentation.screener.ScreenerRoute> { entry ->
-                org.example.stocksteps.presentation.screener.ScreenerScene(
-                    route = entry.toRoute(), backend = backend, environment = environment, accounts = accounts, hinge = hinge,
-                    onOpenStock = openStock,
-                    onCompare = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute) },
-                    onAddPortfolio = addPortfolio,
-                    onSignIn = { navController.navigate(AuthRoute()) }
-                )
-            }
-            composable<org.example.stocksteps.presentation.screener.ComparisonRoute> {
-                org.example.stocksteps.presentation.screener.ComparisonScene(backend, environment, hinge, onOpenStock = openStock,
-                    onDiscover = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
-                    accounts = accounts, onUpgrade = { navController.navigate(SettingsRoute) }, onSignIn = { navController.navigate(AuthRoute()) },
-                    onResearch = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonResearchRoute) },
-                    onAskAi = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonAiRoute()) })
-            }
-            composable<org.example.stocksteps.presentation.screener.ComparisonResearchRoute> { entry ->
-                // Reuses the Compare destination's ViewModel (and its already-loaded data) when it's on the back stack.
-                val compareEntry = remember(entry) { runCatching { navController.getBackStackEntry<org.example.stocksteps.presentation.screener.ComparisonRoute>() }.getOrNull() }
-                org.example.stocksteps.presentation.screener.ComparisonResearchScene(backend, environment, accounts, compareEntry, hinge,
-                    onSignIn = { navController.navigate(AuthRoute()) }, onUpgrade = { navController.navigate(SettingsRoute) },
-                    onAskAi = { q, session, hasNote -> navController.navigate(org.example.stocksteps.presentation.screener.ComparisonAiRoute(q, session, hasNote)) })
-            }
-            composable<org.example.stocksteps.presentation.screener.ComparisonAiRoute> { entry ->
-                // Same Compare ViewModel as the research checklist: no second comparison request, selection kept.
-                val compareEntry = remember(entry) { runCatching { navController.getBackStackEntry<org.example.stocksteps.presentation.screener.ComparisonRoute>() }.getOrNull() }
-                org.example.stocksteps.presentation.screener.ComparisonAiScene(entry.toRoute(), backend, environment, accounts, compareEntry, hinge,
-                    onBack = { if (compareEntry != null) navController.popBackStack(org.example.stocksteps.presentation.screener.ComparisonRoute, inclusive = false) else navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute) },
-                    onSignIn = { navController.navigate(AuthRoute()) }, onUpgrade = { navController.navigate(SettingsRoute) })
-            }
-            composable<PortfolioInsightsRoute> {
-                if (accounts != null) PortfolioInsightsScene(accounts, onOpenCompany = openStock, onSignIn = { navController.navigate(AuthRoute()) }, hinge = hinge)
-            }
-            composable<HoldingDetailsRoute> { entry ->
-                if (accounts != null) PortfolioScene(accounts,
-                    onAdd = { navController.navigate(PortfolioEntryRoute()) },
-                    onHolding = { _, _ -> }, onOpenCompany = openStock, holding = entry.toRoute(), hinge = hinge,
-                    onSignIn = { navController.navigate(AuthRoute()) }, onAlerts = { navController.navigate(AlertsRoute(it)) },
-                    onTransactions = { account, symbol -> navController.navigate(PortfolioTransactionsRoute(account, symbol)) },
-                    onOpenTransaction = { navController.navigate(PortfolioTransactionRoute(it)) })
-            }
-            // Phase D2: Transaction history inside Portfolio (not a tab); shares the dashboard's presenter.
-            composable<PortfolioTransactionsRoute> { entry ->
-                if (accounts != null) PortfolioTransactionsScene(accounts, entry.toRoute(), onAdd = { navController.navigate(PortfolioEntryRoute()) },
-                    onSignIn = { navController.navigate(AuthRoute()) }, hinge = hinge,
-                    onOpenTransaction = { navController.navigate(PortfolioTransactionRoute(it)) })
-            }
-            // Phase D3: Transaction details (identity only; same presenter as the dashboard).
-            composable<PortfolioTransactionRoute> { entry ->
-                if (accounts != null) PortfolioTransactionScene(accounts, entry.toRoute(), onBack = { navController.popBackStack() },
-                    onSignIn = { navController.navigate(AuthRoute()) }, hinge = hinge)
-            }
-            composable<org.example.stocksteps.presentation.practice.PracticeSearchRoute> {
-                StockSearchScene(
-                    route = StockSearchRoute(),
-                    backend = backend,
-                    environment = environment,
-                    hinge = hinge,
-                    accounts = accounts,
-                    recentSearches = recentSearches,
-                    onOpenStock = { stock ->
-                        navController.navigate(org.example.stocksteps.presentation.practice.PracticeOrderRoute(stock.symbol, "BUY")) { popUpTo<org.example.stocksteps.presentation.practice.PracticeSearchRoute> { inclusive = true } }
-                    }
-                )
-            }
-            composable<PortfolioSearchRoute> {
-                StockSearchScene(
-                    route = StockSearchRoute(),
-                    backend = backend,
-                    environment = environment,
-                    hinge = hinge,
-                    accounts = accounts,
-                    recentSearches = recentSearches,
-                    onOpenStock = { stock ->
-                        val selected = PortfolioEntryRoute(stock.symbol, stock.name, stock.exchange, stock.currency)
-                        navController.previousBackStackEntry?.savedStateHandle?.set(
-                            "portfolio.selection", arrayOf(selected.symbol, selected.name.orEmpty(), selected.exchange.orEmpty(), selected.currency.orEmpty())
-                        )
-                        navController.popBackStack()
-                    }
-                )
-            }
-            composable<PortfolioEntryRoute> { entry ->
-                val selection by entry.savedStateHandle.getStateFlow("portfolio.selection", emptyArray<String>()).collectAsStateWithLifecycle()
-                val selected = remember(selection) {
-                    selection.takeIf { it.size == 4 }?.let { PortfolioEntryRoute(it[0], it[1], it[2], it[3]) }
+            // 5D.5.6C1: every route is registered once, in the graph of its canonical tab (core NavigationPolicy via AppRouteScreens), or at the
+            // top level when it is modal or global — graph membership is the policy, never a second table.
+            val routes = RouteTable().apply {
+                route<DiscoveryRoute> {
+                    val homeLocked = appLock?.state?.collectAsStateWithLifecycle()?.value == org.example.stocksteps.security.AppLockState.LOCKED
+                    if (accounts != null && !homeLocked) HomeScene(
+                        backend = backend,
+                        environment = environment,
+                        accounts = accounts,
+                        hinge = hinge,
+                        onLearn = { openTab(MainDestination.LEARN) },
+                        onSearch = { nav.open(StockSearchRoute()) },
+                        onWatchlist = { openTab(MainDestination.WATCHLIST) },
+                        onPortfolio = { openTab(MainDestination.PORTFOLIO) },
+                        onSettings = openSettings,
+                        onAlerts = openAlerts,
+                        onExplore = openStock,
+                        onEarnings = { symbol -> nav.open(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
+                        onResearch = openResearch,
+                        onPractice = openPractice,
+                        onDailyBrief = { nav.open(org.example.stocksteps.presentation.brief.DailyBriefRoute()) }
+                    )
                 }
-                if (accounts != null) PortfolioEntryScene(
-                    accounts,
-                    selected ?: entry.toRoute(),
-                    onSearch = { navController.navigate(PortfolioSearchRoute) },
-                    onDone = {
-                        // D3: back to a Portfolio screen → it announces "Transaction added"; elsewhere (e.g. Company details) nothing does.
-                        val back = navController.previousBackStackEntry?.destination
-                        val portfolio = back?.hasRoute<PortfolioRoute>() == true || back?.hasRoute<PortfolioTransactionsRoute>() == true ||
-                            back?.hasRoute<HoldingDetailsRoute>() == true || back?.hasRoute<PortfolioTransactionRoute>() == true
-                        if (!portfolio) accounts.portfolioFeedback.skip(accounts.portfolioPresenter.state.value.actionResult)
-                        navController.popBackStack()
+                route<PortfolioRoute> {
+                    if (accounts != null) PortfolioScene(accounts,
+                        onAdd = { nav.open(PortfolioEntryRoute()) },
+                        onHolding = { account, symbol -> nav.open(HoldingDetailsRoute(account, symbol)) },
+                        onOpenCompany = openStock, hinge = hinge,
+                        onSignIn = { nav.open(AuthRoute()) }, onAlerts = { nav.open(AlertsRoute(it)) },
+                        onInsights = { nav.open(PortfolioInsightsRoute) },
+                        onPractice = openPractice,
+                        onTransactions = { account, symbol -> nav.open(PortfolioTransactionsRoute(account, symbol)) },
+                        onOpenTransaction = { nav.open(PortfolioTransactionRoute(it)) },
+                        onNotifications = openNotifications, onSettings = openSettings)
+                }
+                route<org.example.stocksteps.presentation.screener.ScreenerRoute> { entry ->
+                    org.example.stocksteps.presentation.screener.ScreenerScene(
+                        route = entry.toRoute(), backend = backend, environment = environment, accounts = accounts, hinge = hinge,
+                        onOpenStock = openStock,
+                        onCompare = { nav.open(org.example.stocksteps.presentation.screener.ComparisonRoute) },
+                        onAddPortfolio = addPortfolio,
+                        onSignIn = { nav.open(AuthRoute()) }
+                    )
+                }
+                route<org.example.stocksteps.presentation.screener.ComparisonRoute> {
+                    org.example.stocksteps.presentation.screener.ComparisonScene(backend, environment, hinge, onOpenStock = openStock,
+                        onDiscover = { nav.open(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
+                        accounts = accounts, onUpgrade = { nav.open(SettingsRoute) }, onSignIn = { nav.open(AuthRoute()) },
+                        onResearch = { nav.open(org.example.stocksteps.presentation.screener.ComparisonResearchRoute) },
+                        onAskAi = { nav.open(org.example.stocksteps.presentation.screener.ComparisonAiRoute()) })
+                }
+                route<org.example.stocksteps.presentation.screener.ComparisonResearchRoute> { entry ->
+                    // Reuses the Compare destination's ViewModel (and its already-loaded data) when it's on the back stack.
+                    val compareEntry = remember(entry) { runCatching { navController.getBackStackEntry<org.example.stocksteps.presentation.screener.ComparisonRoute>() }.getOrNull() }
+                    org.example.stocksteps.presentation.screener.ComparisonResearchScene(backend, environment, accounts, compareEntry, hinge,
+                        onSignIn = { nav.open(AuthRoute()) }, onUpgrade = { nav.open(SettingsRoute) },
+                        onAskAi = { q, session, hasNote -> nav.open(org.example.stocksteps.presentation.screener.ComparisonAiRoute(q, session, hasNote)) })
+                }
+                route<org.example.stocksteps.presentation.screener.ComparisonAiRoute> { entry ->
+                    // Same Compare ViewModel as the research checklist: no second comparison request, selection kept.
+                    val compareEntry = remember(entry) { runCatching { navController.getBackStackEntry<org.example.stocksteps.presentation.screener.ComparisonRoute>() }.getOrNull() }
+                    org.example.stocksteps.presentation.screener.ComparisonAiScene(entry.toRoute(), backend, environment, accounts, compareEntry, hinge,
+                        onBack = { if (compareEntry != null) navController.popBackStack(org.example.stocksteps.presentation.screener.ComparisonRoute, inclusive = false) else nav.open(org.example.stocksteps.presentation.screener.ComparisonRoute) },
+                        onSignIn = { nav.open(AuthRoute()) }, onUpgrade = { nav.open(SettingsRoute) })
+                }
+                route<PortfolioInsightsRoute> {
+                    if (accounts != null) PortfolioInsightsScene(accounts, onOpenCompany = openStock, onSignIn = { nav.open(AuthRoute()) }, hinge = hinge)
+                }
+                route<HoldingDetailsRoute> { entry ->
+                    if (accounts != null) PortfolioScene(accounts,
+                        onAdd = { nav.open(PortfolioEntryRoute()) },
+                        onHolding = { _, _ -> }, onOpenCompany = openStock, holding = entry.toRoute(), hinge = hinge,
+                        onSignIn = { nav.open(AuthRoute()) }, onAlerts = { nav.open(AlertsRoute(it)) },
+                        onTransactions = { account, symbol -> nav.open(PortfolioTransactionsRoute(account, symbol)) },
+                        onOpenTransaction = { nav.open(PortfolioTransactionRoute(it)) })
+                }
+                // Phase D2: Transaction history inside Portfolio (not a tab); shares the dashboard's presenter.
+                route<PortfolioTransactionsRoute> { entry ->
+                    if (accounts != null) PortfolioTransactionsScene(accounts, entry.toRoute(), onAdd = { nav.open(PortfolioEntryRoute()) },
+                        onSignIn = { nav.open(AuthRoute()) }, hinge = hinge,
+                        onOpenTransaction = { nav.open(PortfolioTransactionRoute(it)) })
+                }
+                // Phase D3: Transaction details (identity only; same presenter as the dashboard).
+                route<PortfolioTransactionRoute> { entry ->
+                    if (accounts != null) PortfolioTransactionScene(accounts, entry.toRoute(), onBack = { nav.back() },
+                        onSignIn = { nav.open(AuthRoute()) }, hinge = hinge)
+                }
+                route<org.example.stocksteps.presentation.practice.PracticeSearchRoute> {
+                    StockSearchScene(
+                        route = StockSearchRoute(),
+                        backend = backend,
+                        environment = environment,
+                        hinge = hinge,
+                        accounts = accounts,
+                        recentSearches = recentSearches,
+                        onOpenStock = { stock ->
+                            nav.open(org.example.stocksteps.presentation.practice.PracticeOrderRoute(stock.symbol, "BUY")) // closes the picker first (modal rule)
+                        }
+                    )
+                }
+                route<PortfolioSearchRoute> {
+                    StockSearchScene(
+                        route = StockSearchRoute(),
+                        backend = backend,
+                        environment = environment,
+                        hinge = hinge,
+                        accounts = accounts,
+                        recentSearches = recentSearches,
+                        onOpenStock = { stock ->
+                            val selected = PortfolioEntryRoute(stock.symbol, stock.name, stock.exchange, stock.currency)
+                            navController.previousBackStackEntry?.savedStateHandle?.set(
+                                "portfolio.selection", arrayOf(selected.symbol, selected.name.orEmpty(), selected.exchange.orEmpty(), selected.currency.orEmpty())
+                            )
+                            nav.back()
+                        }
+                    )
+                }
+                route<PortfolioEntryRoute> { entry ->
+                    val selection by entry.savedStateHandle.getStateFlow("portfolio.selection", emptyArray<String>()).collectAsStateWithLifecycle()
+                    val selected = remember(selection) {
+                        selection.takeIf { it.size == 4 }?.let { PortfolioEntryRoute(it[0], it[1], it[2], it[3]) }
                     }
-                )
-            }
-            composable<MarketsRoute> {
-                MarketsScene(
-                    backend = backend,
-                    environment = environment,
-                    hinge = hinge,
-                    onOpenStock = openStock,
-                    onWhyMoved = { symbol -> navController.navigate(StockMovementRoute(symbol)) },
-                    onSearch = { navController.navigate(StockSearchRoute()) },
-                    onDiscover = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
-                    onCompare = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute) },
-                    onEarnings = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute()) },
-                    accounts = accounts,
-                    brief = accounts?.dailyBrief,
-                    onDailyBrief = { navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefRoute()) },
-                    onBriefHistory = { navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute) },
-                    onNotifications = openNotifications, onSettings = openSettings
-                )
-            }
-            composable<org.example.stocksteps.presentation.brief.DailyBriefRoute> { entry ->
-                if (accounts != null) org.example.stocksteps.presentation.brief.DailyBriefScene(entry.toRoute(), accounts.dailyBrief, hinge,
-                    onOpenStock = openStock,
-                    onHistory = { navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute) },
-                    onOpenBrief = { id -> navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefRoute(id)) },
-                    onWatchlist = { openTab(MainDestination.WATCHLIST) },
-                    onLearn = { openTab(MainDestination.LEARN) },
-                    onSignIn = { navController.navigate(AuthRoute()) },
-                    onUpgrade = { navController.navigate(SettingsRoute) },
-                    onOpenEarnings = { id -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(id)) },
-                    onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } },
-                    onOpenDigest = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDigestRoute) })
-            }
-            composable<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute> {
-                if (accounts != null) org.example.stocksteps.presentation.brief.DailyBriefHistoryScene(accounts.dailyBrief, hinge,
-                    onOpenBrief = { id -> navController.navigate(org.example.stocksteps.presentation.brief.DailyBriefRoute(id)) },
-                    onUpgrade = { navController.navigate(SettingsRoute) })
-            }
-            composable<org.example.stocksteps.presentation.earnings.EarningsCalendarRoute> { entry ->
-                org.example.stocksteps.presentation.earnings.EarningsCalendarScene(entry.toRoute(), backend, environment, accounts, hinge,
-                    onOpenEvent = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(it)) },
-                    onSignIn = { navController.navigate(AuthRoute()) },
-                    onDigest = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDigestRoute) },
-                    onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } })
-            }
-            composable<org.example.stocksteps.presentation.earnings.EarningsEventRoute> { entry ->
-                org.example.stocksteps.presentation.earnings.EarningsEventScene(entry.toRoute(), backend, environment, accounts, hinge,
-                    onOpenCompany = openStock,
-                    onOpenCalendar = { date -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(date)) },
-                    onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } },
-                    onSignIn = { navController.navigate(AuthRoute()) })
-            }
-            composable<org.example.stocksteps.presentation.earnings.EarningsResultsRoute> { entry ->
-                org.example.stocksteps.presentation.earnings.EarningsResultsScene(entry.toRoute(), backend, environment, accounts, hinge,
-                    onOpenCompany = openStock, onLearn = { openTab(MainDestination.LEARN) },
-                    // No purchase flow exists yet: Settings shows the plan (and, in MOCK, the simulated plan switch).
-                    onUpgrade = { navController.navigate(SettingsRoute) }, onSignIn = { navController.navigate(AuthRoute()) })
-            }
-            composable<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute> { entry ->
-                org.example.stocksteps.presentation.earnings.EarningsDetailsScene(entry.toRoute(), backend, environment, accounts, hinge,
-                    onOpenCompany = openStock, onSignIn = { navController.navigate(AuthRoute()) },
-                    // No purchase flow exists yet: Settings shows the plan (and, in MOCK, the simulated plan switch).
-                    onUpgrade = { navController.navigate(SettingsRoute) })
-            }
-            composable<WatchListRoute> {
-                if (accounts != null) WatchListScene(
-                    accounts = accounts,
-                    hinge = hinge,
-                    notifications = notifications,
-                    onSignIn = { navController.navigate(AuthRoute()) },
-                    onSearch = { navController.navigate(StockSearchRoute()) },
-                    onOpenStock = openStock,
-                    onAddPortfolio = addPortfolio,
-                    onOpenAlerts = { symbol -> navController.navigate(org.example.stocksteps.presentation.watchlist.AlertsRoute(symbol)) },
-                    onEarnings = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(filter = "WATCHLIST")) },
-                    onEarningsReminders = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsRemindersRoute) },
-                    onCompare = { navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute) },
-                    onNotifications = openNotifications, onSettings = openSettings
-                )
-            }
-            composable<org.example.stocksteps.presentation.watchlist.AlertsRoute> { entry ->
-                if (accounts != null) org.example.stocksteps.presentation.watchlist.AlertsScene(
-                    route = entry.toRoute<org.example.stocksteps.presentation.watchlist.AlertsRoute>(),
-                    accounts = accounts,
-                    hinge = hinge,
-                    notifications = notifications,
-                    backIcon = backIcon,
-                    onBack = { navController.popBackStack() },
-                    onOpenStock = openStock,
-                    onSignIn = { navController.navigate(AuthRoute()) }
-                )
-            }
-            composable<LearnRoute> {
-                LearnScene(hinge, accounts, onResearch = openResearch, onSearch = { navController.navigate(StockSearchRoute()) }, onPractice = openPractice,
-                    onTopics = { topic, search -> navController.navigate(org.example.stocksteps.presentation.learn.LearnTopicsRoute(topic, search)) },
-                    onTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) },
-                    onNotifications = openNotifications, onSettings = openSettings)
-            }
-            composable<org.example.stocksteps.presentation.learn.LearnTopicsRoute> { entry ->
-                org.example.stocksteps.presentation.learn.LearnTopicsScene(entry.toRoute(), hinge,
-                    onTopic = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTopicsRoute(it)) },
-                    onTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
-            }
-            composable<org.example.stocksteps.presentation.learn.LearnTermRoute> { entry ->
-                org.example.stocksteps.presentation.learn.LearnTermScene(entry.toRoute(), hinge,
-                    onTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) },
-                    onTopics = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTopicsRoute()) },
-                    onSearch = { navController.navigate(StockSearchRoute()) })
-            }
-            composable<org.example.stocksteps.presentation.practice.PracticeRoute> {
-                if (accounts != null) org.example.stocksteps.presentation.practice.PracticeScene(accounts, hinge,
-                    onBuy = { navController.navigate(org.example.stocksteps.presentation.practice.PracticeSearchRoute) },
-                    onExplore = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
-                    onLearn = { openTab(MainDestination.LEARN) },
-                    onSignIn = { navController.navigate(AuthRoute()) },
-                    onCompany = openStock,
-                    onTrade = { symbol, side -> practiceTrade(symbol, side.name) },
-                    onManagePlan = { navController.navigate(SettingsRoute) })
-            }
-            composable<org.example.stocksteps.presentation.practice.PracticeOrderRoute> { entry ->
-                if (accounts != null) org.example.stocksteps.presentation.practice.PracticeOrderScene(entry.toRoute(), environment, accounts, hinge,
-                    onViewHoldings = backToPractice,
-                    onExplore = { navController.navigate(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
-                    onLearn = { openTab(MainDestination.LEARN) },
-                    onUpgrade = backToPractice,
-                    onBack = { navController.popBackStack() })
-            }
-            composable<org.example.stocksteps.presentation.research.GuidedResearchRoute> { entry ->
-                org.example.stocksteps.presentation.research.GuidedResearchScene(entry.toRoute(), backend, environment, accounts, hinge,
-                    onCompany = openStock,
-                    onSearch = { navController.navigate(StockSearchRoute()) },
-                    onLearn = { openTab(MainDestination.LEARN) },
-                    onUpgrade = { navController.navigate(SettingsRoute) })
-            }
-            composable<SettingsRoute> {
-                if (accounts != null) SettingsScene(
-                    accounts = accounts,
-                    themePreferences = themePreferences,
-                    backend = backend,
-                    appVersion = appVersion,
-                    hinge = hinge,
-                    onSignIn = { navController.navigate(AuthRoute()) },
-                    links = mapOf(SettingsLink.EARNINGS_REMINDERS to { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsRemindersRoute) },
-                        SettingsLink.EARNINGS_DIGEST to { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute) }),
-                    appLock = appLock
-                )
-            }
-            composable<org.example.stocksteps.presentation.earnings.EarningsDigestRoute> {
-                org.example.stocksteps.presentation.earnings.EarningsDigestScene(accounts, environment, hinge,
-                    onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } },
-                    onOpenEvent = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(it)) },
-                    onSettings = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute) },
-                    onUpgrade = { navController.navigate(SettingsRoute) },
-                    onSignIn = { navController.navigate(AuthRoute()) },
-                    onRecentWatchlist = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(filter = "WATCHLIST", tab = "REPORTED")) })
-            }
-            composable<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute> {
-                org.example.stocksteps.presentation.earnings.EarningsDigestSettingsScene(accounts, environment, hinge,
-                    onUpgrade = { navController.navigate(SettingsRoute) },
-                    onSignIn = { navController.navigate(AuthRoute()) },
-                    onReminders = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsRemindersRoute) })
-            }
-            composable<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute> {
-                org.example.stocksteps.presentation.earnings.EarningsRemindersScene(accounts, onSignIn = { navController.navigate(AuthRoute()) },
-                    onOpenEvent = { navController.navigate(org.example.stocksteps.presentation.earnings.EarningsEventRoute(it)) })
-            }
-            composable<AuthRoute> { entry ->
-                if (accounts != null) AuthScene(accounts, entry.toRoute<AuthRoute>(), hinge) {
-                    if (navController.previousBackStackEntry != null) {
-                        navController.popBackStack()
-                    } else {
-                        navController.navigate(DiscoveryRoute) {
-                            popUpTo<AuthRoute> { inclusive = true }
-                            launchSingleTop = true
+                    if (accounts != null) PortfolioEntryScene(
+                        accounts,
+                        selected ?: entry.toRoute(),
+                        onSearch = { nav.open(PortfolioSearchRoute) },
+                        onDone = {
+                            // D3: back to a Portfolio screen → it announces "Transaction added"; elsewhere (e.g. Company details) nothing does.
+                            val back = navController.previousBackStackEntry?.destination
+                            val portfolio = back?.hasRoute<PortfolioRoute>() == true || back?.hasRoute<PortfolioTransactionsRoute>() == true ||
+                                back?.hasRoute<HoldingDetailsRoute>() == true || back?.hasRoute<PortfolioTransactionRoute>() == true
+                            if (!portfolio) accounts.portfolioFeedback.skip(accounts.portfolioPresenter.state.value.actionResult)
+                            nav.back()
+                        }
+                    )
+                }
+                route<MarketsRoute> {
+                    MarketsScene(
+                        backend = backend,
+                        environment = environment,
+                        hinge = hinge,
+                        onOpenStock = openStock,
+                        onWhyMoved = { symbol -> nav.open(StockMovementRoute(symbol)) },
+                        onSearch = { nav.open(StockSearchRoute()) },
+                        onDiscover = { nav.open(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
+                        onCompare = { nav.open(org.example.stocksteps.presentation.screener.ComparisonRoute) },
+                        onEarnings = { nav.open(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute()) },
+                        accounts = accounts,
+                        brief = accounts?.dailyBrief,
+                        onDailyBrief = { nav.open(org.example.stocksteps.presentation.brief.DailyBriefRoute()) },
+                        onBriefHistory = { nav.open(org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute) },
+                        onNotifications = openNotifications, onSettings = openSettings
+                    )
+                }
+                route<org.example.stocksteps.presentation.brief.DailyBriefRoute> { entry ->
+                    if (accounts != null) org.example.stocksteps.presentation.brief.DailyBriefScene(entry.toRoute(), accounts.dailyBrief, hinge,
+                        onOpenStock = openStock,
+                        onHistory = { nav.open(org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute) },
+                        onOpenBrief = { id -> nav.open(org.example.stocksteps.presentation.brief.DailyBriefRoute(id)) },
+                        onWatchlist = { openTab(MainDestination.WATCHLIST) },
+                        onLearn = { openTab(MainDestination.LEARN) },
+                        onSignIn = { nav.open(AuthRoute()) },
+                        onUpgrade = { nav.open(SettingsRoute) },
+                        onOpenEarnings = { id -> nav.open(org.example.stocksteps.presentation.earnings.EarningsEventRoute(id)) },
+                        onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { nav.open(it) } },
+                        onOpenDigest = { nav.open(org.example.stocksteps.presentation.earnings.EarningsDigestRoute) })
+                }
+                route<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute> {
+                    if (accounts != null) org.example.stocksteps.presentation.brief.DailyBriefHistoryScene(accounts.dailyBrief, hinge,
+                        onOpenBrief = { id -> nav.open(org.example.stocksteps.presentation.brief.DailyBriefRoute(id)) },
+                        onUpgrade = { nav.open(SettingsRoute) })
+                }
+                route<org.example.stocksteps.presentation.earnings.EarningsCalendarRoute> { entry ->
+                    org.example.stocksteps.presentation.earnings.EarningsCalendarScene(entry.toRoute(), backend, environment, accounts, hinge,
+                        onOpenEvent = { nav.open(org.example.stocksteps.presentation.earnings.EarningsEventRoute(it)) },
+                        onSignIn = { nav.open(AuthRoute()) },
+                        onDigest = { nav.open(org.example.stocksteps.presentation.earnings.EarningsDigestRoute) },
+                        onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { nav.open(it) } })
+                }
+                route<org.example.stocksteps.presentation.earnings.EarningsEventRoute> { entry ->
+                    org.example.stocksteps.presentation.earnings.EarningsEventScene(entry.toRoute(), backend, environment, accounts, hinge,
+                        onOpenCompany = openStock,
+                        onOpenCalendar = { date -> nav.open(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(date)) },
+                        onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { nav.open(it) } },
+                        onSignIn = { nav.open(AuthRoute()) })
+                }
+                route<org.example.stocksteps.presentation.earnings.EarningsResultsRoute> { entry ->
+                    org.example.stocksteps.presentation.earnings.EarningsResultsScene(entry.toRoute(), backend, environment, accounts, hinge,
+                        onOpenCompany = openStock, onLearn = { openTab(MainDestination.LEARN) },
+                        // No purchase flow exists yet: Settings shows the plan (and, in MOCK, the simulated plan switch).
+                        onUpgrade = { nav.open(SettingsRoute) }, onSignIn = { nav.open(AuthRoute()) })
+                }
+                route<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute> { entry ->
+                    org.example.stocksteps.presentation.earnings.EarningsDetailsScene(entry.toRoute(), backend, environment, accounts, hinge,
+                        onOpenCompany = openStock, onSignIn = { nav.open(AuthRoute()) },
+                        // No purchase flow exists yet: Settings shows the plan (and, in MOCK, the simulated plan switch).
+                        onUpgrade = { nav.open(SettingsRoute) })
+                }
+                route<WatchListRoute> {
+                    if (accounts != null) WatchListScene(
+                        accounts = accounts,
+                        hinge = hinge,
+                        notifications = notifications,
+                        onSignIn = { nav.open(AuthRoute()) },
+                        onSearch = { nav.open(StockSearchRoute()) },
+                        onOpenStock = openStock,
+                        onAddPortfolio = addPortfolio,
+                        onOpenAlerts = openAlerts,
+                        onEarnings = { nav.open(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(filter = "WATCHLIST")) },
+                        onEarningsReminders = { nav.open(org.example.stocksteps.presentation.earnings.EarningsRemindersRoute) },
+                        onCompare = { nav.open(org.example.stocksteps.presentation.screener.ComparisonRoute) },
+                        onNotifications = openNotifications, onSettings = openSettings
+                    )
+                }
+                // 5D.5.6C1: all alerts and their history (the landing bars' bell), global and outside the tabs.
+                route<org.example.stocksteps.presentation.watchlist.NotificationsRoute> {
+                    if (accounts != null) org.example.stocksteps.presentation.watchlist.AlertsScene(
+                        route = org.example.stocksteps.presentation.watchlist.AlertsRoute(null),
+                        accounts = accounts,
+                        hinge = hinge,
+                        notifications = notifications,
+                        backIcon = backIcon,
+                        onBack = { nav.back() },
+                        onOpenStock = openStock,
+                        onSignIn = { nav.open(AuthRoute()) }
+                    )
+                }
+                route<org.example.stocksteps.presentation.watchlist.AlertsRoute> { entry ->
+                    if (accounts != null) org.example.stocksteps.presentation.watchlist.AlertsScene(
+                        route = entry.toRoute<org.example.stocksteps.presentation.watchlist.AlertsRoute>(),
+                        accounts = accounts,
+                        hinge = hinge,
+                        notifications = notifications,
+                        backIcon = backIcon,
+                        onBack = { nav.back() },
+                        onOpenStock = openStock,
+                        onSignIn = { nav.open(AuthRoute()) }
+                    )
+                }
+                route<LearnRoute> {
+                    LearnScene(hinge, accounts, onResearch = openResearch, onSearch = { nav.open(StockSearchRoute()) }, onPractice = openPractice,
+                        onTopics = { topic, search -> nav.open(org.example.stocksteps.presentation.learn.LearnTopicsRoute(topic, search)) },
+                        onTerm = { nav.open(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) },
+                        onNotifications = openNotifications, onSettings = openSettings)
+                }
+                route<org.example.stocksteps.presentation.learn.LearnTopicsRoute> { entry ->
+                    org.example.stocksteps.presentation.learn.LearnTopicsScene(entry.toRoute(), hinge,
+                        onTopic = { nav.open(org.example.stocksteps.presentation.learn.LearnTopicsRoute(it)) },
+                        onTerm = { nav.open(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
+                }
+                route<org.example.stocksteps.presentation.learn.LearnTermRoute> { entry ->
+                    org.example.stocksteps.presentation.learn.LearnTermScene(entry.toRoute(), hinge,
+                        onTerm = { nav.open(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) },
+                        onTopics = { nav.open(org.example.stocksteps.presentation.learn.LearnTopicsRoute()) },
+                        onSearch = { nav.open(StockSearchRoute()) })
+                }
+                route<org.example.stocksteps.presentation.practice.PracticeRoute> {
+                    if (accounts != null) org.example.stocksteps.presentation.practice.PracticeScene(accounts, hinge,
+                        onBuy = { nav.open(org.example.stocksteps.presentation.practice.PracticeSearchRoute) },
+                        onExplore = { nav.open(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
+                        onLearn = { openTab(MainDestination.LEARN) },
+                        onSignIn = { nav.open(AuthRoute()) },
+                        onCompany = openStock,
+                        onTrade = { symbol, side -> practiceTrade(symbol, side.name) },
+                        onManagePlan = { nav.open(SettingsRoute) })
+                }
+                route<org.example.stocksteps.presentation.practice.PracticeOrderRoute> { entry ->
+                    if (accounts != null) org.example.stocksteps.presentation.practice.PracticeOrderScene(entry.toRoute(), environment, accounts, hinge,
+                        onViewHoldings = backToPractice,
+                        onExplore = { nav.open(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
+                        onLearn = { openTab(MainDestination.LEARN) },
+                        onUpgrade = backToPractice,
+                        onBack = { nav.back() })
+                }
+                route<org.example.stocksteps.presentation.research.GuidedResearchRoute> { entry ->
+                    org.example.stocksteps.presentation.research.GuidedResearchScene(entry.toRoute(), backend, environment, accounts, hinge,
+                        onCompany = openStock,
+                        onSearch = { nav.open(StockSearchRoute()) },
+                        onLearn = { openTab(MainDestination.LEARN) },
+                        onUpgrade = { nav.open(SettingsRoute) })
+                }
+                route<SettingsRoute> {
+                    if (accounts != null) SettingsScene(
+                        accounts = accounts,
+                        themePreferences = themePreferences,
+                        backend = backend,
+                        appVersion = appVersion,
+                        hinge = hinge,
+                        onSignIn = { nav.open(AuthRoute()) },
+                        links = mapOf(SettingsLink.EARNINGS_REMINDERS to { nav.open(org.example.stocksteps.presentation.earnings.SettingsRemindersRoute) },
+                            SettingsLink.EARNINGS_DIGEST to { nav.open(org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute) }),
+                        appLock = appLock
+                    )
+                }
+                route<org.example.stocksteps.presentation.earnings.EarningsDigestRoute> {
+                    org.example.stocksteps.presentation.earnings.EarningsDigestScene(accounts, environment, hinge,
+                        onOpenResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { nav.open(it) } },
+                        onOpenEvent = { nav.open(org.example.stocksteps.presentation.earnings.EarningsEventRoute(it)) },
+                        onSettings = { nav.open(org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute) },
+                        onUpgrade = { nav.open(SettingsRoute) },
+                        onSignIn = { nav.open(AuthRoute()) },
+                        onRecentWatchlist = { nav.open(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(filter = "WATCHLIST", tab = "REPORTED")) })
+                }
+                route<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute> {
+                    org.example.stocksteps.presentation.earnings.EarningsDigestSettingsScene(accounts, environment, hinge,
+                        onUpgrade = { nav.open(SettingsRoute) },
+                        onSignIn = { nav.open(AuthRoute()) },
+                        onReminders = { nav.open(org.example.stocksteps.presentation.earnings.SettingsRemindersRoute) })
+                }
+                route<org.example.stocksteps.presentation.earnings.EarningsRemindersRoute> {
+                    org.example.stocksteps.presentation.earnings.EarningsRemindersScene(accounts, onSignIn = { nav.open(AuthRoute()) },
+                        onOpenEvent = { nav.open(org.example.stocksteps.presentation.earnings.EarningsEventRoute(it)) })
+                }
+                // 5D.5.6C1: the same reminders inside the Settings flow (global): opening an event closes Settings and shows it in Markets.
+                route<org.example.stocksteps.presentation.earnings.SettingsRemindersRoute> {
+                    org.example.stocksteps.presentation.earnings.EarningsRemindersScene(accounts, onSignIn = { nav.open(AuthRoute()) },
+                        onOpenEvent = { nav.open(org.example.stocksteps.presentation.earnings.EarningsEventRoute(it)) })
+                }
+                route<AuthRoute> { entry ->
+                    if (accounts != null) AuthScene(accounts, entry.toRoute<AuthRoute>(), hinge) {
+                        if (navController.previousBackStackEntry != null) {
+                            nav.back()
+                        } else {
+                            navController.navigate(HomeGraph) {
+                                popUpTo<AuthRoute> { inclusive = true }
+                                launchSingleTop = true
+                            }
                         }
                     }
                 }
+                route<StockSearchRoute> { entry ->
+                    StockSearchScene(
+                        route = entry.toRoute<StockSearchRoute>(),
+                        backend = backend,
+                        environment = environment,
+                        hinge = hinge,
+                        accounts = accounts,
+                        recentSearches = recentSearches,
+                        onOpenStock = { stock -> openStock(stock.symbol) }
+                    )
+                }
+                route<CompanyDetailsRoute> { entry ->
+                    CompanyDetailsScene(
+                        route = entry.toRoute<CompanyDetailsRoute>(),
+                        backend = backend,
+                        environment = environment,
+                        accounts = accounts,
+                        hinge = hinge,
+                        backIcon = backIcon,
+                        onBack = { nav.back() },
+                        onLearnTerm = { nav.open(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) },
+                        onOpenFinancials = { symbol -> nav.open(CompanyFinancialsRoute(symbol)) },
+                        onOpenValuation = { symbol -> nav.open(CompanyValuationRoute(symbol)) },
+                        onOpenNews = { symbol -> nav.open(CompanyNewsRoute(symbol)) },
+                        onAddPortfolio = addPortfolio,
+                        onOpenMovement = { symbol -> nav.open(StockMovementRoute(symbol)) },
+                        onCompare = { symbol, name ->
+                            org.example.stocksteps.screener.SharedComparisonSelection.instance.add(symbol, name)
+                            nav.open(org.example.stocksteps.presentation.screener.ComparisonRoute)
+                        },
+                        onEarnings = { symbol -> nav.open(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
+                        onEarningsCalendar = { date -> nav.open(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(date)) },
+                        onEarningsResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { nav.open(it) } },
+                        onSignIn = { nav.open(AuthRoute()) },
+                        onResearch = openResearch,
+                        onPracticeBuy = { symbol -> practiceTrade(symbol, "BUY") }
+                    )
+                }
+                route<CompanyFinancialsRoute> { entry ->
+                    CompanyFinancialsScene(entry.toRoute<CompanyFinancialsRoute>(), backend, environment, hinge, backIcon, onBack = { nav.back() },
+                        onLearnTerm = { nav.open(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
+                }
+                route<CompanyValuationRoute> { entry ->
+                    CompanyValuationScene(entry.toRoute<CompanyValuationRoute>(), backend, environment, hinge, backIcon, onBack = { nav.back() },
+                        onLearnTerm = { nav.open(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
+                }
+                route<CompanyNewsRoute> { entry ->
+                    CompanyNewsScene(entry.toRoute<CompanyNewsRoute>(), backend, environment, hinge,
+                        onOpenInsight = { symbol, articleId -> nav.open(NewsInsightRoute(symbol, articleId)) },
+                        onOpenMovement = { symbol -> nav.open(StockMovementRoute(symbol)) })
+                }
+                route<NewsInsightRoute> { entry ->
+                    NewsInsightScene(entry.toRoute<NewsInsightRoute>(), backend, environment, hinge, backIcon, onBack = { nav.back() })
+                }
+                route<StockMovementRoute> { entry ->
+                    StockMovementScene(entry.toRoute<StockMovementRoute>(), backend, environment, hinge, backIcon, onBack = { nav.back() })
+                }
             }
-            composable<StockSearchRoute> { entry ->
-                StockSearchScene(
-                    route = entry.toRoute<StockSearchRoute>(),
-                    backend = backend,
-                    environment = environment,
-                    hinge = hinge,
-                    accounts = accounts,
-                    recentSearches = recentSearches,
-                    onOpenStock = { stock -> openStock(stock.symbol) }
-                )
+            org.example.stocksteps.navigation.AppTab.entries.forEach { tab ->
+                navigation(startDestination = tab.rootRoute(), route = tab.graphClass) {
+                    routes.items.filter { (type, _) -> routeTab(type) == tab }.forEach { (_, register) -> register() }
+                }
             }
-            composable<CompanyDetailsRoute> { entry ->
-                CompanyDetailsScene(
-                    route = entry.toRoute<CompanyDetailsRoute>(),
-                    backend = backend,
-                    environment = environment,
-                    accounts = accounts,
-                    hinge = hinge,
-                    backIcon = backIcon,
-                    onBack = { navController.popBackStack() },
-                    onLearnTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) },
-                    onOpenFinancials = { symbol -> navController.navigate(CompanyFinancialsRoute(symbol)) },
-                    onOpenValuation = { symbol -> navController.navigate(CompanyValuationRoute(symbol)) },
-                    onOpenNews = { symbol -> navController.navigate(CompanyNewsRoute(symbol)) },
-                    onAddPortfolio = addPortfolio,
-                    onOpenMovement = { symbol -> navController.navigate(StockMovementRoute(symbol)) },
-                    onCompare = { symbol, name ->
-                        org.example.stocksteps.screener.SharedComparisonSelection.instance.add(symbol, name)
-                        navController.navigate(org.example.stocksteps.presentation.screener.ComparisonRoute)
-                    },
-                    onEarnings = { symbol -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsDetailsRoute(symbol)) },
-                    onEarningsCalendar = { date -> navController.navigate(org.example.stocksteps.presentation.earnings.EarningsCalendarRoute(date)) },
-                    onEarningsResults = { id -> org.example.stocksteps.presentation.earnings.EarningsResultsRoute.of(id)?.let { navController.navigate(it) } },
-                    onSignIn = { navController.navigate(AuthRoute()) },
-                    onResearch = openResearch,
-                    onPracticeBuy = { symbol -> practiceTrade(symbol, "BUY") }
-                )
-            }
-            composable<CompanyFinancialsRoute> { entry ->
-                CompanyFinancialsScene(entry.toRoute<CompanyFinancialsRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() },
-                    onLearnTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
-            }
-            composable<CompanyValuationRoute> { entry ->
-                CompanyValuationScene(entry.toRoute<CompanyValuationRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() },
-                    onLearnTerm = { navController.navigate(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) })
-            }
-            composable<CompanyNewsRoute> { entry ->
-                CompanyNewsScene(entry.toRoute<CompanyNewsRoute>(), backend, environment, hinge,
-                    onOpenInsight = { symbol, articleId -> navController.navigate(NewsInsightRoute(symbol, articleId)) },
-                    onOpenMovement = { symbol -> navController.navigate(StockMovementRoute(symbol)) })
-            }
-            composable<NewsInsightRoute> { entry ->
-                NewsInsightScene(entry.toRoute<NewsInsightRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() })
-            }
-            composable<StockMovementRoute> { entry ->
-                StockMovementScene(entry.toRoute<StockMovementRoute>(), backend, environment, hinge, backIcon, onBack = { navController.popBackStack() })
-            }
+            routes.items.filter { (type, _) -> routeTab(type) == null }.forEach { (_, register) -> register() }
         }
+        // One Back for the whole app, registered after the NavHost so it decides first: modal close, in-stack pop, cross-tab return (hop end) and
+        // non-Home root → Home. Disabled only at the Home root without a trail, where the system closes the app.
+        org.example.stocksteps.presentation.components.AppBackHandler(enabled = backStackEntry != null && nav.canGoBack()) { nav.back() }
       }
     }
 }
+
+/** Collects each route's registration so `AppNavigation` can place it in its canonical tab's graph. */
+internal class RouteTable {
+    val items = mutableListOf<Pair<kotlin.reflect.KClass<*>, androidx.navigation.NavGraphBuilder.() -> Unit>>()
+    inline fun <reified T : Any> route(noinline content: @Composable androidx.compose.animation.AnimatedContentScope.(androidx.navigation.NavBackStackEntry) -> Unit) {
+        items += T::class to { composable<T>(content = content) }
+    }
+}
+
+/** The canonical tab of a registered route type (null for modal and global routes). */
+private fun routeTab(type: kotlin.reflect.KClass<*>): org.example.stocksteps.navigation.AppTab? =
+    (AppRouteScreens.firstOrNull { it.first == type } ?: error("Route $type is not in AppRouteScreens")).second.tab
 
 private fun MainDestination.labelResource(): StringResource = when (this) {
     MainDestination.HOME -> Res.string.nav_home
