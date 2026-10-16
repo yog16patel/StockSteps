@@ -143,6 +143,7 @@ struct MarketsScene: View {
             .padding(.bottom, CGFloat(space.xl))
             .frame(maxWidth: .infinity)
         }
+        .scrollsToTopOnReselect(.markets) // 5D.5.6C2 (D12)
         .refreshable { await model.refresh() }
         .background(colors.appBackground.ignoresSafeArea())
         .navigationDestination(item: $movementSymbol) { symbol in StockMovementScene(symbol: symbol, client: model.detailsClient) }

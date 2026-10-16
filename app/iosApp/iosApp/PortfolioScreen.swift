@@ -85,6 +85,7 @@ struct PortfolioScreen: View {
             }.frame(maxWidth: CGFloat(StockStepsTheme.dimensions.contentMaxWidth))
                 .padding(CGFloat(space.screen)).frame(maxWidth: .infinity)
         }
+        .scrollsToTopOnReselect(.portfolio) // 5D.5.6C2 (D12)
         .background(colors.appBackground.ignoresSafeArea())
         // C.1: no navigation bar on this tab, so scrolled content showed through the status bar (time over numbers). A zero-height strip at the
         // top of the safe area paints the page background behind the status bar; decorative and never hit-testable.

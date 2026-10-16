@@ -6,6 +6,17 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — Phase 5D.5.6C2 iOS independent tab stacks (committed and pushed as "Add iOS independent tab stacks for Phase 5D.5.6C2 with a NavigationStack per tab, typed destinations owned by the shared navigation policy, a cross-tab Back trail and a visible tab bar on pushed screens").**
+- **Done:**
+  - five `NavigationStack(path:)` inside the `TabView`;
+  - tab bar visible on pushed screens;
+  - typed `AppDestination` → core `ScreenId`;
+  - `TabRouter` with canonical selection, cross-tab Back (button and swipe), reselect → root → top;
+  - Notifications sheet.
+- **Validation:** all suites green; simulator matrix PASS (guest).
+- **Report:** `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C2.md`.
+- **Next:** C3 on the owner's go-ahead.
+
 **2026-10-15 — Phase 5D.5.6C1 Android independent tab stacks & canonical tab selection (committed and pushed as "Add Android independent tab stacks for Phase 5D.5.6C1 with canonical tab selection, a cross-tab Back trail from the shared navigation model, tab reselection and global Settings and Notifications screens").**
 - **Done:**
   - five saved stacks (nested graphs);

@@ -421,7 +421,7 @@ No provider-call change: tab switches only restore entries. The server and API a
   - global modals (Search, pickers, transaction form, Auth) without the tab bar;
   - Home restore; process-death check.
   - Focused diff (navigation) per `AI_REVIEW_WORKFLOW.md` §3.4.
-- **5D.5.6C2 — iOS stacks:**
+- **5D.5.6C2 — iOS stacks** — implemented 2026-10-15, report `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C2.md` (router-level trail included; nested cross-tab links stay for C3):
   - `AppDestination` + `TabRouter`, per-tab `NavigationStack`s, tab bar visible on pushes, trail Back via path observation, reselect;
   - migrate the 17 `AppScene` destinations; banner placement.
 - **5D.5.6C3 — iOS cross-tab nested links and state:**

@@ -79,6 +79,7 @@ struct HomeScreen: View {
             .padding(.vertical, CGFloat(space.md))
             .frame(maxWidth: .infinity)
         }
+        .scrollsToTopOnReselect(.home) // 5D.5.6C2 (D12)
         .foregroundStyle(StockStepsTheme.colors(scheme).textPrimary)
         .background(StockStepsTheme.colors(scheme).appBackground.ignoresSafeArea())
         .refreshable { onRefresh() }

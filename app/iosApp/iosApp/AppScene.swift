@@ -6,50 +6,27 @@ struct AppScene: View {
     @State private var homeModel: HomeViewModel
     @State private var marketsModel: MarketsModel
     @State private var watchlistsModel: WatchlistsModel
-    /// Alerts screen target: a symbol, or "" for all alerts.
-    @State private var alertsTarget: String?
     let accounts: AccountViewModel
     var appLock: AppLockModel?
     @State private var showingAuth = false
     @State private var showingSearch = false
     @State private var showingSettings = false
     @State private var initialStock: StockSearchResult?
-    @State private var selectedTab = AppRoute.home
+    /// Phase 5D.5.6C2: five independent tab stacks, canonical tab selection and the cross-tab trail (core `TabNavigation`).
+    @State private var router = TabRouter()
     @Environment(SampleBannerPlacement.self) private var bannerPlacement
-    /// Symbol of the Company Details page pushed on the main stack (Home, Watchlist and Search share it).
-    @State private var detailsSymbol: String?
-    @State private var showingDiscover = false
-    @State private var showingCompare = false
     @State private var screenerModel: ScreenerModel
     @State private var earningsModel: EarningsModel
-    /// Earnings Calendar target (Markets, Company Details, Watchlist, an event).
-    @State private var earningsCalendar: EarningsCalendarTarget?
-    /// Earnings Event Details (calendar rows, Daily Brief).
-    @State private var earningsEventId: String?
-    /// Earnings Details (results and history) for a company.
-    @State private var earningsSymbol: String?
-    /// Earnings Results for one published report ("SYMBOL:YYYY-Qn").
-    @State private var earningsResultsId: String?
-    /// Earnings Reminders settings (from Settings or the Watchlist shortcut).
+    /// Earnings Reminders settings inside the Settings sheet.
     @State private var showingReminderSettings = false
-    @State private var showingEarningsReminders = false
-    /// Phase 5: StockSteps+ earnings digest and its settings.
-    @State private var showingEarningsDigest = false
-    @State private var showingDigestSettings = false
     @State private var showingSettingsDigest = false
+    /// Earnings Reminders inside the global digest-settings sheet.
+    @State private var showingGlobalReminders = false
     @State private var learningModel: LearningModel
-    @State private var researchTarget: ResearchTarget?
-    /// Phase 5D.5.2: Learn topics and term pages.
-    @State private var learnTarget: LearnTarget?
     @State private var practiceModel: PracticeModel?
-    @State private var showingPractice = false
-    @State private var practiceTarget: PracticeOrderTarget?
     /// Search opened from Practice: picking a company opens its simulated order directly.
     @State private var searchForPractice = false
     @State private var briefModel: BriefModel?
-    @State private var briefTarget: BriefTarget?
-    @State private var showingBriefHistory = false
-
 
     @AppStorage(BackendSettings.storageKey) private var backendEnvironment = BackendSettings.real
 
@@ -69,205 +46,107 @@ struct AppScene: View {
     }
 
     var body: some View {
-        NavigationStack {
-            TabView(selection: $selectedTab) {
-                Group {
-                    if appLock?.locked != true {
-                        HomeScene(
-                            model: homeModel,
-                            accounts: accounts,
-                            onLearn: { selectedTab = .learn },
-                            onSearch: { initialStock = nil; showingSearch = true },
-                            onWatchlist: { selectedTab = .watchlist },
-                            onSettings: { showingSettings = true },
-                            onPortfolio: { selectedTab = .portfolio },
-                            onAlerts: { if let symbol = $0 { alertsTarget = symbol } else { openNotifications() } },
-                            onExplore: explore,
-                            onEarnings: { earningsSymbol = $0 },
-                            learning: learningModel,
-                            onResearch: { researchTarget = $0 },
-                            onPractice: openPractice,
-                            briefModel: briefModel,
-                            onDailyBrief: { briefTarget = BriefTarget(briefId: nil) }
-                        )
-                    } else {
-                        Color.clear
-                    }
+        // 5D.5.6C2: one NavigationStack per tab inside the TabView (no outer stack), so pushed screens keep the tab bar, each tab keeps its own
+        // history and state, and the selected tab is the visible screen's canonical tab (TabRouter + core NavigationPolicy).
+        TabView(selection: router.selection) {
+            tabStack(.home, title: "Home") {
+                if appLock?.locked != true {
+                    HomeScene(
+                        model: homeModel,
+                        accounts: accounts,
+                        onLearn: { router.selectTab(.learn) },
+                        onSearch: { initialStock = nil; showingSearch = true },
+                        onWatchlist: { router.selectTab(.watchlist) },
+                        onSettings: { showingSettings = true },
+                        onPortfolio: { router.selectTab(.portfolio) },
+                        onAlerts: openAlerts,
+                        onExplore: explore,
+                        onEarnings: { router.open(.earningsDetails($0)) },
+                        learning: learningModel,
+                        onResearch: { router.open(.research($0)) },
+                        onPractice: openPractice,
+                        briefModel: briefModel,
+                        onDailyBrief: { router.open(.dailyBrief(BriefTarget(briefId: nil))) }
+                    )
+                } else {
+                    Color.clear
                 }
-                .sampleDataInset()
-                .tabItem { Label("Home", systemImage: "house") }
-                .tag(AppRoute.home)
+            }
+            .tabItem { Label("Home", systemImage: "house") }
+            .tag(AppRoute.home)
 
+            tabStack(.markets, title: "Markets") {
                 MarketsScene(model: marketsModel, onOpenStock: explore, onSearch: { initialStock = nil; showingSearch = true },
-                             onDiscover: { showingDiscover = true }, onCompare: { showingCompare = true }, onEarnings: { earningsCalendar = EarningsCalendarTarget() }, earnings: earningsModel,
-                             brief: briefModel, onDailyBrief: { briefTarget = BriefTarget(briefId: nil) }, onBriefHistory: { showingBriefHistory = true },
+                             onDiscover: { router.open(.discover) }, onCompare: { router.open(.compare) },
+                             onEarnings: { router.open(.earningsCalendar(EarningsCalendarTarget())) }, earnings: earningsModel,
+                             brief: briefModel, onDailyBrief: { router.open(.dailyBrief(BriefTarget(briefId: nil))) },
+                             onBriefHistory: { router.open(.briefHistory) },
                              onNotifications: openNotifications, onSettings: { showingSettings = true })
-                    .sampleDataInset()
-                    .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
-                    .tag(AppRoute.markets)
+            }
+            .tabItem { Label("Markets", systemImage: "chart.line.uptrend.xyaxis") }
+            .tag(AppRoute.markets)
 
-                Group {
-                    if appLock?.locked != true {
-                        PortfolioScene(accounts: accounts, watchlists: watchlistsModel, onCompany: explore,
-                            onSignIn: { showingAuth = true }, onAlerts: { alertsTarget = $0 }, onPractice: openPractice,
-                            onNotifications: openNotifications, onSettings: { showingSettings = true })
-                    } else { Color.clear }
-                }
-                .sampleDataInset()
-                .tabItem { Label("Portfolio", systemImage: "briefcase") }
-                .tag(AppRoute.portfolio)
+            tabStack(.portfolio, title: "Portfolio") {
+                if appLock?.locked != true {
+                    PortfolioScene(accounts: accounts, watchlists: watchlistsModel, onCompany: explore,
+                        onSignIn: { showingAuth = true }, onAlerts: { router.open(.stockAlerts($0)) }, onPractice: openPractice,
+                        onNotifications: openNotifications, onSettings: { showingSettings = true })
+                } else { Color.clear }
+            }
+            .tabItem { Label("Portfolio", systemImage: "briefcase") }
+            .tag(AppRoute.portfolio)
 
+            tabStack(.watchlist, title: "Watchlist") {
                 WatchListScene(accounts: accounts, model: watchlistsModel, onSignIn: { showingAuth = true }, onSearch: { initialStock = nil; showingSearch = true },
-                               onExplore: explore, onOpenAlerts: { alertsTarget = $0 ?? "" },
-                               onEarnings: { earningsCalendar = EarningsCalendarTarget(filter: "WATCHLIST") },
-                               onEarningsReminders: { showingEarningsReminders = true },
-                               onCompare: { symbols, names in screenerModel.client.compareCompanies(symbols: symbols, names: names); showingCompare = true },
+                               onExplore: explore, onOpenAlerts: openAlerts,
+                               onEarnings: { router.open(.earningsCalendar(EarningsCalendarTarget(filter: "WATCHLIST"))) },
+                               onEarningsReminders: { router.open(.earningsReminders) },
+                               onCompare: { symbols, names in screenerModel.client.compareCompanies(symbols: symbols, names: names); router.open(.compare) },
                                onNotifications: openNotifications, onSettings: { showingSettings = true })
-                    .sampleDataInset()
-                    .tabItem { Label("Watchlist", systemImage: "star") }
-                    .tag(AppRoute.watchlist)
+            }
+            .tabItem { Label("Watchlist", systemImage: "star") }
+            .tag(AppRoute.watchlist)
 
-                LearnScene(learning: learningModel, onResearch: { researchTarget = $0 }, onSearch: { initialStock = nil; showingSearch = true }, onPractice: openPractice,
-                           onLearnTarget: { learnTarget = $0 }, onNotifications: openNotifications, onSettings: { showingSettings = true })
-                    .sampleDataInset()
-                    .tabItem { Label("Learn", systemImage: "book") }
-                    .tag(AppRoute.learn)
-
+            tabStack(.learn, title: "Learn") {
+                LearnScene(learning: learningModel, onResearch: { router.open(.research($0)) }, onSearch: { initialStock = nil; showingSearch = true },
+                           onPractice: openPractice, onLearnTarget: { router.open(.learn($0)) },
+                           onNotifications: openNotifications, onSettings: { showingSettings = true })
             }
-            .tint(StockStepsTheme.color(ThemeColors.shared.light.primary))
-            // The tab bar is on screen exactly while the TabView is (a pushed destination covers it): the MOCK banner then sits above the tab bar
-            // inside each tab; otherwise ContentView shows it at the bottom (Phase 4C.3).
-            .onAppear { bannerPlacement.tabBarVisible = true }
-            .onDisappear { bannerPlacement.tabBarVisible = false }
-            .task {
-                screenerModel.activate(); earningsModel.activate(); learningModel.activate(); briefModel?.activate()
-            }
-            // Home and Settings show their own compact headers instead of a navigation title.
-            .stockStepsTopBar(.screen(tabTitle, visible: selectedTab != .home && selectedTab != .markets && selectedTab != .watchlist && selectedTab != .portfolio && selectedTab != .learn))
-            // Every client reads the URL per request; reload Home so its data matches the new backend.
-            .navigationDestination(item: $detailsSymbol) { symbol in
-                CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel, learning: learningModel,
-                                    onSearch: { initialStock = nil; showingSearch = true }, onLearn: { detailsSymbol = nil; selectedTab = .learn },
-                                    onUpgrade: { showingSettings = true }, onPracticeBuy: { practiceTrade(PracticeOrderTarget(symbol: $0, sell: false)) },
-                                    onEarningsCalendar: { earningsCalendar = EarningsCalendarTarget(date: $0) },
-                                    onEarningsResults: { earningsResultsId = $0 })
-            }
-            .navigationDestination(item: $learnTarget) { target in
-                switch target {
-                case let .topics(topic, search):
-                    LearnTopicsView(topic: topic, focusSearch: search, onSearchCompanies: { initialStock = nil; showingSearch = true })
-                case let .term(id):
-                    LearnTermView(termId: id, onSearchCompanies: { initialStock = nil; showingSearch = true })
-                }
-            }
-            .navigationDestination(item: $briefTarget) { target in
-                if let briefModel {
-                    DailyBriefScene(target: target, model: briefModel, onOpenStock: explore, onHistory: { showingBriefHistory = true },
-                                    onWatchlist: { briefTarget = nil; selectedTab = .watchlist }, onLearn: { briefTarget = nil; selectedTab = .learn },
-                                    onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true },
-                                    onOpenEarnings: { earningsEventId = $0 }, onOpenResults: { earningsResultsId = $0 },
-                                    onOpenDigest: { showingEarningsDigest = true })
-                }
-            }
-            .navigationDestination(isPresented: $showingBriefHistory) {
-                if let briefModel {
-                    DailyBriefHistoryScene(model: briefModel, onOpenBrief: { id in showingBriefHistory = false; briefTarget = BriefTarget(briefId: id) },
-                                           onUpgrade: { showingSettings = true })
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenBrief)) { note in
-                let id = note.object as? String
-                briefTarget = BriefTarget(briefId: (id?.isEmpty ?? true) ? nil : id)
-            }
-            .navigationDestination(isPresented: $showingPractice) {
-                if let practiceModel {
-                    PracticeScene(model: practiceModel, onBuy: { initialStock = nil; searchForPractice = true; showingSearch = true }, onExplore: { showingDiscover = true },
-                                  onLearn: { showingPractice = false; selectedTab = .learn }, onSignIn: { showingAuth = true }, onCompany: explore,
-                                  onTrade: { practiceTrade($0) }, onManagePlan: { showingSettings = true })
-                }
-            }
-            .navigationDestination(item: $practiceTarget) { target in
-                if let practiceModel {
-                    PracticeOrderScene(target: target, practice: practiceModel,
-                                       onViewHoldings: { practiceTarget = nil; showingPractice = true },
-                                       onExplore: { practiceTarget = nil; showingDiscover = true },
-                                       onLearn: { practiceTarget = nil; selectedTab = .learn })
-                }
-            }
-            .navigationDestination(item: $researchTarget) { target in
-                GuidedResearchScene(target: target, learning: learningModel, accounts: accounts, onCompany: explore,
-                                    onResearchAnother: { initialStock = nil; showingSearch = true },
-                                    onContinueLearning: { researchTarget = nil; selectedTab = .learn },
-                                    onUpgrade: { showingSettings = true })
-            }
-            .navigationDestination(item: $earningsCalendar) { target in
-                EarningsCalendarScene(target: target, client: earningsModel.client, onOpen: { earningsEventId = $0 }, onSignIn: { showingAuth = true },
-                                      onOpenResults: { earningsResultsId = $0 }, reminders: earningsModel.reminders,
-                                      onDigest: accounts.client == nil ? nil : { showingEarningsDigest = true })
-                    .id(target.id)
-            }
-            .navigationDestination(item: $earningsEventId) { id in
-                EarningsEventScene(eventId: id, client: earningsModel.client, accounts: accounts, onCompany: explore,
-                                   // Back to the calendar it came from, or a new one on the event's date.
-                                   onCalendar: { date in
-                                       let open = earningsCalendar != nil
-                                       earningsEventId = nil
-                                       if !open { earningsCalendar = EarningsCalendarTarget(date: date) }
-                                   },
-                                   onResults: { earningsResultsId = $0 }, onSignIn: { showingAuth = true }, reminders: earningsModel.reminders)
-            }
-            .navigationDestination(isPresented: $showingEarningsReminders) {
-                EarningsRemindersSettingsScene(model: earningsModel.reminders, onSignIn: { showingAuth = true }, onOpenEvent: { earningsEventId = $0 })
-            }
-            .navigationDestination(item: $earningsResultsId) { id in
-                EarningsResultsScene(reportId: id, client: earningsModel.client, onCompany: explore,
-                                     onLearn: { earningsResultsId = nil; selectedTab = .learn },
-                                     // No purchase flow exists yet: Settings shows the plan (and, in MOCK, the simulated plan switch).
-                                     onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true })
-                    .id(id)
-            }
-            .navigationDestination(isPresented: $showingEarningsDigest) {
-                EarningsDigestScene(client: earningsModel.client, onOpenResults: { earningsResultsId = $0 }, onOpenEvent: { earningsEventId = $0 },
-                                    onSettings: { showingDigestSettings = true }, onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true },
-                                    onRecentWatchlist: { earningsCalendar = EarningsCalendarTarget(filter: "WATCHLIST") })
-            }
-            .navigationDestination(isPresented: $showingDigestSettings) {
-                EarningsDigestSettingsScene(client: earningsModel.client, permissionDenied: earningsModel.reminders.state?.permissionGranted?.boolValue == false,
-                                            onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true }, onReminders: { showingEarningsReminders = true })
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsDigest)) { _ in showingEarningsDigest = true }
-            .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsResults)) { note in
-                if let id = note.object as? String, !id.isEmpty { earningsResultsId = id }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsEvent)) { note in
-                // A notification without a usable event falls back to the calendar.
-                if let id = note.object as? String, !id.isEmpty { earningsEventId = id } else { earningsCalendar = EarningsCalendarTarget() }
-            }
-            .navigationDestination(item: $earningsSymbol) { symbol in
-                EarningsDetailsScene(symbol: symbol, client: earningsModel.client, onCompany: { explore(symbol) },
-                                     onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true })
-            }
-            .navigationDestination(isPresented: $showingDiscover) {
-                DiscoverStocksScene(model: screenerModel, accounts: accounts, watchlists: watchlistsModel, onOpenStock: explore,
-                                    onCompare: { showingCompare = true }, onSignIn: { showingAuth = true })
-            }
-            .navigationDestination(isPresented: $showingCompare) {
-                CompareStocksScene(model: screenerModel, onOpenStock: explore, onDiscover: { showingCompare = false; showingDiscover = true },
-                                   onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true })
-            }
-            .navigationDestination(item: $alertsTarget) { target in
-                AlertsScene(model: watchlistsModel, symbol: target.isEmpty ? nil : target, onOpenStock: explore)
-            }
-            // Tapping an alert notification opens that stock's alerts.
-            .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenAlerts)) { note in
-                if let symbol = note.object as? String { alertsTarget = symbol }
-            }
-            .onChange(of: backendEnvironment) { _, _ in
-                marketsModel.reset()
-                // Watchlists, notes, alerts and the push registration follow the selected backend.
-                accounts.client?.setEnvironment(environment: BackendSettings.environment)
-            }
+            .tabItem { Label("Learn", systemImage: "book") }
+            .tag(AppRoute.learn)
         }
+        .tint(StockStepsTheme.color(ThemeColors.shared.light.primary))
+        .environment(router)
+        // The tab bar is on screen on every tab screen now (pushed ones included), so the MOCK banner sits above it inside each tab
+        // (`sampleDataInset` on each stack); sheets cover it as before (Phase 4C.3).
+        .onAppear { bannerPlacement.tabBarVisible = true }
+        .onDisappear { bannerPlacement.tabBarVisible = false }
+        .task {
+            screenerModel.activate(); earningsModel.activate(); learningModel.activate(); briefModel?.activate()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenBrief)) { note in
+            let id = note.object as? String
+            router.open(.dailyBrief(BriefTarget(briefId: (id?.isEmpty ?? true) ? nil : id)))
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsDigest)) { _ in router.open(.earningsDigest) }
+        .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsResults)) { note in
+            if let id = note.object as? String, !id.isEmpty { router.open(.earningsResults(id)) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenEarningsEvent)) { note in
+            // A notification without a usable event falls back to the calendar.
+            if let id = note.object as? String, !id.isEmpty { router.open(.earningsEvent(id)) } else { router.open(.earningsCalendar(EarningsCalendarTarget())) }
+        }
+        // Tapping an alert notification opens that stock's alerts.
+        .onReceive(NotificationCenter.default.publisher(for: .stockStepsOpenAlerts)) { note in
+            if let symbol = note.object as? String { openAlerts(symbol) }
+        }
+        .onChange(of: backendEnvironment) { _, _ in
+            marketsModel.reset()
+            // Watchlists, notes, alerts and the push registration follow the selected backend.
+            accounts.client?.setEnvironment(environment: BackendSettings.environment)
+        }
+        // A signed-out or changed account never sees the previous account's screens (I11).
+        .onChange(of: accounts.state.user?.id) { _, _ in router.reset() }
         .sheet(isPresented: $showingSettings, onDismiss: { NotificationCenter.default.post(name: .stockStepsPlanMayHaveChanged, object: nil) }) {
             NavigationStack {
                 SettingsScene(model: accounts,
@@ -284,6 +163,13 @@ struct AppScene: View {
                                                     onUpgrade: { showingSettingsDigest = false }, onSignIn: { showingSettings = false; showingAuth = true },
                                                     onReminders: { showingReminderSettings = true })
                     }
+            }
+        }
+        // 5D.5.6C2: app-wide screens over the tabs, without the tab bar (Notifications = all alerts; digest settings from the digest).
+        .sheet(item: Binding(get: { router.global }, set: { router.global = $0 })) { sheet in
+            NavigationStack {
+                globalScreen(sheet)
+                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { router.global = nil } } }
             }
         }
         .sheet(isPresented: $showingAuth) {
@@ -303,33 +189,139 @@ struct AppScene: View {
                                      searchForPractice = false
                                      practiceTrade(PracticeOrderTarget(symbol: stock.symbol, sell: false))
                                  } else {
-                                     // Close search, then push the shared Company Details page.
-                                     detailsSymbol = stock.symbol
+                                     // Close search, then open the company on Markets (its canonical tab).
+                                     explore(stock.symbol)
                                  }
                              })
         }
     }
-    private var tabTitle: String {
-        switch selectedTab {
-        case .home: "Home"
-        case .markets: "Markets"
-        case .portfolio: "Portfolio"
-        case .watchlist: "Watchlist"
-        case .learn: "Learn"
+
+    /// One tab: its own native stack (the router's path), the tab's landing page as root, every pushed destination built by `destination`,
+    /// and the MOCK banner above the tab bar on all of its screens.
+    private func tabStack<Root: View>(_ tab: AppRoute, title: String, @ViewBuilder root: () -> Root) -> some View {
+        NavigationStack(path: router.pathBinding(tab)) {
+            root()
+                // Landing pages draw their own bar; the title names the next page's back button ("‹ Markets").
+                .stockStepsTopBar(.screen(title, visible: false))
+                .navigationDestination(for: AppDestination.self) { destination($0) }
+        }
+        .sampleDataInset()
+    }
+
+    @ViewBuilder private func globalScreen(_ sheet: GlobalSheet) -> some View {
+        switch sheet {
+        case .notifications:
+            AlertsScene(model: watchlistsModel, symbol: nil, onOpenStock: explore)
+        case .digestSettings:
+            EarningsDigestSettingsScene(client: earningsModel.client, permissionDenied: earningsModel.reminders.state?.permissionGranted?.boolValue == false,
+                                        onUpgrade: { router.global = nil; showingSettings = true },
+                                        onSignIn: { router.global = nil; showingAuth = true },
+                                        onReminders: { showingGlobalReminders = true })
+                .navigationDestination(isPresented: $showingGlobalReminders) {
+                    EarningsRemindersSettingsScene(model: earningsModel.reminders, onSignIn: { router.global = nil; showingAuth = true })
+                }
         }
     }
+
+    /// Every pushed screen, built from its typed destination (formerly 17 separate presentation flags).
+    @ViewBuilder private func destination(_ destination: AppDestination) -> some View {
+        switch destination {
+        case let .companyDetails(symbol):
+            CompanyDetailsScene(symbol: symbol, accounts: accounts, watchlists: watchlistsModel, learning: learningModel,
+                                onSearch: { initialStock = nil; showingSearch = true }, onLearn: { router.selectTab(.learn) },
+                                onUpgrade: { showingSettings = true }, onPracticeBuy: { practiceTrade(PracticeOrderTarget(symbol: $0, sell: false)) },
+                                onEarningsCalendar: { router.open(.earningsCalendar(EarningsCalendarTarget(date: $0))) },
+                                onEarningsResults: { router.open(.earningsResults($0)) })
+        case let .learn(target):
+            switch target {
+            case let .topics(topic, search):
+                LearnTopicsView(topic: topic, focusSearch: search, onSearchCompanies: { initialStock = nil; showingSearch = true })
+            case let .term(id):
+                LearnTermView(termId: id, onSearchCompanies: { initialStock = nil; showingSearch = true })
+            }
+        case let .dailyBrief(target):
+            if let briefModel {
+                DailyBriefScene(target: target, model: briefModel, onOpenStock: explore, onHistory: { router.open(.briefHistory) },
+                                onWatchlist: { router.selectTab(.watchlist) }, onLearn: { router.selectTab(.learn) },
+                                onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true },
+                                onOpenEarnings: { router.open(.earningsEvent($0)) }, onOpenResults: { router.open(.earningsResults($0)) },
+                                onOpenDigest: { router.open(.earningsDigest) })
+            }
+        case .briefHistory:
+            if let briefModel {
+                DailyBriefHistoryScene(model: briefModel, onOpenBrief: { id in router.open(.dailyBrief(BriefTarget(briefId: id))) },
+                                       onUpgrade: { showingSettings = true })
+            }
+        case .practice:
+            if let practiceModel {
+                PracticeScene(model: practiceModel, onBuy: { initialStock = nil; searchForPractice = true; showingSearch = true }, onExplore: { router.open(.discover) },
+                              onLearn: { router.selectTab(.learn) }, onSignIn: { showingAuth = true }, onCompany: explore,
+                              onTrade: { practiceTrade($0) }, onManagePlan: { showingSettings = true })
+            }
+        case let .practiceOrder(target):
+            if let practiceModel {
+                PracticeOrderScene(target: target, practice: practiceModel,
+                                   onViewHoldings: { if !router.popTo(where: { $0 == .practice }) { router.open(.practice) } },
+                                   onExplore: { router.open(.discover) },
+                                   onLearn: { router.selectTab(.learn) })
+            }
+        case let .research(target):
+            GuidedResearchScene(target: target, learning: learningModel, accounts: accounts, onCompany: explore,
+                                onResearchAnother: { initialStock = nil; showingSearch = true },
+                                onContinueLearning: { router.selectTab(.learn) },
+                                onUpgrade: { showingSettings = true })
+        case let .earningsCalendar(target):
+            EarningsCalendarScene(target: target, client: earningsModel.client, onOpen: { router.open(.earningsEvent($0)) }, onSignIn: { showingAuth = true },
+                                  onOpenResults: { router.open(.earningsResults($0)) }, reminders: earningsModel.reminders,
+                                  onDigest: accounts.client == nil ? nil : { router.open(.earningsDigest) })
+                .id(target.id)
+        case let .earningsEvent(id):
+            EarningsEventScene(eventId: id, client: earningsModel.client, accounts: accounts, onCompany: explore,
+                               // Back to the calendar it came from, or a new one on the event's date.
+                               onCalendar: { date in
+                                   if !router.popTo(where: { if case .earningsCalendar = $0 { true } else { false } }) {
+                                       router.open(.earningsCalendar(EarningsCalendarTarget(date: date)))
+                                   }
+                               },
+                               onResults: { router.open(.earningsResults($0)) }, onSignIn: { showingAuth = true }, reminders: earningsModel.reminders)
+        case .earningsReminders:
+            EarningsRemindersSettingsScene(model: earningsModel.reminders, onSignIn: { showingAuth = true }, onOpenEvent: { router.open(.earningsEvent($0)) })
+        case let .earningsResults(id):
+            EarningsResultsScene(reportId: id, client: earningsModel.client, onCompany: explore,
+                                 onLearn: { router.selectTab(.learn) },
+                                 // No purchase flow exists yet: Settings shows the plan (and, in MOCK, the simulated plan switch).
+                                 onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true })
+                .id(id)
+        case .earningsDigest:
+            EarningsDigestScene(client: earningsModel.client, onOpenResults: { router.open(.earningsResults($0)) }, onOpenEvent: { router.open(.earningsEvent($0)) },
+                                onSettings: { router.global = .digestSettings }, onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true },
+                                onRecentWatchlist: { router.open(.earningsCalendar(EarningsCalendarTarget(filter: "WATCHLIST"))) })
+        case let .earningsDetails(symbol):
+            EarningsDetailsScene(symbol: symbol, client: earningsModel.client, onCompany: { explore(symbol) },
+                                 onSignIn: { showingAuth = true }, onUpgrade: { showingSettings = true })
+        case .discover:
+            DiscoverStocksScene(model: screenerModel, accounts: accounts, watchlists: watchlistsModel, onOpenStock: explore,
+                                onCompare: { router.open(.compare) }, onSignIn: { showingAuth = true })
+        case .compare:
+            CompareStocksScene(model: screenerModel, onOpenStock: explore, onDiscover: { router.open(.discover) },
+                               onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true })
+        case let .stockAlerts(symbol):
+            AlertsScene(model: watchlistsModel, symbol: symbol, onOpenStock: explore)
+        }
+    }
+
     /// Practice needs an account: the server keeps the simulated ledger.
     private func ensurePractice() -> Bool {
         guard accounts.state.user != nil, let client = accounts.client else { showingAuth = true; return false }
         if practiceModel == nil { practiceModel = PracticeModel(account: client) }
         return true
     }
-    private func openPractice() { if ensurePractice() { showingPractice = true } }
-    private func practiceTrade(_ target: PracticeOrderTarget) { if ensurePractice() { practiceTarget = target } }
-    /// 5D.5.6B landing bars: Notifications is the all-alerts history ("" = no stock filter), pushed as before so Back returns to the exact landing
-    /// page; the global-modal presentation (plan §6) arrives with Phase C.
-    private func openNotifications() { alertsTarget = "" }
-    private func explore(_ symbol: String) {
-        detailsSymbol = symbol
-    }
+    private func openPractice() { if ensurePractice() { router.open(.practice) } }
+    private func practiceTrade(_ target: PracticeOrderTarget) { if ensurePractice() { router.open(.practiceOrder(target)) } }
+    /// 5D.5.6B/C2: Notifications is the all-alerts history, an app-wide screen over the tabs (no stock filter, no tab bar).
+    private func openNotifications() { router.global = .notifications }
+    /// A stock's alerts are Watchlist's; no symbol (or "") means all alerts (Notifications).
+    private func openAlerts(_ symbol: String?) { if let symbol, !symbol.isEmpty { router.open(.stockAlerts(symbol)) } else { openNotifications() } }
+    /// Company Details always opens on Markets, its canonical tab (D1), whatever it was opened from.
+    private func explore(_ symbol: String) { router.open(.companyDetails(symbol)) }
 }

@@ -15,17 +15,17 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-15, Phase 5D.5.6C1 committed and pushed)
+## Current task (as of 2026-10-16, Phase 5D.5.6C2 committed and pushed)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
 Phase 5D.5.4 (Company Details, A–D) is pushed through `0c5c4c4`; the owner runs the TalkBack/VoiceOver pass manually (`docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4D.md` §9).
 Phase 5D.5.5 Company Search: the plan, 5D.5.5B (`08723a6`), 5D.5.5C (`1d90195`), search logos (`65ad004`) and 5D.5.5D (`458e6a2`) are pushed. The final verification and closure record ("Close Company Search for Global UI Refinement Phase 5D.5.5D with the final verification record and add the Phase 5D.5.6 shared navigation and top app bar planning note") is committed locally, **not pushed**: recommendation CLOSE WITH DEFERRED ITEMS (owner TalkBack/VoiceOver pass; FMP logo display licence **UNVERIFIED**, a launch dependency for logos). Report: `docs/reviews/phase5d_5_5d/PHASE5D_5_5D_VERIFICATION.md` §8.
 Phase 5D.5.5D closure (`ebadf96`) and the 5D.5.6A plan (`912ec7f`, D1–D12 approved; `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6_PLAN.md`) are pushed.
-Phase 5D.5.6B (`11b1e5b`, shared navigation policy + landing top bars) is pushed. Phase 5D.5.6C1 ("Add Android independent tab stacks for Phase 5D.5.6C1 with canonical tab selection, a cross-tab Back trail from the shared navigation model, tab reselection and global Settings and Notifications screens") is committed and pushed (Android only).
-Report: `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C1.md`; review package: `docs/reviews/phase5d_5_6c1/`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-6C1-2026-10-15.**
-Next: 5D.5.6C2 (iOS per-tab stacks) on the owner's go-ahead, then C3, C4 (Portfolio nested tabs), D (QA).
+Phase 5D.5.6B (`11b1e5b`) and C1 (`2341662`, Android stacks) are pushed. Phase 5D.5.6C2 ("Add iOS independent tab stacks for Phase 5D.5.6C2 with a NavigationStack per tab, typed destinations owned by the shared navigation policy, a cross-tab Back trail and a visible tab bar on pushed screens") is committed and pushed (iOS only).
+Report: `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C2.md`; review package: `docs/reviews/phase5d_5_6c2/`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-6C2-2026-10-15.**
+Next: 5D.5.6C3 (iOS nested cross-tab links, back label, `.task` audit) on the owner's go-ahead, then C4 (Portfolio nested tabs), D (QA).
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
@@ -179,6 +179,11 @@ Portfolio conventions (permanent):
     `TabNavigator.back()`. The bottom bar selects the visible destination's graph and hides on modal/global screens. Notifications is
     `NotificationsRoute` (global); `AlertsRoute(symbol)` is a stock's alerts (Watchlist); reminders opened from Settings use
     `SettingsRemindersRoute`. Landing pages call `ScrollToTopOnReselect`.
+  - (C2, iOS) `AppScene` is a `TabView` of five `NavigationStack(path:)` (no outer stack); every pushed screen is a typed `AppDestination`
+    case (exhaustive `screen` → core `ScreenId`) opened only through `TabRouter.open` — never a new presentation flag in `AppScene`.
+    `TabRouter` syncs the paths into core `TabNavigation`; a shorter path is Back (button or swipe) and ends a hop at its origin tab.
+    App-wide screens (Notifications, digest settings) are `router.global` sheets. Landing scroll views use `scrollsToTopOnReselect(_:)`.
+    Nested `navigationDestination`s inside feature scenes remain until C3.
 - **Contextual learning (5D.5.3).**
   - Metric → Learn term only via core `MetricLearnTerms` (by id: exact term id, then a single `relatedMetrics` owner, else null); never match visible
     titles and never add educational text.

@@ -139,6 +139,7 @@ struct LearnScreen: View {
             .padding(.vertical, CGFloat(space.md))
             .frame(maxWidth: .infinity)
         }
+        .scrollsToTopOnReselect(.learn) // 5D.5.6C2 (D12)
         .background(colors.appBackground.ignoresSafeArea())
     }
 

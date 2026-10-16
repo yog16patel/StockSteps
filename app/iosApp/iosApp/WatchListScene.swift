@@ -223,6 +223,7 @@ struct WatchListScene: View {
             .padding(.bottom, CGFloat(space.xl))
             .frame(maxWidth: .infinity)
         }
+        .scrollsToTopOnReselect(.watchlist) // 5D.5.6C2 (D12)
         .refreshable { await model.refresh(symbols: symbols) }
         .background(colors.appBackground.ignoresSafeArea())
         .onChange(of: symbols, initial: true) { _, value in model.loadData(symbols: value) }
