@@ -160,4 +160,29 @@ class StockSearchTest {
             assertEquals(listOf("AAPL", "APLE", "AAPI", "APPLX", "PNPL"), results.map { it.symbol })
         } finally { upstream.close() }
     }
+
+    @Test
+    fun innerWhitespaceAndCaseShareOneNormalizedProviderQueryAndCacheEntry() = testApplication {
+        val queries = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val upstream = HttpClient(MockEngine { request ->
+            queries.add(request.url.parameters["query"].orEmpty())
+            val body = if (request.url.encodedPath == "/stable/search-name")
+                """[{"symbol":"AAPL","name":"Apple Inc.","currency":"USD","exchange":"NASDAQ"}]""" else "[]"
+            respond(body, headers = headersOf(HttpHeaders.ContentType, "application/json"))
+        }) { install(ClientContentNegotiation) { json() } }
+        try {
+            application {
+                install(ContentNegotiation) { json() }
+                configureApiErrors()
+                routing { stockRoutes(StockService(FmpStockProviderRepositoryImpl(upstream, "test-key"))) }
+            }
+            // Phase 4 audit: a doubled inner space reached the provider verbatim ("apple  inc" found nothing) and had its own cache entry.
+            for (query in listOf("apple  inc", "Apple Inc", "  APPLE   INC ")) {
+                val results = Json.decodeFromString<List<StockSearchResult>>(client.get("/api/v1/stocks/search") { parameter("query", query) }.bodyAsText())
+                assertEquals(listOf("AAPL"), results.map { it.symbol })
+            }
+            // One pair of provider calls for all three spellings, with single spaces.
+            assertEquals(listOf("apple inc", "apple inc"), queries.toList())
+        } finally { upstream.close() }
+    }
 }

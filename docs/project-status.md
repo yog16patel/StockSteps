@@ -6,6 +6,17 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — Company Search Phase 4 relevance & performance audit (APPROVED by the owner; committed locally as "Normalize inner whitespace in Company Search queries for Phase 4 so the provider query and search cache key match, with ranking, stale-response and cache regression tests and the relevance and performance audit"; not pushed or deployed).**
+- **Found:** search relevance, debounce, cancellation, stale-response handling and the server search cache already work. One defect:
+  inner whitespace wasn't collapsed before the FMP query and cache key (`apple  inc` → no results).
+- **Done:** server normalization in `StockService.searchStocks` + 3 regression tests (server, core ranking, shared race).
+- **Validation:** core 612/0 and 610/0, server 508/0, shared 282/0 and 279/0, both builds PASS; device request counts on both platforms.
+  **NOT RUN:** REAL, screen readers.
+- **Report:** `docs/COMPANY_SEARCH_RELEVANCE_AUDIT_PHASE4.md`; package `docs/reviews/company_search_phase4/`.
+- **Open:** REAL FMP page size (D8) and REAL `APP`/`BRK.B`/`SPY` checks; partial results on one endpoint failure; iOS search-sheet
+  focus delay; caching proposals (empty-result TTL, client memo); owner TalkBack/VoiceOver; device large-text/dark/error re-run; MOCK
+  ETF/dotted-symbol fixtures; FMP logo licence. Push/deploy only on the owner's request.
+
 **2026-10-16 — REAL backend My Portfolio & Practice (committed and pushed as "Fix REAL My Portfolio and Practice on the LAN backend with Firestore user data, unwrapped transaction rejections, 503 for storage failures and an opt-in read-only service-account mount"; deployed to LAN REAL :8082 with Firestore user data).**
 - **Root cause:** the LAN REAL container (`:8082`) has no Google credentials, so every `/api/v1/me/*` route answers 503
   `USER_DATA_UNAVAILABLE` (D-R1). Auth and networking are fine. `:8081` is MOCK.

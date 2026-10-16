@@ -65,4 +65,32 @@ class SearchRankingTest {
         assertEquals(apple.sortedBy { SearchRanking.isOtc(it) }, SearchRanking.rank("  ", apple))
         assertNull(SearchDisplay.bestMatch(" ", apple))
     }
+
+    /** Phase 4 audit: the precedence examples from the brief, over provider-shaped lists (nothing here is special-cased in [SearchRanking]). */
+    @Test
+    fun exactTickerBeatsPartialNamesAndShareClassesStayApart() {
+        // "APP": AppLovin's exact ticker before Apple's name prefix; a ticker prefix (APPN) sits between them; Apple (AAPL) is never dropped.
+        val app = listOf(r("AAPL", "Apple Inc."), r("APPN", "Appian Corporation"), r("APLD", "Applied Digital Corporation"), r("APP", "AppLovin Corporation"),
+            r("AAPX", "T-REX 2X Long Apple Daily Target ETF", "CBOE"))
+        assertEquals(listOf("APP", "APPN", "AAPL", "APLD", "AAPX"), SearchRanking.rank("APP", app).map { it.symbol })
+        assertEquals(SearchRanking.rank("APP", app), SearchRanking.rank(" app ", app))
+        // "AAPL" exact ticker before an ETF that only mentions it in its name.
+        assertEquals(listOf("AAPL", "AAPY"), SearchRanking.rank("AAPL", listOf(r("AAPY", "Kurv Yield Premium Strategy Apple (AAPL) ETF", "CBOE"), r("AAPL", "Apple Inc."))).map { it.symbol })
+        // "Microsoft" / "micro": the company before ETFs that name it later; Micron (prefix) stays in provider order beside Microsoft.
+        val micro = listOf(r("MSFX", "T-Rex 2X Long Microsoft Daily Target ETF", "CBOE"), r("MU", "Micron Technology, Inc."), r("MSFT", "Microsoft Corporation"))
+        assertEquals(listOf("MSFT", "MSFX"), SearchRanking.rank("Microsoft", micro.filter { it.symbol != "MU" }).map { it.symbol })
+        assertEquals(listOf("MU", "MSFT", "MSFX"), SearchRanking.rank("micro", micro).map { it.symbol })
+        // GOOG vs GOOGL: each exact ticker wins its own query; both stay listed.
+        val alphabet = listOf(r("GOOGL", "Alphabet Inc."), r("GOOG", "Alphabet Inc."))
+        assertEquals(listOf("GOOG", "GOOGL"), SearchRanking.rank("GOOG", alphabet).map { it.symbol })
+        assertEquals(listOf("GOOGL", "GOOG"), SearchRanking.rank("googl", alphabet).map { it.symbol })
+        // An ETF by exact ticker ("SPY") ranks like any listing; an unknown symbol keeps the provider's order (nothing invented).
+        val spy = listOf(r("SPYG", "SPDR Portfolio S&P 500 Growth ETF", "AMEX"), r("SPY", "SPDR S&P 500 ETF Trust", "AMEX"))
+        assertEquals(listOf("SPY", "SPYG"), SearchRanking.rank("spy", spy).map { it.symbol })
+        assertEquals(listOf("SPYG", "SPY"), SearchRanking.rank("ZZZZQ", spy).map { it.symbol })
+        // Dotted and dashed class symbols are one ticker: "BRK.B" finds BRK-B exactly, ahead of BRK-A.
+        assertEquals(listOf("BRK-B", "BRK-A"), SearchRanking.rank("BRK.B", listOf(r("BRK-A", "Berkshire Hathaway Inc.", "NYSE"), r("BRK-B", "Berkshire Hathaway Inc.", "NYSE"))).map { it.symbol })
+        // Inner whitespace never changes the order.
+        assertEquals(SearchRanking.rank("apple inc", apple), SearchRanking.rank("apple   inc", apple))
+    }
 }

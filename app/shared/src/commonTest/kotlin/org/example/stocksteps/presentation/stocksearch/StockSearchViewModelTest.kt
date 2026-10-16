@@ -174,6 +174,47 @@ class StockSearchViewModelTest {
         } finally { store.clear(); Dispatchers.resetMain() }
     }
 
+    /**
+     * Phase 4 audit race: "app" (A) is in flight when the query becomes "apple" (B); B answers first and A answers afterwards — even when A's
+     * transport ignores cancellation, A never replaces B's results, and loading ends only with B. Two requests, no duplicates.
+     */
+    @Test fun olderSlowerQueryNeverReplacesNewerResultsEvenWithoutCancellation() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val calls = mutableListOf<String>()
+        val repository = object : StockRepository {
+            override suspend fun searchStocks(query: String): List<StockSearchResult> {
+                calls += query
+                if (query == "app") withContext(NonCancellable) { delay(3000) } else delay(500)
+                return listOf(StockSearchResult(if (query == "app") "APP" else "AAPL", "$query result"))
+            }
+            override suspend fun getProfile(symbol: String) = CompanyProfile(symbol)
+            override suspend fun getQuote(symbol: String): StockQuote = error("Not expected")
+        }
+        val store = ViewModelStore()
+        try {
+            val model = StockSearchViewModel(SearchStocks(repository), GetStockQuote(repository), GetCompanyProfile(repository))
+            store.put("search", model)
+            runCurrent()
+            model.changeQuery("app"); advanceTimeBy(301); runCurrent()
+            assertEquals(listOf("app"), calls)
+            model.changeQuery("apple"); runCurrent()
+            assertTrue(model.state.value.searching)
+            assertTrue(model.state.value.results.isEmpty())
+            advanceTimeBy(301); runCurrent()
+            advanceTimeBy(500); runCurrent()
+            assertEquals(listOf("AAPL"), model.state.value.results.map { it.symbol })
+            assertFalse(model.state.value.searching)
+            advanceTimeBy(3000); runCurrent()
+            assertEquals(listOf("AAPL"), model.state.value.results.map { it.symbol })
+            assertFalse(model.state.value.searching)
+            assertEquals(listOf("app", "apple"), calls)
+            // Retyping the current query (or only its surrounding spaces) sends nothing new.
+            model.changeQuery(" apple "); advanceTimeBy(1000); runCurrent()
+            assertEquals(2, calls.size)
+            assertEquals(listOf("AAPL"), model.state.value.results.map { it.symbol })
+        } finally { store.clear(); Dispatchers.resetMain() }
+    }
+
     @Test fun profileFailureAndRetryDoNotDiscardQuote() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         var profileCalls = 0

@@ -19,9 +19,15 @@ class StockService(
 ) {
     private class ProfileOutcome(val profile: CompanyProfile?, val failure: StockProviderException?)
 
-    /** Equivalent queries ("Apple", " apple ") share one cached provider result for [FinancialCachePolicy.SEARCH]. */
-    suspend fun searchStocks(query: String): List<StockSearchResult> =
-        searchCache.getOrLoad(query.trim().lowercase(Locale.ROOT), FinancialCachePolicy.SEARCH) { search(query.trim()) }
+    /**
+     * Equivalent queries ("Apple", " apple ", "apple  inc" / "Apple Inc") share one cached provider result for [FinancialCachePolicy.SEARCH].
+     * Phase 4 audit: runs of inner whitespace collapse to one space before both the cache key and the provider query (plan 5D.5.5 §7), so a
+     * doubled space neither misses the provider's name match nor costs another pair of provider calls.
+     */
+    suspend fun searchStocks(query: String): List<StockSearchResult> {
+        val normalized = query.trim().split(WHITESPACE).joinToString(" ")
+        return searchCache.getOrLoad(normalized.lowercase(Locale.ROOT), FinancialCachePolicy.SEARCH) { search(normalized) }
+    }
 
     /**
      * Scope (owner decision D1, 5D.5.5): USD listings on US exchanges. Ranking (5D.5.5B): the shared [SearchRanking] over everything both
@@ -40,6 +46,7 @@ class StockService(
 
     private companion object {
         const val PROFILE_TTL = 86_400_000L
+        val WHITESPACE = Regex("\\s+")
         val US_EXCHANGES = setOf("NASDAQ", "NYSE", "AMEX", "NYSEARCA", "NYSEAMERICAN", "BATS", "CBOE", "OTC", "OTCQX", "OTCQB", "PNK")
     }
 
