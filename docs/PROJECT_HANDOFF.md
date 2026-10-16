@@ -10,8 +10,8 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
 - **Current commit:** "Refine Company Details, Financials and Valuation for UI/UX Refinement Phase 3 with a delayed-quote freshness line, one chart direction for line, caption and spoken summary, a fixed iOS AX5 chart axis, explained highlight and ratio rows, consistent P/E difference rounding and readable financial dates on Android and iOS" (this commit, on `0696f7e`), committed and pushed on the owner's request after their final review. Nothing
   deployed; no Jira issue moved. Staged by explicit path (core, shared, iOS and this phase's docs only).
 - **Approval (2026-10-16):** the owner approved Phase 3 after final review. The implementation commit `337274e` was already pushed before the
-  owner's "local commit, no push" instruction arrived; this approval record is the separate commit "Record owner approval of Company Details UI/UX Refinement Phase 3 and keep its open QA items in the backlog", local only
-  (not pushed). Nothing deployed.
+  owner's "local commit, no push" instruction arrived; this approval record is the separate commit "Record owner approval of Company Details UI/UX Refinement Phase 3 and keep its open QA items in the backlog" (`17b14a7`),
+  pushed on the owner's later request. Nothing deployed.
 - **Report:** `docs/COMPANY_DETAILS_UI_REFINEMENT_PHASE3.md`; package `docs/reviews/company_details_ui_phase3/` (package, focused diff, test
   results, two contact sheets; originals and logs in git-ignored `captures/`).
 - **Owner decisions:** U1 approved (status chip on the freshness line); U2 approved (one View Results; verified "Explain With AI" had the same
@@ -36,7 +36,7 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
 - **Machine state:** emulator-5554 (Pixel_9_Pro, relaunched by this session) has the final build on MOCK `127.0.0.1:8083`, Light, font 1.0,
   still signed in; emulator-5556 is down (killed by an outside process, not relaunched). iPhone 16: final build, guest, Light, Large, 1M.
   The `:8083` MOCK server (left by Phase 2) is still running; `:8081` and the phone untouched.
-- **Next:** push the approval commit only with separate approval; work the QA backlog above with the owner.
+- **Next:** work the QA backlog above with the owner.
 
 ## REAL-PORTFOLIO-PRACTICE-2026-10-16. REAL backend My Portfolio & Practice (LAN host, physical Android)
 

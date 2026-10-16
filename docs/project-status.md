@@ -22,8 +22,8 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
   without "—"; +1.8% matches Valuation; one Earnings action (U2); readable Financials dates; Revenue headline once.
 - **Validation:** core 611/0 and 609/0, shared 281/0 and 278/0, both builds PASS; final captures PASS on both platforms. **BLOCKED:**
   iOS signed in, Android guest. **NOT RUN:** screen readers.
-- **Status:** APPROVED by the owner (2026-10-16). Implementation `337274e` (pushed before the no-push instruction); approval record committed
-  locally, not pushed. **Report:** `docs/COMPANY_DETAILS_UI_REFINEMENT_PHASE3.md`; package `docs/reviews/company_details_ui_phase3/`.
+- **Status:** APPROVED by the owner (2026-10-16). Implementation `337274e` and approval record `17b14a7`, both pushed; nothing
+  deployed. **Report:** `docs/COMPANY_DETAILS_UI_REFINEMENT_PHASE3.md`; package `docs/reviews/company_details_ui_phase3/`.
 - **QA backlog:** signed-in iOS; Android guest; TalkBack/VoiceOver; loading/error captures; MOCK fixture inconsistencies (1D intraday vs
   quote, market cap vs price).
 
