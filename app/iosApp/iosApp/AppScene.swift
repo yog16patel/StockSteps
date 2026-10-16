@@ -15,6 +15,7 @@ struct AppScene: View {
     /// Phase 5D.5.6C2: five independent tab stacks, canonical tab selection and the cross-tab trail (core `TabNavigation`).
     @State private var router = TabRouter()
     @Environment(SampleBannerPlacement.self) private var bannerPlacement
+    @Environment(\.colorScheme) private var colorScheme
     @State private var screenerModel: ScreenerModel
     @State private var earningsModel: EarningsModel
     /// Earnings Reminders settings inside the Settings sheet.
@@ -26,6 +27,8 @@ struct AppScene: View {
     @State private var practiceModel: PracticeModel?
     /// Search opened from Practice: picking a company opens its simulated order directly.
     @State private var searchForPractice = false
+    /// 5D.5.6C4: the Practice section has been shown (it then stays alive, hidden, while My Portfolio is selected).
+    @State private var practiceShown = false
     @State private var briefModel: BriefModel?
     /// 5D.5.6C3: shared state of the former nested destinations — one company model per symbol and the app's Portfolio model.
     @State private var companies: CompanyModelStore
@@ -91,11 +94,7 @@ struct AppScene: View {
             .tag(AppRoute.markets)
 
             tabStack(.portfolio, title: "Portfolio") {
-                if appLock?.locked != true {
-                    PortfolioScene(accounts: accounts, watchlists: watchlistsModel, model: portfolioModel, onCompany: explore,
-                        onSignIn: { showingAuth = true }, onAlerts: { router.open(.stockAlerts($0)) }, onPractice: openPractice,
-                        onNotifications: openNotifications, onSettings: { showingSettings = true })
-                } else { Color.clear }
+                if appLock?.locked != true { portfolioLanding } else { Color.clear }
             }
             .tabItem { Label("Portfolio", systemImage: "briefcase") }
             .tag(AppRoute.portfolio)
@@ -150,7 +149,8 @@ struct AppScene: View {
             accounts.client?.setEnvironment(environment: BackendSettings.environment)
         }
         // A signed-out or changed account never sees the previous account's screens (I11).
-        .onChange(of: accounts.state.user?.id) { _, _ in router.reset() }
+        // 5D.5.6C4: only a sign-out or a switch to another account resets (a guest signing in keeps their place, as on Android).
+        .onChange(of: accounts.state.user?.id) { old, _ in if old != nil { router.reset(); practiceShown = false } }
         // A company's shared model lives while any of its pages is on a stack.
         .onChange(of: router.revision) { _, _ in companies.retain(only: router.symbolsInUse) }
         .sheet(isPresented: $showingSettings, onDismiss: { NotificationCenter.default.post(name: .stockStepsPlanMayHaveChanged, object: nil) }) {
@@ -288,16 +288,11 @@ struct AppScene: View {
                 DailyBriefHistoryScene(model: briefModel, onOpenBrief: { id in router.open(.dailyBrief(BriefTarget(briefId: id))) },
                                        onUpgrade: { showingSettings = true })
             }
-        case .practice:
-            if let practiceModel {
-                PracticeScene(model: practiceModel, onBuy: { initialStock = nil; searchForPractice = true; showingSearch = true }, onExplore: { router.open(.discover) },
-                              onLearn: { router.selectTab(.learn) }, onSignIn: { showingAuth = true }, onCompany: explore,
-                              onTrade: { practiceTrade($0) }, onManagePlan: { showingSettings = true })
-            }
         case let .practiceOrder(target):
             if let practiceModel {
                 PracticeOrderScene(target: target, practice: practiceModel,
-                                   onViewHoldings: { if !router.popTo(where: { $0 == .practice }) { router.open(.practice) } },
+                                   // Back to the Practice section, refreshed (the order changed the simulated holdings).
+                                   onViewHoldings: { router.showPortfolioSection(.practice); practiceModel.presenter.refresh() },
                                    onExplore: { router.open(.discover) },
                                    onLearn: { router.selectTab(.learn) })
             }
@@ -346,13 +341,43 @@ struct AppScene: View {
         }
     }
 
+    /// 5D.5.6C4: the Portfolio landing with its two nested tabs. Both sections stay alive once shown (hidden, not removed), so each keeps its
+    /// scroll position and state; Practice is built the first time it is selected. The selection lives in the router.
+    @ViewBuilder private var portfolioLanding: some View {
+        let section = Binding(get: { router.portfolioSection }, set: { router.portfolioSection = $0 })
+        let mine = router.portfolioSection == .myPortfolio
+        ZStack {
+            PortfolioScene(accounts: accounts, watchlists: watchlistsModel, model: portfolioModel, onCompany: explore,
+                           onSignIn: { showingAuth = true }, onAlerts: { router.open(.stockAlerts($0)) }, section: section,
+                           onNotifications: openNotifications, onSettings: { showingSettings = true })
+                .sectionVisible(mine)
+            if !mine || practiceShown, let practice = practiceSectionModel() {
+                PracticeScene(model: practice, onBuy: { initialStock = nil; searchForPractice = true; showingSearch = true }, onExplore: { router.open(.discover) },
+                              onLearn: { router.selectTab(.learn) }, onSignIn: { showingAuth = true }, onCompany: explore,
+                              onTrade: { practiceTrade($0) }, onManagePlan: { showingSettings = true },
+                              landingBar: AnyView(StockLandingTopBar(tab: .portfolio, onNotifications: openNotifications, onSettings: { showingSettings = true })),
+                              landingTabs: AnyView(PortfolioSectionTabs(selection: section).pinnedTabsBackground(StockStepsTheme.colors(colorScheme).appBackground)))
+                    // No refresh on appearance: the presenter loads when it starts and on each account change; orders refresh explicitly.
+                    .onAppear { practiceShown = true }
+                    .sectionVisible(!mine)
+            }
+        }
+    }
+
+    /// The Practice model for the section (guests too: its presenter shows the existing sign-in prompt).
+    private func practiceSectionModel() -> PracticeModel? {
+        if practiceModel == nil, let client = accounts.client { DispatchQueue.main.async { if practiceModel == nil { practiceModel = PracticeModel(account: client) } } }
+        return practiceModel
+    }
+
     /// Practice needs an account: the server keeps the simulated ledger.
     private func ensurePractice() -> Bool {
         guard accounts.state.user != nil, let client = accounts.client else { showingAuth = true; return false }
         if practiceModel == nil { practiceModel = PracticeModel(account: client) }
         return true
     }
-    private func openPractice() { if ensurePractice() { router.open(.practice) } }
+    /// 5D.5.6C4: Practice is the Portfolio landing's second nested tab (guests see its existing sign-in prompt there).
+    private func openPractice() { router.showPortfolioSection(.practice) }
     private func practiceTrade(_ target: PracticeOrderTarget) { if ensurePractice() { router.open(.practiceOrder(target)) } }
     /// 5D.5.6B/C2: Notifications is the all-alerts history, an app-wide screen over the tabs (no stock filter, no tab bar).
     private func openNotifications() { router.global = .notifications }

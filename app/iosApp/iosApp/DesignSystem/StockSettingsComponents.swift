@@ -54,8 +54,14 @@ struct StockSegmentedControl: View {
     let onSelect: (Int) -> Void
     /// Portfolio Phase C: a small fixed-size icon beside the label at every text size (the label wraps) instead of a large icon stacked above.
     var compactIcons = false
+    /// 5D.5.6C4: the options are nested tabs — the group is a tab bar for VoiceOver ("tab, 1 of 2", selected).
+    var asTabs = false
     @State private var width: CGFloat = 0
     var body: some View {
+        content.modifier(TabGroupSemantics(enabled: asTabs))
+    }
+
+    @ViewBuilder private var content: some View {
         let colors = StockStepsTheme.colors(scheme)
         let shape = RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.button))
         // C.1 closure: equal-width segments only while every label's longest word (+ compact icon) fits its share (shared StockPillLayout rule);
@@ -107,5 +113,13 @@ struct StockAccountAvatar: View {
             .frame(width: CGFloat(dims.avatar), height: CGFloat(dims.avatar))
             .background(colors.primaryContainer, in: Circle())
             .accessibilityHidden(true)
+    }
+}
+
+/// Marks a group of buttons as a tab bar for VoiceOver (each option keeps its own selected trait).
+private struct TabGroupSemantics: ViewModifier {
+    let enabled: Bool
+    func body(content: Content) -> some View {
+        if enabled { content.accessibilityElement(children: .contain).accessibilityAddTraits(.isTabBar) } else { content }
     }
 }

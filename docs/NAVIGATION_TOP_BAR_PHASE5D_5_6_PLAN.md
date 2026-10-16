@@ -428,7 +428,7 @@ No provider-call change: tab switches only restore entries. The server and API a
   - Company Details/Financials/Valuation → Learn term and Guided research via the router;
   - `.task` audit;
   - optional `@SceneStorage` (if D8 = yes).
-- **5D.5.6C4 — Portfolio nested tabs (§13), both platforms:**
+- **5D.5.6C4 — Portfolio nested tabs (§13), both platforms** — implemented 2026-10-16, report `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C4.md` (Practice is a landing section, not a pushed page; core `PortfolioSections`; pinned tabs; state per section; children return to their section):
   - My Portfolio / Practice as genuine inner tabs of the Portfolio tab;
   - the selection, scroll and filters are preserved across tab switches;
   - pushed Portfolio and Practice screens return to their inner tab;

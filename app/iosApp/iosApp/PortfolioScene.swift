@@ -22,7 +22,8 @@ struct PortfolioScene: View {
     var onSignIn: () -> Void = {}
     var onAlerts: (String) -> Void = { _ in }
     var initialSymbol: String? = nil
-    var onPractice: (() -> Void)? = nil
+    /// 5D.5.6C4: the landing's nested tabs (the dashboard only).
+    var section: Binding<PortfolioSection>? = nil
     /// 5D.5.6B landing bar: the all-alerts history and Settings.
     var onNotifications: () -> Void = {}
     var onSettings: () -> Void = {}
@@ -42,7 +43,7 @@ struct PortfolioScene: View {
             onAdd: { editingTransaction = nil; showTransaction = true }, onHolding: { if initialSymbol == nil { router?.open(.holdingDetails($0)) } }, onCompany: onCompany, onSignIn: onSignIn, onAlerts: onAlerts,
             onWatchlist: { row in if model.state?.mockScenario == nil { watchlistInstrument = InstrumentRef(symbol: row.symbol, name: row.name, exchange: row.exchange, currency: row.currency) } },
             onEditTransaction: { editingTransaction = $0; showTransaction = true }, onDeleteTransaction: model.deleteTransaction,
-            onInsights: { router?.open(.portfolioInsights) }, onPractice: initialSymbol == nil ? onPractice : nil,
+            onInsights: { router?.open(.portfolioInsights) }, section: initialSymbol == nil ? section : nil,
             // The account a holding-scoped history is for is captured on tap.
             onTransactions: { router?.open(.portfolioTransactions(symbol: initialSymbol, accountId: initialSymbol == nil ? nil : model.state?.selectedAccountId)) },
             onOpenTransaction: { router?.open(.portfolioTransaction($0)) }, onDismissError: model.clearError,

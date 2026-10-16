@@ -31,7 +31,6 @@ import org.example.stocksteps.portfolio.*
 import org.example.stocksteps.theme.StockBadgeKind
 import org.example.stocksteps.theme.StockBannerKind
 
-private enum class PortfolioMode { MINE, PRACTICE }
 
 /**
  * Portfolio dashboard (Global UI Refinement Phase 3, the reference screen): mode selector → account selector → value hero → add
@@ -59,8 +58,9 @@ internal fun PortfolioScreen(
     onDeleteTransaction: (String) -> Unit,
     onSaveTransaction: (PortfolioTransaction) -> Unit,
     onWatchlist: (String) -> Unit,
-    /** Opens the separate, simulated Practice Portfolio (never mixed into these totals). */
-    onPractice: (() -> Unit)? = null,
+    /** 5D.5.6C4: the Portfolio landing's nested tabs (null on Holding details): the selected section and how to switch it. */
+    section: org.example.stocksteps.navigation.PortfolioSection? = null,
+    onSection: ((org.example.stocksteps.navigation.PortfolioSection) -> Unit)? = null,
     /** Phase D2: opens Transaction history (scoped to [holdingSymbol] on Holding details); null keeps the preview without a link. */
     onTransactions: (() -> Unit)? = null,
     /** Phase D3: opens Transaction details for a row; null keeps rows without the tap. */
@@ -107,8 +107,8 @@ internal fun PortfolioScreen(
         ) {
             // C.1: on Holding details the top bar already says "Holding details"; a second large title repeated it.
             // 5D.5.6B: the shared landing bar — "Portfolio", About and the ⋯ account menu, then Notifications and Settings.
-            if (listMode) item {
-                org.example.stocksteps.designsystem.components.StockLandingTopBar(org.example.stocksteps.navigation.AppTab.PORTFOLIO, onNotifications, onSettings,
+            // 5D.5.6C4: the shared landing header (bar + My Portfolio | Practice nested tabs) — the same one the Practice section shows.
+            if (listMode) portfolioLandingHeader(section ?: org.example.stocksteps.navigation.PortfolioSections.DEFAULT, onSection ?: {}, onNotifications, onSettings,
                     actions = listOf(
                         { IconButton(onClick = { showAbout = true }) { Icon(StockIcons.Info, contentDescription = PortfolioDisplay.ABOUT_TITLE, tint = colors.iconPrimary) } },
                         {
@@ -117,16 +117,6 @@ internal fun PortfolioScreen(
                                 onSettings = { editingAccount = it; accountEditor = true }, onDelete = { deletingAccount = it },
                                 onChooseScenario = if (state.mockAvailable) ({ choosingScenario = true }) else null)
                         }))
-            }
-            if (listMode && onPractice != null) item {
-                StockSegmentedControl(
-                    options = listOf(StockSegment(PortfolioMode.MINE, "My Portfolio", StockIcons.Briefcase),
-                        StockSegment(PortfolioMode.PRACTICE, "Practice", StockIcons.School)),
-                    selected = PortfolioMode.MINE,
-                    onSelect = { if (it == PortfolioMode.PRACTICE) onPractice() },
-                    compactIcons = true
-                )
-            }
             // Status: sample, loading, sync errors, offline and sign-in — compact, above the numbers they qualify. The sample scenario is chosen in
             // the ⋯ menu (MOCK builds only); while one is shown, this read-only banner stays visible (never collapsed).
             // B.1: one short line; the full explanation is one tap away (never collapsed away entirely).

@@ -78,7 +78,27 @@ internal data class TrailSnapshot(val state: TabNavigationState = TabNavigationS
  * NavController's real stack is synced back into the model ([TabNavigation.sync]), so a pop performed anywhere can never leave a stale hop.
  * All navigation goes through [open], [back], [selectTab] and [reset]; modal and global screens sit on top of the current tab's stack.
  */
-internal class TabNavigator(private val nav: NavHostController, private val snapshot: MutableState<TrailSnapshot>) {
+internal class TabNavigator(
+    private val nav: NavHostController,
+    private val snapshot: MutableState<TrailSnapshot>,
+    /** 5D.5.6C4: the Portfolio landing's selected nested tab (saved with the trail; reset on sign-out). */
+    private val section: MutableState<org.example.stocksteps.navigation.PortfolioSection> =
+        androidx.compose.runtime.mutableStateOf(org.example.stocksteps.navigation.PortfolioSections.DEFAULT)
+) {
+    val portfolioSection: org.example.stocksteps.navigation.PortfolioSection get() = section.value
+
+    /** A tap on the My Portfolio | Practice nested tabs: the content switches in place; no navigation happens. */
+    fun selectPortfolioSection(value: org.example.stocksteps.navigation.PortfolioSection) { section.value = value }
+
+    /** "Open Practice" from anywhere: Practice is a section of the Portfolio landing page, so Portfolio shows its root with Practice selected
+     *  (a tab switch, rule 6 — no duplicate Practice page, no hop). */
+    private fun showPortfolioSection(value: org.example.stocksteps.navigation.PortfolioSection) {
+        dismissModals()
+        if (currentTab() != AppTab.PORTFOLIO) selectTab(AppTab.PORTFOLIO)
+        nav.popBackStack(AppTab.PORTFOLIO.rootRoute(), inclusive = false)
+        sync()
+        section.value = value
+    }
     val state: TabNavigationState get() = snapshot.value.state
     private val reselectEvents = MutableSharedFlow<AppTab>(extraBufferCapacity = 1)
     val reselects: SharedFlow<AppTab> = reselectEvents
@@ -106,7 +126,10 @@ internal class TabNavigator(private val nav: NavHostController, private val snap
     /** Opens a registered route as the policy says: modal/global on top of the current screen, a landing page as a tab switch, a tab screen on
      *  its canonical tab's stack (switching tabs and recording a hop when it isn't the visible one). */
     fun open(route: Any) {
+        if (route is org.example.stocksteps.presentation.practice.PracticeRoute) { showPortfolioSection(org.example.stocksteps.navigation.PortfolioSection.PRACTICE); return }
         val screen = screenIdOf(route) ?: error("Route $route is not registered in AppRouteScreens")
+        // A Portfolio child selects its section, so Back from it shows the matching nested tab (5D.5.6C4).
+        org.example.stocksteps.navigation.PortfolioSections.sectionFor(screen)?.let { section.value = it }
         when (screen.kind) {
             ScreenKind.MODAL, ScreenKind.GLOBAL -> nav.navigate(route) { launchSingleTop = true }
             ScreenKind.TAB_ROOT -> selectTab(screen.tab!!)
@@ -178,6 +201,7 @@ internal class TabNavigator(private val nav: NavHostController, private val snap
     fun reset() {
         AppTab.entries.forEach { nav.clearBackStack(it.graph()) }
         update(TabNavigation.reset(), emptyMap())
+        section.value = org.example.stocksteps.navigation.PortfolioSections.DEFAULT
     }
 
     /** Closes modal and global screens above the visible tab's stack (rule 5) before a tab destination opens. */

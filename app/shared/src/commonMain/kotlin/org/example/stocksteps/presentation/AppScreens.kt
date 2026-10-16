@@ -33,7 +33,6 @@ import org.example.stocksteps.presentation.portfolio.PortfolioSearchRoute
 import org.example.stocksteps.presentation.portfolio.PortfolioTransactionRoute
 import org.example.stocksteps.presentation.portfolio.PortfolioTransactionsRoute
 import org.example.stocksteps.presentation.practice.PracticeOrderRoute
-import org.example.stocksteps.presentation.practice.PracticeRoute
 import org.example.stocksteps.presentation.practice.PracticeSearchRoute
 import org.example.stocksteps.presentation.research.GuidedResearchRoute
 import org.example.stocksteps.presentation.screener.ComparisonAiRoute
@@ -78,7 +77,6 @@ internal val AppRouteScreens: List<Pair<KClass<*>, ScreenId>> = listOf(
     PortfolioTransactionsRoute::class to ScreenId.PORTFOLIO_TRANSACTIONS,
     PortfolioTransactionRoute::class to ScreenId.PORTFOLIO_TRANSACTION,
     PortfolioInsightsRoute::class to ScreenId.PORTFOLIO_INSIGHTS,
-    PracticeRoute::class to ScreenId.PRACTICE,
     PracticeOrderRoute::class to ScreenId.PRACTICE_ORDER,
     WatchListRoute::class to ScreenId.WATCHLIST,
     AlertsRoute::class to ScreenId.STOCK_ALERTS,

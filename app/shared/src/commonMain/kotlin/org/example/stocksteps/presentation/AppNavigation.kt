@@ -71,7 +71,8 @@ internal fun AppNavigation(
     val navController = rememberNavController()
     // 5D.5.6C1: five independent tab stacks with canonical tab selection and the cross-tab Back trail (core TabNavigation, plan §4–5).
     val trail = androidx.compose.runtime.saveable.rememberSaveable(saver = TabNavigator.SnapshotSaver) { mutableStateOf(TrailSnapshot()) }
-    val nav = remember(navController) { TabNavigator(navController, trail) }
+    val portfolioSection = androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(org.example.stocksteps.navigation.PortfolioSections.DEFAULT) }
+    val nav = remember(navController) { TabNavigator(navController, trail, portfolioSection) }
     // Signing out (or Firebase ending the session) always lands on Login with an empty back stack,
     // so Back can't reopen screens from the previous account.
     var previousUser by remember { mutableStateOf(session?.user?.id) }
@@ -141,13 +142,14 @@ internal fun AppNavigation(
         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.learn.LearnTopicsRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.learn.LearnTermRoute>() == true ||
-        destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true ||
         destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute>() == true || destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeOrderRoute>() == true
     // Practice needs an account: the server keeps the simulated ledger.
-    val openPractice: () -> Unit = { if (accounts?.auth?.session?.value?.user == null) nav.open(AuthRoute()) else nav.open(org.example.stocksteps.presentation.practice.PracticeRoute) }
+    // 5D.5.6C4: Practice is the Portfolio landing's second nested tab (guests see its existing sign-in prompt there).
+    val openPractice: () -> Unit = { nav.open(org.example.stocksteps.presentation.practice.PracticeRoute) }
     val practiceTrade: (String, String) -> Unit = { symbol, side -> if (accounts?.auth?.session?.value?.user == null) nav.open(AuthRoute()) else nav.open(org.example.stocksteps.presentation.practice.PracticeOrderRoute(symbol, side)) }
     // Back to the Practice entry already on the stack (keeps its entry, so a cross-tab hop to it stays valid), else open Practice.
-    val backToPractice: () -> Unit = { if (!navController.popBackStack<org.example.stocksteps.presentation.practice.PracticeRoute>(inclusive = false)) nav.open(org.example.stocksteps.presentation.practice.PracticeRoute) }
+    // After an order: back to the Practice section, refreshed (the order changed the simulated holdings).
+    val backToPractice: () -> Unit = { nav.open(org.example.stocksteps.presentation.practice.PracticeRoute); accounts?.practice?.refresh() }
     val openResearch: (String, String?) -> Unit = { symbol, name -> nav.open(org.example.stocksteps.presentation.research.GuidedResearchRoute(symbol, name)) }
     // Every stock tap (Home movers, Watchlist, Search) opens the same Company Details page.
     val addPortfolio: (InstrumentRef) -> Unit = { instrument ->
@@ -186,7 +188,6 @@ internal fun AppNavigation(
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDigestSettingsRoute>() == true -> "Earnings digest & AI"
                         destination?.hasRoute<org.example.stocksteps.presentation.earnings.EarningsDetailsRoute>() == true -> "Earnings details"
                         destination?.hasRoute<org.example.stocksteps.presentation.research.GuidedResearchRoute>() == true -> "Research"
-                        destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeRoute>() == true -> "Practice"
                         destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefRoute>() == true -> org.example.stocksteps.brief.DailyBriefDisplay.TITLE
                         destination?.hasRoute<org.example.stocksteps.presentation.brief.DailyBriefHistoryRoute>() == true -> "Previous briefs"
                         destination?.hasRoute<org.example.stocksteps.presentation.practice.PracticeOrderRoute>() == true -> "Practice order"
@@ -269,17 +270,34 @@ internal fun AppNavigation(
                         onDailyBrief = { nav.open(org.example.stocksteps.presentation.brief.DailyBriefRoute()) }
                     )
                 }
+                // 5D.5.6C4: the Portfolio landing hosts two nested tabs (My Portfolio | Practice). The selected one comes from the navigator;
+                // each keeps its own saved state (scroll, filters) while the other is shown.
                 route<PortfolioRoute> {
-                    if (accounts != null) PortfolioScene(accounts,
-                        onAdd = { nav.open(PortfolioEntryRoute()) },
-                        onHolding = { account, symbol -> nav.open(HoldingDetailsRoute(account, symbol)) },
-                        onOpenCompany = openStock, hinge = hinge,
-                        onSignIn = { nav.open(AuthRoute()) }, onAlerts = { nav.open(AlertsRoute(it)) },
-                        onInsights = { nav.open(PortfolioInsightsRoute) },
-                        onPractice = openPractice,
-                        onTransactions = { account, symbol -> nav.open(PortfolioTransactionsRoute(account, symbol)) },
-                        onOpenTransaction = { nav.open(PortfolioTransactionRoute(it)) },
-                        onNotifications = openNotifications, onSettings = openSettings)
+                    val section = nav.portfolioSection
+                    val sections = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+                    if (accounts != null) sections.SaveableStateProvider(section.name) {
+                        when (section) {
+                            org.example.stocksteps.navigation.PortfolioSection.MY_PORTFOLIO -> PortfolioScene(accounts,
+                                onAdd = { nav.open(PortfolioEntryRoute()) },
+                                onHolding = { account, symbol -> nav.open(HoldingDetailsRoute(account, symbol)) },
+                                onOpenCompany = openStock, hinge = hinge,
+                                onSignIn = { nav.open(AuthRoute()) }, onAlerts = { nav.open(AlertsRoute(it)) },
+                                onInsights = { nav.open(PortfolioInsightsRoute) },
+                                section = section, onSection = nav::selectPortfolioSection,
+                                onTransactions = { account, symbol -> nav.open(PortfolioTransactionsRoute(account, symbol)) },
+                                onOpenTransaction = { nav.open(PortfolioTransactionRoute(it)) },
+                                onNotifications = openNotifications, onSettings = openSettings)
+                            org.example.stocksteps.navigation.PortfolioSection.PRACTICE -> org.example.stocksteps.presentation.practice.PracticeScene(accounts, hinge,
+                                onBuy = { nav.open(org.example.stocksteps.presentation.practice.PracticeSearchRoute) },
+                                onExplore = { nav.open(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
+                                onLearn = { openTab(MainDestination.LEARN) },
+                                onSignIn = { nav.open(AuthRoute()) },
+                                onCompany = openStock,
+                                onTrade = { symbol, side -> practiceTrade(symbol, side.name) },
+                                onManagePlan = { nav.open(SettingsRoute) },
+                                header = { portfolioLandingHeader(section, nav::selectPortfolioSection, openNotifications, openSettings) })
+                        }
+                    }
                 }
                 route<org.example.stocksteps.presentation.screener.ScreenerRoute> { entry ->
                     org.example.stocksteps.presentation.screener.ScreenerScene(
@@ -501,16 +519,6 @@ internal fun AppNavigation(
                         onTerm = { nav.open(org.example.stocksteps.presentation.learn.LearnTermRoute(it)) },
                         onTopics = { nav.open(org.example.stocksteps.presentation.learn.LearnTopicsRoute()) },
                         onSearch = { nav.open(StockSearchRoute()) })
-                }
-                route<org.example.stocksteps.presentation.practice.PracticeRoute> {
-                    if (accounts != null) org.example.stocksteps.presentation.practice.PracticeScene(accounts, hinge,
-                        onBuy = { nav.open(org.example.stocksteps.presentation.practice.PracticeSearchRoute) },
-                        onExplore = { nav.open(org.example.stocksteps.presentation.screener.ScreenerRoute()) },
-                        onLearn = { openTab(MainDestination.LEARN) },
-                        onSignIn = { nav.open(AuthRoute()) },
-                        onCompany = openStock,
-                        onTrade = { symbol, side -> practiceTrade(symbol, side.name) },
-                        onManagePlan = { nav.open(SettingsRoute) })
                 }
                 route<org.example.stocksteps.presentation.practice.PracticeOrderRoute> { entry ->
                     if (accounts != null) org.example.stocksteps.presentation.practice.PracticeOrderScene(entry.toRoute(), environment, accounts, hinge,

@@ -8,7 +8,6 @@ enum AppDestination: Hashable {
     case learn(LearnTarget)
     case dailyBrief(BriefTarget)
     case briefHistory
-    case practice
     case practiceOrder(PracticeOrderTarget)
     case research(ResearchTarget)
     case earningsCalendar(EarningsCalendarTarget)
@@ -43,7 +42,6 @@ enum AppDestination: Hashable {
             }
         case .dailyBrief: .dailyBrief
         case .briefHistory: .dailyBriefHistory
-        case .practice: .practice
         case .practiceOrder: .practiceOrder
         case .research: .guidedResearch
         case .earningsCalendar: .earningsCalendar
@@ -78,7 +76,7 @@ enum AppDestination: Hashable {
         case .learn(.term): "Learn"
         case .dailyBrief: "Daily Brief"
         case .briefHistory: "Previous briefs"
-        case .practice, .practiceOrder: "Practice"
+        case .practiceOrder: "Practice"
         case .research: "Research"
         case .earningsCalendar, .earningsEvent, .earningsResults, .earningsDetails: "Earnings"
         case .earningsDigest: "Digest"
@@ -110,7 +108,7 @@ enum AppDestination: Hashable {
     /// One sample per case: every tab screen of core `ScreenId` must have an iOS destination (checked once at launch in debug builds).
     static let samples: [AppDestination] = [
         .companyDetails("AAPL"), .learn(.topics(topic: nil, search: false)), .learn(.term("pe-ratio")), .dailyBrief(BriefTarget(briefId: nil)),
-        .briefHistory, .practice, .practiceOrder(PracticeOrderTarget(symbol: "AAPL", sell: false)), .research(ResearchTarget(symbol: "AAPL", name: nil)),
+        .briefHistory, .practiceOrder(PracticeOrderTarget(symbol: "AAPL", sell: false)), .research(ResearchTarget(symbol: "AAPL", name: nil)),
         .earningsCalendar(EarningsCalendarTarget()), .earningsEvent("AAPL:2026-Q3"), .earningsReminders, .earningsResults("AAPL:2026-Q3"), .earningsDigest,
         .earningsDetails("AAPL"), .discover, .compare, .stockAlerts("AAPL"), .companyFinancials("AAPL"), .companyValuation("AAPL"), .companyNews("AAPL"),
         .newsInsight(symbol: "AAPL", articleId: "a"), .stockMovement("AAPL"), .comparisonResearch, .comparisonAi(nil), .portfolioInsights,
@@ -162,6 +160,8 @@ final class TabRouter {
     private(set) var state: TabNavigationState = TabNavigationState.companion.initial(selected: .home)
     /// An app-wide screen over the tabs (Notifications, digest settings).
     var global: GlobalSheet?
+    /// 5D.5.6C4: the Portfolio landing's selected nested tab (My Portfolio | Practice); kept across tab switches, reset with the account.
+    var portfolioSection: PortfolioSection = PortfolioSections.shared.DEFAULT
     /// Incremented when a tab is reselected at its root; landing pages scroll to the top (D12).
     private(set) var scrollToTop: [AppRoute: Int] = [:]
 
@@ -171,7 +171,8 @@ final class TabRouter {
 
     init() {
         #if DEBUG
-        let tabScreens = Set(ScreenId.entries.filter { $0.kind == .tabScreen })
+        // Practice is a section of the Portfolio landing page since 5D.5.6C4, not a pushed screen.
+        let tabScreens = Set(ScreenId.entries.filter { $0.kind == .tabScreen && !PortfolioSections.shared.isLandingSection(screen: $0) })
         assert(tabScreens.isSubset(of: Set(AppDestination.samples.map(\.screen))), "a tab screen has no AppDestination")
         #endif
     }
@@ -235,8 +236,20 @@ final class TabRouter {
     }
 
     /// Opens a destination on its canonical tab's stack (rule 1–2): switching tabs and recording a hop when it isn't the visible one.
+    /// "Open Practice" from anywhere: Practice is a section of the Portfolio landing page, so Portfolio shows its root with Practice selected
+    /// (a tab switch, rule 6 — no duplicate Practice page, no hop).
+    func showPortfolioSection(_ section: PortfolioSection) {
+        global = nil
+        if selected != .portfolio { selectTab(.portfolio) }
+        if !path(.portfolio).isEmpty { paths[.portfolio] = []; revision += 1 }
+        sync(.portfolio)
+        portfolioSection = section
+    }
+
     func open(_ destination: AppDestination) {
         global = nil
+        // A Portfolio child selects its section, so Back from it shows the matching nested tab (5D.5.6C4).
+        if let section = PortfolioSections.shared.sectionFor(screen: destination.screen) { portfolioSection = section }
         guard let owner = NavigationPolicy.shared.parentTab(screen: destination.screen) else { return }
         let tab = AppRoute.of(owner)
         sync(selected)
@@ -292,6 +305,7 @@ final class TabRouter {
     /// Sign-out or an ended session: every stack back to its root, Home selected, no trail or global screen (I11).
     func reset() {
         revision += 1
+        portfolioSection = PortfolioSections.shared.DEFAULT
         paths = [:]
         global = nil
         selected = .home
@@ -303,16 +317,22 @@ final class TabRouter {
 struct ScrollToTopOnReselect: ViewModifier {
     @Environment(TabRouter.self) private var router: TabRouter?
     let tab: AppRoute
+    /// 5D.5.6C4: a Portfolio nested-tab section scrolls only while it is the selected one (the hidden section keeps its position).
+    var section: PortfolioSection? = nil
     @State private var position = ScrollPosition(edge: .top)
     func body(content: Content) -> some View {
         content
             .scrollPosition($position)
-            .onChange(of: router?.scrollToTop[tab] ?? 0) { _, _ in withAnimation { position.scrollTo(edge: .top) } }
+            .onChange(of: router?.scrollToTop[tab] ?? 0) { _, _ in
+                if section == nil || router?.portfolioSection == section { withAnimation { position.scrollTo(edge: .top) } }
+            }
     }
 }
 
 extension View {
-    func scrollsToTopOnReselect(_ tab: AppRoute) -> some View { modifier(ScrollToTopOnReselect(tab: tab)) }
+    func scrollsToTopOnReselect(_ tab: AppRoute, section: PortfolioSection? = nil) -> some View {
+        modifier(ScrollToTopOnReselect(tab: tab, section: section))
+    }
 }
 
 /// 5D.5.6C3: one company model (and its details client) per symbol, shared by Company Details and its Financials, Valuation, News, News insight and
@@ -350,4 +370,11 @@ private struct TaskOnce<ID: Equatable>: ViewModifier {
 extension View {
     func taskOnce<ID: Equatable>(id: ID, _ action: @escaping () async -> Void) -> some View { modifier(TaskOnce(id: id, action: action)) }
     func taskOnce(_ action: @escaping () async -> Void) -> some View { modifier(TaskOnce(id: 0, action: action)) }
+}
+
+extension View {
+    /// 5D.5.6C4: a nested-tab section that stays alive while hidden (state and scroll kept), invisible to touch and VoiceOver.
+    func sectionVisible(_ visible: Bool) -> some View {
+        opacity(visible ? 1 : 0).allowsHitTesting(visible).accessibilityHidden(!visible)
+    }
 }

@@ -5,7 +5,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,17 +28,17 @@ internal fun PracticeScene(
     onSignIn: () -> Unit,
     onCompany: (String) -> Unit,
     onTrade: (String, OrderSide) -> Unit,
-    onManagePlan: () -> Unit
+    onManagePlan: () -> Unit,
+    /** 5D.5.6C4: the Portfolio landing header (bar + pinned nested tabs) above the Practice section — Practice is a nested tab, not a pushed screen. */
+    header: (androidx.compose.foundation.lazy.LazyListScope.() -> Unit)? = null
 ) {
     val presenter = accounts.practice
     val state by presenter.state.collectAsStateWithLifecycle()
-    LifecycleResumeEffect(presenter) {
-        presenter.refresh()
-        onPauseOrDispose { }
-    }
+    // 5D.5.6C4: no refresh on resume (that now includes every primary-tab and nested-tab switch). The presenter loads on its own when it
+    // starts and on every account change; an order's "View holdings" and pull/Retry refresh explicitly.
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            PracticeScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize()) { action ->
+            PracticeScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize(), header) { action ->
                 when (action) {
                     is PracticeAction.Tab -> presenter.selectTab(action.tab)
                     is PracticeAction.Range -> presenter.selectRange(action.range)

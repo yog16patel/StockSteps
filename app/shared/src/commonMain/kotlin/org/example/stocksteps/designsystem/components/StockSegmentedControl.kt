@@ -37,7 +37,9 @@ internal fun <T> StockSegmentedControl(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     /** Portfolio Phase C: keep a small icon beside the label at every text size (the label wraps) instead of stacking it above. */
-    compactIcons: Boolean = false
+    compactIcons: Boolean = false,
+    /** 5D.5.6C4: options are nested tabs (announced as tabs with their selected state) instead of a single choice. */
+    asTabs: Boolean = false
 ) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
@@ -61,7 +63,7 @@ internal fun <T> StockSegmentedControl(
                 .clip(shape)
                 .background(if (isSelected) colors.primaryContainer else colors.surfaceSecondary)
                 .border(StockStepsTheme.dimensions.border, if (isSelected) colors.primary else colors.borderSubtle, shape)
-                .selectable(selected = isSelected, role = Role.RadioButton, onClick = { onSelect(segment.value) })
+                .selectable(selected = isSelected, role = if (asTabs) Role.Tab else Role.RadioButton, onClick = { onSelect(segment.value) })
                 .padding(horizontal = spacing.xs, vertical = spacing.sm)
             if (stacked) {
                 Column(itemModifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(spacing.xxs, Alignment.CenterVertically)) { body() }

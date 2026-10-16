@@ -47,7 +47,7 @@ class AppScreensTest {
         HoldingDetailsRoute("acc", "AAPL"), PortfolioTransactionsRoute(), PortfolioTransactionRoute("t1"), PracticeSearchRoute, PortfolioSearchRoute,
         PortfolioEntryRoute(), MarketsRoute, DailyBriefRoute(), DailyBriefHistoryRoute, EarningsCalendarRoute(), EarningsEventRoute("AAPL:2026-Q3"),
         EarningsResultsRoute("AAPL", 2026, 3), EarningsDetailsRoute("AAPL"), WatchListRoute, AlertsRoute("AAPL"), LearnRoute, LearnTopicsRoute(),
-        LearnTermRoute("pe-ratio"), PracticeRoute, PracticeOrderRoute("AAPL"), GuidedResearchRoute("AAPL"), SettingsRoute, EarningsDigestRoute,
+        LearnTermRoute("pe-ratio"), PracticeOrderRoute("AAPL"), GuidedResearchRoute("AAPL"), SettingsRoute, EarningsDigestRoute,
         EarningsDigestSettingsRoute, EarningsRemindersRoute, AuthRoute(), StockSearchRoute(), CompanyDetailsRoute("AAPL"),
         CompanyFinancialsRoute("AAPL"), CompanyValuationRoute("AAPL"), CompanyNewsRoute("AAPL"), NewsInsightRoute("AAPL", "a1"),
         StockMovementRoute("AAPL"), NotificationsRoute, SettingsRemindersRoute
@@ -55,7 +55,7 @@ class AppScreensTest {
 
     @Test
     fun everyRegisteredRouteHasOneScreenId() {
-        assertEquals(42, routes.map { it::class }.toSet().size, "one sample per registered route type")
+        assertEquals(41, routes.map { it::class }.toSet().size, "one sample per registered route type")
         assertEquals(routes.map { it::class }.toSet(), AppRouteScreens.map { it.first }.toSet(), "AppRouteScreens lists exactly the registered types")
         assertEquals(AppRouteScreens.size, AppRouteScreens.map { it.first }.toSet().size, "no route type listed twice")
         routes.forEach { assertNotNull(screenIdOf(it), "$it has no ScreenId") }
@@ -64,16 +64,18 @@ class AppScreensTest {
 
     @Test
     fun everyIdWithAnAndroidRouteIsCovered() {
-        // Every ScreenId except the overlay-only app lock is reachable through a route (Notifications = the all-alerts history).
+        // Every ScreenId is reachable through a route except the overlay-only app lock and Practice, a section of the Portfolio landing page
+        // since 5D.5.6C4 (TabNavigator.open(PracticeRoute) selects it).
         val covered = routes.mapNotNull(::screenIdOf).toSet()
-        assertEquals(ScreenId.entries.toSet() - ScreenId.APP_LOCK, covered)
+        assertEquals(ScreenId.entries.toSet() - ScreenId.APP_LOCK - ScreenId.PRACTICE, covered)
+        assertNull(screenIdOf(PracticeRoute), "Practice is not a pushed route")
     }
 
     @Test
     fun canonicalOwnersOfKeyRoutes() {
         assertEquals(AppTab.MARKETS, NavigationPolicy.parentTab(screenIdOf(CompanyDetailsRoute("AAPL"))!!))
         assertEquals(AppTab.MARKETS, NavigationPolicy.parentTab(screenIdOf(CompanyValuationRoute("AAPL"))!!))
-        assertEquals(AppTab.PORTFOLIO, NavigationPolicy.parentTab(screenIdOf(PracticeRoute)!!))
+        assertEquals(AppTab.PORTFOLIO, NavigationPolicy.parentTab(screenIdOf(PracticeOrderRoute("AAPL"))!!))
         assertEquals(AppTab.LEARN, NavigationPolicy.parentTab(screenIdOf(LearnTermRoute("pe-ratio"))!!))
         assertEquals(AppTab.WATCHLIST, NavigationPolicy.parentTab(screenIdOf(AlertsRoute("AAPL"))!!))
         assertEquals(ScreenKind.GLOBAL, screenIdOf(NotificationsRoute)!!.kind) // Notifications never inherits a tab
@@ -100,5 +102,15 @@ class AppScreensTest {
         assertTrue(s.hops.size == 2 && decodeTrail(encodeTrail(snapshot)).state.hops == s.hops)
         // Route keys carry the arguments, so the same screen with other arguments is a new entry.
         assertEquals(NavEntry(ScreenId.COMPANY_DETAILS, "CompanyDetailsRoute(symbol=AAPL)"), s.stack(AppTab.MARKETS).last())
+    }
+
+    @Test
+    fun portfolioChildrenReturnToTheirSection() { // 5D.5.6C4: opening a Portfolio child selects its nested tab, so Back shows it
+        val section = { r: Any -> org.example.stocksteps.navigation.PortfolioSections.sectionFor(screenIdOf(r)!!) }
+        assertEquals(org.example.stocksteps.navigation.PortfolioSection.MY_PORTFOLIO, section(HoldingDetailsRoute("acc", "AAPL")))
+        assertEquals(org.example.stocksteps.navigation.PortfolioSection.MY_PORTFOLIO, section(PortfolioTransactionsRoute()))
+        assertEquals(org.example.stocksteps.navigation.PortfolioSection.MY_PORTFOLIO, section(PortfolioInsightsRoute))
+        assertEquals(org.example.stocksteps.navigation.PortfolioSection.PRACTICE, section(PracticeOrderRoute("AAPL")))
+        assertNull(section(CompanyDetailsRoute("AAPL")))
     }
 }

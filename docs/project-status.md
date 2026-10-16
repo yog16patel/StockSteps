@@ -6,6 +6,17 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — Phase 5D.5.6C4 Portfolio My Portfolio / Practice nested tabs (committed and pushed as "Add Portfolio nested tabs for Phase 5D.5.6C4 with My Portfolio and Practice switching in place on the Portfolio landing, state kept per section, children returning to their section and Practice loading once on Android and iOS").**
+- **Done (Android and iOS):**
+  - nested tabs on the Portfolio landing (pinned, tab-group semantics, switch in place);
+  - Practice is a landing section, not a pushed page;
+  - state per section; children return to their section;
+  - reselect keeps the section; sign-out resets;
+  - Practice loads once.
+- **Validation:** all suites green; device QA mostly PASS. Signed-in iOS, sign-out and screen readers are BLOCKED or NOT RUN.
+- **Report:** `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C4.md`.
+- **Next:** 5D.5.6D on the owner's go-ahead.
+
 **2026-10-16 — Phase 5D.5.6C3 iOS cross-tab navigation, Back labels & lifecycle audit (committed and pushed as "Finish iOS cross-tab navigation for Phase 5D.5.6C3 with every tab screen on the router, truthful back labels, reused-top Back, reselection from any depth and no repeated requests on tab switches").**
 - **Done:**
   - every iOS tab push on the router with canonical tabs (Company Details → Learn term/research on Learn);

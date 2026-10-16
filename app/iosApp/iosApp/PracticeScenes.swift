@@ -133,7 +133,6 @@ private struct GainLabel: View {
 
 struct PracticeScene: View {
     let model: PracticeModel
-    @Environment(TabRouter.self) private var router: TabRouter?
     let onBuy: () -> Void
     let onExplore: () -> Void
     let onLearn: () -> Void
@@ -141,15 +140,15 @@ struct PracticeScene: View {
     let onCompany: (String) -> Void
     let onTrade: (PracticeOrderTarget) -> Void
     var onManagePlan: () -> Void = {}
+    /// 5D.5.6C4: the Portfolio landing bar (scrolls away) and nested tabs (pinned) above the Practice section — Practice is a nested tab, not a
+    /// pushed screen.
+    var landingBar: AnyView? = nil
+    var landingTabs: AnyView? = nil
 
     var body: some View {
         PracticeScreen(state: model.state, client: model.client, onBuy: onBuy, onExplore: onExplore, onLearn: onLearn, onSignIn: onSignIn,
-                       onCompany: onCompany, onTrade: onTrade, onManagePlan: onManagePlan)
-            .navigationTitle("Practice")
-            .navigationBarTitleDisplayMode(.inline)
+                       onCompany: onCompany, onTrade: onTrade, onManagePlan: onManagePlan, landingBar: landingBar, landingTabs: landingTabs)
             .refreshable { model.presenter.refresh() }
-            // 5D.5.6C3: refresh when Practice is shown and whenever it is the top again (back from an order), not on tab switches.
-            .onChange(of: router?.path(.portfolio).last == .practice, initial: true) { _, top in if top || router == nil { model.presenter.refresh() } }
     }
 }
 
@@ -163,15 +162,22 @@ struct PracticeScreen: View {
     let onCompany: (String) -> Void
     let onTrade: (PracticeOrderTarget) -> Void
     let onManagePlan: () -> Void
+    var landingBar: AnyView? = nil
+    var landingTabs: AnyView? = nil
     @Environment(\.colorScheme) private var scheme
+    // 5D.5.6C4: the section now stays alive inside the Portfolio landing, so it reads the size to refresh on a live Dynamic Type change.
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var holding: PracticeHoldingView?
     @State private var openChallenge: String?
     private var presenter: PracticePresenter { client.presenter }
 
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
+        let _ = typeSize
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: CGFloat(space.sectionGap)) {
+            LazyVStack(alignment: .leading, spacing: CGFloat(space.sectionGap), pinnedViews: landingTabs == nil ? [] : [.sectionHeaders]) {
+                if let landingBar { landingBar }
+                Section {
                 header(colors)
                 if let state {
                     if !state.signedIn {
@@ -197,12 +203,18 @@ struct PracticeScreen: View {
                         ProgressView().accessibilityLabel("Loading your Practice Portfolio")
                     }
                 }
+                            } header: {
+                    if let landingTabs { landingTabs }
+                }
             }
             .frame(maxWidth: CGFloat(dims.contentMaxWidth))
             .padding(.horizontal, CGFloat(space.screen))
-            .padding(.vertical, CGFloat(space.md))
+            // 5D.5.6C4: as a Portfolio section, the same top inset as My Portfolio, so the landing bar and nested tabs don't shift on a switch.
+            .padding(.top, CGFloat(landingBar == nil ? space.md : space.screen))
+            .padding(.bottom, CGFloat(space.md))
             .frame(maxWidth: .infinity)
         }
+        .scrollsToTopOnReselect(.portfolio, section: .practice) // 5D.5.6C4 (D12) inside the Portfolio landing
         .background(colors.appBackground.ignoresSafeArea())
         .sheet(item: $holding) { h in holdingSheet(h, colors).presentationDetents([.medium, .large]) }
         .sheet(isPresented: Binding(get: { client.sheetKind(sheet: state?.sheet) != nil }, set: { if !$0 { presenter.dismissSheet() } })) {

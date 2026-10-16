@@ -51,14 +51,20 @@ internal val MOCK_SCENARIOS = listOf("empty", "one-holding", "free-limit", "eigh
     "plus-active", "plus-expired", "low-cash", "missing-quote", "stale-quote", "missing-fx", "dividend", "split")
 
 @Composable
-internal fun PracticeScreen(state: PracticeUiState, modifier: Modifier, onAction: (PracticeAction) -> Unit) {
+internal fun PracticeScreen(state: PracticeUiState, modifier: Modifier, header: (androidx.compose.foundation.lazy.LazyListScope.() -> Unit)? = null, onAction: (PracticeAction) -> Unit) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     val typography = StockStepsTheme.typography
     var holding by remember { mutableStateOf<PracticeHoldingView?>(null) }
     val overview = state.overview
-    LazyColumn(modifier.background(colors.appBackground), contentPadding = PaddingValues(horizontal = spacing.screen, vertical = spacing.md),
+    // 5D.5.6C4: inside the Portfolio landing the shared header (bar + nested tabs) comes first; the section scrolls to the top on reselect.
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    if (header != null) org.example.stocksteps.presentation.ScrollToTopOnReselect(org.example.stocksteps.navigation.AppTab.PORTFOLIO, listState)
+    LazyColumn(modifier.background(colors.appBackground), state = listState, contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen,
+        // As a Portfolio section: My Portfolio's top inset, so the landing bar and nested tabs don't shift on a switch.
+        top = if (header != null) spacing.screen else spacing.md, bottom = spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.sectionGap)) {
+        header?.invoke(this)
         item("header") { Header(state, onAction) }
         if (!state.signedIn) {
             item("signin") {

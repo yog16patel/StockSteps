@@ -50,7 +50,9 @@ internal fun PortfolioScene(
     onSignIn: () -> Unit = {},
     onAlerts: (String) -> Unit = {},
     onInsights: () -> Unit = {},
-    onPractice: (() -> Unit)? = null,
+    /** 5D.5.6C4: the landing's nested tabs (the dashboard only). */
+    section: org.example.stocksteps.navigation.PortfolioSection? = null,
+    onSection: ((org.example.stocksteps.navigation.PortfolioSection) -> Unit)? = null,
     /** Phase D2: Transaction history for (account, holding symbol); the symbol is null on the dashboard. */
     onTransactions: (String?, String?) -> Unit = { _, _ -> },
     /** Phase D3: Transaction details for a transaction id. */
@@ -89,7 +91,7 @@ internal fun PortfolioScene(
                 onSignIn = onSignIn,
                 onAlerts = onAlerts,
                 onInsights = onInsights,
-                onPractice = onPractice,
+                section = section, onSection = onSection,
                 onTransactions = { onTransactions(holding?.accountId ?: state.selectedAccountId, holding?.symbol) },
                 onOpenTransaction = onOpenTransaction,
                 onNotifications = onNotifications, onSettings = onSettings,

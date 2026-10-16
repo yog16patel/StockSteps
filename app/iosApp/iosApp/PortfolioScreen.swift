@@ -25,7 +25,8 @@ struct PortfolioScreen: View {
     let onDeleteTransaction: (String) -> Void
     var onInsights: () -> Void = {}
     /// The separate, simulated Practice Portfolio (never mixed into these totals).
-    var onPractice: (() -> Void)? = nil
+    /// 5D.5.6C4: the landing's nested tabs (nil on Holding details): selecting one switches the content in place.
+    var section: Binding<PortfolioSection>? = nil
     /// Phase D2: opens Transaction history (scoped to `holdingSymbol` on Holding details); nil keeps the preview without a link.
     var onTransactions: (() -> Void)? = nil
     /// Phase D3: opens Transaction details for a row; nil keeps rows without the tap.
@@ -61,15 +62,13 @@ struct PortfolioScreen: View {
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         ScrollView {
-            // Plain VStack (not Lazy): the old LazyVStack reserved a large blank block under Allocation on iOS.
-            VStack(alignment: .leading, spacing: CGFloat(space.md)) {
+            // 5D.5.6C4: the landing bar scrolls away and the My Portfolio | Practice nested tabs stay pinned (a section header), so sections can
+            // be switched at any scroll position. The lazy stack holds only these pieces; the content stays one plain VStack (the old
+            // LazyVStack reserved a large blank block under Allocation on iOS).
+            LazyVStack(alignment: .leading, spacing: CGFloat(space.md), pinnedViews: [.sectionHeaders]) {
                 header(colors)
-                if let onPractice, holdingSymbol == nil {
-                    StockSegmentedControl(segments: [("My Portfolio", "briefcase"), ("Practice", "graduationcap")], selected: 0, onSelect: { index in
-                        if index == 1 { onPractice() }
-                    }, compactIcons: true)
-                    .accessibilityHint("Practice opens the separate simulated portfolio")
-                }
+                Section {
+            VStack(alignment: .leading, spacing: CGFloat(space.md)) {
                 if let state {
                     status(state)
                     let active = state.accounts.filter { !$0.archived }
@@ -82,10 +81,14 @@ struct PortfolioScreen: View {
                         content(state, active: active, colors: colors)
                     }
                 } else { ProgressView(display.RESTORING).frame(maxWidth: .infinity) }
+            }
+                } header: {
+                    if let section, holdingSymbol == nil { PortfolioSectionTabs(selection: section).pinnedTabsBackground(colors.appBackground) }
+                }
             }.frame(maxWidth: CGFloat(StockStepsTheme.dimensions.contentMaxWidth))
                 .padding(CGFloat(space.screen)).frame(maxWidth: .infinity)
         }
-        .scrollsToTopOnReselect(.portfolio) // 5D.5.6C2 (D12)
+        .scrollsToTopOnReselect(.portfolio, section: section == nil ? nil : .myPortfolio) // 5D.5.6C2 (D12); 5D.5.6C4: only while selected
         .background(colors.appBackground.ignoresSafeArea())
         // C.1: no navigation bar on this tab, so scrolled content showed through the status bar (time over numbers). A zero-height strip at the
         // top of the safe area paints the page background behind the status bar; decorative and never hit-testable.
@@ -593,5 +596,24 @@ struct PortfolioScenarioSheet: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button(display.SCENARIO_DONE) { dismiss() } } }
         }
         .presentationDetents([.medium, .large])
+    }
+}
+
+/// 5D.5.6C4: the My Portfolio | Practice nested tabs of the Portfolio landing page — the existing segmented style, announced as tabs.
+struct PortfolioSectionTabs: View {
+    @Binding var selection: PortfolioSection
+    private let sections: [PortfolioSection] = [.myPortfolio, .practice]
+    var body: some View {
+        StockSegmentedControl(segments: [(PortfolioSection.myPortfolio.label, "briefcase"), (PortfolioSection.practice.label, "graduationcap")],
+                              selected: sections.firstIndex(of: selection) ?? 0, onSelect: { selection = sections[$0] }, compactIcons: true, asTabs: true)
+            .accessibilityLabel(PortfolioSections.shared.SELECTOR_SPOKEN)
+    }
+}
+
+extension View {
+    /// 5D.5.6C4: the page background behind pinned nested tabs, extended into the side margins so content scrolls under it cleanly.
+    func pinnedTabsBackground(_ color: Color) -> some View {
+        padding(.vertical, CGFloat(StockStepsTheme.spacing.xs))
+            .background(color.padding(.horizontal, -CGFloat(StockStepsTheme.spacing.screen)))
     }
 }
