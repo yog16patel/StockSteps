@@ -14,8 +14,9 @@ struct CompanyDetailsScene: View {
     @State private var showPortfolio = false
     @State private var earningsModel: EarningsModel?
     /// Viewed-company history is recorded once per visit, not on every reappearance after a tab switch (5D.5.6C3 lifecycle audit).
-    @State private var recordedView = false
-    @State private var nextEarnings: CompanyEarningsModel?
+    /// 5D.5.6D: the next-earnings model and the viewed record live in the shared per-symbol model, so a page the router rebuilds (reused-top
+    /// Back) reuses them instead of fetching again.
+    private var nextEarnings: CompanyEarningsModel? { model.nextEarnings }
     @State private var reminderTarget: ReminderTargetInfo?
     /// Opens the app-level Earnings Calendar on a date (nil = today); nil hides the action.
     var onEarningsCalendar: ((String?) -> Void)? = nil
@@ -99,8 +100,8 @@ struct CompanyDetailsScene: View {
         .task {
             // One cached request for the next earnings date (the client is shared with Earnings Details).
             if earningsModel == nil { earningsModel = EarningsModel(accounts: accounts) }
-            if nextEarnings == nil, let client = earningsModel?.client { nextEarnings = CompanyEarningsModel(symbol: symbol, client: client) }
-            if !recordedView { recordedView = true; accounts.client?.recordViewedCompany(symbol: symbol) }
+            if model.nextEarnings == nil, let client = earningsModel?.client { model.nextEarnings = CompanyEarningsModel(symbol: symbol, client: client) }
+            if !model.recordedView { model.recordedView = true; accounts.client?.recordViewedCompany(symbol: symbol) }
             if model.overview.value == nil { model.load() }
         }
         .sheet(isPresented: $showPortfolio) {

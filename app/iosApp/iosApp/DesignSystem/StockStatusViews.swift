@@ -41,7 +41,10 @@ struct StockStatusBadge: View {
 struct StockTitleWithBadge<Title: View, Badge: View>: View {
     @ViewBuilder var title: () -> Title
     @ViewBuilder var badge: () -> Badge
+    /// 5D.5.6D: read in `body` so a title built here follows a live Dynamic Type change.
+    @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
+        let _ = typeSize
         ViewThatFits(in: .horizontal) {
             HStack(spacing: CGFloat(space.sm)) {
                 title().fixedSize(horizontal: true, vertical: false)

@@ -16,8 +16,9 @@ class EarningsRemindersPresenterTest {
         var fail: Exception? = null
         val calls = mutableListOf<String>()
         var owner = "alice"
+        var latency = 0L
         private fun response() = EarningsRemindersResponse(reminders.toList(), prefs, asOf = "now")
-        override suspend fun reminders(): EarningsRemindersResponse { calls += "get:$owner"; return response() }
+        override suspend fun reminders(): EarningsRemindersResponse { calls += "get:$owner"; kotlinx.coroutines.delay(latency); return response() }
         override suspend fun create(request: CreateEarningsReminder): EarningsRemindersResponse {
             calls += "create"; fail?.let { throw it }
             reminders += EarningsReminder("r${reminders.size + 1}", request.eventId.substringBefore(':'), request.eventId, ReminderSource.MANUAL, request.offsetDays ?: 1,
@@ -89,5 +90,16 @@ class EarningsRemindersPresenterTest {
         val again = remote.calls.size
         p.refresh(); settle()
         assertEquals(again + 1, remote.calls.size)                                                              // same zone → no extra write
+    }
+
+    /** 5D.5.6D: opening the reminders screen refreshes while the presenter's first load is still running; that must not send a second GET. */
+    @Test fun aRefreshDuringALoadDoesNotRepeatTheRequest() = runTest {
+        val remote = Remote().apply { latency = 500 }
+        val p = EarningsRemindersPresenter(remote, backgroundScope, MutableStateFlow("alice"), { "America/Toronto" }).also { it.start() }
+        runCurrent()                                   // the first load is in flight
+        p.refresh(); settle()
+        assertEquals(listOf("get:alice"), remote.calls)
+        p.refresh(); settle()                          // later refreshes (Retry, pull) still load
+        assertEquals(listOf("get:alice", "get:alice"), remote.calls)
     }
 }

@@ -15,7 +15,7 @@ Philosophy: **NUMBER → CONTEXT → EXPLANATION → EDUCATION**. Journey: Learn
 Understand. It is not a trading terminal and never gives buy/sell/hold advice, scores, ratings or
 price predictions. Advanced analytics belong to a separate product, **PortIQX**.
 
-## Current task (as of 2026-10-16, Phase 5D.5.6C4 committed and pushed)
+## Current task (as of 2026-10-16, Phase 5D.5.6D committed locally, not pushed)
 
 Phase 5D.5.4A ("Refine Company Details for Global UI Refinement Phase 5D.5.4A with a borderless chart and day range, one action row, a pinned in-page section bar, a What it does row, a beginner-first section order and borderless sections on Android and iOS") is committed and pushed (`0fbce92`) and closed. The plan for all of 5D.5.4 is `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4_PLAN.md`
 (approved D-E1 to D-B1). Report: `docs/GLOBAL_UI_REFINEMENT_PHASE5D_5_4A.md`; review package: `docs/reviews/phase5d_5_4a/`.
@@ -25,8 +25,9 @@ Phase 5D.5.5D closure (`ebadf96`) and the 5D.5.6A plan (`912ec7f`, D1–D12 appr
 Phase 5D.5.6B (`11b1e5b`), C1 (`2341662`, Android stacks) and C2 (`8fce9d1`, iOS stacks) are pushed. Phase 5D.5.6C3 ("Finish iOS cross-tab navigation for Phase 5D.5.6C3 with every tab screen on the router, truthful back labels, reused-top Back, reselection from any depth and no repeated requests on tab switches") is committed and pushed (iOS only).
 Report: `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C3.md`; review package: `docs/reviews/phase5d_5_6c3/`.
 Phase 5D.5.6C4 ("Add Portfolio nested tabs for Phase 5D.5.6C4 with My Portfolio and Practice switching in place on the Portfolio landing, state kept per section, children returning to their section and Practice loading once on Android and iOS") is committed and pushed (both platforms). Report: `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6C4.md`; review package: `docs/reviews/phase5d_5_6c4/`.
-**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-6C4-2026-10-16.**
-Next: 5D.5.6D (final QA: signed-in iOS D/E/F, sign-out reset, TalkBack/VoiceOver) on the owner's go-ahead.
+Phase 5D.5.6D ("Stabilize navigation for Phase 5D.5.6D with once-per-screen loading on Android, a kept company model and reading position after reused-top Back on iOS, no duplicate reminders request, readable Practice tabs and title at large text and a guest sign-in card in My Alerts") is committed locally, **not pushed**: implementation APPROVE WITH FIXES, final navigation sign-off on HOLD (signed-in iOS, sign-out/account switch, iOS notification links, TalkBack/VoiceOver unverified). Report: `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6D.md`; review package: `docs/reviews/phase5d_5_6d/`.
+**Start with `docs/PROJECT_HANDOFF.md` §PHASE-5D-5-6D-2026-10-16.**
+Next: push on approval; the owner's signed-in pass with an approved test account.
 5D.5.4E (verification).
 Tracked separately:
 - the `PortfolioSessionStateTest` fix (uncommitted, worktree `charming-hodgkin-98e850`);
@@ -194,6 +195,12 @@ Portfolio conventions (permanent):
     (`sectionVisible`) with section-aware `scrollsToTopOnReselect(_:section:)`. Tabs are pinned (`portfolioLandingHeader` / pinned section
     header) with the same top inset in both sections. Practice never refreshes on resume or reappearance (presenter `start()` loads; orders
     refresh explicitly).
+  - (D, lifecycle) Android: a tab switch disposes and restores screens, so fetching effects use `LaunchedOncePerEntry` / `rememberEntryOnce`
+    (`presentation/EntryOnce.kt`, flags in the entry's ViewModel), never a plain `LaunchedEffect`; a shared presenter re-opens only when it
+    shows other content (Daily Brief). iOS: a reused-top restore keeps its symbols in use (`TabRouter.restoring`); per-symbol page state
+    (next earnings, viewed flag, reading position) lives in `CompanyDetailsModel`, not scene `@State`. Design-system views whose inputs don't
+    change read `dynamicTypeSize` in `body` (kept-alive sections). `StockSegmentedControl(scrollWhenTight = true)` for tab rows that can't
+    fit at large text.
 - **Contextual learning (5D.5.3).**
   - Metric → Learn term only via core `MetricLearnTerms` (by id: exact term id, then a single `relatedMetrics` owner, else null); never match visible
     titles and never add educational text.

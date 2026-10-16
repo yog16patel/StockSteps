@@ -229,7 +229,8 @@ struct PracticeScreen: View {
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             HStack {
                 StockTitleWithBadge {
-                    Text("Practice Portfolio").font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).accessibilityAddTraits(.isHeader)
+                    // 5D.5.6D: the token's own Dynamic Type curve (as the landing title); `.largeTitle` metrics left it at its default size at AX sizes.
+                    Text("Practice Portfolio").font(StockStepsTheme.font(type.screenTitle)).accessibilityAddTraits(.isHeader)
                 } badge: { SimulatedBadge() }
                 Spacer(minLength: 0)
                 if let state, state.overview != nil {

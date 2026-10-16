@@ -212,7 +212,7 @@ internal fun ComparisonResearchScene(
         val symbols = state.open?.session?.symbols ?: return@LaunchedEffect
         if (compareState.selected.map { it.symbol } != symbols) SharedComparisonSelection.instance.set(symbols.map { SelectedCompany(it, it) })
     }
-    LaunchedEffect(presenter) { presenter?.reload() }
+    org.example.stocksteps.presentation.LaunchedOncePerEntry(presenter) { presenter?.reload() } // 5D.5.6D: not again on every tab return
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             ComparisonResearchScreen(state, compareState, compareState.selected.map { it.symbol },
@@ -259,7 +259,7 @@ internal fun ComparisonAiScene(
     LaunchedEffect(route, presenter, state.usage) {
         if (!started && route.researchQuestionId != null && presenter != null && state.usage != null) { started = true; presenter.research(route.researchQuestionId, route.researchSessionId, route.hasNote) }
     }
-    LaunchedEffect(presenter) { presenter?.refreshUsage() }
+    org.example.stocksteps.presentation.LaunchedOncePerEntry(presenter) { presenter?.refreshUsage() } // 5D.5.6D: not again on every tab return
     var copied by remember { mutableStateOf<String?>(null) }
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {

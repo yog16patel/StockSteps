@@ -178,6 +178,8 @@ class EarningsRemindersPresenter(
     val state: StateFlow<EarningsRemindersState> = mutable.asStateFlow()
     private var uid: String? = null
     private var started = false
+    /** 5D.5.6D: a load is running (first start, account change or refresh); a refresh meanwhile would only repeat the same request. */
+    private var loading = false
 
     fun start() {
         if (started) return
@@ -185,8 +187,11 @@ class EarningsRemindersPresenter(
         scope.launch {
             session.distinctUntilChanged().collectLatest { id ->
                 uid = id
-                mutable.value = EarningsRemindersState(signedIn = id != null, permissionGranted = permission())
-                if (id != null) load(id)
+                loading = id != null
+                try {
+                    mutable.value = EarningsRemindersState(signedIn = id != null, permissionGranted = permission())
+                    if (id != null) load(id)
+                } finally { loading = false }
             }
         }
     }
@@ -243,7 +248,12 @@ class EarningsRemindersPresenter(
         write("preferences") { remote.preferences(next) }
     }
 
-    fun refresh() { uid?.let { id -> scope.launch { mutable.update { it.copy(permissionGranted = permission()) }; load(id) } } }
+    fun refresh() {
+        if (loading) return
+        val id = uid ?: return
+        loading = true
+        scope.launch { try { mutable.update { it.copy(permissionGranted = permission()) }; load(id) } finally { loading = false } }
+    }
     fun setPermission(granted: Boolean) = mutable.update { it.copy(permissionGranted = granted) }
     fun dismissMessage() = mutable.update { it.copy(message = null) }
 }

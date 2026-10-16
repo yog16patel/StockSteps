@@ -618,6 +618,9 @@ struct AlertsScene: View {
     let model: WatchlistsModel
     let symbol: String?
     let onOpenStock: (String) -> Void
+    /// 5D.5.6D: alerts need an account. A guest gets the sign-in card (Android parity) instead of placeholders that never finished loading.
+    var signedIn = true
+    var onSignIn: () -> Void = {}
     @State private var filter: AlertFilter = .active
     @State private var pushAllowed = true
     @State private var confirmDelete: AlertCardModel?
@@ -630,6 +633,13 @@ struct AlertsScene: View {
         let rows = model.client?.alertHistory(events: history) ?? []
         ScrollView {
             LazyVStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+                if !signedIn {
+                    VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                        Text("Sign in for more").font(StockStepsTheme.font(type.cardTitle)).foregroundStyle(colors.textTitle).accessibilityAddTraits(.isHeader)
+                        StockSectionMessage(message: "Sign in to create price, earnings and news alerts.", actionTitle: "Sign in", action: onSignIn)
+                    }
+                    .stockCard(padding: CGFloat(space.md), bordered: false)
+                } else {
                 if !pushAllowed {
                     VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                         Text("Notifications are off on this device. Your alerts still run and appear in the history below.")
@@ -673,6 +683,7 @@ struct AlertsScene: View {
                         .disabled(row.sourceUrl == nil)
                         .accessibilityElement(children: .combine)
                     }
+                }
                 }
             }
             .frame(maxWidth: CGFloat(dims.contentMaxWidth), alignment: .leading)

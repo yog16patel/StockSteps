@@ -35,7 +35,15 @@ internal fun DailyBriefScene(
 ) {
     val state by presenter.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
-    LaunchedEffect(route.briefId) { presenter.start(); presenter.open(route.briefId) }
+    // 5D.5.6D: open once per entry; a return after a tab switch re-opens only when the shared presenter now shows another brief (opening
+    // again refetched the personal section and cleared AI answers the reader had loaded).
+    val once = org.example.stocksteps.presentation.rememberEntryOnce()
+    LaunchedEffect(route.briefId) {
+        presenter.start()
+        val first = once.first(route.briefId)
+        val shown = presenter.state.value
+        if (first || shown.current == null || shown.current?.id != (route.briefId ?: shown.latest?.id)) presenter.open(route.briefId)
+    }
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             DailyBriefScreen(state, briefNow(), Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize()) { action ->
@@ -48,7 +56,7 @@ internal fun DailyBriefScene(
 @Composable
 internal fun DailyBriefHistoryScene(presenter: DailyBriefPresenter, hinge: WindowHinge?, onOpenBrief: (String) -> Unit, onUpgrade: () -> Unit) {
     val state by presenter.state.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { presenter.start(); presenter.loadHistory() }
+    org.example.stocksteps.presentation.LaunchedOncePerEntry(Unit) { presenter.start(); presenter.loadHistory() } // 5D.5.6D: not on every return
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             DailyBriefHistoryScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize()) { action ->

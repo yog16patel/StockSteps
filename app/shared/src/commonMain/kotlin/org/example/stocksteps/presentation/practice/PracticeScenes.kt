@@ -87,7 +87,8 @@ internal fun PracticeOrderScene(
 ) {
     val model = viewModel(key = "practice-order:${route.symbol}:${route.side}:$environment") { PracticeOrderViewModel(route, accounts) }
     val state by model.presenter.state.collectAsStateWithLifecycle()
-    LaunchedEffect(state.result) { if (state.result != null) accounts.practice.refresh() }
+    // 5D.5.6D: once per confirmed order, not again when the order screen comes back after a tab switch.
+    org.example.stocksteps.presentation.LaunchedOncePerEntry(state.result) { if (state.result != null) accounts.practice.refresh() }
     AdaptiveSinglePane(hinge) { region ->
         Box(region.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             PracticeOrderScreen(state, Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize()) { action ->

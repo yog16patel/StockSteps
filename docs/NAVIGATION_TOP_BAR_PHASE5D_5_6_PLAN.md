@@ -433,7 +433,7 @@ No provider-call change: tab switches only restore entries. The server and API a
   - the selection, scroll and filters are preserved across tab switches;
   - pushed Portfolio and Practice screens return to their inner tab;
   - guests keep separate experiences; no reloads.
-- **5D.5.6D — Final QA:**
+- **5D.5.6D — Final QA** — QA run and fixes 2026-10-16 (committed locally), report `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6D.md` (seven P1 fixes; implementation APPROVE WITH FIXES; final sign-off on HOLD until signed-in iOS, sign-out/account switch and screen readers are verified):
   - the §9 matrix on both platforms;
   - TalkBack/VoiceOver checklist (owner): tab announcements and the selected state;
   - request counts on MOCK for tab switches (expect zero new requests);

@@ -117,7 +117,8 @@ internal fun EarningsRemindersScene(accounts: AccountDependencies?, onSignIn: ()
     val presenter = accounts?.earningsReminders
     val state by (presenter?.state ?: remember { kotlinx.coroutines.flow.MutableStateFlow(EarningsRemindersState()) }).collectAsStateWithLifecycle()
     val access = LocalNotificationAccess.current
-    LaunchedEffect(Unit) { access?.let { presenter?.setPermission(it.enabled) }; presenter?.refresh() }
+    LaunchedEffect(access?.enabled) { access?.let { presenter?.setPermission(it.enabled) } }
+    org.example.stocksteps.presentation.LaunchedOncePerEntry(Unit) { presenter?.refresh() } // 5D.5.6D: not again on every tab return
     EarningsRemindersScreen(state, Modifier.fillMaxSize(), access, onSignIn, onOpenEvent,
         onPreferences = { t -> presenter?.updatePreferences(t) }, onDelete = { presenter?.delete(it) }, onRefresh = { presenter?.refresh() },
         onPermission = { presenter?.setPermission(it) })

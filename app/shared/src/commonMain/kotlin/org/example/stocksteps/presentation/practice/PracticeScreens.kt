@@ -84,7 +84,8 @@ internal fun PracticeScreen(state: PracticeUiState, modifier: Modifier, header: 
         if (state.offline) item("offline") {
             Banner("You're offline. This is your last saved Practice Portfolio; trading and plan changes need a connection.", warning = true)
         }
-        item("tabs") { StockSegmentedControl(PracticeTab.entries.map { StockSegment(it, it.label) }, state.tab, { onAction(PracticeAction.Tab(it)) }) }
+        // 5D.5.6D: tabs announced as tabs; at large text they keep whole words and scroll instead of breaking inside them.
+        item("tabs") { StockSegmentedControl(PracticeTab.entries.map { StockSegment(it, it.label) }, state.tab, { onAction(PracticeAction.Tab(it)) }, asTabs = true, scrollWhenTight = true) }
         when (state.tab) {
             PracticeTab.OVERVIEW -> overviewItems(state, overview, onAction) { holding = it }
             PracticeTab.HOLDINGS -> holdingsItems(state, overview, onAction) { holding = it }

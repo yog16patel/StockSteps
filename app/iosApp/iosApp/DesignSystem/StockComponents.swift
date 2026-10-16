@@ -352,11 +352,14 @@ struct StockRowSkeleton: View {
 /// Section-level empty/error message with an optional action. Never shows provider details.
 struct StockSectionMessage: View {
     @Environment(\.colorScheme) private var scheme
+    /// 5D.5.6D: read in `body` so the fonts follow a live Dynamic Type change (the inputs don't change, so nothing else redraws it).
+    @Environment(\.dynamicTypeSize) private var typeSize
     let message: String
     var actionTitle: String?
     var action: (() -> Void)?
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
+        let _ = typeSize
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             Text(message).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textSecondary)
             if let actionTitle, let action {

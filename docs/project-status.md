@@ -6,6 +6,18 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — Phase 5D.5.6D final navigation QA & stabilization (committed locally as "Stabilize navigation for Phase 5D.5.6D with once-per-screen loading on Android, a kept company model and reading position after reused-top Back on iOS, no duplicate reminders request, readable Practice tabs and title at large text and a guest sign-in card in My Alerts", not pushed).**
+- **Done:**
+  - full Android and iOS navigation matrix (stacks, cross-tab Back and swipe-back, reselect, nested Portfolio tabs, modals, notification
+    links, lifecycle, large text, dark);
+  - seven P1 fixes: duplicate reminders GET; Android re-running effects on tab return; iOS reused-top model release; Android Practice tabs at
+    2.0×; iOS Practice title; iOS live Dynamic Type; iOS guest My Alerts.
+- **Open:** three P2 items (report §5).
+- **BLOCKED:** signed-in iOS, sign-out and account switch.
+- **NOT RUN:** screen readers, iOS notification links.
+- **Recommendation:** APPROVE WITH FIXES for implementation, HOLD for final navigation sign-off.
+- **Report:** `docs/NAVIGATION_TOP_BAR_PHASE5D_5_6D.md`.
+
 **2026-10-16 — Phase 5D.5.6C4 Portfolio My Portfolio / Practice nested tabs (committed and pushed as "Add Portfolio nested tabs for Phase 5D.5.6C4 with My Portfolio and Practice switching in place on the Portfolio landing, state kept per section, children returning to their section and Practice loading once on Android and iOS").**
 - **Done (Android and iOS):**
   - nested tabs on the Portfolio landing (pinned, tab-group semantics, switch in place);

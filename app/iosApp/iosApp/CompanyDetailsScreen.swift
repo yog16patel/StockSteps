@@ -10,6 +10,7 @@ struct CompanyDetailsScreen: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
     let model: CompanyDetailsModel
+    @State private var restoredPosition = ScrollPosition(edge: .top)
     let watched: Bool
     let watchlistEnabled: Bool
     let onToggleWatchlist: () -> Void
@@ -188,6 +189,20 @@ struct CompanyDetailsScreen: View {
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 2
             } action: { _, end in atEnd = end }
+            // 5D.5.6D: keep the reading position in the shared model, so a page the router rebuilds after a reused-top Back returns to it.
+            .scrollPosition($restoredPosition)
+            // x: how far the page can scroll, y: where it is. A rebuilt page returns once its content is tall enough (no timer).
+            .onScrollGeometryChange(for: CGPoint.self) { g in
+                CGPoint(x: g.contentSize.height - g.containerSize.height, y: g.contentOffset.y + g.contentInsets.top)
+            } action: { _, g in
+                if model.restoreScroll {
+                    guard g.x >= model.scrollOffset else { return }
+                    model.restoreScroll = false
+                    if model.scrollOffset > 1 { restoredPosition.scrollTo(y: model.scrollOffset) }
+                    return
+                }
+                model.scrollOffset = g.y
+            }
             .onGeometryChange(for: CGSize.self) { $0.size } action: { viewport = $0.height; pageWidth = $0.width }
         }
         .background(colors.appBackground.ignoresSafeArea())

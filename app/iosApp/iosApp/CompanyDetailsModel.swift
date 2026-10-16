@@ -26,6 +26,13 @@ final class CompanyDetailsModel {
     @ObservationIgnored let client: IosCompanyDetailsClient
     @ObservationIgnored private var charts: [ChartRange: PriceChart] = [:]
     @ObservationIgnored private var chartTask: Task<Void, Never>?
+    /// 5D.5.6D: the page's last scroll offset, and whether the next page built for this model should return to it. The router sets
+    /// `restoreScroll` only when it puts a reused page back after a cross-tab Back (SwiftUI rebuilds that view); a new push starts at the top.
+    @ObservationIgnored var scrollOffset: CGFloat = 0
+    @ObservationIgnored var restoreScroll = false
+    /// The page's next-earnings model (created by the scene once the earnings client exists) and whether this visit was recorded.
+    var nextEarnings: CompanyEarningsModel?
+    @ObservationIgnored var recordedView = false
 
     init(symbol: String, baseURL: @escaping () -> String) {
         self.symbol = symbol

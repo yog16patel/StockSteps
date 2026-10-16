@@ -153,6 +153,8 @@ struct AppScene: View {
         .onChange(of: accounts.state.user?.id) { old, _ in if old != nil { router.reset(); practiceShown = false } }
         // A company's shared model lives while any of its pages is on a stack.
         .onChange(of: router.revision) { _, _ in companies.retain(only: router.symbolsInUse) }
+        // 5D.5.6D: a reused company page the router puts back after a cross-tab Back returns to its reading position.
+        .onAppear { router.willRestore = { [companies] page in if case let .companyDetails(symbol) = page { companies.model(symbol).restoreScroll = true } } }
         .sheet(isPresented: $showingSettings, onDismiss: { NotificationCenter.default.post(name: .stockStepsPlanMayHaveChanged, object: nil) }) {
             NavigationStack {
                 SettingsScene(model: accounts,
@@ -222,7 +224,8 @@ struct AppScene: View {
     @ViewBuilder private func globalScreen(_ sheet: GlobalSheet) -> some View {
         switch sheet {
         case .notifications:
-            AlertsScene(model: watchlistsModel, symbol: nil, onOpenStock: explore)
+            AlertsScene(model: watchlistsModel, symbol: nil, onOpenStock: explore, signedIn: accounts.state.user != nil,
+                        onSignIn: { router.global = nil; showingAuth = true })
         case .digestSettings:
             EarningsDigestSettingsScene(client: earningsModel.client, permissionDenied: earningsModel.reminders.state?.permissionGranted?.boolValue == false,
                                         onUpgrade: { router.global = nil; showingSettings = true },
@@ -337,7 +340,7 @@ struct AppScene: View {
             CompareStocksScene(model: screenerModel, onOpenStock: backToCompany, onDiscover: { router.open(.discover) },
                                onUpgrade: { showingSettings = true }, onSignIn: { showingAuth = true })
         case let .stockAlerts(symbol):
-            AlertsScene(model: watchlistsModel, symbol: symbol, onOpenStock: explore)
+            AlertsScene(model: watchlistsModel, symbol: symbol, onOpenStock: explore, signedIn: accounts.state.user != nil, onSignIn: { showingAuth = true })
         }
     }
 

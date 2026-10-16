@@ -178,7 +178,12 @@ final class TabRouter {
     }
 
     /// Symbols of every company destination on any stack.
-    var symbolsInUse: Set<String> { Set(paths.values.flatMap { $0.compactMap(\.symbol) }) }
+    var symbolsInUse: Set<String> { Set((Array(paths.values) + Array(restoring.values)).flatMap { $0.compactMap(\.symbol) }) }
+    /// 5D.5.6D: a reused entry's path between the native pop and its restore (the next run-loop turn). Its symbols stay in use, so the shared
+    /// company model — data and reading position — survives the moment the page is off its stack (it was released and refetched before).
+    private var restoring: [AppRoute: [AppDestination]] = [:]
+    /// Called with the reused page the router is about to put back (the app restores its reading position).
+    @ObservationIgnored var willRestore: ((AppDestination) -> Void)?
 
     /// The navigation title of a tab's landing page, which names its first pushed screen's back button (5D.5.6C3). While that first screen was
     /// opened from another tab (a hop), the button names where Back goes: the origin tab's visible screen ("‹ Home", "‹ AAPL").
@@ -228,7 +233,14 @@ final class TabRouter {
             state = next
             sync(selected)
             // SwiftUI ignores a path restored inside its own pop, so the reused entry goes back on the next turn, after the tab switched away.
-            if hop.reused { DispatchQueue.main.async { if self.path(tab) == new { self.paths[tab] = old; self.revision += 1 } } }
+            if hop.reused {
+                restoring[tab] = old
+                if let page = old.last { willRestore?(page) }
+                DispatchQueue.main.async {
+                    self.restoring[tab] = nil
+                    if self.path(tab) == new { self.paths[tab] = old; self.revision += 1 }
+                }
+            }
             return
         }
         paths[tab] = new
