@@ -153,7 +153,6 @@ internal fun CompanyDetailsScreen(
                                 section = state.chart,
                                 issue = state.chartIssue,
                                 range = state.range,
-                                dayDirection = overview?.direction,
                                 quickStats = overview?.let(CompanyDetailsPresentation::chartStats),
                                 dayRange = overview?.dayRange,
                                 onSelect = { onAction(CompanyDetailsAction.SelectRange(it)) },
@@ -181,7 +180,7 @@ internal fun CompanyDetailsScreen(
                             }
                             "valuation" -> overview?.let {
                                 ValuationHealthSection(it, onValuation = { onAction(CompanyDetailsAction.OpenValuation) },
-                                    onFinancials = { onAction(CompanyDetailsAction.OpenFinancials) }, modifier = section)
+                                    onFinancials = { onAction(CompanyDetailsAction.OpenFinancials) }, onExplain = { id -> education = id }, modifier = section)
                             }
                             "earnings" -> earnings?.let { e -> EarningsSection(e, earningsReminder, onAction, section) }
                             "news" -> NewsSection(state.news, onOpen = { onAction(CompanyDetailsAction.OpenArticle(it)) }, onRetry = { onAction(CompanyDetailsAction.RetryNews) },
@@ -283,11 +282,7 @@ private fun CompanyHeader(section: Section<CompanyOverview>, onRetry: () -> Unit
                         CompanyDetailsPresentation.statusDescription(overview.marketStatus)?.let { "$it." }).joinToString(" ")
                 },
                     verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
-                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(spacing.xs),
-                        itemVerticalAlignment = Alignment.CenterVertically) {
-                        Text(overview.price ?: "—", Modifier.padding(end = spacing.sm), style = typography.largeNumber, color = colors.textValue)
-                        MarketStatusIndicator(overview.marketStatus)
-                    }
+                    Text(overview.price ?: "—", style = typography.largeNumber, color = colors.textValue)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), itemVerticalAlignment = Alignment.CenterVertically) {
                         StockPriceChange(
                             percentage = if (overview.changeAmount != null) "(${overview.changePercent})" else overview.changePercent,
@@ -298,7 +293,13 @@ private fun CompanyHeader(section: Section<CompanyOverview>, onRetry: () -> Unit
                         )
                         Text(changeLabel.text, style = typography.small, color = colors.textSupporting)
                     }
-                    updated?.let { Text(stringResource(Res.string.details_updated, it), style = typography.caption, color = colors.textMeta) }
+                    // UI Phase 3: the session chip and the freshness share the secondary line under the change (the chip beside the price read as
+                    // the price's own label, e.g. an after-hours price, which the quote never is).
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.xxs),
+                        itemVerticalAlignment = Alignment.CenterVertically) {
+                        MarketStatusIndicator(overview.marketStatus)
+                        Text(CompanyDetailsPresentation.freshness(updated), style = typography.caption, color = colors.textMeta)
+                    }
                 }
             }
         }
@@ -339,7 +340,6 @@ private fun ChartSection(
     section: Section<PriceChart>,
     issue: ChartIssue?,
     range: ChartRange,
-    dayDirection: PriceDirection?,
     quickStats: List<InfoRow>?,
     dayRange: RangeSummary?,
     onSelect: (ChartRange) -> Unit,
@@ -351,7 +351,8 @@ private fun ChartSection(
     StockCard(modifier, bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm)) {
         StockPillSelector(ChartRange.entries, range, label = { it.label }, onSelect = onSelect)
         val chart = (section as? Section.Content)?.value
-        val summary = remember(chart, dayDirection) { chart?.let { ChartPresentation.summary(it.points, range, dayDirection) } }
+        // UI Phase 3 (U3): line, caption and spoken summary all follow the selected period's own change.
+        val summary = remember(chart, range) { chart?.let { ChartPresentation.summary(it.points, range) } }
         var scrub by remember(chart) { mutableStateOf<Int?>(null) }
         if (section == Section.Loading) {
             // Loading keeps the chart's full height (a skeleton of the chart), so it reads differently from the compact notice below.
@@ -587,10 +588,14 @@ private fun AboutCard(data: CompanyOverview, modifier: Modifier) {
  * and the detailed valuation; the financial highlights with their basis; key ratios not already shown in At a Glance.
  */
 @Composable
-private fun ValuationHealthSection(data: CompanyOverview, onValuation: () -> Unit, onFinancials: () -> Unit, modifier: Modifier) {
+private fun ValuationHealthSection(data: CompanyOverview, onValuation: () -> Unit, onFinancials: () -> Unit, onExplain: (String) -> Unit, modifier: Modifier) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     val valuation = data.valuation
+    val learn = stringResource(Res.string.details_learn_more)
+    // UI Phase 3: a row with an explanation opens it (ⓘ only when a Learn term exists, 5D.5.3); rows without one stay plain.
+    val explain: (InfoRow) -> (() -> Unit)? = { row -> row.metricId?.takeIf(CompanyDetailsPresentation::explains)?.let { id -> { onExplain(id) } } }
+    val info: (InfoRow) -> Boolean = { row -> row.metricId?.let(org.example.stocksteps.learning.MetricLearnTerms::hasTerm) == true }
     SectionTitled(CompanyDetailsPresentation.VALUATION_HEALTH_TITLE, modifier) {
         StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm), verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             StockSectionHeader(stringResource(Res.string.details_valuation_title))
@@ -624,7 +629,9 @@ private fun ValuationHealthSection(data: CompanyOverview, onValuation: () -> Uni
                 } else {
                     data.highlights.forEachIndexed { index, row ->
                         if (index > 0) StockDivider()
-                        StockInfoRow(row.label, row.value, helper = row.helper, change = row.change ?: "—", direction = row.changeDirection)
+                        // UI Phase 3: a change only where the model has one (margins and free cash flow have none), never a "—" column.
+                        StockInfoRow(row.label, row.value, helper = row.helper, change = row.change, direction = row.changeDirection,
+                            onClick = explain(row), onClickLabel = learn, info = info(row))
                     }
                 }
             }
@@ -635,7 +642,7 @@ private fun ValuationHealthSection(data: CompanyOverview, onValuation: () -> Uni
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 StockSectionHeader(stringResource(Res.string.details_key_ratios))
                 StockCard(bordered = false, contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.xs)) {
-                    ratios.forEach { StockInfoRow(it.label, it.value, compact = true) }
+                    ratios.forEach { StockInfoRow(it.label, it.value, compact = true, onClick = explain(it), onClickLabel = learn, info = info(it)) }
                 }
             }
         }
@@ -697,14 +704,14 @@ private fun EarningsSection(state: org.example.stocksteps.earnings.CompanyEarnin
                     Text(title, style = typography.label, color = colors.textSecondary)
                     state.latestSummary?.let { Text(it, style = typography.bodySemiBold, color = colors.textPrimary) }
                 }
+                // Phase 5 preview: the AI explanation lives on Earnings Results (StockSteps+, checked by the server there). UI Phase 3: one action —
+                // "Explain With AI" opened the same Earnings Results as View Results, so it is a note under the button now.
                 StockButton("View Results", onClick = { onAction(CompanyDetailsAction.LatestResults) }, variant = StockButtonVariant.OUTLINED)
-                // Phase 5 preview: the AI explanation lives on Earnings Results (StockSteps+, checked by the server there).
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
-                    Text("AI Earnings Insight: a plain-English explanation of these results, built only from verified figures.", Modifier.weight(1f),
+                    Text("Results include AI Earnings Insight: a plain-English explanation built only from verified figures.", Modifier.weight(1f),
                         style = typography.caption, color = colors.textSecondary)
                     org.example.stocksteps.presentation.earnings.PlusBadge()
                 }
-                StockButton("Explain With AI", onClick = { onAction(CompanyDetailsAction.LatestResults) }, variant = StockButtonVariant.TEXT, icon = StockIcons.Lightbulb)
             }
             if (state.sampleData) Text("Sample earnings data.", style = typography.caption, color = colors.cautionText)
             StockDivider()

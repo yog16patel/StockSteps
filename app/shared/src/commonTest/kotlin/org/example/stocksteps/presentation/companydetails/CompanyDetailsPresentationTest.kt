@@ -10,6 +10,8 @@ import org.example.stocksteps.presentation.companydetails.CompanyDetailsPresenta
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 
 class CompanyDetailsPresentationTest {
@@ -169,14 +171,14 @@ class CompanyDetailsPresentationTest {
     @Test
     fun priceIsSpokenWithDirectionInWordsAndNeverAsZero() {
         val today = CompanyDetailsPresentation.ChangeLabel("Today", "today")
-        assertEquals("Price $336.67. Up $3.04, 0.91%, today. Updated 4:00 PM EDT · Oct 7.", present.priceDescription(overview(), "4:00 PM EDT · Oct 7", today))
+        assertEquals("Price $336.67. Up $3.04, 0.91%, today. Updated 4:00 PM EDT · Oct 7. Prices may be delayed.", present.priceDescription(overview(), "4:00 PM EDT · Oct 7", today))
         val down = overview().copy(changeAmount = "-$0.22", changePercent = "-0.96%", direction = PriceDirection.DOWN)
-        assertEquals("Price $336.67. Down $0.22, 0.96%, today.", present.priceDescription(down, null, today))
+        assertEquals("Price $336.67. Down $0.22, 0.96%, today. Prices may be delayed.", present.priceDescription(down, null, today))
         val missing = overview().copy(price = null, changeAmount = null, changePercent = "—", direction = PriceDirection.UNAVAILABLE)
-        assertEquals("Price unavailable. Change unavailable.", present.priceDescription(missing, null, today))
+        assertEquals("Price unavailable. Change unavailable. Prices may be delayed.", present.priceDescription(missing, null, today))
         // A change from an earlier session is spoken with its date, matching the visible label.
         val earlier = present.changeLabel(MarketStatus.CLOSED, "2026-10-08", "2026-10-10")
-        assertEquals("Price $336.67. Up $3.04, 0.91%, on Oct 8. Updated 4:00 PM EDT · Oct 8.", present.priceDescription(overview(), "4:00 PM EDT · Oct 8", earlier))
+        assertEquals("Price $336.67. Up $3.04, 0.91%, on Oct 8. Updated 4:00 PM EDT · Oct 8. Prices may be delayed.", present.priceDescription(overview(), "4:00 PM EDT · Oct 8", earlier))
     }
 
     @Test
@@ -217,5 +219,21 @@ class CompanyDetailsPresentationTest {
         // Without that row (or with different wording) the section keeps its headline.
         assertEquals(headline, present.valuationHeadline(overview().copy(valuation = valuation)))
         assertNull(present.valuationHeadline(overview()))
+    }
+
+    @Test
+    fun freshnessNamesTheQuoteTimeAndNeverCallsAQuoteLive() {
+        // UI Phase 3: the status chip moved to this line; the delay note is always there (as on Watchlist).
+        assertEquals("Updated 4:00 PM EDT · Oct 7 · Prices may be delayed", present.freshness("4:00 PM EDT · Oct 7"))
+        assertEquals("Prices may be delayed", present.freshness(null))
+        assertFalse(present.freshness("4:00 PM EDT · Oct 7").contains("live", ignoreCase = true))
+    }
+
+    @Test
+    fun onlyRowsWithAnExplanationOpenOne() {
+        // UI Phase 3: Highlights and Key Ratios rows open the glance sheet or the 5D.5.3 metric sheet; an unknown id opens nothing.
+        listOf("pe", "dividendYield", "revenue", "netIncome", "netMargin", "freeCashFlow", "priceSales", "eps", "grossMargin", "operatingMargin",
+            "debtEquity", "currentRatio").forEach { assertTrue(present.explains(it), it) }
+        assertFalse(present.explains("unknownMetric"))
     }
 }

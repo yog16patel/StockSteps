@@ -186,7 +186,8 @@ internal fun CompanyFinancialsScreen(
                         item(key = "overview") { FinancialsOverview(model, content.padding(top = spacing.lg), explain) }
                         model.sections.forEach { financial ->
                             item(key = financial.id) {
-                                FinancialSectionCard(financial, section, explain, onLearnTerm, showChart = FinancialsDisplay.chartInSection(model, financial.id))
+                                FinancialSectionCard(financial, section, explain, onLearnTerm, showChart = FinancialsDisplay.chartInSection(model, financial.id),
+                                    showHeadline = FinancialsDisplay.headlineInSection(model, financial.id))
                             }
                         }
                         if (model.summary.isNotEmpty()) {
@@ -259,7 +260,7 @@ private fun FinancialsOverview(model: FinancialStatementsModel, modifier: Modifi
 /** One financial area: headline + change, plain-English meaning, chart, rows, comparisons, explanation. */
 @Composable
 private fun FinancialSectionCard(section: FinancialStatementSection, modifier: Modifier, explain: (InfoRow) -> (() -> Unit)? = { null },
-                                 onLearnTerm: (String) -> Unit = {}, showChart: Boolean = true) {
+                                 onLearnTerm: (String) -> Unit = {}, showChart: Boolean = true, showHeadline: Boolean = true) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     var learn by rememberSaveable(section.id) { mutableStateOf(false) }
@@ -274,11 +275,12 @@ private fun FinancialSectionCard(section: FinancialStatementSection, modifier: M
                         style = StockStepsTheme.typography.body, color = colors.textSecondary
                     )
                 } else {
-                    section.headlineLabel?.let { Text(it, style = StockStepsTheme.typography.label, color = colors.textSecondary) }
-                    section.headline?.let { headline ->
+                    // UI Phase 3: Revenue's headline is already the first Key Metrics tile (`FinancialsDisplay.headlineInSection`).
+                    if (showHeadline) section.headlineLabel?.let { Text(it, style = StockStepsTheme.typography.label, color = colors.textSecondary) }
+                    if (showHeadline) section.headline?.let { headline ->
                         Text(headline, style = StockStepsTheme.typography.largeNumber, color = colors.textPrimary)
                     }
-                    if (section.change != null && section.changeDirection != null) {
+                    if (showHeadline && section.change != null && section.changeDirection != null) {
                         StockPriceChange(section.change!!, section.changeDirection!!, style = StockStepsTheme.typography.numberMedium)
                     }
                     section.meaning?.let { Text(it, style = StockStepsTheme.typography.small, color = colors.textBody) }

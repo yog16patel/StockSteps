@@ -513,10 +513,13 @@ struct StockDivider: View {
 /// neutral when closed (closed is not a loss) — and the state in words. Read-only. Unknown renders nothing (never guessed from the clock).
 struct MarketStatusIndicator: View {
     @Environment(\.colorScheme) private var scheme
+    /// UI Phase 3: read in `body` so a live Dynamic Type change redraws the chip (it stayed at the old size after a change to AX5).
+    @Environment(\.dynamicTypeSize) private var typeSize
     let status: MarketStatus
     private let present = CompanyDetailsPresentation.shared
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
+        let _ = typeSize
         if let label = present.statusLabel(status: status) {
             let dot: Color = switch present.statusDot(status: status) {
             case .open: colors.positive

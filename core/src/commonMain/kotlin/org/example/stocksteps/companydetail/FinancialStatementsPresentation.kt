@@ -238,7 +238,7 @@ object FinancialStatementsPresenter {
             id = "health", title = "Financial Health",
             availability = if (listOf(cash, debt, assets, liabilities, equity).any { it != null }) SectionAvailability.CONTENT
                 else if (unavailable("balance")) SectionAvailability.TEMPORARILY_UNAVAILABLE else SectionAvailability.NOT_REPORTED,
-            headlineLabel = latest.date?.let { "As of $it" },
+            headlineLabel = latest.date?.let { "As of ${readableDate(it)}" },
             rows = listOfNotNull(
                 cash?.let { InfoRow("Cash & Equivalents", money(it), "Money and highly liquid resources; excludes longer-term investments.", metricId = "cash") },
                 debt?.let { InfoRow("Total Debt", money(it), "Short- and long-term borrowings.", metricId = "debt") },
@@ -261,7 +261,7 @@ object FinancialStatementsPresenter {
                 debtToEquity?.let { InfoRow("Debt to Equity", decimal(it, 2), "Total debt ÷ shareholders' equity.", metricId = "debtEquity") },
                 coverage?.let { InfoRow("Interest Coverage", "${decimal(it, 1)}x", "Operating profit ÷ interest expense (trailing 12 months).", metricId = "interestCoverage") }
             ),
-            meaning = if (cash != null && debt != null) "These are balance-sheet amounts on ${latest.date ?: label(latest)}, a single point in time." else null,
+            meaning = if (cash != null && debt != null) "These are balance-sheet amounts on ${latest.date?.let(::readableDate) ?: label(latest)}, a single point in time." else null,
             whatIsIt = "The balance sheet lists what a company owns (assets), what it owes (liabilities) and the difference (equity).",
             whyItMatters = "Cash and debt levels affect how much flexibility a company has. Debt isn't automatically bad; what's normal differs by industry.",
             note = "Debt to equity uses total debt (short- and long-term borrowings)."
@@ -388,7 +388,20 @@ object FinancialStatementsPresenter {
 
     private fun periodDescription(row: FinancialPeriodStatement): String =
         (if (row.period == "FY") "Fiscal year ${row.fiscalYear ?: ""}" else "${row.period} of fiscal ${row.fiscalYear ?: ""}") +
-            (row.date?.let { ", ended $it" } ?: "") + (row.currency?.let { " • $it" } ?: "")
+            (row.date?.let { ", ended ${readableDate(it)}" } ?: "") + (row.currency?.let { " • $it" } ?: "")
+
+    /**
+     * UI Phase 3: a reporting date as a beginner reads it, "2025-09-30" → "Sep 30, 2025" (the same calendar date; no time zone). Any other
+     * form is returned unchanged, so a date is never guessed.
+     */
+    fun readableDate(date: String): String {
+        val match = Regex("""^(\d{4})-(\d{2})-(\d{2})$""").matchEntire(date.trim()) ?: return date
+        val (year, month, day) = match.destructured
+        val name = MONTH_NAMES.getOrNull(month.toInt() - 1) ?: return date
+        val dayNumber = day.toInt().takeIf { it in 1..31 } ?: return date
+        return "$name $dayNumber, $year"
+    }
+    private val MONTH_NAMES = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
     fun currencySymbol(currency: String?): String = when (currency?.uppercase()) {
         null, "", "USD" -> "$"

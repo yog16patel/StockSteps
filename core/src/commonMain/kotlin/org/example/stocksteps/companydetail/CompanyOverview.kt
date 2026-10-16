@@ -226,7 +226,7 @@ object CompanyOverviewPresenter {
                 netMargin?.let { EvidenceRow("Net margin", percent(it)) },
                 pe?.let { EvidenceRow("Current P/E", decimal(it, 1)) },
                 history?.average?.let { EvidenceRow("P/E ${history.validCount}-year average", decimal(it, 1)) },
-                difference?.let { EvidenceRow("Difference from average", signedPercent(it, 0)) }
+                difference?.let { EvidenceRow("Difference from average", signedPercent(it)) }
             ),
             about = about,
             aboutFull = profile?.description?.trim()?.takeIf { about != null && it != about },
@@ -235,30 +235,31 @@ object CompanyOverviewPresenter {
             industry = profile?.industry?.takeIf { it.isNotBlank() },
             country = profile?.country?.takeIf { it.isNotBlank() }?.let(::countryName),
             website = profile?.website?.takeIf { it.startsWith("https://") || it.startsWith("http://") },
+            // UI Phase 3: highlight and key-ratio rows carry their `MetricEducation` id, so each opens its existing explanation (5D.5.3).
             highlights = listOfNotNull(
-                number("revenue")?.let { InfoRow("Revenue", money(it), change = revenueGrowth?.let(::signedPercent), changeDirection = revenueGrowth?.let(HomePresentation::direction)) },
+                number("revenue")?.let { InfoRow("Revenue", money(it), change = revenueGrowth?.let(::signedPercent), changeDirection = revenueGrowth?.let(HomePresentation::direction), metricId = "revenue") },
                 number("netIncome")?.let {
                     val growth = number("netIncomeGrowth")
-                    InfoRow("Net Income", money(it), change = growth?.let(::signedPercent), changeDirection = growth?.let(HomePresentation::direction))
+                    InfoRow("Net Income", money(it), change = growth?.let(::signedPercent), changeDirection = growth?.let(HomePresentation::direction), metricId = "netIncome")
                 },
-                netMargin?.let { InfoRow("Net Margin", percent(it)) },
-                number("freeCashFlow")?.let { InfoRow("Free Cash Flow", money(it)) }
+                netMargin?.let { InfoRow("Net Margin", percent(it), metricId = "netMargin") },
+                number("freeCashFlow")?.let { InfoRow("Free Cash Flow", money(it), metricId = "freeCashFlow") }
             ),
             highlightsBasis = revenueBasis?.let { basis ->
                 val period = if (basis.period.equals("quarter", ignoreCase = true)) "Latest quarter" else "Latest fiscal year"
                 listOfNotNull(basis.fiscalYear?.let { "$period ($it)" } ?: period, "Change vs prior year").joinToString(" • ")
             },
             keyRatios = listOfNotNull(
-                pe?.let { InfoRow("P/E Ratio", decimal(it, 1)) },
-                number("priceSales")?.let { InfoRow("Price to Sales", decimal(it, 1)) },
-                number("eps")?.let { InfoRow("Earnings per Share (EPS)", HomePresentation.price(it, currency) ?: decimal(it, 2)) },
-                number("grossMargin")?.let { InfoRow("Gross Margin", percent(it)) },
-                number("operatingMargin")?.let { InfoRow("Operating Margin", percent(it)) },
-                number("debtEquity")?.let { InfoRow("Debt to Equity", decimal(it, 2)) },
-                number("currentRatio")?.let { InfoRow("Current Ratio", decimal(it, 2)) },
+                pe?.let { InfoRow("P/E Ratio", decimal(it, 1), metricId = "pe") },
+                number("priceSales")?.let { InfoRow("Price to Sales", decimal(it, 1), metricId = "priceSales") },
+                number("eps")?.let { InfoRow("Earnings per Share (EPS)", HomePresentation.price(it, currency) ?: decimal(it, 2), metricId = "eps") },
+                number("grossMargin")?.let { InfoRow("Gross Margin", percent(it), metricId = "grossMargin") },
+                number("operatingMargin")?.let { InfoRow("Operating Margin", percent(it), metricId = "operatingMargin") },
+                number("debtEquity")?.let { InfoRow("Debt to Equity", decimal(it, 2), metricId = "debtEquity") },
+                number("currentRatio")?.let { InfoRow("Current Ratio", decimal(it, 2), metricId = "currentRatio") },
                 when {
-                    facts["dividendYield"]?.availability == FinancialAvailability.NO_DIVIDEND -> InfoRow("Dividend Yield", "No dividend")
-                    else -> number("dividendYield")?.let { InfoRow("Dividend Yield", percent(it)) }
+                    facts["dividendYield"]?.availability == FinancialAvailability.NO_DIVIDEND -> InfoRow("Dividend Yield", "No dividend", metricId = "dividendYield")
+                    else -> number("dividendYield")?.let { InfoRow("Dividend Yield", percent(it), metricId = "dividendYield") }
                 }
             ),
             valuation = valuation(shortName, pe, history, difference, details.fundamentals != null),
@@ -350,7 +351,8 @@ object CompanyOverviewPresenter {
             currentPe = pe?.let { decimal(it, 1) },
             historicalAverage = history?.average?.let { decimal(it, 1) },
             historicalLabel = "${history?.validCount?.takeIf { it > 0 } ?: 5}Y Average",
-            difference = difference?.let { signedPercent(it, 0) },
+            // UI Phase 3: one decimal, as the Valuation page ("+1.8%"), so the same difference never reads "+2%" on one screen and "+1.8%" on the next.
+            difference = difference?.let { signedPercent(it) },
             position = position,
             headline = valuationHeadline(position),
             explanation = explanation

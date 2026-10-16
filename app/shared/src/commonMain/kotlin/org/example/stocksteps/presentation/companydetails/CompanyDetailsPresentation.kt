@@ -86,8 +86,17 @@ object CompanyDetailsPresentation {
             PriceDirection.UNCHANGED -> "Unchanged ${change.spoken}."
             PriceDirection.UNAVAILABLE -> "Change unavailable."
         }
-        return listOfNotNull(price, sentence, updated?.let { "Updated $it." }).joinToString(" ")
+        return listOfNotNull(price, sentence, updated?.let { "Updated $it." }, "$DELAYED_NOTE.").joinToString(" ")
     }
+
+    /**
+     * UI Phase 3: the quote's freshness line under the change, "Updated 4:00 PM EDT · Oct 7 · Prices may be delayed". The market status chip
+     * sits on this line, not beside the price, so "After-hours" reads as the market's session — never as a label for the price (the quote has
+     * no extended-hours price). Quotes are never called live: the delay note is always shown, as on Watchlist.
+     */
+    fun freshness(updated: String?): String = listOfNotNull(updated?.let { "Updated $it" }, DELAYED_NOTE).joinToString(" · ")
+
+    const val DELAYED_NOTE = "Prices may be delayed"
 
     // ---------- At a Glance ----------
 
@@ -216,6 +225,9 @@ object CompanyDetailsPresentation {
 
     /** Which explanation each Understand row opens (ids from `MetricEducation`; Learn terms follow `MetricLearnTerms`, unchanged). */
     private val ASSESSMENT_METRICS = mapOf("growth" to "revenueGrowth", "profitability" to "netMargin", "health" to "debt", "valuation" to "pe")
+
+    /** UI Phase 3: whether a row's metric has an explanation sheet on this page (the At a Glance sheet or the 5D.5.3 metric sheet). */
+    fun explains(metricId: String): Boolean = metricId in GLANCE_SHEET_IDS || org.example.stocksteps.learning.MetricLearnTerms.explain(metricId) != null
 
     /** Ids the At a Glance explanation sheet handles (it adds the company's own number); other ids use the 5D.5.3 metric sheet. */
     val GLANCE_SHEET_IDS = setOf("marketCap", "pe", "revenueGrowth", "dividendYield")

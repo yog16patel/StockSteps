@@ -120,4 +120,18 @@ class FinancialStatementsPresenterTest {
             assertNull(build(fundamentals(*rows).copy(freshness = freshness)).staleNotice, "historical periods alone aren't 'stale': $freshness")
         }
     }
+
+    @Test fun reportingDatesReadAsCalendarDatesAndUnknownFormsStayVerbatim() {
+        // UI Phase 3: "ended 2025-09-30" / "As of 2025-09-30" read as "Sep 30, 2025"; the same calendar date, no time zone.
+        assertEquals("Sep 30, 2025", FinancialStatementsPresenter.readableDate("2025-09-30"))
+        assertEquals("Jan 1, 2026", FinancialStatementsPresenter.readableDate("2026-01-01"))
+        assertEquals("2025-13-01", FinancialStatementsPresenter.readableDate("2025-13-01"))
+        assertEquals("2025-09", FinancialStatementsPresenter.readableDate("2025-09"))
+        assertEquals("FY2025", FinancialStatementsPresenter.readableDate("FY2025"))
+        val model = build(fundamentals(fy(2025, 245.0), fy(2024, 212.5)))
+        val iso = Regex("""\d{4}-\d{2}-\d{2}""")
+        listOfNotNull(model.sections.first { it.id == "health" }.headlineLabel, model.sections.first { it.id == "health" }.meaning).forEach {
+            assertFalse(iso.containsMatchIn(it), it)
+        }
+    }
 }

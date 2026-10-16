@@ -108,4 +108,15 @@ class FinancialsDisplayTest {
         assertNull(FinancialsDisplay.selectedGroup(emptyMap(), 1f))
         assertNull(FinancialsDisplay.selectedGroup(mapOf("summary" to 0f), 1f))
     }
+
+    @Test
+    fun revenueHeadlineIsShownOnceWhenTheKeyMetricsTileShowsIt() {
+        // UI Phase 3: "$416.2B · +6.4% vs FY2024" was the overview caption, the first tile and the Revenue section's headline.
+        assertFalse(FinancialsDisplay.headlineInSection(apple, "revenue"))
+        assertTrue(FinancialsDisplay.headlineInSection(apple, "profitability"))
+        assertTrue(FinancialsDisplay.headlineInSection(apple, "health"))
+        // Without a revenue tile (no headline), the section keeps whatever it has.
+        val noTile = model(section("revenue", "Revenue", revenueChart))
+        assertTrue(FinancialsDisplay.headlineInSection(noTile, "revenue"))
+    }
 }

@@ -16,6 +16,15 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
   - **NOT RUN:** Portfolio create, Practice orders. **BLOCKED:** iOS signed-in.
 - **Report:** `docs/REAL_PORTFOLIO_PRACTICE_FIX.md`; package `docs/reviews/real_portfolio_practice/`.
 
+**2026-10-16 — Company Details, Financials & Valuation, UI/UX Refinement Phase 3 (committed and pushed as "Refine Company Details, Financials and Valuation for UI/UX Refinement Phase 3 with a delayed-quote freshness line, one chart direction for line, caption and spoken summary, a fixed iOS AX5 chart axis, explained highlight and ratio rows, consistent P/E difference rounding and readable financial dates on Android and iOS"; not deployed).**
+- **Done (Android and iOS):** price prominent with session chip + "Prices may be delayed" on the freshness line (U1); one chart direction for
+  line, caption and spoken summary (U3); iOS AX5 chart axis and live status chip; Android inline ⓘ; Highlights/Key Ratios explanations
+  without "—"; +1.8% matches Valuation; one Earnings action (U2); readable Financials dates; Revenue headline once.
+- **Validation:** core 611/0 and 609/0, shared 281/0 and 278/0, both builds PASS; final captures PASS on both platforms. **BLOCKED:**
+  iOS signed in, Android guest. **NOT RUN:** screen readers.
+- **Recommendation:** APPROVE (implementation). **Report:** `docs/COMPANY_DETAILS_UI_REFINEMENT_PHASE3.md`; package
+  `docs/reviews/company_details_ui_phase3/`.
+
 **2026-10-16 — Shared top bars, safe areas & accessibility, KAN-16 (committed and pushed as "Fix iOS landing content under the status bar and shorten company page titles for UI/UX Refinement Phase 2 (KAN-16) with a page-background status strip, ticker Financials and Valuation titles, a symbol Back label from Company Details and trailing Done on iOS sheets"; KAN-16 not Done).**
 - **Done:** iOS landing content no longer scrolls under the status bar (page-background strip at each tab root); "PFAI Financials" /
   "PFAI Valuation" titles on both platforms (were truncated full names); iOS "‹ PFAI" Back from Company Details; iOS sheet Done trailing.

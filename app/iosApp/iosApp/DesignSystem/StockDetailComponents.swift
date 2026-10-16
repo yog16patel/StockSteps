@@ -101,6 +101,12 @@ struct StockLineChart: View {
     @State private var touched: Int?
 
     private var compactAxis: Bool { compactAxisAtLargeText && typeSize.isAccessibilitySize }
+    /// UI Phase 3: the AX1 cap above never applied — `StockStepsTheme.font` scales against the app's content-size category, not the
+    /// `.dynamicTypeSize` environment — so at AX5 the price labels took most of the plot and the dates overlapped it. The compact axis now
+    /// resolves its font at AX1 explicitly; without `compactAxisAtLargeText` the font is unchanged.
+    private var axisFont: Font {
+        compactAxis ? Font(StockStepsTheme.uiFont(type.tiny, typeSize: .accessibility1)) : StockStepsTheme.font(type.tiny, relativeTo: .caption2)
+    }
     private var xLabels: [String] {
         let all = summary.xLabels
         guard compactAxis, all.count > 2, let first = all.first, let last = all.last else { return all }
@@ -170,7 +176,7 @@ struct StockLineChart: View {
                         Text(label)
                     }
                 }
-                .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)
+                .font(axisFont).foregroundStyle(colors.textTertiary)
                 .dynamicTypeSize(compactAxisAtLargeText ? ...DynamicTypeSize.accessibility1 : ...DynamicTypeSize.accessibility5)
             }
             HStack {
@@ -179,7 +185,7 @@ struct StockLineChart: View {
                     Text(label).lineLimit(1)
                 }
             }
-            .font(StockStepsTheme.font(type.tiny, relativeTo: .caption2)).foregroundStyle(colors.textTertiary)
+            .font(axisFont).foregroundStyle(colors.textTertiary)
             .dynamicTypeSize(compactAxisAtLargeText ? ...DynamicTypeSize.accessibility1 : ...DynamicTypeSize.accessibility5)
         }
         .accessibilityElement(children: .ignore)

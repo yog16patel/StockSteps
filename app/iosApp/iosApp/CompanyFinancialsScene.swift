@@ -141,6 +141,7 @@ struct CompanyFinancialsScene: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 anchor(section.id)
                                 FinancialSectionView(section: section, showChart: FinancialsDisplay.shared.chartInSection(model: content, sectionId: section.id),
+                                                     showHeadline: FinancialsDisplay.shared.headlineInSection(model: content, sectionId: section.id),
                                                      onExplain: { explaining = $0 }, onLearnTerm: { router?.open(.learn(.term($0))) })
                             }
                             .padding(.top, CGFloat(space.xl))
@@ -269,6 +270,8 @@ private struct FinancialSectionView: View {
     let section: FinancialStatementSection
     /// 5D.5.4C: false when this section's chart moved to the overview (D-F2).
     var showChart = true
+    /// UI Phase 3: false when the headline is already the first Key Metrics tile (`FinancialsDisplay.headlineInSection`).
+    var showHeadline = true
     var onExplain: (MetricExplanation) -> Void = { _ in }
     var onLearnTerm: (String) -> Void = { _ in }
     @State private var learn = false
@@ -285,11 +288,11 @@ private struct FinancialSectionView: View {
                     Text(section.meaning ?? (section.availability == .temporarilyUnavailable ? "Financial data is temporarily unavailable." : "This company doesn't report this metric."))
                         .font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textSecondary)
                 } else {
-                    if let label = section.headlineLabel { Text(label).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary) }
-                    if let headline = section.headline {
+                    if showHeadline, let label = section.headlineLabel { Text(label).font(StockStepsTheme.font(type.label, relativeTo: .footnote)).foregroundStyle(colors.textSecondary) }
+                    if showHeadline, let headline = section.headline {
                         Text(headline).font(StockStepsTheme.font(type.largeNumber, relativeTo: .largeTitle)).foregroundStyle(colors.textPrimary)
                     }
-                    if let change = section.change, let direction = section.changeDirection {
+                    if showHeadline, let change = section.change, let direction = section.changeDirection {
                         StockPriceChange(percentage: change, direction: direction, style: type.numberMedium)
                     }
                     if let meaning = section.meaning { Text(meaning).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textBody) }

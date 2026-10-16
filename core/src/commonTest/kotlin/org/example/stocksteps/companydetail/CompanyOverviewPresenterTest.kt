@@ -110,7 +110,9 @@ class CompanyOverviewPresenterTest {
 
     @Test fun valuationDifferenceHasPositionAndHeadline() {
         val above = CompanyOverviewPresenter.build(details()).valuation!!
-        assertEquals("+14%", above.difference)
+        // UI Phase 3: one decimal, as the Valuation page (was "+14%" here and "+13.9%" there for the same difference).
+        assertEquals("+13.9%", above.difference)
+        assertEquals("+13.9%", CompanyOverviewPresenter.build(details()).insightEvidence.first { it.label == "Difference from average" }.value)
         assertEquals(ValuationPosition.ABOVE, above.position)
         assertEquals("Trading above its historical P/E valuation.", above.headline)
         assertEquals("5Y Average", above.historicalLabel)
@@ -131,8 +133,9 @@ class CompanyOverviewPresenterTest {
 
     @Test fun chartSummaryLabelsAxesAndChange() {
         val intraday = listOf(PricePoint("2026-10-07 09:30:00", 100.0), PricePoint("2026-10-07 12:00:00", 104.0), PricePoint("2026-10-07 13:00:00", 99.0), PricePoint("2026-10-07 15:55:00", 102.0))
-        val day = ChartPresentation.summary(intraday, ChartRange.ONE_DAY, PriceDirection.UP)!!
-        assertEquals("+2.00% today", day.change)
+        val day = ChartPresentation.summary(intraday, ChartRange.ONE_DAY)!!
+        // UI Phase 3: the period's baseline and date, never "today" for an earlier session (the header says "Oct 7").
+        assertEquals("+2.00% from 9:30 AM on Oct 7", day.change)
         assertEquals(listOf("9:30 AM", "12:00 PM", "1:00 PM", "3:55 PM"), day.xLabels)
         assertEquals(listOf("104.00", "101.50", "99.00"), day.yLabels)
         assertEquals("3:55 PM • $102.00", ChartPresentation.scrubLabel(intraday.last(), ChartRange.ONE_DAY))
@@ -189,5 +192,47 @@ class CompanyOverviewPresenterTest {
         assertEquals(listOf("No price history", "Couldn't load the chart", "Chart temporarily unavailable"), ChartIssue.entries.map { ChartPresentation.notice(it).title })
         assertTrue(ChartPresentation.notice(ChartIssue.NO_HISTORY).message.contains("another range"))
         assertTrue(ChartPresentation.notice(ChartIssue.CONNECTION).message.contains("connection"))
+    }
+
+    @Test fun highlightAndKeyRatioRowsCarryTheirMetricIdsForExplanations() {
+        // UI Phase 3: each row opens its existing explanation (MetricEducation id); labels and values are unchanged.
+        val overview = CompanyOverviewPresenter.build(details())
+        overview.highlights.forEach { row -> assertNotNull(row.metricId, row.label); assertNotNull(MetricEducation.find(row.metricId!!), row.label) }
+        overview.keyRatios.forEach { row -> assertNotNull(row.metricId, row.label); assertNotNull(MetricEducation.find(row.metricId!!), row.label) }
+        assertEquals("netMargin", overview.highlights.first { it.label == "Net Margin" }.metricId)
+        assertNull(overview.highlights.first { it.label == "Net Margin" }.change)
+    }
+
+    @Test fun chartPeriodWordingNamesWhatTheRangeCoversWithoutChangingThePercentage() {
+        val daily = listOf(PricePoint("2021-03-01", 50.0), PricePoint("2023-06-01", 40.0), PricePoint("2026-10-07", 100.0))
+        assertEquals("+100.00% since 2021", ChartPresentation.summary(daily, ChartRange.ALL)!!.change)
+        assertEquals("+100.00% past 5Y", ChartPresentation.summary(daily, ChartRange.FIVE_YEARS)!!.change)
+        val undated = listOf(PricePoint("x", 50.0), PricePoint("y", 100.0))
+        assertEquals("+100.00% over the day", ChartPresentation.summary(undated, ChartRange.ONE_DAY)!!.change)
+        assertEquals("+100.00% over all available history", ChartPresentation.summary(undated, ChartRange.ALL)!!.change)
+    }
+
+    @Test fun oneDayLineCaptionAndSummaryFollowThePeriodWhenTheDailyQuoteDisagrees() {
+        // UI Phase 3 (U3): the quote is up vs the previous close (header "+0.91%"), but the day opened higher and faded. The chart describes
+        // its own period: line direction, caption and spoken summary all say down; the percentage is the same first-to-last calculation.
+        val faded = listOf(PricePoint("2026-10-07 09:30:00", 338.0), PricePoint("2026-10-07 12:00:00", 335.5), PricePoint("2026-10-07 15:55:00", 331.68))
+        val summary = ChartPresentation.summary(faded, ChartRange.ONE_DAY)!!
+        assertEquals(PriceDirection.DOWN, summary.direction)
+        assertEquals("-1.87% from 9:30 AM on Oct 7", summary.change)
+        assertEquals("Price chart, 1D: down 1.87% from 9:30 AM on Oct 7, from 338.00 to 331.68.", summary.description)
+    }
+
+    @Test fun longerRangesAgreeAcrossLineCaptionAndSummaryEvenAgainstTheDay() {
+        // The reverse conflict: a falling day inside a rising year — 1Y stays up everywhere.
+        val year = ChartPresentation.summary(listOf(PricePoint("2025-10-07", 100.0), PricePoint("2026-06-01", 120.0), PricePoint("2026-10-07", 110.0)), ChartRange.ONE_YEAR)!!
+        assertEquals(PriceDirection.UP, year.direction)
+        assertEquals("+10.00% past 1Y", year.change)
+        assertEquals("Price chart, 1Y: up 10.00% past 1Y, from 100.00 to 110.00.", year.description)
+        val flat = ChartPresentation.summary(listOf(PricePoint("2026-10-06", 50.0), PricePoint("2026-10-07", 50.0)), ChartRange.ONE_WEEK)!!
+        assertEquals(PriceDirection.UNCHANGED, flat.direction)
+        assertEquals("Price chart, 1W: unchanged past 1W, from 50.00 to 50.00.", flat.description)
+        val zeroStart = ChartPresentation.summary(listOf(PricePoint("2026-10-06", 0.0), PricePoint("2026-10-07", 5.0)), ChartRange.ONE_WEEK)!!
+        assertEquals(PriceDirection.UNAVAILABLE, zeroStart.direction, "no percentage from a zero start, never a guessed direction")
+        assertTrue(zeroStart.description.contains("change unavailable"), zeroStart.description)
     }
 }

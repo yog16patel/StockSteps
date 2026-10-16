@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -89,15 +92,22 @@ internal fun StockMetric(
 }
 
 /** A metric label, optionally followed by a decorative ⓘ (5D.5.3) that wraps with the label instead of squeezing it. */
+private const val INFO_ICON = "info"
+
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
 internal fun StockMetricLabel(label: String, info: Boolean, style: androidx.compose.ui.text.TextStyle = StockStepsTheme.typography.label,
                               color: androidx.compose.ui.graphics.Color = StockStepsTheme.colors.textSecondary, modifier: Modifier = Modifier) {
     if (!info) { Text(label, modifier, style = style, color = color); return }
-    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs), itemVerticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = style, color = color)
-        Icon(StockIcons.Info, contentDescription = null, tint = StockStepsTheme.colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
-    }
+    // UI Phase 3: the ⓘ is inline text content joined to the last word by a no-break space, so a wrapping label carries it to the end of
+    // its last line ("Earnings per Share" / "(EPS) ⓘ") instead of a FlowRow leaving the icon alone on a line below at 2.0×.
+    val size = with(androidx.compose.ui.platform.LocalDensity.current) { StockStepsTheme.dimensions.iconSmall.toSp() }
+    val text = androidx.compose.ui.text.buildAnnotatedString { append(label); append("\u00A0"); appendInlineContent(INFO_ICON, "ⓘ") }
+    val icon = mapOf(INFO_ICON to androidx.compose.foundation.text.InlineTextContent(
+        androidx.compose.ui.text.Placeholder(size, size, androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter)
+    ) { Icon(StockIcons.Info, contentDescription = null, tint = StockStepsTheme.colors.primaryText, modifier = Modifier.fillMaxSize()) })
+    // The inline icon's alternate text stays out of the spoken label (the row's own label and click label already say it).
+    Text(text, modifier.semantics { contentDescription = label }, style = style, color = color, inlineContent = icon)
 }
 
 /** One cell of a [StockMetricGrid]. */

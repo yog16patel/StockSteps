@@ -90,16 +90,15 @@ struct CompanyDetailsScreen: View {
                     }
                     .accessibilityElement(children: .combine)
                     if let onLatestResults {
+                        // Phase 5 preview: the AI explanation lives on Earnings Results (StockSteps+, checked by the server there). UI Phase 3: one
+                        // action — "Explain With AI" opened the same Earnings Results as View Results, so it is a note under the button now.
                         Button("View Results", action: onLatestResults).buttonStyle(.stockSecondary)
-                        // Phase 5 preview: the AI explanation lives on Earnings Results (StockSteps+, checked by the server there).
                         HStack(alignment: .top) {
-                            Text("AI Earnings Insight: a plain-English explanation of these results, built only from verified figures.")
+                            Text("Results include AI Earnings Insight: a plain-English explanation built only from verified figures.")
                                 .font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textSupporting)
                             Spacer(minLength: CGFloat(space.xs))
                             PlusBadge()
                         }
-                        Button("Explain With AI", systemImage: "lightbulb", action: onLatestResults)
-                            .font(StockStepsTheme.font(type.label)).foregroundStyle(colors.primaryText).frame(minHeight: CGFloat(dims.touchTarget))
                     }
                 }
                 if e.sampleData { Text("Sample earnings data.").font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.cautionText) }
@@ -272,23 +271,16 @@ struct CompanyDetailsScreen: View {
                 let updated = overview.updatedAt.map { Self.quoteTime($0.int64Value) }
                 let changeLabel = present.changeLabel(overview: overview)
                 VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
-                    ViewThatFits(in: .horizontal) {
-                        HStack(alignment: .center, spacing: CGFloat(space.sm)) {
-                            priceText(overview, colors)
-                            Spacer(minLength: 0)
-                            MarketStatusIndicator(status: overview.marketStatus)
-                        }
-                        VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
-                            priceText(overview, colors)
-                            MarketStatusIndicator(status: overview.marketStatus)
-                        }
-                    }
+                    priceText(overview, colors)
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: CGFloat(space.sm)) { priceChange(overview, changeLabel, colors) }
                         VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { priceChange(overview, changeLabel, colors) }
                     }
-                    if let updated {
-                        Text("Updated \(updated)").font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                    // UI Phase 3: the session chip and the freshness share the secondary line under the change (beside the price the chip read as
+                    // the price's own label, e.g. an after-hours price, which the quote never is).
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: CGFloat(space.sm)) { freshness(overview, updated, colors) }
+                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { freshness(overview, updated, colors) }
                     }
                 }
                 .padding(.top, CGFloat(space.sm))
@@ -297,6 +289,11 @@ struct CompanyDetailsScreen: View {
                                      present.statusDescription(status: overview.marketStatus).map { "\($0)." }].compactMap { $0 }.joined(separator: " "))
             }
         }
+    }
+
+    @ViewBuilder private func freshness(_ overview: CompanyOverview, _ updated: String?, _ colors: StockColors) -> some View {
+        MarketStatusIndicator(status: overview.marketStatus)
+        Text(verbatim: present.freshness(updated: updated)).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
     }
 
     private func priceText(_ overview: CompanyOverview, _ colors: StockColors) -> some View {
@@ -352,6 +349,11 @@ struct CompanyDetailsScreen: View {
         formatter.locale = Locale(identifier: "en_US")
         formatter.timeZone = TimeZone(identifier: "America/New_York")
         return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(seconds)))
+    }
+
+    /// UI Phase 3: the 5D.5.3 metric sheet for a Highlights or Key Ratios row (null when its metric has no beginner text).
+    private func rowExplanation(_ row: InfoRow) -> MetricExplanation? {
+        row.metricId.flatMap { MetricLearnTerms.shared.explain(metricId: $0, title: row.label) }
     }
 
     /// Glance metrics keep their company sentence (InfoSheet); net margin and debt use the 5D.5.3 metric sheet (5D.5.4B).
@@ -444,8 +446,9 @@ struct CompanyDetailsScreen: View {
 
     private func chartSection(_ colors: StockColors) -> some View {
         let chart = model.chart.value
-        let summary = chart.flatMap { ChartPresentation.shared.summary(points: $0.points, range: model.range, dayDirection: model.overview.value?.direction) }
+        let summary = chart.flatMap { ChartPresentation.shared.summary(points: $0.points, range: model.range) }
         let scrubLabel = scrub.flatMap { index in chart?.points[safe: index] }.map { ChartPresentation.shared.scrubLabel(point: $0, range: model.range) }
+        // UI Phase 3 (U3): line, caption and spoken summary all follow the selected period's own change.
         let directionColor: Color = switch summary?.direction {
         case .up: colors.positiveText
         case .down: colors.negativeText
@@ -693,12 +696,15 @@ struct CompanyDetailsScreen: View {
                 } else {
                     // 5D.5.4D: one layout for the group (`StockInfoLineGroup`): values and changes stay whole beside their labels, or every
                     // value goes under its label when one can't fit (at AX5 "$416. 2B").
-                    StockInfoLineGroup(entries: overview.highlights.map { .init(label: $0.label, value: $0.value, change: $0.change ?? "—") }) { stacked in
+                    // UI Phase 3: a change only where the model has one (margins and free cash flow have none), never a "—" column; rows with an
+                    // explanation open it (ⓘ only with a Learn term).
+                    StockInfoLineGroup(entries: overview.highlights.map { .init(label: $0.label, value: $0.value, change: $0.change,
+                                                                                  info: rowExplanation($0)?.term != nil) }) { stacked in
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(overview.highlights.enumerated()), id: \.offset) { index, row in
                                 if index > 0 { StockDivider() }
-                                StockInfoLine(label: row.label, value: row.value, helper: row.helper, change: row.change ?? "—", direction: row.changeDirection,
-                                              stacked: stacked)
+                                ExplainableInfoLine(label: row.label, value: row.value, helper: row.helper, change: row.change, direction: row.changeDirection,
+                                                    stacked: stacked, explanation: rowExplanation(row)) { explaining = $0 }
                             }
                         }
                     }
@@ -713,8 +719,12 @@ struct CompanyDetailsScreen: View {
         if !ratios.isEmpty {
             VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
                 StockSectionHeader(title: "Key Ratios")
-                StockInfoLineGroup(entries: ratios.map { .init(label: $0.label, value: $0.value) }, compact: true) { stacked in
-                    VStack(alignment: .leading, spacing: 0) { ForEach(ratios, id: \.label) { StockInfoLine(label: $0.label, value: $0.value, compact: true, stacked: stacked) } }
+                StockInfoLineGroup(entries: ratios.map { .init(label: $0.label, value: $0.value, info: rowExplanation($0)?.term != nil) }, compact: true) { stacked in
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(ratios, id: \.label) { row in
+                            ExplainableInfoLine(label: row.label, value: row.value, compact: true, stacked: stacked, explanation: rowExplanation(row)) { explaining = $0 }
+                        }
+                    }
                 }
                     .padding(.horizontal, CGFloat(space.md)).padding(.vertical, CGFloat(space.xs)).stockCard(padding: 0, bordered: false)
             }

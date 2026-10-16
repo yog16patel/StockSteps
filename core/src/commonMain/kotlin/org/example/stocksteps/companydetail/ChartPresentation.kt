@@ -9,14 +9,19 @@ import org.example.stocksteps.model.PricePoint
 /** Everything a price chart shows besides the line itself, shared by Compose and SwiftUI. */
 data class ChartSummary(
     val closes: List<Double>,
-    /** Change over the selected range, e.g. "+12.40% past 1Y". */
+    /** Change over the selected range, e.g. "+12.40% past 1Y", "-1.87% from 9:30 AM on Oct 7" (1D), "+92.05% since 2021" (ALL). */
     val change: String,
+    /**
+     * Direction of the selected period's own first-to-last change (UI Phase 3, U3): the line colour, the [change] caption and the
+     * [description] all follow it. On 1D it used to follow the day's quote change (vs the previous close), so a day that opened higher and
+     * faded drew a green falling line under a "-1.87%" caption.
+     */
     val direction: PriceDirection,
     /** Right-axis labels, top to bottom (high, middle, low). */
     val yLabels: List<String>,
     /** Bottom-axis labels, left to right, evenly spaced. */
     val xLabels: List<String>,
-    /** Screen-reader summary of the whole chart. */
+    /** Screen-reader summary of the whole chart: the same direction, change and period as the caption, then the prices. */
     val description: String
 )
 
@@ -41,24 +46,28 @@ object ChartPresentation {
     private const val X_LABELS = 4
     private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
-    fun summary(points: List<PricePoint>, range: ChartRange, dayDirection: PriceDirection? = null): ChartSummary? {
+    /**
+     * The chart's caption, axes and spoken summary for the selected [range]. Everything describes that period's own first-to-last change
+     * (the calculation is unchanged); the header's daily change (vs the previous close) is a different measure and keeps its own label.
+     */
+    fun summary(points: List<PricePoint>, range: ChartRange): ChartSummary? {
         val closes = points.map { it.close }.filter { it.isFinite() }
         if (closes.size < 2) return null
         val first = closes.first()
         val last = closes.last()
         val percent = if (first > 0) (last - first) / first * 100 else null
-        // 1D follows today's quote change so the line colour matches the header.
-        val direction = if (range == ChartRange.ONE_DAY && dayDirection != null) dayDirection else HomePresentation.direction(percent)
+        val direction = HomePresentation.direction(percent)
+        val period = period(points, range)
         val high = closes.max()
         val low = closes.min()
-        val change = "${HomePresentation.percent(percent)} ${if (range == ChartRange.ONE_DAY) "today" else "past ${range.label}"}"
+        val change = "${HomePresentation.percent(percent)} $period"
         return ChartSummary(
             closes = closes,
             change = change,
             direction = direction,
             yLabels = listOf(high, (high + low) / 2, low).map(::axisPrice),
             xLabels = xLabels(points, range),
-            description = "Price chart, ${range.label}: from ${axisPrice(first)} to ${axisPrice(last)}, ${HomePresentation.percent(percent)}."
+            description = "Price chart, ${range.label}: ${spokenChange(direction, percent)} $period, from ${axisPrice(first)} to ${axisPrice(last)}."
         )
     }
 
@@ -85,6 +94,34 @@ object ChartPresentation {
     }
 
     private val NO_HISTORY_CODES = setOf("CHART_NOT_FOUND", "SYMBOL_NOT_FOUND")
+
+    /**
+     * UI Phase 3: what the change covers, from the points' own dates (wording only; the percentage is unchanged). 1D names its session ("on
+     * Oct 7") — "today" was shown for an earlier session while the header said "Oct 7" — and ALL names its first year ("since 2021", not
+     * "past ALL"); other ranges keep "past 1M".
+     */
+    private fun period(points: List<PricePoint>, range: ChartRange): String = when (range) {
+        // 1D names its baseline (the first point's time), so it isn't read as the header's change since the previous close.
+        ChartRange.ONE_DAY -> {
+            val day = points.lastOrNull()?.time?.let(::monthDay)
+            val start = points.firstOrNull()?.time?.let(::clock)
+            when {
+                day != null && start != null -> "from $start on $day"
+                day != null -> "on $day"
+                else -> "over the day"
+            }
+        }
+        ChartRange.ALL -> points.firstOrNull()?.time?.let(::year)?.let { "since $it" } ?: "over all available history"
+        else -> "past ${range.label}"
+    }
+
+    /** "down 1.87%" — the direction in words, never colour alone. */
+    private fun spokenChange(direction: PriceDirection, percent: Double?): String = when (direction) {
+        PriceDirection.UP -> "up ${HomePresentation.percent(percent).removePrefix("+")}"
+        PriceDirection.DOWN -> "down ${HomePresentation.percent(percent).removePrefix("-")}"
+        PriceDirection.UNCHANGED -> "unchanged"
+        PriceDirection.UNAVAILABLE -> "change unavailable"
+    }
 
     /** Label for a touched point: time/date plus price. */
     fun scrubLabel(point: PricePoint, range: ChartRange): String =

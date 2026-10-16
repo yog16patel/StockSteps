@@ -118,7 +118,6 @@
     <string name="details_view_all_news">View All</string>
     <string name="details_disclaimer">Educational information, not a recommendation to buy or sell.</string>
     <string name="details_learn_more">Learn what this means</string>
-    <string name="details_updated">Updated %1$s</string>
     <string name="details_why_unavailable">We couldn't load the explanation right now.</string>
     <string name="details_see_more">See More</string>
     <string name="details_see_less">See Less</string>

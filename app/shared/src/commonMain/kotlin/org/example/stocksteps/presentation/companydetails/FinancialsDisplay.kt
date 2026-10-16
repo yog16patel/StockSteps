@@ -75,6 +75,14 @@ object FinancialsDisplay {
         )
     }
 
+    /**
+     * UI Phase 3: whether a section shows its own headline value and change. Revenue's ("$416.2B", "+6.4% vs FY2024") is already the first Key
+     * Metrics tile and the overview chart's caption, so the Revenue section keeps only its sentence and lesson; every other section, and
+     * Revenue when no tile shows it, keeps its headline.
+     */
+    fun headlineInSection(model: FinancialStatementsModel, sectionId: String): Boolean =
+        sectionId != "revenue" || keyMetrics(model).none { it.metricId == "revenue" }
+
     /** "Key Metrics (FY2025)" — the period comes from the revenue headline label ("FY2025"); plain "Key Metrics" without one. */
     fun keyMetricsTitle(model: FinancialStatementsModel): String =
         model.sections.firstOrNull { it.id == "revenue" }?.headlineLabel?.takeIf { it.isNotBlank() }?.let { "Key Metrics ($it)" } ?: "Key Metrics"
