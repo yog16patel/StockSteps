@@ -230,11 +230,11 @@ object ScreenerDisplay {
         SortField.METRIC -> sort.metric?.let(::label) ?: "Metric"
     }
 
-    /** Compact visible label: "Sort: Market cap ↓" (name sorts A–Z show no arrow). */
+    /** Visible label in words (Phase 8B; was an arrow): "Sort: Market cap (high to low)", "Sort: Name (A–Z)" — the menu's own wording. */
     fun sortLabel(sort: ScreenerSort): String = "Sort: ${sortName(sort)}" + when {
         sort.field == SortField.NAME -> " (A–Z)"
-        sort.descending -> " ↓"
-        else -> " ↑"
+        sort.descending -> " (high to low)"
+        else -> " (low to high)"
     }
 
     fun sortSpoken(sort: ScreenerSort): String = "Sorted by ${sortName(sort).lowercase()}" + when {
@@ -242,6 +242,38 @@ object ScreenerDisplay {
         sort.descending -> ", high to low"
         else -> ", low to high"
     }
+
+    // ---------- Phase 8B: scope, sector shortcut, clear all ----------
+
+    /**
+     * What Discover covers, on the landing page as well as with results: "160 companies · <the server's own universe description>". The
+     * description is shown verbatim (REAL: the curated list "isn't the whole market"; MOCK: "… (not real data)"); null without a catalogue.
+     */
+    fun scopeLine(universe: UniverseInfo?): String? = universe?.let { u ->
+        listOf("${u.size} ${if (u.size == 1) "company" else "companies"}", u.description.trim()).filter { it.isNotEmpty() }.joinToString(" · ")
+    }
+
+    const val ALL_SECTORS = "All sectors"
+    const val CLEAR_ALL = "Clear all"
+    const val CLEAR_ALL_SPOKEN = "Clear all filters"
+    const val ABOUT_RESULTS = "About these results"
+    const val SECTORS_SPOKEN = "Filter by sector"
+
+    /** One-tap sector choice: "All sectors" then the catalogue's own sector values (the server's list and order; nothing added). */
+    fun sectorOptions(choices: Map<ChoiceField, List<String>>): List<String> =
+        choices[ChoiceField.SECTOR].orEmpty().takeIf { it.size > 1 }?.let { listOf(ALL_SECTORS) + it }.orEmpty()
+
+    /**
+     * The highlighted option: the one applied sector, "All sectors" when none is applied, or "" (nothing highlighted) when the filter sheet
+     * applied several sectors — the shortcut never pretends a multi-sector filter is one sector.
+     */
+    fun selectedSector(query: ScreenerQuery?): String {
+        val values = query?.choices?.firstOrNull { it.field == ChoiceField.SECTOR }?.values.orEmpty()
+        return when (values.size) { 0 -> ALL_SECTORS; 1 -> values.single(); else -> "" }
+    }
+
+    /** The sector filter values for a tapped option: none for "All sectors", else that one sector (the same filter the sheet builds). */
+    fun sectorValues(option: String): List<String> = if (option == ALL_SECTORS || option.isEmpty()) emptyList() else listOf(option)
 
     // ---------- Result rows ----------
 

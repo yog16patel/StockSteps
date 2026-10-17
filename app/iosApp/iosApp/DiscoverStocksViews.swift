@@ -68,6 +68,10 @@ struct DiscoverStocksScreen: View {
                 Text(display.TITLE).font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).foregroundStyle(colors.textTitle)
                     .accessibilityAddTraits(.isHeader)
                 Text(display.SUBTITLE).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSupporting)
+                // Phase 8B: the scope — how many companies and the server's own description of the list.
+                if let scope = display.scopeLine(universe: state?.universe) {
+                    Text(scope).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Button { showHelp = true } label: {
@@ -79,9 +83,20 @@ struct DiscoverStocksScreen: View {
     }
 
     /// Phase 7E: search within the Discover list (ticker or name); the server ranks matches with the shared search rules.
+    /// Phase 8B: the design-system search field (icon, clear button; the label was repeated as its placeholder).
     private func searchField(_ state: ScreenerUiState) -> some View {
-        StockTextField(label: display.TEXT_SEARCH_LABEL,
-                       text: Binding(get: { state.draft.text ?? "" }, set: { client.screener.setText(text: $0) }))
+        StockSearchField(query: Binding(get: { state.draft.text ?? "" }, set: { client.screener.setText(text: $0) }), placeholder: display.TEXT_SEARCH_LABEL)
+    }
+
+    /// Phase 8B: sectors one tap away (the catalogue's own list); the same filter the sheet builds, one search per tap.
+    @ViewBuilder private func sectorPills(_ state: ScreenerUiState) -> some View {
+        let options = display.sectorOptions(choices: state.choices)
+        if !options.isEmpty {
+            StockPillSelector(options: options, selected: display.selectedSector(query: state.applied), label: { $0 }) { option in
+                client.screener.selectSector(values: display.sectorValues(option: option))
+            }
+            .padding(.top, CGFloat(space.sm))
+        }
     }
 
     @ViewBuilder private func content(_ state: ScreenerUiState, _ colors: StockColors) -> some View {
@@ -95,12 +110,14 @@ struct DiscoverStocksScreen: View {
                               isError: true, actionTitle: retryable ? "Try again" : nil, action: retryable ? { client.screener.start() } : nil)
         } else if state.applied == nil {
             searchField(state).padding(.top, CGFloat(space.md))
+            sectorPills(state)
             presetGrid(state.presets, colors).padding(.top, CGFloat(space.lg))
             Button(display.CUSTOM_SCREEN) { showFilters = true }.buttonStyle(.stockPrimary).frame(maxWidth: .infinity)
                 .disabled(state.metrics.isEmpty).padding(.top, CGFloat(space.md))
         } else {
             searchField(state).padding(.top, CGFloat(space.md))
-            filterBar(active.count, colors).padding(.top, CGFloat(space.lg))
+            sectorPills(state)
+            filterBar(active.count, colors).padding(.top, CGFloat(space.md))
             if !active.isEmpty { activeFilters(active, colors).padding(.top, CGFloat(space.sm)) }
             resultsHeader(state, colors).padding(.top, CGFloat(space.lg))
             results(state, active: active, colors)
@@ -182,9 +199,19 @@ struct DiscoverStocksScreen: View {
         .accessibilityValue(count == 0 ? "" : expanded ? "Expanded" : "Collapsed")
         .accessibilityHint(count == 0 ? "" : expanded ? "Hides the filter list" : "Shows the filter list")
         let edit = Button("Edit filters") { showFilters = true }.buttonStyle(.stockSecondary)
+        // Phase 8B: "Clear all" beside the filters (it was only offered when nothing matched).
+        let clear = Group {
+            if count > 0 {
+                Button(display.CLEAR_ALL) { client.screener.resetAll() }
+                    .font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
+                    .frame(minHeight: CGFloat(dims.touchTarget))
+                    .accessibilityLabel(display.CLEAR_ALL_SPOKEN)
+            }
+        }
         return ViewThatFits(in: .horizontal) {
-            HStack(spacing: CGFloat(space.sm)) { pill; Spacer(minLength: CGFloat(space.sm)); edit }
-            VStack(alignment: .leading, spacing: CGFloat(space.xs)) { pill; edit }
+            HStack(spacing: CGFloat(space.sm)) { pill; clear; Spacer(minLength: CGFloat(space.sm)); edit }
+            VStack(alignment: .leading, spacing: CGFloat(space.xs)) { HStack(spacing: CGFloat(space.sm)) { pill; clear }; edit }
+            VStack(alignment: .leading, spacing: CGFloat(space.xs)) { pill; clear; edit }
         }
     }
 
@@ -268,13 +295,29 @@ struct DiscoverStocksScreen: View {
             if !state.loading && state.error == nil, let coverage = display.coverageLine(universe: state.universe, excluded: state.excludedForMissingData) {
                 Text(coverage).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
             }
-            if !state.loading && state.error == nil && !state.rows.isEmpty, let explanation = display.resultsExplanation(applied: state.applied, shown: state.displayMetrics) {
-                Text(explanation).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
-                Button("What these numbers mean") { showMetricsHelp = true }
-                    .font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText).frame(minHeight: CGFloat(dims.touchTarget))
-            }
-            ForEach(state.warnings + (state.activePreset?.notes ?? []), id: \.self) {
+            // The server's warnings (price basis, coverage) stay visible; Phase 8B folds the explanation, preset notes and the metric guide
+            // into one disclosure so the first rows aren't pushed below the fold.
+            ForEach(state.warnings, id: \.self) {
                 Text($0).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
+            }
+            let explanation = state.rows.isEmpty ? nil : display.resultsExplanation(applied: state.applied, shown: state.displayMetrics)
+            let notes = state.activePreset?.notes ?? []
+            if !state.loading && state.error == nil && (explanation != nil || !notes.isEmpty) {
+                StockDisclosure(title: display.ABOUT_RESULTS) {
+                    VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
+                        if let explanation {
+                            Text(explanation).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
+                        }
+                        ForEach(notes, id: \.self) {
+                            Text($0).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
+                        }
+                        if explanation != nil {
+                            Button("What these numbers mean") { showMetricsHelp = true }
+                                .font(StockStepsTheme.font(type.label, relativeTo: .subheadline)).foregroundStyle(colors.primaryText)
+                                .frame(minHeight: CGFloat(dims.touchTarget))
+                        }
+                    }
+                }
             }
         }
     }
@@ -365,6 +408,10 @@ struct DiscoverStocksScreen: View {
                             VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { values(row, colors) }
                         }
                         .padding(.leading, indent)
+                    }
+                    // Phase 8B: the sector, so a mixed list can be scanned by type of business (the provider's value; absent when missing).
+                    if let sector = row.sector {
+                        Text(sector).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta).padding(.leading, indent)
                     }
                     if !items.isEmpty || row.selected {
                         // Each pair keeps its label and value together; pairs move to the next line instead of overflowing.

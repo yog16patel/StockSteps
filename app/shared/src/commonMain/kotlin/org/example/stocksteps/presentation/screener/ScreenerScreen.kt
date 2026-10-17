@@ -58,7 +58,9 @@ internal class ScreenerActions(
     val onSignIn: () -> Unit,
     val onDismissMessage: () -> Unit,
     /** Phase 7E: find a company in the list by ticker or name. */
-    val onText: (String) -> Unit = {}
+    val onText: (String) -> Unit = {},
+    /** Phase 8B: one-tap sector filter on top of the applied query (empty = all sectors). */
+    val onSector: (List<String>) -> Unit = {}
 )
 
 /**
@@ -88,11 +90,17 @@ internal fun ScreenerScreen(state: ScreenerUiState, modifier: Modifier, actions:
     Column(modifier.background(colors.appBackground)) {
         LazyColumn(state = listState, contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, top = spacing.md, bottom = spacing.xxl),
             modifier = Modifier.weight(1f).fillMaxWidth()) {
-            item(key = "header") { Header(onHelp = { help = true }) }
+            item(key = "header") { Header(ScreenerDisplay.scopeLine(state.universe), onHelp = { help = true }) }
             // Phase 7E: search within the Discover list (ticker or name); the server ranks matches with the shared search rules.
+            // Phase 8B: the design-system search field (icon, clear button), as on Company Search.
             if (!state.catalogLoading && state.catalogError == null) item(key = "text-search") {
-                OutlinedTextField(state.draft.text.orEmpty(), actions.onText, Modifier.fillMaxWidth().padding(top = spacing.md),
-                    label = { Text(ScreenerDisplay.TEXT_SEARCH_LABEL) }, singleLine = true)
+                StockSearchField(state.draft.text.orEmpty(), actions.onText, ScreenerDisplay.TEXT_SEARCH_LABEL, Modifier.padding(top = spacing.md), bordered = false)
+            }
+            // Phase 8B: sectors one tap away (the catalogue's own list); the same filter the sheet builds, one search per tap.
+            val sectors = ScreenerDisplay.sectorOptions(state.choices)
+            if (!state.catalogLoading && state.catalogError == null && sectors.isNotEmpty()) item(key = "sectors") {
+                StockPillSelector(sectors, ScreenerDisplay.selectedSector(state.applied), label = { it },
+                    onSelect = { actions.onSector(ScreenerDisplay.sectorValues(it)) }, modifier = Modifier.padding(top = spacing.sm))
             }
             when {
                 state.catalogLoading -> item(key = "catalog-loading") {
@@ -110,7 +118,8 @@ internal fun ScreenerScreen(state: ScreenerUiState, modifier: Modifier, actions:
                 }
                 else -> {
                     item(key = "filter-bar") {
-                        FilterBar(active.size, expanded, Modifier.padding(top = spacing.lg), onToggle = { expanded = !expanded }, onEdit = { filters = true })
+                        FilterBar(active.size, expanded, Modifier.padding(top = spacing.md), onToggle = { expanded = !expanded }, onEdit = { filters = true },
+                            onClearAll = actions.onReset)
                     }
                     if (active.isNotEmpty()) item(key = "active-filters") {
                         ActiveFilters(active, expanded, Modifier.padding(top = spacing.sm)) { filter ->
@@ -168,13 +177,15 @@ internal fun ScreenerScreen(state: ScreenerUiState, modifier: Modifier, actions:
     }
 }
 
+/** Title, purpose and (Phase 8B) the scope: how many companies and the server's own description of the list ("isn't the whole market"). */
 @Composable
-private fun Header(onHelp: () -> Unit) {
+private fun Header(scope: String?, onHelp: () -> Unit) {
     val colors = StockStepsTheme.colors
     Row(verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f).padding(top = StockStepsTheme.spacing.xs), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
             Text(ScreenerDisplay.TITLE, Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textTitle)
             Text(ScreenerDisplay.SUBTITLE, style = StockStepsTheme.typography.small, color = colors.textSupporting)
+            scope?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textMeta) }
         }
         IconButton(onClick = onHelp) { Icon(StockIcons.Help, "How screening works", tint = colors.iconSecondary) }
     }
@@ -223,9 +234,12 @@ private fun PresetCard(preset: ScreenerPreset, modifier: Modifier, onClick: () -
     }
 }
 
-/** "3 filters" (shows or hides the full list of applied filters) and "Edit filters"; they wrap onto two lines when they don't fit. */
+/**
+ * "3 filters" (shows or hides the full list of applied filters), "Clear all" (Phase 8B, only with filters) and "Edit filters"; they wrap onto
+ * two lines when they don't fit.
+ */
 @Composable
-private fun FilterBar(count: Int, expanded: Boolean, modifier: Modifier, onToggle: () -> Unit, onEdit: () -> Unit) {
+private fun FilterBar(count: Int, expanded: Boolean, modifier: Modifier, onToggle: () -> Unit, onEdit: () -> Unit, onClearAll: () -> Unit) {
     val colors = StockStepsTheme.colors
     val spacing = StockStepsTheme.spacing
     FlowRow(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.Start), verticalArrangement = Arrangement.spacedBy(spacing.xs),
@@ -236,6 +250,10 @@ private fun FilterBar(count: Int, expanded: Boolean, modifier: Modifier, onToggl
             .padding(horizontal = spacing.lg), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
             Text(ScreenerDisplay.filterCount(count), style = StockStepsTheme.typography.label, color = colors.primaryText)
             if (count > 0) Icon(StockIcons.ChevronDown, null, tint = colors.primaryText, modifier = Modifier.size(StockStepsTheme.dimensions.iconSmall))
+        }
+        if (count > 0) TextButton(onClick = onClearAll, modifier = Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)
+            .semantics { contentDescription = ScreenerDisplay.CLEAR_ALL_SPOKEN }) {
+            Text(ScreenerDisplay.CLEAR_ALL, style = StockStepsTheme.typography.label, color = colors.primaryText)
         }
         Spacer(Modifier.weight(1f))
         StockButton("Edit filters", onEdit, variant = StockButtonVariant.SECONDARY)
@@ -305,11 +323,16 @@ private fun ResultsHeader(state: ScreenerUiState, modifier: Modifier, onSort: (S
         ScreenerDisplay.coverageLine(state.universe, state.excludedForMissingData)?.takeIf { !state.loading && state.error == null }?.let {
             Text(it, style = typography.caption, color = colors.textMeta)
         }
-        if (!state.loading && state.error == null && state.rows.isNotEmpty()) ScreenerDisplay.resultsExplanation(state.applied, state.displayMetrics)?.let { explanation ->
-            Text(explanation, style = typography.caption, color = colors.textSupporting)
-            StockButton("What these numbers mean", onMetricsHelp, variant = StockButtonVariant.TEXT)
+        // The server's warnings (price basis, coverage) stay visible; Phase 8B folds the explanation, preset notes and the metric guide into
+        // one disclosure so the first rows aren't pushed below the fold.
+        state.warnings.forEach { Text(it, style = typography.caption, color = colors.textSupporting) }
+        val explanation = ScreenerDisplay.resultsExplanation(state.applied, state.displayMetrics).takeIf { state.rows.isNotEmpty() }
+        val notes = state.activePreset?.notes.orEmpty()
+        if (!state.loading && state.error == null && (explanation != null || notes.isNotEmpty())) StockDisclosure(ScreenerDisplay.ABOUT_RESULTS) {
+            explanation?.let { Text(it, style = typography.caption, color = colors.textSupporting) }
+            notes.forEach { Text(it, style = typography.caption, color = colors.textSupporting) }
+            if (explanation != null) StockButton("What these numbers mean", onMetricsHelp, variant = StockButtonVariant.TEXT)
         }
-        (state.warnings + state.activePreset?.notes.orEmpty()).forEach { Text(it, style = typography.caption, color = colors.textSupporting) }
     }
 }
 
@@ -355,6 +378,8 @@ private fun ResultRow(row: ScreenerRowView, metrics: List<ScreenerMetricItem>, a
                     trailing = if (stacked) ({}) else ({ values() }))
                 if (stacked) FlowRow(Modifier.padding(start = indent, end = spacing.sm, bottom = spacing.xxs),
                     horizontalArrangement = Arrangement.spacedBy(spacing.sm), itemVerticalAlignment = Alignment.CenterVertically) { values() }
+                // Phase 8B: the sector, so a mixed list can be scanned by type of business (the provider's value; absent when missing).
+                row.sector?.let { Text(it, Modifier.padding(start = indent, end = spacing.sm), style = typography.caption, color = colors.textMeta) }
                 if (metrics.isNotEmpty() || row.selected) FlowRow(Modifier.padding(start = indent, end = spacing.sm, top = spacing.xxs),
                     horizontalArrangement = Arrangement.spacedBy(spacing.md), verticalArrangement = Arrangement.spacedBy(spacing.xxs),
                     itemVerticalAlignment = Alignment.CenterVertically) {

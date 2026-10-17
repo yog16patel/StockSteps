@@ -6,6 +6,20 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 8B Discover, Company Search and Company Details UI/UX refinement (committed and pushed as "Refine Discover for UI/UX Refinement Phase 8B with a scope line, one-tap sector filters, Clear all, the sort in words, row sectors, the design-system search field and an About these results fold, fix the legacy Unavailable% movers line, and verify Company Search and Company Details on Android and iOS"; READY FOR REVIEW)**
+- Discover gains:
+  - a scope line;
+  - one-tap sector pills;
+  - "Clear all";
+  - sort in words;
+  - row sectors;
+  - a design-system search field;
+  - an "About these results" fold.
+- The legacy movers line no longer prints "Unavailable%".
+- Search and Company Details were verified unchanged. No added requests (25 → 25).
+- Phase 7E enrichment quota is still outstanding (no backend change).
+- Report `docs/UI_UX_REFINEMENT_PHASE8.md`; package `docs/reviews/ui_ux_phase8b/`.
+
 **2026-10-17 — Phase 8A Home and Markets UI/UX refinement (committed and pushed as "Refine Home and Markets for UI/UX Refinement Phase 8A with open borderless Markets sections, a one-line market status, the Daily Brief entry in the indices group, diverging sector bars, readable Top Movers at large iOS text and the Portfolio overview wording on Home on Android and iOS"; READY FOR REVIEW)**
 - Markets: open sections instead of 7 bordered cards, an open status block, the brief entry in the indices group, diverging sector bars,
   readable Top Movers at iOS accessibility sizes. Home: no subtitle; portfolio summary in the Portfolio overview's wording.

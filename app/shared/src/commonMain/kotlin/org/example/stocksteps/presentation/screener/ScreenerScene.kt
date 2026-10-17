@@ -73,6 +73,7 @@ internal fun ScreenerScene(
                     onClearFilter = { model.presenter.clearFilter(it); model.presenter.apply() },
                     onClearChoice = { model.presenter.setChoice(it, emptyList()); model.presenter.apply() },
                     onReset = model.presenter::resetAll,
+                    onSector = model.presenter::selectSector,
                     onApply = model.presenter::apply,
                     onSort = model.presenter::sort,
                     onLoadMore = model.presenter::loadMore,

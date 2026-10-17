@@ -31,7 +31,8 @@ internal fun MarketMoversSection(
                 ) {
                     Text(text = mover.symbol, style = MaterialTheme.typography.titleMedium)
                     mover.name?.let { Text(text = it) }
-                    Text(text = "${mover.changePercent?.let { "$it%" } ?: "Unavailable"} · Price ${mover.price ?: "Unavailable"}")
+                    // Phase 8B: missing change and price in words, a real zero as 0.00% (was "Unavailable%" and raw doubles).
+                    Text(text = MarketMoverDisplay.line(mover))
                 }
             }
         }

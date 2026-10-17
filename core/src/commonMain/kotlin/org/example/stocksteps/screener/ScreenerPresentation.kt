@@ -234,13 +234,16 @@ data class ScreenerRowView(
     val metrics: List<Pair<String, MetricCell>>,
     val notes: List<String>,
     val stale: Boolean,
-    val selected: Boolean
+    val selected: Boolean,
+    /** Phase 8B: the company's sector as the provider gives it (null when missing; never guessed). */
+    val sector: String? = null
 ) {
     /** False when the company has no price (shown as "No data available", never $0.00). */
     val priceAvailable: Boolean get() = price != MISSING_PRICE
     /** One spoken label for the row: identity, price and change in words (not colour), then the shown metrics (Phase 5B). */
     val accessibility: String get() = buildString {
         append("$name, $symbol${exchange?.let { " on $it" } ?: ""}. ")
+        sector?.let { append("$it. ") }
         append(when {
             !priceAvailable -> "Price unavailable."
             !change.available -> "Price $price, change unavailable."
@@ -344,7 +347,7 @@ class ScreenerPresenter(
             c.price?.let { MetricFormatter.price(it, c.currency) } ?: MISSING_PRICE,
             MetricFormatter.change(c.changePercent),
             shown.map { id -> val d = ScreenerDefinitions.metric(id); (d?.label ?: id) to MetricFormatter.cell(d, c.metrics[id], c.currency) },
-            result.notApplied, c.stale, selection.contains(c.symbol)
+            result.notApplied, c.stale, selection.contains(c.symbol), c.sector?.trim()?.ifEmpty { null }
         )
     }
 
@@ -381,6 +384,16 @@ class ScreenerPresenter(
     fun setChoice(field: ChoiceField, values: List<String>) = mutable.update { state ->
         val others = state.draft.choices.filterNot { it.field == field }
         state.copy(draft = state.draft.copy(choices = if (values.isEmpty()) others else others + ChoiceFilter(field, values)))
+    }
+
+    /**
+     * Phase 8B sector shortcut: the applied query (not unapplied edits left in the filter sheet) with its sector filter replaced, then one
+     * search — the same request "Show results" would send for that filter. [values] empty = all sectors.
+     */
+    fun selectSector(values: List<String>) {
+        mutable.update { it.copy(draft = it.applied ?: it.draft) }
+        setChoice(ChoiceField.SECTOR, values)
+        apply()
     }
 
     fun resetAll() {

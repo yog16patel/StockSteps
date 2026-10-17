@@ -118,10 +118,10 @@ class ScreenerDisplayTest {
     }
 
     @Test fun sortLabelsAreShortAndSpokenInWords() {
-        assertEquals("Sort: Market cap ↓", ScreenerDisplay.sortLabel(ScreenerSort()))
+        assertEquals("Sort: Market cap (high to low)", ScreenerDisplay.sortLabel(ScreenerSort()))
         assertEquals("Sorted by market cap, high to low", ScreenerDisplay.sortSpoken(ScreenerSort()))
         assertEquals("Sort: Name (A–Z)", ScreenerDisplay.sortLabel(ScreenerSort(SortField.NAME, descending = false)))
-        assertEquals("Sort: P/E ratio (trailing) ↑", ScreenerDisplay.sortLabel(ScreenerSort(SortField.METRIC, "pe", false)))
+        assertEquals("Sort: P/E ratio (trailing) (low to high)", ScreenerDisplay.sortLabel(ScreenerSort(SortField.METRIC, "pe", false)))
         val options = ScreenerDisplay.sortOptions(listOf(pe))
         assertEquals(6, options.size)
         assertEquals("P/E ratio (trailing) (low to high)", options.last().label)
@@ -245,5 +245,34 @@ class ScreenerDisplayTest {
             presenter.start() // the screens' "Try again"
             assertNull(withTimeout(5_000) { presenter.state.first { it.presets.isNotEmpty() } }.catalogError)
         } finally { scope.cancel() }
+    }
+
+    /** Phase 8B: the scope says how many companies and repeats the server's own description; never "the market". */
+    @Test fun scopeLineNamesTheListAndItsSize() {
+        assertEquals("155 companies · A curated list of US-listed companies. It isn't the whole market.",
+            ScreenerDisplay.scopeLine(UniverseInfo("A curated list of US-listed companies. It isn't the whole market.", 155, 155, true)))
+        assertEquals("1 company", ScreenerDisplay.scopeLine(UniverseInfo("  ", 1, 1, true)))
+        assertNull(ScreenerDisplay.scopeLine(null))
+    }
+
+    /** Phase 8B: the sector shortcut uses the catalogue's own sectors and builds the same filter as the sheet (one sector or none). */
+    @Test fun sectorShortcutMirrorsTheSheetFilter() {
+        val choices = mapOf(ChoiceField.SECTOR to listOf("Energy", "Technology"))
+        assertEquals(listOf(ScreenerDisplay.ALL_SECTORS, "Energy", "Technology"), ScreenerDisplay.sectorOptions(choices))
+        assertTrue(ScreenerDisplay.sectorOptions(mapOf(ChoiceField.SECTOR to listOf("Energy"))).isEmpty())
+        assertTrue(ScreenerDisplay.sectorOptions(emptyMap()).isEmpty())
+        assertEquals(ScreenerDisplay.ALL_SECTORS, ScreenerDisplay.selectedSector(null))
+        assertEquals(ScreenerDisplay.ALL_SECTORS, ScreenerDisplay.selectedSector(ScreenerQuery()))
+        assertEquals("Energy", ScreenerDisplay.selectedSector(ScreenerQuery(choices = listOf(ChoiceFilter(ChoiceField.SECTOR, listOf("Energy"))))))
+        assertEquals("", ScreenerDisplay.selectedSector(ScreenerQuery(choices = listOf(ChoiceFilter(ChoiceField.SECTOR, listOf("Energy", "Utilities"))))))
+        assertEquals(emptyList(), ScreenerDisplay.sectorValues(ScreenerDisplay.ALL_SECTORS))
+        assertEquals(listOf("Energy"), ScreenerDisplay.sectorValues("Energy"))
+    }
+
+    /** Phase 8B: a row's sector is spoken after its identity and is absent (not guessed) when the provider has none. */
+    @Test fun rowSectorIsSpokenOnlyWhenKnown() {
+        val base = ScreenerRowView("AAPL", "Apple Inc.", "NASDAQ", "USD", null, "$336.67", MetricFormatter.change(0.91), emptyList(), emptyList(), stale = false, selected = false)
+        assertTrue(base.copy(sector = "Technology").accessibility.startsWith("Apple Inc., AAPL on NASDAQ. Technology. Price"))
+        assertTrue(base.accessibility.startsWith("Apple Inc., AAPL on NASDAQ. Price"))
     }
 }

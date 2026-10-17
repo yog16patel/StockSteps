@@ -75,3 +75,50 @@ Full inventory and plan: `docs/reviews/ui_ux_phase8a/UI_AUDIT.md`. Summary:
 ## 7. Next
 
 Owner and ChatGPT review of `docs/reviews/ui_ux_phase8a/`. 8B only after approval.
+
+---
+
+# Batch 8B — Discover, Company Search and Company Details
+
+Status: **8B committed and pushed as "Refine Discover for UI/UX Refinement Phase 8B with a scope line, one-tap sector filters, Clear all, the sort in words, row sectors, the design-system search field and an About these results fold, fix the legacy Unavailable% movers line, and verify Company Search and Company Details on Android and iOS"; READY FOR REVIEW.** Base `852afb9` (8A). Package: `docs/reviews/ui_ux_phase8b/`. 8C not started.
+
+## 8B.1 Audit
+
+Full inventory: `docs/reviews/ui_ux_phase8b/UI_AUDIT.md`.
+
+- No P0.
+- **P1 (all Discover):**
+  - D1: no scope on the landing page;
+  - D2: sector filters three levels deep;
+  - D3: "Clear all" offered only when nothing matched;
+  - D4: an arrow in the sort label;
+  - D5: no sector on rows.
+- **Legacy movers:** "Unavailable%" (L1, on screens that aren't reachable).
+- **Search and Company Details:** already refined (5D.5.5, 5D.5.4, Phases 3–5); verified with no change. The chart axis currency is
+  left as a P2 follow-up.
+- **Phase 7E quota (≈ 310 requests a day vs a 250-a-day key):** recorded as outstanding; no backend work.
+
+## 8B.2 Changes (Android and iOS, display plus one presenter shortcut)
+
+| # | Change |
+|---|---|
+| 1 | Scope line on Discover, e.g. "160 companies · <server's universe description>" (`ScreenerDisplay.scopeLine`) |
+| 2 | Sector pills: "All sectors" plus the catalogue's sectors. A tap applies the sheet's own sector filter on top of the applied query (`ScreenerPresenter.selectSector`), one request |
+| 3 | "Clear all" beside the filter count (existing `resetAll`) |
+| 4 | Sort label in words: "Sort: Market cap (high to low)" |
+| 5 | Sector caption on result rows (`ScreenerRowView.sector`, the provider's value; also spoken) |
+| 6 | Design-system search field on Discover (Android `StockSearchField`; iOS no longer repeats the label as the placeholder) |
+| 7 | Results explanation, preset notes and "What these numbers mean" in one "About these results" disclosure; server warnings stay visible |
+| 8 | Legacy movers line via the shared `MarketMoverDisplay`: missing values in words, a real zero as 0.00 %, Home formatters |
+
+## 8B.3 Data truth
+
+- No change to the curated universe, ranking, filters, pagination, cursor, server or 7E budget.
+- Missing values stay "No data available", "Change unavailable" or "Price unavailable", never 0.
+- No price date is invented: the server has no per-row date.
+- Company Details still says "Closed · Updated … · Prices may be delayed", never "live".
+- Requests are unchanged: 25 → 25 over the scripted Discover → Search → Company Details flow.
+
+## 8B.4 Owner decisions
+- **D8B-1:** sector pills on Discover.
+- **D8B-2:** the sort label in words.
