@@ -122,3 +122,51 @@ Full inventory: `docs/reviews/ui_ux_phase8b/UI_AUDIT.md`.
 ## 8B.4 Owner decisions
 - **D8B-1:** sector pills on Discover.
 - **D8B-2:** the sort label in words.
+
+---
+
+# Batch 8C — My Portfolio, Practice Portfolio and Watchlist
+
+**Status:** 8C is committed and pushed as "Refine My Portfolio, Practice and Watchlist for UI/UX Refinement Phase 8C with the summary figures before the account-value history, borderless Practice sections without the repeated cash amount, house iOS buttons and a dated Watchlist header on Android and iOS"; READY FOR REVIEW. 8D has not started.
+
+**Base:** `67d40d7` (8B, committed and pushed). **Package:** `docs/reviews/ui_ux_phase8c/`.
+
+## 8C.1 Audit
+
+The full inventory is in `docs/reviews/ui_ux_phase8c/UI_AUDIT.md`. No P0 issue and no calculation defect was found.
+
+| ID | Priority | Finding |
+|---|---|---|
+| B1 | P1 | The My Portfolio account-value history split the total from Invested cost / Unrealized / Realized P/L |
+| H1 | P1 | Practice was a column of bordered cards, with a nested bordered lock row |
+| H2 | P1 | The empty Practice portfolio said "$10,000.00 virtual cash" three times |
+| H3 | P2 | iOS used `.bordered` buttons |
+| M1 | P1 | The Watchlist header read "Updated 4:48 AM ET" with no date, over Oct 7 closes |
+| G1 | P2 | A single holding at 100 % draws a full ring — not changed (see D8C-3) |
+
+**Not changed:**
+- **G1:** the single-holding donut. Phase C's tests encode it, so it is owner decision D8C-3.
+- **Forms:** transaction forms.
+- **Practice order flow:** the trade preview, review and result.
+- **Watchlist add flow:** still three steps.
+
+## 8C.2 Changes (display only, Android and iOS)
+
+| # | Change |
+|---|---|
+| 1 | My Portfolio overview order: total → today → Invested / Unrealized / Realized P/L → notice and valuation date → account-value history |
+| 2 | Practice sections and rows borderless per call site (summary, metrics, insights, holdings, allocation, activity, challenges); order flow unchanged |
+| 3 | Practice empty-state text without the repeated cash amount |
+| 4 | iOS Practice buttons use `.stockSecondary` |
+| 5 | Watchlist header dated: "Updated Oct 7, 5:15 PM ET" (core `WatchlistPresentation`) |
+
+## 8C.3 Integrity
+
+No accounting, valuation, execution, idempotency, persistence, auth or Firestore change. The financial-integrity gate passes
+(`FINANCIAL_INTEGRITY_CHECKLIST.md`).
+
+## 8C.4 Owner decisions
+
+- **D8C-1:** overview order.
+- **D8C-2:** borderless Practice.
+- **D8C-3:** a bar instead of a full ring for a single holding at 100 %.

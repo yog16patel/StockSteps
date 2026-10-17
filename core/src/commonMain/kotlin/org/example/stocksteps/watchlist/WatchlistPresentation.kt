@@ -206,7 +206,8 @@ object WatchlistPresenter {
             methodology = average?.let { "Equal-weighted average of ${eligible.size} of $count stocks · not a portfolio return" },
             updated = when {
                 offlineSince != null -> "Offline · showing saved prices"
-                data != null -> epochSeconds(data.generatedAt)?.let { "Updated ${MarketsPresenter.timeLabel(it, offset)} ET" }
+                // Phase 8C: with the date ("Updated Oct 7, 5:15 PM ET"), so a time alone is never read as today's.
+                data != null -> epochSeconds(data.generatedAt)?.let { "Updated ${MarketsPresenter.dateLabel(it, offset)}, ${MarketsPresenter.timeLabel(it, offset)} ET" }
                 else -> null
             },
             stale = offlineSince != null || withQuotes.any { it.stale }

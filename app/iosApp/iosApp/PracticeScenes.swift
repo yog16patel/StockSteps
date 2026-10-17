@@ -261,8 +261,9 @@ struct PracticeScreen: View {
             .background(colors.warningContainer, in: RoundedRectangle(cornerRadius: CGFloat(StockStepsTheme.corners.card)))
     }
 
+    /// Phase 8C: Practice sections are borderless per call site (as My Portfolio); the surface and spacing separate them.
     private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: CGFloat(space.xs)) { content() }.stockCard()
+        VStack(alignment: .leading, spacing: CGFloat(space.xs)) { content() }.stockCard(bordered: false)
     }
 
     private func lockedPreview(_ text: String, feature: String, _ colors: StockColors) -> some View {
@@ -298,15 +299,17 @@ struct PracticeScreen: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: CGFloat(space.sm)) {
                 Button("Buy Stock") { if state.atFreeLimit { presenter.showHoldingLimit() } else { onBuy() } }.buttonStyle(.stockPrimary).disabled(!state.canTrade)
-                Button("Explore Stocks", action: onExplore).buttonStyle(.bordered)
-                Button("Learn", action: onLearn).buttonStyle(.bordered)
+                // Phase 8C: the house secondary style (`.bordered` filled with the brand tint).
+                Button("Explore Stocks", action: onExplore).buttonStyle(.stockSecondary)
+                Button("Learn", action: onLearn).buttonStyle(.stockSecondary)
             }
             .controlSize(.large)
         }
         if o.holdings.isEmpty {
             VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                 Text("Your practice portfolio is ready.").font(StockStepsTheme.font(type.cardTitle, relativeTo: .headline)).accessibilityAddTraits(.isHeader)
-                Text("You have \(client.money(value: o.cash, currency: o.baseCurrency)) in virtual cash. Explore stocks or ETFs, research a company, then try a simulated purchase. No real money is used.")
+                // Phase 8C: the cash amount is already shown under "Available cash" (and in the insights), so it isn't repeated here.
+                Text("Explore stocks or ETFs, research a company, then try a simulated purchase. No real money is used.")
                     .font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody)
             }
             .padding(CGFloat(space.cardPadding)).frame(maxWidth: .infinity, alignment: .leading)
@@ -387,7 +390,7 @@ struct PracticeScreen: View {
                 }
                 if h.stale { Text("Price from an earlier session").font(.caption).foregroundStyle(colors.cautionText) }
             }
-            .stockCard()
+            .stockCard(bordered: false)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
@@ -492,7 +495,7 @@ struct PracticeScreen: View {
                         Text((t.type.name == "BUY" ? "−" : "+") + client.money(value: t.amount, currency: o.baseCurrency)).font(StockStepsTheme.font(type.bodySemiBold)).monospacedDigit()
                     }
                 }
-                .stockCard()
+                .stockCard(bordered: false)
                 .accessibilityElement(children: .combine)
             }
         } else {
@@ -547,7 +550,7 @@ struct PracticeScreen: View {
                     }
                 }
             }
-            .stockCard()
+            .stockCard(bordered: false)
         }
     }
 
@@ -804,7 +807,7 @@ struct PracticeOrderScreen: View {
             .stockCard()
             Text("Simulated with virtual money. No real order was placed.").font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSecondary)
             Button("View Holdings", action: onViewHoldings).buttonStyle(.stockPrimary).controlSize(.large).frame(maxWidth: .infinity)
-            Button("Explore Stocks", action: onExplore).buttonStyle(.bordered).controlSize(.large).frame(maxWidth: .infinity)
+            Button("Explore Stocks", action: onExplore).buttonStyle(.stockSecondary).controlSize(.large).frame(maxWidth: .infinity)
             Button("Continue Learning", action: onLearn).frame(maxWidth: .infinity, minHeight: CGFloat(dims.touchTarget))
         }
     }

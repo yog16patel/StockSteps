@@ -6,6 +6,13 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 8C My Portfolio, Practice and Watchlist UI/UX refinement (committed and pushed as "Refine My Portfolio, Practice and Watchlist for UI/UX Refinement Phase 8C with the summary figures before the account-value history, borderless Practice sections without the repeated cash amount, house iOS buttons and a dated Watchlist header on Android and iOS"; READY FOR REVIEW)**
+- The My Portfolio overview now reads total → gain/loss and cost → valuation date → history.
+- Practice is borderless, and the cash amount is no longer repeated.
+- The Watchlist header is dated.
+- No accounting, execution or persistence change. Calculation defects: none.
+- Signed-in iOS BLOCKED. Report `docs/UI_UX_REFINEMENT_PHASE8.md`; package `docs/reviews/ui_ux_phase8c/`.
+
 **2026-10-17 — Phase 8B Discover, Company Search and Company Details UI/UX refinement (committed and pushed as "Refine Discover for UI/UX Refinement Phase 8B with a scope line, one-tap sector filters, Clear all, the sort in words, row sectors, the design-system search field and an About these results fold, fix the legacy Unavailable% movers line, and verify Company Search and Company Details on Android and iOS"; READY FOR REVIEW)**
 - Discover gains:
   - a scope line;

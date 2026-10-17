@@ -341,9 +341,7 @@ struct PortfolioScreen: View {
                     VStack(alignment: .leading, spacing: CGFloat(space.sm)) { summaryContent(state, overview, colors) }
                 }
             }
-            StockDivider()
-            PortfolioHistorySection(state: state, requested: requestedPeriod,
-                                    onPeriod: { period in requestedPeriod = period; onHistory(period) }, onRetry: onRefresh)
+            // Phase 8C: the summary figures, notice and valuation date right under the total, before the account-value history (as Compose).
             StockDivider()
             StockMetricGrid(items: overview.metrics.map { StockMetricItem(label: present.keepTogether(label: $0.label), value: $0.value, direction: $0.direction) }, rowsWhenNarrow: true)
             if let notice = overview.notice {
@@ -352,6 +350,9 @@ struct PortfolioScreen: View {
             if let freshness = overview.freshness {
                 Text(freshness).font(StockStepsTheme.font(type.caption, relativeTo: .footnote)).foregroundStyle(colors.textMeta)
             }
+            StockDivider()
+            PortfolioHistorySection(state: state, requested: requestedPeriod,
+                                    onPeriod: { period in requestedPeriod = period; onHistory(period) }, onRetry: onRefresh)
         }.stockCard(bordered: false)   // Phase C: borderless — surface colour and whitespace separate it (no shadow added).
     }
 

@@ -165,7 +165,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overviewItems(state: 
     item("summary") {
         val colors = StockStepsTheme.colors
         val typography = StockStepsTheme.typography
-        StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        // Phase 8C: Practice sections are borderless per call site (as My Portfolio); the surface and spacing separate them.
+        StockCard(Modifier.fillMaxWidth(), bordered = false, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
             Text("Portfolio value", style = typography.label, color = colors.textSecondary)
             Text(PracticeFormat.money(o.totalValue, o.baseCurrency), Modifier.semantics { contentDescription = "Portfolio value ${PracticeFormat.money(o.totalValue, o.baseCurrency)}" },
                 style = typography.largeNumber, color = colors.textPrimary)
@@ -191,7 +192,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overviewItems(state: 
         StockCard(Modifier.fillMaxWidth(), containerColor = StockStepsTheme.colors.educationContainer, bordered = false,
             verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
             Text("Your practice portfolio is ready.", Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle)
-            Text("You have ${PracticeFormat.money(o.cash, o.baseCurrency)} in virtual cash. Explore stocks or ETFs, research a company, then try a simulated purchase. No real money is used.",
+            // Phase 8C: the cash amount is already shown under "Available cash" (and in the insights), so it isn't repeated here.
+            Text("Explore stocks or ETFs, research a company, then try a simulated purchase. No real money is used.",
                 style = StockStepsTheme.typography.body, color = StockStepsTheme.colors.textBody)
         }
     } else {
@@ -207,7 +209,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.overviewItems(state: 
 
 @Composable
 private fun Metric(label: String, value: String, modifier: Modifier) {
-    StockCard(modifier, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
+    StockCard(modifier, bordered = false, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
         Text(label, style = StockStepsTheme.typography.caption, color = StockStepsTheme.colors.textSecondary)
         Text(value, style = StockStepsTheme.typography.bodySemiBold, color = StockStepsTheme.colors.textPrimary)
     }
@@ -254,7 +256,7 @@ private fun PerformanceSection(state: PracticeUiState, o: PracticeOverview, onAc
 @Composable
 private fun InsightsCard(o: PracticeOverview, onAction: (PracticeAction) -> Unit) {
     val premium = o.entitlement.has(PracticeCapability.PREMIUM_INSIGHTS)
-    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+    StockCard(Modifier.fillMaxWidth(), bordered = false, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
         Text("What your portfolio shows", Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle)
         o.insights.forEach { Text("• ${it.text}", style = StockStepsTheme.typography.body, color = StockStepsTheme.colors.textBody) }
         if (!premium) LockedPreview("Detailed insights on concentration, ETFs and sectors are part of the Practice trial and StockSteps+.") { onAction(PracticeAction.Locked("Premium educational insights")) }
@@ -279,7 +281,7 @@ private fun HoldingRow(h: PracticeHoldingView, base: String, onClick: () -> Unit
     val typography = StockStepsTheme.typography
     StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
         contentDescription = PracticeFormat.holdingDescription(h, base)
-    }, onClick = onClick, onClickLabel = "Open ${h.instrument.symbol}") {
+    }, onClick = onClick, onClickLabel = "Open ${h.instrument.symbol}", bordered = false) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.sm)) {
             StockTickerAvatar(h.instrument.symbol, logoUrl = h.instrument.logoUrl, size = StockStepsTheme.dimensions.logoCompact)
             Column(Modifier.weight(1f)) {
@@ -310,7 +312,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.holdingsItems(state: 
             style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textSecondary)
     }
     item("allocation") {
-        StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
+        StockCard(Modifier.fillMaxWidth(), bordered = false, verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xs)) {
             Text("Allocation", Modifier.semantics { heading() }, style = StockStepsTheme.typography.cardTitle)
             val slices = o.allocation
             if (slices == null) LockedPreview("See how your money is spread across holdings, cash and sectors with the Practice trial or StockSteps+.") { onAction(PracticeAction.Locked("Allocation charts")) }
@@ -402,7 +404,7 @@ private fun TransactionRow(t: PracticeTransaction, base: String) {
         PracticeTransactionType.DIVIDEND -> "${PracticeFormat.shareCount(t.quantity)} × ${PracticeFormat.price(t.price, t.priceCurrency)}"
         else -> "${PracticeFormat.shareCount(t.quantity)} at ${PracticeFormat.price(t.price, t.priceCurrency)}"
     }
-    StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = "$label, ${t.instrument.symbol}, $detail, total ${PracticeFormat.money(t.amount, base)}, ${PracticeFormat.dateTime(t.executedAt)}. Simulated." }) {
+    StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = "$label, ${t.instrument.symbol}, $detail, total ${PracticeFormat.money(t.amount, base)}, ${PracticeFormat.dateTime(t.executedAt)}. Simulated." }, bordered = false) {
         Row {
             Column(Modifier.weight(1f)) {
                 Text("$label · ${t.instrument.symbol}", style = typography.bodySemiBold, color = StockStepsTheme.colors.textPrimary)
@@ -429,7 +431,7 @@ private fun ChallengeCard(c: PracticeChallengeView, answer: org.example.stockste
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     var open by remember { mutableStateOf(false) }
-    StockCard(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+    StockCard(Modifier.fillMaxWidth(), bordered = false, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Row(Modifier.fillMaxWidth().heightIn(min = StockStepsTheme.dimensions.touchTarget).clickable(onClickLabel = if (open) "Collapse" else "Open challenge") { open = !open },
             verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

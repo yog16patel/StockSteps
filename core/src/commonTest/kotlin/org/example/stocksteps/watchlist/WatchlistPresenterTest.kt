@@ -20,7 +20,7 @@ class WatchlistPresenterTest {
         assertEquals("+0.50% today", summary.change, "(2 + -1) / 2; stale, missing and older-session quotes excluded")
         assertEquals("Equal-weighted average of 2 of 5 stocks · not a portfolio return", summary.methodology)
         assertEquals("5 companies", summary.companies)
-        assertEquals("Updated 5:15 PM ET", summary.updated)
+        assertEquals("Updated Oct 7, 5:15 PM ET", summary.updated)
         assertTrue(summary.stale)
     }
 
@@ -131,7 +131,7 @@ class WatchlistPresenterTest {
     @Test fun headerLineWrapsOnlyBetweenParts() {
         val model = WatchlistPresenter.build(listOf(list), null, data(quote("AAA", 1.0)), emptyList(), null)
         val parts = model.headerLine!!.split(" · ")
-        assertEquals(listOf("5 companies", "Updated 5:15 PM ET"), parts.map { it.replace('\u00A0', ' ') })
+        assertEquals(listOf("5 companies", "Updated Oct 7, 5:15 PM ET"), parts.map { it.replace('\u00A0', ' ') })
         parts.forEach { assertFalse(it.contains(' '), "no breakable space inside \"$it\"") }
         assertFalse(model.headerCaution)
         assertEquals("0 companies", WatchlistPresenter.build(listOf(Watchlist("e", "E", 0, 0, 0, true)), null, null, emptyList(), null).headerLine!!.replace('\u00A0', ' '))

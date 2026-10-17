@@ -411,12 +411,14 @@ private fun PortfolioOverviewCard(state: PortfolioUiState, accountCount: Int, re
             }
             overview.allAccounts?.let { Text(it, style = typography.small, color = colors.textSupporting) }
         }
-        StockDivider()
-        PortfolioHistorySection(state, requested, onPeriod, onRetry)
+        // Phase 8C: the summary figures (invested cost, unrealized and realized P/L, the notice and the valuation date) sit right under the
+        // total, before the account-value history, so the card reads total → gain/loss → cost → history.
         StockDivider()
         StockMetricGrid(overview.metrics.map { StockMetricItem(PortfolioPresentation.keepTogether(it.label), it.value, direction = it.direction) }, rowsWhenNarrow = true)
         overview.notice?.let { Text(it, style = typography.caption, color = colors.cautionText) }
         overview.freshness?.let { Text(it, style = typography.caption, color = colors.textMeta) }
+        StockDivider()
+        PortfolioHistorySection(state, requested, onPeriod, onRetry)
     }
 }
 
