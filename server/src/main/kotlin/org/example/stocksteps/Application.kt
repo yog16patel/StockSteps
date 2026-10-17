@@ -22,6 +22,7 @@ import org.example.stocksteps.security.installAdmission
 import org.example.stocksteps.security.installRateLimits
 import org.example.stocksteps.security.installSecurityObservability
 import org.example.stocksteps.security.installUserAuthentication
+import org.example.stocksteps.marketdata.installMarketDataAccessGate
 import org.example.stocksteps.screener.SavedScreensService
 import org.example.stocksteps.screener.savedScreenRoutes
 import org.example.stocksteps.screener.screenerRoutes
@@ -140,6 +141,14 @@ internal fun Application.stockStepsModule(dataMode: DataMode) {
     installRateLimits(identities,
         org.example.stocksteps.security.RateLimiter(org.example.stocksteps.security.RateLimitPolicy.fromEnvironment()))
     installUserAuthentication(sources.userAuth)
+    // Phase 9B.7: licence enforcement at the serving boundary for market-data routes (REAL only; inactive unless there is something to
+    // enforce: commercial licence mode, or Alpha Vantage primary in personal mode).
+    if (dataMode == DataMode.REAL) installMarketDataAccessGate(
+        org.example.stocksteps.marketdata.MarketDataAccessGate(sources.marketDataProviders,
+            commercial = org.example.stocksteps.marketdata.LicenseMode.fromEnvironment() == org.example.stocksteps.marketdata.LicenseMode.COMMERCIAL ||
+                sources.alphaVantage?.let { it.primary && it.licenseMode == org.example.stocksteps.marketdata.alphavantage.AlphaVantageConfig.LicenseMode.COMMERCIAL } == true,
+            alphaVantage = sources.alphaVantage, trustedProxyHops = System.getenv("TRUSTED_PROXY_HOPS")?.toIntOrNull()),
+        identities, System.getenv("TRUSTED_PROXY_HOPS")?.toIntOrNull())
 
     routing {
         get("/health") {
@@ -160,7 +169,7 @@ internal fun Application.stockStepsModule(dataMode: DataMode) {
     val eodSessions = org.example.stocksteps.service.EodSessions(sources.marketClock, java.time.Duration.ofMinutes(
         System.getenv("EOD_PUBLICATION_DELAY_MINUTES")?.toLongOrNull()?.takeIf { it in 0..720 } ?: org.example.stocksteps.service.EodSessions.DEFAULT_DELAY_MINUTES))
     val charts = org.example.stocksteps.service.PriceChartService(sources.priceHistory, eod = eodSessions)
-    val valuation = org.example.stocksteps.service.ValuationService(sources.stockProvider, charts, sources.earnings)
+    val valuation = org.example.stocksteps.service.ValuationService(sources.stockProvider, charts, sources.earnings, closesSplitAdjusted = sources.closesSplitAdjusted)
     val movement = org.example.stocksteps.service.MovementService(
         stocks = stockService, charts = charts, news = sources.news,
         narrator = sources.narrator, version = sources.movementVersion
@@ -516,6 +525,13 @@ fun Route.sparklineRoutes(service: org.example.stocksteps.service.SparklineServi
 }
 
 /** Every external data dependency, chosen once per process by [DataMode]. */
+private val MarketsSourceLabelsDefault = org.example.stocksteps.service.MarketsSourceLabels(
+    movers = "US-listed stocks in FMP's daily market movers lists",
+    quotes = "Financial Modeling Prep",
+    sampleData = false,
+    notice = "Quotes come from Financial Modeling Prep and may be delayed. Times show when each value was last updated."
+)
+
 internal class DataSources(
     val stockProvider: StockProviderRepository,
     val quoteProvider: StockQuoteProviderRepository,
@@ -536,12 +552,7 @@ internal class DataSources(
     val screenerUniverse: org.example.stocksteps.screener.ScreenerUniverseSource? = null,
     /** Index levels; null in REAL, where the module builds one from the stock provider and charts. */
     val indexData: org.example.stocksteps.service.IndexDataSource? = null,
-    val marketsLabels: org.example.stocksteps.service.MarketsSourceLabels = org.example.stocksteps.service.MarketsSourceLabels(
-        movers = "US-listed stocks in FMP's daily market movers lists",
-        quotes = "Financial Modeling Prep",
-        sampleData = false,
-        notice = "Quotes come from Financial Modeling Prep and may be delayed. Times show when each value was last updated."
-    ),
+    val marketsLabels: org.example.stocksteps.service.MarketsSourceLabels = MarketsSourceLabelsDefault,
     /** The instant used for the market session and alerts (MOCK starts it at the fixture capture time). */
     val marketClock: java.time.Clock = java.time.Clock.systemUTC(),
     /** Watchlists, notes, alerts, outbox and devices: Firestore in REAL, process memory in MOCK. */
@@ -550,7 +561,13 @@ internal class DataSources(
     val pushSender: () -> org.example.stocksteps.userdata.PushSender = { org.example.stocksteps.userdata.SimulatedPushSender() },
     val alertsDeliveryNote: String = "Alerts are checked about every 15 minutes during US market hours using quotes that may be delayed. They aren't real-time.",
     /** Reported quarterly EPS for the historical P/E series. */
-    val earnings: org.example.stocksteps.service.QuarterlyEarningsSource = org.example.stocksteps.service.QuarterlyEarningsSource { emptyList() }
+    val earnings: org.example.stocksteps.service.QuarterlyEarningsSource = org.example.stocksteps.service.QuarterlyEarningsSource { emptyList() },
+    /** Phase 9B.7: false when [priceHistory] returns as-traded closes (Alpha Vantage), so valuation history never mixes share bases. */
+    val closesSplitAdjusted: Boolean = true,
+    /** Phase 9B.7: providers whose market data these sources serve (licence gate); empty in MOCK (sample data). */
+    val marketDataProviders: Set<String> = emptySet(),
+    /** Phase 9B.7: the Alpha Vantage settings when it's enabled (never the key in logs: `toString` omits it). */
+    val alphaVantage: org.example.stocksteps.marketdata.alphavantage.AlphaVantageConfig? = null
 )
 
 private fun Application.realDataSources(): DataSources {
@@ -574,15 +591,38 @@ private fun Application.realDataSources(): DataSources {
         )
         else -> error("QUOTE_PROVIDER must be fmp or finnhub")
     }
+    val fmpMarketData = org.example.stocksteps.repositoryImpl.FmpMarketDataProvider(
+        HttpClientProvider.client,
+        AppConfig.fmpApiKey,
+        FinnhubStockProviderRepositoryImpl(HttpClientProvider.client, AppConfig.finnhubApiKey)
+    )
+    // Phase 9B.7: Alpha Vantage as the primary source of prices, quotes, search, movers, statements (and profiles on a premium plan) when
+    // ALPHA_VANTAGE_ENABLED=true, a key is set and MARKET_DATA_PRIMARY_PROVIDER=alpha_vantage. FMP keeps the fundamentals bundle (and
+    // profiles without a premium plan) by configuration, never as a runtime fallback for an Alpha Vantage refusal.
+    val alphaVantage = org.example.stocksteps.marketdata.alphavantage.AlphaVantageConfig.fromEnvironment()
+    val av = alphaVantage?.takeIf { it.primary }?.let { cfg ->
+        val sessions = org.example.stocksteps.service.EodSessions(java.time.Clock.systemUTC(), java.time.Duration.ofMinutes(
+            System.getenv("EOD_PUBLICATION_DELAY_MINUTES")?.toLongOrNull()?.takeIf { it in 0..720 } ?: org.example.stocksteps.service.EodSessions.DEFAULT_DELAY_MINUTES))
+        val client = org.example.stocksteps.marketdata.alphavantage.AlphaVantageClient(HttpClientProvider.client, cfg, sessions, requestTimeoutMillis = 20_000)
+        val stocks = org.example.stocksteps.marketdata.alphavantage.AlphaVantageStockProvider(client, fmpRepository, sessions)
+        Triple(stocks, org.example.stocksteps.marketdata.alphavantage.AlphaVantageMarketDataProvider(stocks, client, fmpMarketData),
+            org.example.stocksteps.marketdata.alphavantage.AlphaVantagePriceHistoryProvider(client))
+    }
+    if (alphaVantage != null) log.info("Alpha Vantage: {}", alphaVantage)
     return DataSources(
-        stockProvider = fmpRepository,
-        quoteProvider = quoteProvider,
-        marketData = org.example.stocksteps.repositoryImpl.FmpMarketDataProvider(
-            HttpClientProvider.client,
-            AppConfig.fmpApiKey,
-            FinnhubStockProviderRepositoryImpl(HttpClientProvider.client, AppConfig.finnhubApiKey)
+        stockProvider = av?.first ?: fmpRepository,
+        quoteProvider = av?.first ?: quoteProvider,
+        marketData = av?.second ?: fmpMarketData,
+        priceHistory = av?.third ?: org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(HttpClientProvider.client, AppConfig.fmpApiKey, freshness = marketFreshness),
+        closesSplitAdjusted = av == null,
+        marketDataProviders = if (av != null) setOf("alphavantage", "fmp", "finnhub") else setOf("fmp", "finnhub"),
+        alphaVantage = alphaVantage,
+        marketsLabels = if (av == null) MarketsSourceLabelsDefault else org.example.stocksteps.service.MarketsSourceLabels(
+            movers = "US-listed stocks in Alpha Vantage's end-of-day top gainers and losers",
+            quotes = "Alpha Vantage",
+            sampleData = false,
+            notice = "Prices come from Alpha Vantage as end-of-day values. Times show when each value was last updated."
         ),
-        priceHistory = org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(HttpClientProvider.client, AppConfig.fmpApiKey, freshness = marketFreshness),
         news = createNewsService(HttpClientProvider.client),
         earnings = fmpRepository,
         statementSignals = statementSignals,

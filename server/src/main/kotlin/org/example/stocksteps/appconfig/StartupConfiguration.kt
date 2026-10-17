@@ -70,6 +70,21 @@ object StartupConfiguration {
             positiveInt("RATE_LIMIT_${name.uppercase()}_$suffix")
         value("SCREENER_UNIVERSE")?.let { if (it.lowercase() !in setOf("curated", "fmp")) errors += "SCREENER_UNIVERSE must be curated or fmp" }
         value("SCREENER_ENRICHMENT_PER_HOUR")?.let { if (it.toIntOrNull()?.takeIf { n -> n >= 0 } == null) errors += "SCREENER_ENRICHMENT_PER_HOUR must be a whole number ≥ 0" }
+        // Phase 9B.7: Alpha Vantage (names only in messages; the key is never echoed).
+        boolean("ALPHA_VANTAGE_ENABLED")
+        value("MARKET_DATA_PRIMARY_PROVIDER")?.let { if (it.lowercase() !in setOf("fmp", "alpha_vantage")) errors += "MARKET_DATA_PRIMARY_PROVIDER must be fmp or alpha_vantage" }
+        for (name in listOf("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE", "ALPHA_VANTAGE_DAILY_BUDGET", "ALPHA_VANTAGE_MAX_CONCURRENT")) positiveInt(name)
+        value("ALPHA_VANTAGE_LICENSE_MODE")?.let { if (it.lowercase() !in setOf("personal", "commercial")) errors += "ALPHA_VANTAGE_LICENSE_MODE must be personal or commercial" }
+        if (value("MARKET_DATA_PRIMARY_PROVIDER")?.lowercase() == "alpha_vantage") {
+            if (value("ALPHA_VANTAGE_ENABLED")?.lowercase() != "true" || value("ALPHA_VANTAGE_API_KEY") == null)
+                errors += "MARKET_DATA_PRIMARY_PROVIDER=alpha_vantage requires ALPHA_VANTAGE_ENABLED=true and ALPHA_VANTAGE_API_KEY"
+            val personal = value("ALPHA_VANTAGE_LICENSE_MODE")?.lowercase() != "commercial"
+            if (personal && cloudRun) errors += "ALPHA_VANTAGE_LICENSE_MODE=personal can't be served from Cloud Run: a personal licence covers the key holder only"
+            if (personal && value("ALPHA_VANTAGE_PERSONAL_UIDS") == null && value("ALPHA_VANTAGE_PERSONAL_CLIENTS") == null)
+                warnings += "Alpha Vantage personal mode with no ALPHA_VANTAGE_PERSONAL_UIDS / ALPHA_VANTAGE_PERSONAL_CLIENTS: market-data routes refuse every caller."
+            if (value("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE") == null)
+                warnings += "ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE is not set: free-tier limits apply (25 requests a day, 100 daily closes, no profiles from Alpha Vantage)."
+        }
         value("SCREENER_ENRICHMENT_PER_DAY")?.let { if (it.toIntOrNull()?.takeIf { n -> n >= 0 } == null) errors += "SCREENER_ENRICHMENT_PER_DAY must be a whole number ≥ 0" }
         value("SEC_USER_AGENT")?.let { if (!org.example.stocksteps.marketdata.sec.SecEdgarClient.validUserAgent(it.trim())) errors += "SEC_USER_AGENT must name the app and a contact e-mail address" }
         value("STOCKSTEPS_LICENSE_MODE")?.let { if (it.trim().lowercase() !in setOf("development", "commercial")) errors += "STOCKSTEPS_LICENSE_MODE must be development or commercial" }

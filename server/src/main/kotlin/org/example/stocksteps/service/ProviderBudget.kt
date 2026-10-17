@@ -65,15 +65,33 @@ data class ProviderBudgetConfig(
             "boc" to ProviderLimits(perMinute = 30, burst = 10, maxConcurrent = 2),
             // Phase 9B: SEC EDGAR publishes its fair-access ceiling (10 requests/second per user, sec.gov "Accessing EDGAR Data").
             // StockSteps stays far below it: 5/s sustained, small bursts, 2 at a time.
-            "sec" to ProviderLimits(perMinute = 300, burst = 10, maxConcurrent = 2)
+            "sec" to ProviderLimits(perMinute = 300, burst = 10, maxConcurrent = 2),
+            // Phase 9B.7: Alpha Vantage's published free allowance (25 requests a day); premium plans set ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE.
+            "alphavantage" to ProviderLimits(perMinute = 5, burst = 5, maxConcurrent = 1, dailyLimit = 25)
         )
 
         /** Providers whose limit is published by the source itself (no plan to confirm), so they don't block [verified]. */
-        val PUBLISHED_LIMITS = setOf("sec")
+        val PUBLISHED_LIMITS = setOf("sec", "alphavantage")
+
+        /**
+         * Phase 9B.7: the Alpha Vantage lane from `ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE` (the subscribed plan's rate; premium plans have
+         * no daily cap), `ALPHA_VANTAGE_DAILY_BUDGET` (StockSteps' own daily allowance; default 25 = the free tier without a plan) and
+         * `ALPHA_VANTAGE_MAX_CONCURRENT`. Second value: whether a plan or budget was configured (counts toward [verified] when enabled).
+         */
+        internal fun alphaVantageLimits(env: (String) -> String?, d: ProviderLimits): Pair<ProviderLimits, Boolean> {
+            fun value(name: String) = env(name)?.trim()?.toLongOrNull()?.takeIf { it > 0 }
+            val plan = value("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE")?.toInt()
+            val daily = value("ALPHA_VANTAGE_DAILY_BUDGET")
+            val limits = ProviderLimits(plan ?: d.perMinute, plan ?: d.burst, value("ALPHA_VANTAGE_MAX_CONCURRENT")?.toInt() ?: d.maxConcurrent,
+                dailySoftTarget = null, dailyLimit = daily ?: if (plan != null) null else d.dailyLimit)
+            return limits to (plan != null || daily != null)
+        }
 
         fun fromEnvironment(env: (String) -> String? = System::getenv): ProviderBudgetConfig {
             var verified = true
+            val avEnabled = env("ALPHA_VANTAGE_ENABLED")?.trim()?.lowercase() == "true"
             val limits = DEVELOPMENT.mapValues { (name, d) ->
+                if (name == "alphavantage") return@mapValues alphaVantageLimits(env, d).also { (_, planSet) -> if (avEnabled && !planSet) verified = false }.first
                 fun value(suffix: String) = env("PROVIDER_${name.uppercase()}_$suffix")?.toLongOrNull()?.takeIf { it > 0 }
                 val perMinute = value("PER_MINUTE")
                 if (perMinute == null && name !in PUBLISHED_LIMITS) verified = false

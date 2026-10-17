@@ -67,7 +67,13 @@ data class DataRights(
     val redistribution: LicenseStatus,
     val channels: Set<DisplayChannel>,
     val attribution: String? = null,
-    val evidence: String
+    val evidence: String,
+    /** Phase 9B.7: the key holder's own development and testing (e.g. a personal plan). */
+    val personalDevTest: LicenseStatus = LicenseStatus.PENDING_CONFIRMATION,
+    /** Phase 9B.7: other people testing the app (internal testers, a closed beta). */
+    val internalTesters: LicenseStatus = LicenseStatus.PENDING_CONFIRMATION,
+    /** Phase 9B.7: sending the data to an AI model (explanations, comparisons). */
+    val aiProcessing: LicenseStatus = LicenseStatus.PENDING_CONFIRMATION
 )
 
 /**
@@ -104,6 +110,7 @@ class LicenseRegistry(private val entries: Map<Pair<String, Dataset>, DataRights
         private const val FMP = "FMP Terms of Service and pricing/insight pages: individual plans are personal, non-commercial; public display requires a Data Display and Licensing Agreement and prior written approval"
         private const val FINNHUB = "Finnhub Terms of Service: personal plans can't be used by a business without written approval; no redistribution of data or derived results without written approval"
         private const val BOC = "Bank of Canada Terms and Conditions: content may be freely used, copied and distributed with attribution and no implied endorsement; FX rates indicative only, not for trade execution; underlying data from LSEG"
+        private const val ALPHA_VANTAGE = "Alpha Vantage Terms of Service §2: personal, non-commercial licence unless agreed in writing; commercial use includes providing information to anyone other than the user; realtime/delayed US data for personal use only (documentation)"
         private const val GENERATED = "Computed by StockSteps; rights follow the most restrictive input (LicenseRegistry.derivedDisplayAllowed)"
 
         private fun pending(provider: String, dataset: Dataset, evidence: String, cls: DataClass = DataClass.UNAVAILABLE_PENDING_LICENSE) =
@@ -121,6 +128,14 @@ class LicenseRegistry(private val entries: Map<Pair<String, Dataset>, DataRights
                     Dataset.ANALYST_ESTIMATES, Dataset.DAILY_PRICES, Dataset.INTRADAY_BARS, Dataset.QUOTES, Dataset.MARKET_MOVERS, Dataset.INDEX_LEVELS,
                     Dataset.DIVIDENDS)) list += pending("fmp", d, FMP)
             for (d in listOf(Dataset.COMPANY_NEWS, Dataset.MARKET_NEWS, Dataset.EARNINGS_CALENDAR, Dataset.COMPANY_PROFILE, Dataset.QUOTES)) list += pending("finnhub", d, FINNHUB)
+            // Phase 9B.7: Alpha Vantage. Terms §2: "personal, non-commercial use" unless agreed in writing; commercial use includes any
+            // activity "that allows individuals or entities other than User to access information". A premium plan doesn't change that.
+            for (d in listOf(Dataset.SYMBOL_SEARCH, Dataset.SYMBOL_REFERENCE, Dataset.COMPANY_PROFILE, Dataset.REPORTED_FUNDAMENTALS, Dataset.DAILY_PRICES,
+                    Dataset.QUOTES, Dataset.MARKET_MOVERS, Dataset.DIVIDENDS, Dataset.SPLITS, Dataset.EARNINGS_CALENDAR, Dataset.COMPANY_NEWS, Dataset.FX_RATES,
+                    Dataset.ECONOMIC_INDICATORS, Dataset.INDEX_LEVELS))
+                list += DataRights("alphavantage", d, DataClass.UNAVAILABLE_PENDING_LICENSE, LicenseStatus.VERIFIED_RESTRICTED, LicenseStatus.PENDING_CONFIRMATION,
+                    LicenseStatus.VERIFIED_RESTRICTED, LicenseStatus.VERIFIED_RESTRICTED, emptySet(), evidence = ALPHA_VANTAGE,
+                    personalDevTest = LicenseStatus.VERIFIED_ALLOWED, internalTesters = LicenseStatus.VERIFIED_RESTRICTED, aiProcessing = LicenseStatus.PENDING_CONFIRMATION)
             // StockSteps' own computations: allowed by us, but display is still gated on every input (derivedDisplayAllowed).
             list += DataRights("stocksteps", Dataset.DERIVED_METRICS, DataClass.INTERNALLY_DERIVED, LicenseStatus.VERIFIED_ALLOWED,
                 LicenseStatus.VERIFIED_ALLOWED, LicenseStatus.VERIFIED_ALLOWED, LicenseStatus.VERIFIED_ALLOWED, BOTH, null, GENERATED)

@@ -19,7 +19,9 @@ class ValuationService(
     private val charts: PriceChartService,
     private val earnings: QuarterlyEarningsSource,
     private val cache: CompanyFinancialCache = CompanyFinancialCache(name = "valuation"),
-    private val today: () -> LocalDate = { LocalDate.now(ZoneOffset.UTC) }
+    private val today: () -> LocalDate = { LocalDate.now(ZoneOffset.UTC) },
+    /** Phase 9B.7: false when the chart's daily closes are as-traded (Alpha Vantage raw series); see [ValuationCalculations.monthlyPe]. */
+    private val closesSplitAdjusted: Boolean = true
 ) {
     suspend fun history(symbol: String): ValuationHistory = cache.getOrLoad("valuation:$symbol", TTL) { build(symbol) }
 
@@ -31,7 +33,7 @@ class ValuationService(
         val epsCurrency = quarters.mapNotNull { it.currency }.distinct().singleOrNull()?.uppercase()
         val sameCurrency = epsCurrency != null && (priceCurrency == null || priceCurrency == epsCurrency)
         val closes = if (quarters.size >= 4 && sameCurrency) attempt { charts.getChart(symbol, ChartRange.ALL)?.points }.orEmpty() else emptyList()
-        val series = if (closes.isNotEmpty()) ValuationCalculations.monthlyPe(closes, quarters, today()) else null
+        val series = if (closes.isNotEmpty()) ValuationCalculations.monthlyPe(closes, quarters, today(), closesSplitAdjusted) else null
         val asOf = Instant.now().toString()
         if (series != null && series.observations.size >= MIN_MONTHLY_OBSERVATIONS) {
             return ValuationHistory(

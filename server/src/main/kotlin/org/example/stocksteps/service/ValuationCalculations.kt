@@ -84,24 +84,46 @@ object ValuationCalculations {
         return known.sumOf { it.epsDiluted!! * (factors[it.periodEnd] ?: 1.0) }
     }
 
-    fun monthlyPe(closes: List<PricePoint>, quarters: List<QuarterlyEarnings>, today: LocalDate): PeSeries {
-        val factors = splitFactors(quarters)
+    /**
+     * Phase 9B.7: the period ends just **before** each detected split step (the split happened after that quarter ended). With as-traded
+     * (unadjusted) closes, a month whose earnings window or price date lies across one of these isn't on one share basis.
+     */
+    internal fun splitBoundaries(quarters: List<QuarterlyEarnings>): List<LocalDate> = quarters.sortedBy { it.periodEnd }.zipWithNext()
+        .filter { (before, after) -> splitStep(before.shares, after.shares) != 1.0 }.map { LocalDate.parse(it.first.periodEnd) }
+
+    /**
+     * [closesSplitAdjusted] = true (default, the original method): split-adjusted closes, earlier EPS divided by later splits.
+     * Phase 9B.7, false: as-traded closes (Alpha Vantage `TIME_SERIES_DAILY`): EPS stays as reported and any month whose four quarters or
+     * price date span a detected split is left out (never mixed bases); `splitAdjusted` is false.
+     */
+    fun monthlyPe(closes: List<PricePoint>, quarters: List<QuarterlyEarnings>, today: LocalDate, closesSplitAdjusted: Boolean = true): PeSeries {
+        val factors = if (closesSplitAdjusted) splitFactors(quarters) else quarters.associate { it.periodEnd to 1.0 }
+        val boundaries = if (closesSplitAdjusted) emptyList() else splitBoundaries(quarters)
+        fun spansSplit(date: String): Boolean {
+            if (boundaries.isEmpty()) return false
+            val d = LocalDate.parse(date.take(10))
+            val known = quarters.filter { it.availableOn <= date }.sortedByDescending { it.periodEnd }.take(4)
+            val oldestEnd = known.lastOrNull()?.let { LocalDate.parse(it.periodEnd) } ?: return false
+            // The window starts one quarter before the oldest quarter's end; a boundary inside [start, price date) mixes bases.
+            return boundaries.any { b -> !b.isBefore(oldestEnd.minusDays(MAX_QUARTER_DAYS)) && b.isBefore(d) }
+        }
         val monthEnds = closes.filter { it.time.length >= 10 && it.time.take(10) <= today.toString() && it.close > 0 }
             .groupBy { it.time.take(7) }
             .map { (_, points) -> points.maxBy { it.time } }
             .sortedBy { it.time }
         val observations = monthEnds.mapNotNull { point ->
             val date = point.time.take(10)
+            if (spansSplit(date)) return@mapNotNull null
             val eps = ttmEpsOn(date, quarters, factors)?.takeIf { it > 0 } ?: return@mapNotNull null
             ValuationObservation(date, round2(point.close / eps))
         }
         val latest = closes.filter { it.close > 0 }.maxByOrNull { it.time }
-        val currentEps = latest?.let { ttmEpsOn(it.time.take(10), quarters, factors) }
+        val currentEps = latest?.takeIf { !spansSplit(it.time.take(10)) }?.let { ttmEpsOn(it.time.take(10), quarters, factors) }
         return PeSeries(
             observations = observations,
             currentPe = if (latest != null && currentEps != null && currentEps > 0) round2(latest.close / currentEps) else null,
             ttmEps = currentEps?.let(::round2),
-            splitAdjusted = factors.values.any { it != 1.0 }
+            splitAdjusted = closesSplitAdjusted && factors.values.any { it != 1.0 }
         )
     }
 

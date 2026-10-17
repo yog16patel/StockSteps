@@ -35,12 +35,16 @@ object ProviderCalls {
         "financialmodelingprep.com" in url -> "fmp"
         // Phase 9B: SEC EDGAR (data.sec.gov APIs and www.sec.gov reference files) — free, keyless, fair-access paced.
         "sec.gov" in url -> "sec"
+        // Phase 9B.7: Alpha Vantage (one /query endpoint; the function names the dataset).
+        "alphavantage.co" in url -> "alphavantage"
         "finnhub.io" in url -> "finnhub"
         "bankofcanada.ca" in url -> "boc"
         "generativelanguage.googleapis.com" in url -> "gemini"
         else -> "other"
     }
     fun endpoint(url: String): String = url.substringBefore('?').let { u ->
+        // Alpha Vantage: `query/<FUNCTION>` from the function parameter only (never symbols or the key, which isn't in the URL string).
+        if ("alphavantage.co" in u) return@let "query/" + (url.substringAfter("function=", "").substringBefore('&').filter { it.isLetterOrDigit() || it == '_' }.take(40).ifEmpty { "unknown" })
         // SEC paths carry the CIK; labels stay bounded (one per dataset, never per company).
         if ("sec.gov" in u) return@let when {
             "/companyfacts/" in u -> "xbrl/companyfacts"
@@ -170,6 +174,104 @@ suspend fun HttpClient.apiCallText(
             is CancellationException -> throw cause
             is IOException -> Failure.UNAVAILABLE
             else -> throw cause
+        }
+        LoggerFactory.getLogger("StockSteps.Provider").warn("Provider request failed: {}", failure.name)
+        throw StockProviderException(failure)
+    } finally {
+        if (permit != null) guard.complete(permit, status, timedOut = outcome == "timeout", retryAfterSeconds = retryAfter, cancelled = outcome == "cancelled")
+        ProviderCalls.record(url, outcome, started)
+    }
+}
+
+/**
+ * Phase 9B.7: how Alpha Vantage answered. Alpha Vantage reports refusals **inside HTTP 200 JSON** (`Information`, `Note`, `Error Message`),
+ * so the body is classified before the provider guard is completed: a rate limit is reported to `ProviderGuard` as 429 (opens the breaker),
+ * a premium-only or invalid-key answer as 402/403 (cooled down, never retried), an `Error Message` (unknown symbol or bad call) as 404.
+ * A refusal is never returned as data.
+ */
+object AlphaVantageAnswers {
+    enum class Kind { DATA, RATE_LIMITED, PREMIUM_ONLY, INVALID_KEY, ERROR_MESSAGE, OTHER_NOTICE }
+
+    /** Classifies a body by its top-level keys and fixed wording (the text itself is never logged or returned). */
+    fun classify(body: String): Kind {
+        val head = body.trimStart()
+        if (!head.startsWith("{")) return Kind.DATA            // CSV functions answer CSV; their refusals are JSON objects
+        val obj = runCatching { kotlinx.serialization.json.Json.parseToJsonElement(head) as? kotlinx.serialization.json.JsonObject }.getOrNull() ?: return Kind.DATA
+        fun text(k: String) = (obj[k] as? kotlinx.serialization.json.JsonPrimitive)?.content?.lowercase()
+        val message = text("Information") ?: text("Note")
+        val onlyNotice = obj.size == 1 && message != null
+        return when {
+            text("Error Message") != null && obj.size == 1 -> Kind.ERROR_MESSAGE
+            !onlyNotice -> Kind.DATA
+            listOf("rate limit", "call frequency", "requests per day", "requests per minute", "spread out", "higher api call").any { it in message!! } -> Kind.RATE_LIMITED
+            "premium" in message!! -> Kind.PREMIUM_ONLY
+            "apikey" in message || "api key" in message -> Kind.INVALID_KEY
+            else -> Kind.OTHER_NOTICE
+        }
+    }
+
+    fun status(kind: Kind): Int? = when (kind) {
+        Kind.DATA -> null
+        Kind.RATE_LIMITED -> 429
+        Kind.PREMIUM_ONLY -> 402
+        Kind.INVALID_KEY -> 403
+        Kind.ERROR_MESSAGE -> 404
+        Kind.OTHER_NOTICE -> 503
+    }
+}
+
+/**
+ * Phase 9B.7: one Alpha Vantage request (`https://www.alphavantage.co/query?function=…`). Same guard, single `ProviderCalls.record`,
+ * bounded body ([maxBytes]) and log rules as [apiCall]; [apiKey] is added as a request parameter only (never in [url], which is what the
+ * counters and logs see). HTTP-200 refusals are classified by [AlphaVantageAnswers] and thrown as [StockProviderException] with the
+ * equivalent status, so `providerCooldown` and the circuit breaker treat them like HTTP refusals.
+ */
+suspend fun HttpClient.alphaVantageCall(
+    url: String, apiKey: String, maxBytes: Long,
+    configurationBlock: HttpRequestBuilder.() -> Unit = {},
+): String {
+    require(maxBytes > 0 && url.startsWith("https://www.alphavantage.co/query?"))
+    val guard = org.example.stocksteps.service.ProviderGuard.current()
+    val permit = guard?.acquire(ProviderCalls.provider(url), ProviderCalls.endpoint(url))
+    val started = System.nanoTime()
+    var outcome = "error"
+    var status: Int? = null
+    var retryAfter: Long? = null
+    try {
+        val response = this.get(url) { expectSuccess = false; configurationBlock(); parameter("apikey", apiKey) }
+        status = response.status.value
+        retryAfter = response.headers[io.ktor.http.HttpHeaders.RetryAfter]?.trim()?.toLongOrNull()
+        if (response.status.value !in 200..299) {
+            LoggerFactory.getLogger("StockSteps.Provider").warn("Provider HTTP failure: host={}, path={}, status={}",
+                response.call.request.url.host, ProviderCalls.endpoint(url), response.status.value)
+            if (response.status == HttpStatusCode.TooManyRequests) { outcome = "rateLimited"; throw StockProviderException(Failure.RATE_LIMITED, 429) }
+            outcome = if (response.status.value == 402 || response.status.value == 403) "denied" else "error"
+            throw StockProviderException(Failure.UNAVAILABLE, response.status.value)
+        }
+        outcome = "invalid"
+        val declared = response.headers[io.ktor.http.HttpHeaders.ContentLength]?.toLongOrNull()
+        if (declared != null && declared > maxBytes) throw StockProviderException(Failure.INVALID_RESPONSE)
+        val bytes = response.bodyAsChannel().readRemaining(maxBytes + 1).readByteArray()
+        if (bytes.size > maxBytes) throw StockProviderException(Failure.INVALID_RESPONSE)
+        val body = bytes.decodeToString()
+        val kind = AlphaVantageAnswers.classify(body)
+        if (kind != AlphaVantageAnswers.Kind.DATA) {
+            status = AlphaVantageAnswers.status(kind)
+            LoggerFactory.getLogger("StockSteps.Provider").warn("Provider refusal in body: host=www.alphavantage.co, path={}, kind={}", ProviderCalls.endpoint(url), kind.name)
+            outcome = when (kind) { AlphaVantageAnswers.Kind.RATE_LIMITED -> "rateLimited"; AlphaVantageAnswers.Kind.PREMIUM_ONLY, AlphaVantageAnswers.Kind.INVALID_KEY -> "denied"; else -> "error" }
+            throw StockProviderException(if (kind == AlphaVantageAnswers.Kind.RATE_LIMITED) Failure.RATE_LIMITED else Failure.UNAVAILABLE, status)
+        }
+        return body.also { outcome = "ok" }
+    } catch (cause: Exception) {
+        if (cause is HttpRequestTimeoutException || cause is ConnectTimeoutException || cause is SocketTimeoutException) outcome = "timeout"
+        if (cause is CancellationException) outcome = "cancelled"
+        val failure = when (cause) {
+            is StockProviderException -> throw cause
+            is HttpRequestTimeoutException, is ConnectTimeoutException, is SocketTimeoutException -> Failure.TIMEOUT
+            is CancellationException -> throw cause
+            is IOException -> Failure.UNAVAILABLE
+            // Anything else: a typed failure without the cause (its message could contain the request URL with the key).
+            else -> Failure.UNAVAILABLE
         }
         LoggerFactory.getLogger("StockSteps.Provider").warn("Provider request failed: {}", failure.name)
         throw StockProviderException(failure)

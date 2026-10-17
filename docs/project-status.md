@@ -6,6 +6,12 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 9B.7 Alpha Vantage-first market data (committed and pushed as "Add Alpha Vantage-first market data for Phase 9B.7 …"; READY FOR REVIEW; off by default).**
+- Alpha Vantage client and adapters for prices (as traded), quotes (end of day), search, movers, statements and premium profiles, wired
+  behind `MARKET_DATA_PRIMARY_PROVIDER=alpha_vantage`; FMP keeps the fundamentals bundle.
+- Licence gate at the serving boundary: personal licence = owner allowlists only; commercial fails closed.
+- All suites green (server 686/0, +34). No key here: REAL smoke test BLOCKED. Package `docs/reviews/market_data_phase9b7/`.
+
 **2026-10-17 — Phase 9B market-data cost, licensing and provider architecture (committed and pushed as "Add the Phase 9B market-data architecture …"; READY FOR REVIEW).**
 - Server-only: fail-closed licence registry, deterministic source selection, SEC EDGAR adapter and pure metrics engine (both not wired),
   a replaceable daily-price boundary, and a Discover enrichment cap of 100 upstream requests a day (closes first).

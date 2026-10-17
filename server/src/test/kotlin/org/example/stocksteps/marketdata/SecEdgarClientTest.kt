@@ -134,7 +134,7 @@ class SecEdgarClientTest {
         val guard = ProviderGuard(config, meter = ProviderUsageMeter())
         val override = ProviderBudgetConfig.fromEnvironment { if (it == "PROVIDER_SEC_PER_MINUTE") "100000" else null }.limits.getValue("sec")
         assertEquals(600, override.perMinute, "never above the SEC's published 10 requests/second"); assertEquals(10, override.burst)
-        assertEquals(setOf("fmp", "finnhub", "gemini", "boc", "sec"), ProviderBudgetConfig.DEVELOPMENT.keys)
+        assertEquals(setOf("fmp", "finnhub", "gemini", "boc", "sec", "alphavantage"), ProviderBudgetConfig.DEVELOPMENT.keys)
         val local = config.local(config.limits.getValue("sec"))
         withContext(guard) { (1..40).map { async { runCatching { s.sec.companyFacts(it.toLong() + 5000) } } }.awaitAll() }
         val sent = s.n("xbrl/companyfacts")
