@@ -6,6 +6,10 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 9B.9A REAL free-tier validation (committed and pushed as "Trust Alpha Vantage quarterly figures only when …").**
+- The owner's runs (10 of 25 free requests): all 8 free functions work for AAPL; quarterly figures are trusted only when the 3 most
+  recent fiscal years verify as standalone (AAPL: 75 of 81), the same rule in Comparison. FMP stays the default.
+
 **2026-10-17 — Phase 9B.9A Alpha Vantage free-tier validation (committed and pushed as "Validate the Alpha Vantage free tier for Phase 9B.9A …"; READY FOR REVIEW).**
 - Explicit free/premium entitlement, exact 20/day free budget, premium functions refused locally, no bulk Discover work on free,
   loopback-only personal access, bounded opt-in smoke-test command.

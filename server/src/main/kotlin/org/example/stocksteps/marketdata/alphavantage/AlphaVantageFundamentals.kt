@@ -60,37 +60,65 @@ object AlphaVantageFundamentalsMapper {
         FinancialConcept.TOTAL_DEBT to "shortLongTermDebtTotal")
     private val CASH = mapOf(FinancialConcept.OPERATING_CASH_FLOW to "operatingCashflow", FinancialConcept.CAPITAL_EXPENDITURE to "capitalExpenditures")
 
+    /** One fiscal year's check: its four quarters' sum vs the annual value (null when the year isn't complete). */
+    data class YearCheck(val fiscalYearEnd: LocalDate, val quarters: Int, val sum: BigDecimal?, val annual: BigDecimal?, val verdict: QuarterBasis?) {
+        /** Quarter sum ÷ annual (1.0 = standalone quarters), for diagnostics. */
+        val ratio: BigDecimal? get() = if (sum != null && annual != null && annual.signum() != 0) sum.divide(annual, java.math.MathContext(6)) else null
+    }
+
     /**
-     * Whether a statement's quarterly [field] is standalone: for every fiscal year with an annual value and four quarters ending in it, the
-     * quarters add up to the year (within 1 %) → STANDALONE; the fourth quarter alone equals the year → YEAR_TO_DATE; anything else or no
-     * complete year → UNVERIFIED. One disagreeing year is enough to refuse.
+     * Which quarterly values of [field] may be used. Phase 9B.9A (owner decision D-9B9A-6): the verdict comes from the [recentYears] most
+     * recent **complete** fiscal years (annual value + four quarters ending in it): all standalone (quarters add up to the year within 1 %)
+     * → STANDALONE; the fourth quarter equals the year → YEAR_TO_DATE; otherwise (or no complete year) → UNVERIFIED. Only with STANDALONE
+     * are quarters trusted, and then only those of years that pass the check themselves (any age) plus the quarters of the fiscal year in
+     * progress after the latest annual report (it can't be checked until it closes; it continues the verified series). An older year that
+     * disagrees no longer refuses everything, but its own quarters stay untrusted.
      */
-    fun quarterBasis(s: AlphaVantageParsers.Statement?, field: String): QuarterBasis {
-        s ?: return QuarterBasis.UNVERIFIED
-        var standalone = 0
-        for (year in s.annual) {
-            val total = year.values[field] ?: continue
+    data class QuarterTrust(val basis: QuarterBasis, val trusted: Set<LocalDate>, val years: List<YearCheck>, val recentChecked: List<LocalDate>)
+
+    fun quarterTrust(s: AlphaVantageParsers.Statement?, field: String, recentYears: Int = RECENT_YEARS): QuarterTrust {
+        s ?: return QuarterTrust(QuarterBasis.UNVERIFIED, emptySet(), emptyList(), emptyList())
+        fun close(a: BigDecimal, b: BigDecimal) = (a - b).abs() <= b.abs().multiply(BigDecimal("0.01"))
+        val windows = s.annual.sortedByDescending { it.fiscalDateEnding }.map { year ->
             val start = year.fiscalDateEnding.minusMonths(12)
-            val qs = s.quarterly.filter { it.fiscalDateEnding.isAfter(start.plusDays(7)) && !it.fiscalDateEnding.isAfter(year.fiscalDateEnding.plusDays(7)) }
-            if (qs.size != 4 || qs.any { it.values[field] == null }) continue
-            val sum = qs.fold(BigDecimal.ZERO) { a, r -> a + r.values.getValue(field) }
-            val last = qs.maxBy { it.fiscalDateEnding }.values.getValue(field)
-            fun close(a: BigDecimal, b: BigDecimal) = (a - b).abs() <= b.abs().multiply(BigDecimal("0.01"))
-            when {
-                close(sum, total) -> standalone++
-                close(last, total) -> return QuarterBasis.YEAR_TO_DATE
-                else -> return QuarterBasis.UNVERIFIED
+            year to s.quarterly.filter { it.fiscalDateEnding.isAfter(start.plusDays(7)) && !it.fiscalDateEnding.isAfter(year.fiscalDateEnding.plusDays(7)) }
+        }
+        val years = windows.map { (year, qs) ->
+            val total = year.values[field]
+            val complete = total != null && qs.size == 4 && qs.all { it.values[field] != null }
+            if (!complete) YearCheck(year.fiscalDateEnding, qs.size, null, total, null) else {
+                val sum = qs.fold(BigDecimal.ZERO) { a, r -> a + r.values.getValue(field) }
+                val last = qs.maxBy { it.fiscalDateEnding }.values.getValue(field)
+                YearCheck(year.fiscalDateEnding, 4, sum, total, when { close(sum, total!!) -> QuarterBasis.STANDALONE; close(last, total) -> QuarterBasis.YEAR_TO_DATE; else -> QuarterBasis.UNVERIFIED })
             }
         }
-        return if (standalone > 0) QuarterBasis.STANDALONE else QuarterBasis.UNVERIFIED
+        val recent = years.filter { it.verdict != null }.take(recentYears)
+        val basis = when {
+            recent.isEmpty() -> QuarterBasis.UNVERIFIED
+            recent.all { it.verdict == QuarterBasis.STANDALONE } -> QuarterBasis.STANDALONE
+            recent.any { it.verdict == QuarterBasis.YEAR_TO_DATE } -> QuarterBasis.YEAR_TO_DATE
+            else -> QuarterBasis.UNVERIFIED
+        }
+        if (basis != QuarterBasis.STANDALONE) return QuarterTrust(basis, emptySet(), years, recent.map { it.fiscalYearEnd })
+        val passing = years.filter { it.verdict == QuarterBasis.STANDALONE }.map { it.fiscalYearEnd }.toSet()
+        val latestYearEnd = s.annual.maxOf { it.fiscalDateEnding }
+        val trusted = windows.filter { (year, _) -> year.fiscalDateEnding in passing }.flatMap { (_, qs) -> qs.map { it.fiscalDateEnding } }.toSet() +
+            s.quarterly.filter { it.fiscalDateEnding.isAfter(latestYearEnd.plusDays(7)) }.map { it.fiscalDateEnding }
+        return QuarterTrust(basis, trusted, years, recent.map { it.fiscalYearEnd })
     }
+
+    /** The statement-level verdict (see [quarterTrust]). */
+    fun quarterBasis(s: AlphaVantageParsers.Statement?, field: String): QuarterBasis = quarterTrust(s, field).basis
+
+    /** Phase 9B.9A: complete fiscal years checked for the quarterly basis (owner decision D-9B9A-6). */
+    const val RECENT_YEARS = 3
 
     /** Fiscal periods for the metrics engine (annual and verified-standalone quarters), provider `alphavantage`, tags `av:<field>`. */
     fun history(symbol: String, income: AlphaVantageParsers.Statement?, balance: AlphaVantageParsers.Statement?, cash: AlphaVantageParsers.Statement?,
                 retrievedAt: Instant): CompanyFinancialHistory {
         val fyMonth = income?.annual?.map { AlphaVantageStatements.periodMonth(it.fiscalDateEnding) }?.groupingBy { it }?.eachCount()?.maxByOrNull { it.value }?.key
-        val incomeQ = quarterBasis(income, "totalRevenue") == QuarterBasis.STANDALONE
-        val cashQ = quarterBasis(cash, "operatingCashflow") == QuarterBasis.STANDALONE
+        val incomeTrusted = quarterTrust(income, "totalRevenue").trusted
+        val cashTrusted = quarterTrust(cash, "operatingCashflow").trusted
         fun rv(v: BigDecimal, field: String, currency: String?) = ReportedValue(v, currency ?: "", "av:$field", "alphavantage")
         fun periods(quarterly: Boolean): List<FinancialPeriod> {
             val inc = (if (quarterly) income?.quarterly else income?.annual).orEmpty()
@@ -103,9 +131,9 @@ object AlphaVantageFundamentalsMapper {
                 val start = (previousEnd?.takeIf { ChronoUnit.DAYS.between(it, r.fiscalDateEnding) in (if (quarterly) 80L..100L else 350L..380L) }
                     ?: r.fiscalDateEnding.minusMonths(if (quarterly) 3 else 12)).plusDays(1)
                 val values = HashMap<FinancialConcept, ReportedValue>()
-                if (!quarterly || incomeQ) INCOME.forEach { (c, f) -> r.values[f]?.let { values[c] = rv(it, f, r.currency) } }
+                if (!quarterly || r.fiscalDateEnding in incomeTrusted) INCOME.forEach { (c, f) -> r.values[f]?.let { values[c] = rv(it, f, r.currency) } }
                 bal[r.fiscalDateEnding]?.takeIf { it.currency == r.currency }?.let { b -> BALANCE.forEach { (c, f) -> b.values[f]?.let { values[c] = rv(it, f, b.currency) } } }
-                if (!quarterly || cashQ) cf[r.fiscalDateEnding]?.takeIf { it.currency == r.currency }?.let { c -> CASH.forEach { (k, f) ->
+                if (!quarterly || r.fiscalDateEnding in cashTrusted) cf[r.fiscalDateEnding]?.takeIf { it.currency == r.currency }?.let { c -> CASH.forEach { (k, f) ->
                     c.values[f]?.let { v -> values[k] = rv(if (k == FinancialConcept.CAPITAL_EXPENDITURE) v.abs() else v, f, c.currency) } } }
                 val fy = if (!quarterly || fyMonth == null) r.fiscalDateEnding.year.let { if (r.fiscalDateEnding.dayOfMonth <= 7 && r.fiscalDateEnding.monthValue == 1) it - 1 else it }
                     else AlphaVantageStatements.fiscalYearOf(r.fiscalDateEnding, fyMonth)
@@ -211,7 +239,7 @@ object AlphaVantageFundamentalsMapper {
         val flowPeriod = latest?.takeIf { it[FinancialConcept.OPERATING_CASH_FLOW] != null }
         val fcf = flowPeriod?.let { E.freeCashFlow(it) }
         val quarterNote = if (quarterly && latest != null && latest[FinancialConcept.OPERATING_CASH_FLOW] == null)
-            "Quarterly cash flow from this source isn't verified as standalone quarters, so it isn't shown." else null
+            "Quarterly cash flow from this source isn't verified as standalone quarters for recent fiscal years, so it isn't shown." else null
         val cashFlow = linkedMapOf(
             "operatingCashFlow" to (flowPeriod?.let { reported(it, FinancialConcept.OPERATING_CASH_FLOW) } ?: unavailable(quarterNote ?: "Not reported.", latest)),
             "capex" to (flowPeriod?.let { reported(it, FinancialConcept.CAPITAL_EXPENDITURE).copy(note = "Shown as cash spent.") } ?: unavailable(quarterNote ?: "Not reported.", latest)),
@@ -262,7 +290,7 @@ object AlphaVantageFundamentalsMapper {
                 "EPS, P/E and price multiples aren't available from this source; they are left empty rather than estimated."),
             retrievedAt = retrievedAt.toString(),
             history = AlphaVantageStatements.merge(listOfNotNull(income?.let { Statement.INCOME to it }, balance?.let { Statement.BALANCE to it },
-                cash?.let { Statement.CASH_FLOW to it }).toMap(), quarterly))
+                cash?.let { Statement.CASH_FLOW to it }).toMap(), quarterly, verifiedQuarters = true))
     }
 }
 

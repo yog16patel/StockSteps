@@ -33,15 +33,35 @@ object AlphaVantageSmokeTest {
     val DEFAULT_FUNCTIONS = listOf("TIME_SERIES_DAILY", "GLOBAL_QUOTE", "SYMBOL_SEARCH", "INCOME_STATEMENT", "BALANCE_SHEET", "CASH_FLOW")
     val OPTIONAL_FUNCTIONS = listOf("EARNINGS", "SPLITS")
 
-    data class Step(val function: String, val outcome: String, val checks: List<String>)
+    data class Step(val function: String, val outcome: String, val checks: List<String>, val yearChecks: List<AlphaVantageFundamentalsMapper.YearCheck> = emptyList())
     data class Report(val symbol: String, val requestsSent: Int, val budget: Int, val steps: List<Step>, val stoppedEarly: Boolean) {
         fun markdown() = buildString {
             appendLine("# Alpha Vantage free-tier smoke test")
             appendLine(); appendLine("Symbol $symbol · authenticated requests sent: **$requestsSent** of a budget of $budget · stopped early: $stoppedEarly")
             appendLine(); appendLine("| Function | Outcome | Checks |"); appendLine("|---|---|---|")
             steps.forEach { s -> appendLine("| ${s.function} | ${s.outcome} | ${s.checks.joinToString("; ")} |") }
+            // Phase 9B.9A diagnostic (D-9B9A-6): per fiscal year, the quarter sum ÷ annual value behind the quarterly-basis verdict.
+            steps.filter { it.yearChecks.isNotEmpty() }.forEach { s ->
+                appendLine(); appendLine("## ${s.function} quarterly basis by fiscal year (newest first)")
+                appendLine(); appendLine("| Fiscal year end | Quarters | Quarter sum ÷ annual | Verdict |"); appendLine("|---|---|---|---|")
+                s.yearChecks.forEach { y -> appendLine("| ${y.fiscalYearEnd} | ${y.quarters} | ${y.ratio?.toPlainString() ?: "—"} | ${y.verdict ?: "incomplete"} |") }
+            }
         }
     }
+
+    /** `ALPHA_VANTAGE_SMOKE_FUNCTIONS` (comma list) selects a subset in the default order, e.g. `INCOME_STATEMENT` for a 1-request run. */
+    fun functions(env: (String) -> String?): List<String> {
+        val all = DEFAULT_FUNCTIONS + if (env("ALPHA_VANTAGE_SMOKE_OPTIONAL") == "true") OPTIONAL_FUNCTIONS else emptyList()
+        val wanted = env("ALPHA_VANTAGE_SMOKE_FUNCTIONS")?.split(',')?.map { it.trim().uppercase() }?.filter { it.isNotEmpty() }?.toSet() ?: return all
+        return (DEFAULT_FUNCTIONS + OPTIONAL_FUNCTIONS).filter { it in wanted }
+    }
+
+    /** Field presence for the statement fields StockSteps maps (missing / total periods). */
+    private val FIELDS = mapOf(
+        "INCOME_STATEMENT" to listOf("totalRevenue", "costOfRevenue", "grossProfit", "operatingIncome", "netIncome", "ebit", "interestExpense"),
+        "BALANCE_SHEET" to listOf("totalAssets", "totalLiabilities", "totalShareholderEquity", "totalCurrentAssets", "totalCurrentLiabilities",
+            "cashAndCashEquivalentsAtCarryingValue", "shortLongTermDebtTotal"),
+        "CASH_FLOW" to listOf("operatingCashflow", "capitalExpenditures", "dividendPayout", "paymentsForRepurchaseOfCommonStock"))
 
     /** Refuses to start unless every opt-in is present; returns the reason, or null when the run may proceed. */
     fun refusal(env: (String) -> String?): String? = when {
@@ -66,7 +86,7 @@ object AlphaVantageSmokeTest {
             if (stopped) { steps += Step(f, "SKIPPED (stopped)", emptyList()); continue }
             if (i > 0) pause()
             val before = sent.get()
-            val step = try { Step(f, "OK", checks(client, f, symbol)) } catch (cause: StockProviderException) {
+            val step = try { val (checks, years) = checks(client, f, symbol); Step(f, "OK", checks, years) } catch (cause: StockProviderException) {
                 stopped = true
                 Step(f, when {
                     cause.upstreamStatus == 402 && sent.get() == before -> "REFUSED LOCALLY (premium function on FREE)"
@@ -82,22 +102,28 @@ object AlphaVantageSmokeTest {
         return Report(symbol, sent.get(), budget, steps, stopped)
     }
 
-    private suspend fun checks(c: AlphaVantageClient, f: String, symbol: String): List<String> = when (f) {
-        "TIME_SERIES_DAILY" -> c.dailyRaw(symbol)?.let { s -> listOf("bars ${s.bars.size}", "last ${s.bars.lastOrNull()?.date}", "lastRefreshed ${s.lastRefreshed}",
-            "zone ${s.timeZone}", "size ${s.outputSize}", "skipped ${s.skipped}", "allCloses>0 ${s.bars.all { it.close.signum() > 0 }}", "adjusted ${s.adjusted}") } ?: listOf("no series")
-        "GLOBAL_QUOTE" -> c.quote(symbol)?.let { q -> listOf("symbol ${q.symbol == symbol}", "day ${q.latestTradingDay}", "price>0 ${q.price?.signum() == 1}",
-            "previousClose ${q.previousClose != null}", "change% ${q.changePercent != null}") } ?: listOf("no quote")
+    private suspend fun checks(c: AlphaVantageClient, f: String, symbol: String): Pair<List<String>, List<AlphaVantageFundamentalsMapper.YearCheck>> = when (f) {
+        "TIME_SERIES_DAILY" -> (c.dailyRaw(symbol)?.let { s -> listOf("bars ${s.bars.size}", "last ${s.bars.lastOrNull()?.date}", "lastRefreshed ${s.lastRefreshed}",
+            "zone ${s.timeZone}", "size ${s.outputSize}", "skipped ${s.skipped}", "allCloses>0 ${s.bars.all { it.close.signum() > 0 }}", "adjusted ${s.adjusted}") } ?: listOf("no series")) to emptyList()
+        "GLOBAL_QUOTE" -> (c.quote(symbol)?.let { q -> listOf("symbol ${q.symbol == symbol}", "day ${q.latestTradingDay}", "price>0 ${q.price?.signum() == 1}",
+            "previousClose ${q.previousClose != null}", "change% ${q.changePercent != null}") } ?: listOf("no quote")) to emptyList()
         "SYMBOL_SEARCH" -> c.search(symbol).let { m -> listOf("matches ${m.size}", "exactUS ${m.any { it.symbol == symbol && it.region == "United States" }}",
-            "currencies ${m.mapNotNull { it.currency }.distinct().take(4)}") }
+            "currencies ${m.mapNotNull { it.currency }.distinct().take(4)}") } to emptyList()
         "INCOME_STATEMENT", "BALANCE_SHEET", "CASH_FLOW" -> c.statement(f, symbol)?.let { s ->
-            val key = when (f) { "INCOME_STATEMENT" -> "totalRevenue"; "BALANCE_SHEET" -> "totalAssets"; else -> "operatingCashflow" }
-            listOf("annual ${s.annual.size}", "quarterly ${s.quarterly.size}", "latest ${s.annual.firstOrNull()?.fiscalDateEnding}",
-                "currencies ${(s.annual + s.quarterly).mapNotNull { it.currency }.distinct()}", "$key missing ${(s.annual + s.quarterly).count { it.values[key] == null }}",
-                "skipped ${s.skipped}") + if (f != "BALANCE_SHEET") listOf("quarters ${AlphaVantageFundamentalsMapper.quarterBasis(s, key)}") else emptyList()
-        } ?: listOf("no statement")
-        "EARNINGS" -> c.earnings(symbol)?.let { e -> listOf("annual ${e.annual.size}", "quarterly ${e.quarterly.size}",
-            "reportedEPS missing ${e.quarterly.count { it.reportedEps == null }}") } ?: listOf("no earnings")
-        "SPLITS" -> c.splits(symbol)?.let { s -> listOf("splits ${s.size}", "latest ${s.lastOrNull()?.effectiveDate}") } ?: listOf("no splits")
+            val all = s.annual + s.quarterly
+            val presence = FIELDS.getValue(f).map { k -> "$k missing ${all.count { it.values[k] == null }}/${all.size}" }
+            val base = listOf("annual ${s.annual.size}", "quarterly ${s.quarterly.size}", "latest ${s.annual.firstOrNull()?.fiscalDateEnding}",
+                "currencies ${all.mapNotNull { it.currency }.distinct()}", "skipped ${s.skipped}") + presence
+            if (f == "BALANCE_SHEET") base to emptyList() else {
+                val key = if (f == "INCOME_STATEMENT") "totalRevenue" else "operatingCashflow"
+                val trust = AlphaVantageFundamentalsMapper.quarterTrust(s, key)
+                (base + listOf("quarters ${trust.basis}", "recent years checked ${trust.recentChecked}", "trusted quarters ${trust.trusted.size}/${s.quarterly.size}",
+                    "years not standalone ${trust.years.count { it.verdict != null && it.verdict != AlphaVantageFundamentalsMapper.QuarterBasis.STANDALONE }}")) to trust.years
+            }
+        } ?: (listOf("no statement") to emptyList())
+        "EARNINGS" -> (c.earnings(symbol)?.let { e -> listOf("annual ${e.annual.size}", "quarterly ${e.quarterly.size}",
+            "reportedEPS missing ${e.quarterly.count { it.reportedEps == null }}") } ?: listOf("no earnings")) to emptyList()
+        "SPLITS" -> (c.splits(symbol)?.let { s -> listOf("splits ${s.size}", "latest ${s.lastOrNull()?.effectiveDate}") } ?: listOf("no splits")) to emptyList()
         else -> throw IllegalArgumentException("unsupported function $f")
     }
 }
@@ -108,7 +134,8 @@ fun main() {
     AlphaVantageSmokeTest.refusal(env)?.let { System.err.println("Alpha Vantage smoke test not run: $it"); kotlin.system.exitProcess(2) }
     val budget = env("ALPHA_VANTAGE_SMOKE_MAX_REQUESTS")?.toIntOrNull() ?: AlphaVantageSmokeTest.HARD_MAX
     val symbol = env("ALPHA_VANTAGE_SMOKE_SYMBOL")?.trim()?.uppercase()?.takeIf { it.matches(Regex("[A-Z]{1,6}")) } ?: "AAPL"
-    val functions = AlphaVantageSmokeTest.DEFAULT_FUNCTIONS + if (env("ALPHA_VANTAGE_SMOKE_OPTIONAL") == "true") AlphaVantageSmokeTest.OPTIONAL_FUNCTIONS else emptyList()
+    val functions = AlphaVantageSmokeTest.functions(env)
+    if (functions.isEmpty()) { System.err.println("Alpha Vantage smoke test not run: ALPHA_VANTAGE_SMOKE_FUNCTIONS names no supported function"); kotlin.system.exitProcess(2) }
     val sent = AtomicInteger()
     val http = HttpClient(CIO) { install(HttpTimeout) { requestTimeoutMillis = 20_000; connectTimeoutMillis = 5_000; socketTimeoutMillis = 15_000 } }
     http.plugin(HttpSend).intercept { request -> sent.incrementAndGet(); execute(request) }

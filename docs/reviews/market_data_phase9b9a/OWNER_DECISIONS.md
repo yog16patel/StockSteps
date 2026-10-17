@@ -7,6 +7,7 @@
 | D-9B9A-3 | Keep the dev instance private (loopback / adb reverse / simulator; no LAN exposure) | yes |
 | D-9B9A-4 | Keep FMP as the default until the smoke results are reviewed | yes |
 | D-9B9A-5 | Approve the 9B.9A code for commit after review | review first |
+| D-9B9A-6 | AAPL income quarters UNVERIFIED (REAL run) | **Approved and implemented (committed):** diagnostic + one-request mode; same rule in Comparison; trust only quarters verified for the 3 most recent complete fiscal years. Owner runs the 1-request diagnostic |
 
 Smoke-test command — run by the owner in their own terminal with the key already exported (≤ 10 requests, no retries, no key in output):
 ```bash

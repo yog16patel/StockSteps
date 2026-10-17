@@ -148,15 +148,24 @@ class AlphaVantageMarketDataProvider(private val stocks: AlphaVantageStockProvid
 object AlphaVantageStatements {
     private fun v(m: Map<String, BigDecimal>, k: String) = m[k]?.toDouble()
 
-    fun merge(loaded: Map<Statement, AlphaVantageParsers.Statement>, quarterly: Boolean): List<FinancialPeriodStatement> {
+    /**
+     * [verifiedQuarters] (Phase 9B.9A, D-9B9A-6; on for every StockSteps path): quarterly income and cash-flow values appear only for quarters
+     * trusted by `AlphaVantageFundamentalsMapper.quarterTrust` (recent fiscal years verified standalone); other quarters keep their period and
+     * balance-sheet values with income/cash-flow fields null — never year-to-date figures shown as quarters. Annual rows are unaffected.
+     */
+    fun merge(loaded: Map<Statement, AlphaVantageParsers.Statement>, quarterly: Boolean, verifiedQuarters: Boolean = true): List<FinancialPeriodStatement> {
         val income = loaded[Statement.INCOME] ?: return emptyList()
+        val incomeTrusted = if (quarterly && verifiedQuarters) AlphaVantageFundamentalsMapper.quarterTrust(income, "totalRevenue").trusted else null
+        val cashTrusted = if (quarterly && verifiedQuarters) AlphaVantageFundamentalsMapper.quarterTrust(loaded[Statement.CASH_FLOW], "operatingCashflow").trusted else null
         val fyEndMonth = income.annual.map { periodMonth(it.fiscalDateEnding) }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
         fun reports(s: Statement) = loaded[s]?.let { if (quarterly) it.quarterly else it.annual }.orEmpty().associateBy { it.fiscalDateEnding }
         val inc = reports(Statement.INCOME); val bal = reports(Statement.BALANCE); val cf = reports(Statement.CASH_FLOW)
         return inc.keys.sortedDescending().mapNotNull { end ->
             val label = if (!quarterly) "FY" else quarterLabel(end, fyEndMonth) ?: return@mapNotNull null
             val fiscalYear = if (!quarterly || fyEndMonth == null) (if (end.dayOfMonth <= 7 && end.monthValue == 1) end.year - 1 else end.year) else fiscalYearOf(end, fyEndMonth)
-            val i = inc.getValue(end).values; val b = bal[end]?.values.orEmpty(); val c = cf[end]?.values.orEmpty()
+            val i = inc.getValue(end).values.takeIf { incomeTrusted == null || end in incomeTrusted }.orEmpty()
+            val b = bal[end]?.values.orEmpty()
+            val c = cf[end]?.values?.takeIf { cashTrusted == null || end in cashTrusted }.orEmpty()
             val ocf = v(c, "operatingCashflow")
             val capex = v(c, "capitalExpenditures")?.let { if (it < 0) -it else it }
             FinancialPeriodStatement(label, fiscalYear, end.toString(), inc.getValue(end).currency,
