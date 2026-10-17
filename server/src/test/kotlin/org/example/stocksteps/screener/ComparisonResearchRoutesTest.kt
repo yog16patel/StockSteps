@@ -1,6 +1,7 @@
 package org.example.stocksteps.screener
 
 import io.ktor.client.request.*
+import org.example.stocksteps.security.installSecurityObservability
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
@@ -60,6 +61,7 @@ class ComparisonResearchRoutesTest {
     private fun ApplicationTestBuilder.install(setup: Setup) = application {
         configureApiErrors()
         install(io.ktor.server.plugins.contentnegotiation.ContentNegotiation) { json(json) }
+        installSecurityObservability()   // Phase 9A: sets Cache-Control on signed-in responses
         routing { comparisonResearchRoutes(setup.service, MockUserAuthenticator(), RequestRateLimiter(10_000)); usageMetricsRoutes(meter, null, mock = true) }
     }
 

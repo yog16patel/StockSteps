@@ -30,7 +30,8 @@ sealed interface ClientIdentity {
 
 /**
  * Resolves [ClientIdentity]:
- * 1. a `Bearer` Firebase ID token verified by [auth] → [ClientIdentity.User] (an invalid token is ignored here; the route still rejects it);
+ * 1. a `Bearer` Firebase ID token verified by [auth] → [ClientIdentity.User] (an invalid or anonymous-account token is ignored here; the
+ *    central gate still rejects it on signed-in routes);
  * 2. otherwise, only when [trustedProxyHops] is configured, the client IP that the trusted proxies appended to `X-Forwarded-For`:
  *    the entry [trustedProxyHops] positions from the right (Cloud Run direct ingress appends the client IP as the last entry → 1; an external
  *    HTTPS load balancer appends `client, lb` → 2). Entries to the left are client-controlled and never used. The hop count must be verified
@@ -42,11 +43,9 @@ class ClientIdentityResolver(private val auth: UserAuthenticator?, private val t
 
     suspend fun resolve(call: ApplicationCall): ClientIdentity {
         call.attributes.getOrNull(KEY)?.let { return it }
-        val token = call.request.headers["Authorization"]?.takeIf { it.startsWith("Bearer ", ignoreCase = true) }?.substring(7)?.trim()
-        val uid = if (token.isNullOrEmpty() || token.length > 4_096) null else try { auth?.uid(token) } catch (cause: Exception) {
-            if (cause is kotlinx.coroutines.CancellationException) throw cause
-            null
-        }
+        // Phase 9A: the same per-call verification as the central gate (one check per request). Anonymous Firebase accounts are free to
+        // mint, so they never get their own per-account limits: they count as the network identity, like guests.
+        val uid = auth?.let { (call.tokenVerification(it) as? TokenVerification.Valid)?.takeUnless { v -> v.anonymous }?.uid }
         val identity = uid?.let { ClientIdentity.User(it) }
             ?: trustedProxyHops?.let { hops -> clientIp(call.request.headers.getAll("X-Forwarded-For").orEmpty(), hops) }?.let { ClientIdentity.Address(it) }
             ?: ClientIdentity.Unverified

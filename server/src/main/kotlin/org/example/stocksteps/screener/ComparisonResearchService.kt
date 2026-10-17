@@ -243,8 +243,8 @@ fun Route.comparisonResearchRoutes(service: ComparisonResearchService, auth: Use
                 if (!limiter.allow("research:$uid")) { call.respond(HttpStatusCode.TooManyRequests, ApiError("RATE_LIMITED", "Too many requests. Wait a moment and try again.")); return@user }
                 try {
                     val (name, bytes) = service.export(uid, id())
-                    // Streamed to this caller only: never stored, no public URL, not cacheable.
-                    call.response.header(HttpHeaders.CacheControl, "no-store, private")
+                    // Streamed to this caller only: never stored, no public URL, not cacheable (`Cache-Control: no-store, private` is set for every
+                    // signed-in response by installSecurityObservability, Phase 9A).
                     call.response.header(HttpHeaders.ContentDisposition, ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, name).toString())
                     call.respondBytes(bytes, ContentType.Application.Pdf)
                 } catch (cause: UserDataException) {

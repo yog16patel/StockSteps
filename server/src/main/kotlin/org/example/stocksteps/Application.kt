@@ -19,6 +19,9 @@ import org.example.stocksteps.service.usageMetricsRoutes
 import org.example.stocksteps.service.ProviderUsageMeter
 import org.example.stocksteps.screener.RequestRateLimiter
 import org.example.stocksteps.security.installAdmission
+import org.example.stocksteps.security.installRateLimits
+import org.example.stocksteps.security.installSecurityObservability
+import org.example.stocksteps.security.installUserAuthentication
 import org.example.stocksteps.screener.SavedScreensService
 import org.example.stocksteps.screener.savedScreenRoutes
 import org.example.stocksteps.screener.screenerRoutes
@@ -66,11 +69,17 @@ fun main() {
         // 8 s to finish — inside Cloud Run's 10 s window before SIGKILL.
         shutdownGracePeriod = 2_000
         shutdownTimeout = 8_000
+        // Phase 9A: a client that stops sending its request (slow-loris) is dropped after 30 s; responses (AI, PDF export) get 60 s to write.
+        requestReadTimeoutSeconds = 30
+        responseWriteTimeoutSeconds = 60
     }, module = Application::module)
         .start(wait = true)
 }
 
-fun Application.module() {
+fun Application.module() = stockStepsModule(DataMode.fromEnvironment())
+
+/** The whole server for [dataMode] (Phase 9A: tests boot MOCK through this to check every registered route's access rule). */
+internal fun Application.stockStepsModule(dataMode: DataMode) {
     configureApiErrors()
     install(ContentNegotiation) {
         json(
@@ -81,7 +90,6 @@ fun Application.module() {
         )
     }
 
-    val dataMode = DataMode.fromEnvironment()
     log.info("StockSteps data mode: {}", dataMode.name.lowercase(Locale.ROOT))
     // Phase 5A: malformed or (on Cloud Run) missing settings stop startup before any data source is built; messages name settings, never values.
     org.example.stocksteps.appconfig.StartupConfiguration.check(dataMode).let { report ->
@@ -110,8 +118,12 @@ fun Application.module() {
     // request-size guards, App Check (monitor mode unless APP_CHECK_ENFORCE=true) and cost-weighted admission for every provider-backed route.
     val internalSecrets = org.example.stocksteps.security.InternalJob.secrets()
     org.example.stocksteps.security.InternalCallers.configureFromEnvironment()
+    // Phase 9A (order matters, outermost first): security headers and response logging, admission, per-class rate limits, then central
+    // authentication of every /api/v1/me request (the principal comes only from a verified token; one verification per request).
+    installSecurityObservability()
+    val identities = org.example.stocksteps.security.ClientIdentityResolver(sources.userAuth, System.getenv("TRUSTED_PROXY_HOPS")?.toIntOrNull())
     installAdmission(
-        org.example.stocksteps.security.ClientIdentityResolver(sources.userAuth, System.getenv("TRUSTED_PROXY_HOPS")?.toIntOrNull()),
+        identities,
         org.example.stocksteps.security.AdmissionController(org.example.stocksteps.security.AdmissionPolicy.fromEnvironment()),
         org.example.stocksteps.security.AppCheckGuard(
             System.getenv("FIREBASE_PROJECT_NUMBER")?.takeIf { it.isNotBlank() }?.let { number ->
@@ -121,6 +133,9 @@ fun Application.module() {
             enforce = System.getenv("APP_CHECK_ENFORCE")?.lowercase(Locale.ROOT) == "true"
         )
     )
+    installRateLimits(identities,
+        org.example.stocksteps.security.RateLimiter(org.example.stocksteps.security.RateLimitPolicy.fromEnvironment()))
+    installUserAuthentication(sources.userAuth)
 
     routing {
         get("/health") {

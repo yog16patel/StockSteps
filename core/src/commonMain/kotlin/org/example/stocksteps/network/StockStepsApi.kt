@@ -17,7 +17,15 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import org.example.stocksteps.model.*
 
-class StockStepsApiException(val status: Int, val error: ApiError) : Exception(error.message)
+/**
+ * A non-2xx answer. [retryAfterSeconds] (Phase 9A): the server's `Retry-After` on 429/503 (0–3600 s), for screens that offer a later retry.
+ * The clients never retry on their own because of it (only a 401 is retried once, with a refreshed token, in `UserApi`).
+ */
+class StockStepsApiException(val status: Int, val error: ApiError, val retryAfterSeconds: Long? = null) : Exception(error.message)
+
+/** `Retry-After` as delta-seconds (the form the StockSteps server sends); HTTP dates and malformed values → null. */
+fun io.ktor.client.statement.HttpResponse.retryAfterSeconds(): Long? =
+    headers[io.ktor.http.HttpHeaders.RetryAfter]?.trim()?.toLongOrNull()?.takeIf { it in 0..3_600 }
 
 // The caller owns the injected client and closes it when no longer needed.
 // The base URL is resolved per request so a backend switch applies to the next request.
@@ -243,7 +251,7 @@ class StockStepsApi(private val client: HttpClient, private val baseUrlProvider:
                 if (cause is CancellationException) throw cause
                 ApiError("HTTP_ERROR", "The StockSteps server could not complete the request.")
             }
-            throw StockStepsApiException(response.status.value, error)
+            throw StockStepsApiException(response.status.value, error, response.retryAfterSeconds())
         }
         return response.body()
     }

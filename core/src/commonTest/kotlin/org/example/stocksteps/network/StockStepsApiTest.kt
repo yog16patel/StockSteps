@@ -83,4 +83,56 @@ class StockStepsApiTest {
             }
         }
     }
+
+    /** Phase 9A: 429/503 expose Retry-After and are never retried by the client; a 401 is retried once with a fresh token, then stops. */
+    @Test
+    fun rateLimitsAreNotRetriedAutomaticallyAndExposeRetryAfter() = runBlocking<Unit> {
+        var calls = 0
+        HttpClient(MockEngine {
+            calls++
+            respond("""{"code":"RATE_LIMITED","message":"m"}""", HttpStatusCode.TooManyRequests,
+                headersOf(HttpHeaders.ContentType to listOf("application/json"), HttpHeaders.RetryAfter to listOf("37")))
+        }) { configureStockStepsClient() }.use {
+            val error = assertFailsWith<StockStepsApiException> { StockStepsApi(it, "https://stocksteps.test").searchStocks("apple") }
+            assertEquals(37, error.retryAfterSeconds); assertEquals(1, calls, "one request, no automatic retry")
+        }
+        for (value in listOf("Wed, 21 Oct 2026 07:28:00 GMT", "-5", "999999", "soon")) {
+            HttpClient(MockEngine { respond("{}", HttpStatusCode.ServiceUnavailable, headersOf(HttpHeaders.RetryAfter, value)) }) { configureStockStepsClient() }.use {
+                assertNull(assertFailsWith<StockStepsApiException> { StockStepsApi(it, "https://stocksteps.test").getQuote("AAPL") }.retryAfterSeconds, value)
+            }
+        }
+    }
+
+    @Test
+    fun signedInRequestsRetryA401OnceWithAFreshTokenAndNeverLoop() = runBlocking<Unit> {
+        val seen = mutableListOf<String?>()
+        val refreshes = mutableListOf<Boolean>()
+        HttpClient(MockEngine { request ->
+            seen += request.headers.getAll(HttpHeaders.Authorization)?.joinToString("|")
+            respond("""{"code":"SIGN_IN_REQUIRED","message":"m"}""", HttpStatusCode.Unauthorized, headersOf(HttpHeaders.ContentType, "application/json"))
+        }) { configureStockStepsClient() }.use { http ->
+            val api = org.example.stocksteps.data.userdata.UserApi(http, { "https://stocksteps.test" }, token = { refresh -> refreshes += refresh; if (refresh) "fresh" else "cached" })
+            val error = assertFailsWith<StockStepsApiException> { api.watchlists() }
+            assertEquals(401, error.status); assertEquals("SIGN_IN_REQUIRED", error.error.code)
+            assertEquals(listOf<String?>("Bearer cached", "Bearer fresh"), seen.toList(), "exactly two attempts, one Authorization header each")
+            assertEquals(listOf(false, true), refreshes)
+        }
+        var calls = 0
+        HttpClient(MockEngine {
+            calls++
+            respond("""{"code":"RATE_LIMITED","message":"m"}""", HttpStatusCode.TooManyRequests, headersOf(HttpHeaders.ContentType to listOf("application/json"), HttpHeaders.RetryAfter to listOf("5")))
+        }) { configureStockStepsClient() }.use { http ->
+            val api = org.example.stocksteps.data.userdata.UserApi(http, { "https://stocksteps.test" }, token = { "t" })
+            assertEquals(5, assertFailsWith<StockStepsApiException> { api.portfolio() }.retryAfterSeconds)
+            assertEquals(1, calls, "signed-in 429s are not retried either")
+        }
+        HttpClient(MockEngine {
+            respond("""{"code":"ACCOUNT_REQUIRED","message":"m"}""", HttpStatusCode.Forbidden, headersOf(HttpHeaders.ContentType, "application/json"))
+        }) { configureStockStepsClient() }.use { http ->
+            var tokenCalls = 0
+            val api = org.example.stocksteps.data.userdata.UserApi(http, { "https://stocksteps.test" }, token = { tokenCalls++; "t" })
+            assertEquals(403, assertFailsWith<StockStepsApiException> { api.portfolio() }.status)
+            assertEquals(1, tokenCalls, "a 403 is a permission answer: no token refresh")
+        }
+    }
 }

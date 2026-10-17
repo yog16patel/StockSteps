@@ -6,6 +6,12 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 9A backend security and access control (committed and pushed as "Secure the backend for Phase 9A with a central sign-in check on every signed-in route, a classified route table, per-class rate limits with Retry-After and concurrency caps, safe security logging, 415 for non-JSON bodies and two-user isolation tests on the Firebase emulators"; ChatGPT review pending; not deployed).**
+- Central authentication for `/api/v1/me…`, every route classified (`security/RouteAccess.kt`), per-class rate limits with Retry-After and
+  concurrency caps, safe security logging, 415 for non-JSON bodies. No client behaviour change beyond exposing `Retry-After`.
+- Two-user isolation verified on the Firebase Auth + Firestore emulators. Limits are per instance (owner decision for production).
+- Review package: `docs/reviews/security_phase9a/`.
+
 **2026-10-17 — Phase 8D Learn, accessibility and final UI/UX polish (committed and pushed as "Finish UI/UX Refinement Phase 8D with a short Discover scope label and About this list, a compact Practice heading and sign-in at large text, Learn starting with Start here at very large text, wrapping guided-research steps and the consolidated launch-readiness backlog on Android and iOS"; READY FOR REVIEW)**
 - iOS AX5:
   - Discover keeps search and sectors on the first screen ("N companies · not the whole market" + About this list);

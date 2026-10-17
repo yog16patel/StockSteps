@@ -9,6 +9,7 @@ import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
 import org.example.stocksteps.model.*
 import org.example.stocksteps.network.StockStepsApiException
+import org.example.stocksteps.network.retryAfterSeconds
 
 /**
  * Signed-in StockSteps routes (`/api/v1/me/…`). Every request carries the Firebase ID token; a 401
@@ -194,7 +195,7 @@ class UserApi(
                 if (cause is CancellationException) throw cause
                 ApiError("HTTP_ERROR", "The StockSteps server could not complete the request.")
             }
-            throw StockStepsApiException(response.status.value, error)
+            throw StockStepsApiException(response.status.value, error, response.retryAfterSeconds())
         }
         @Suppress("UNCHECKED_CAST")
         return if (T::class == Unit::class) Unit as T else response.body()

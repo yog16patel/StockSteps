@@ -65,6 +65,9 @@ object StartupConfiguration {
         if (value("TRUSTED_PROXY_HOPS") == null)
             warnings += "TRUSTED_PROXY_HOPS is not set: guests without a verified sign-in share one admission pool per route group."
         positiveInt("WATCH_DATA_ANONYMOUS_MAX_SYMBOLS")
+        // Phase 9A per-class rate limits (RateLimitPolicy): overrides must be positive whole numbers.
+        for (name in org.example.stocksteps.security.RateLimitPolicy.DEFAULTS.keys) for (suffix in listOf("GUEST_PER_MINUTE", "USER_PER_MINUTE", "POOL_PER_MINUTE", "MAX_IN_FLIGHT"))
+            positiveInt("RATE_LIMIT_${name.uppercase()}_$suffix")
         value("SCREENER_UNIVERSE")?.let { if (it.lowercase() !in setOf("curated", "fmp")) errors += "SCREENER_UNIVERSE must be curated or fmp" }
         value("SCREENER_ENRICHMENT_PER_HOUR")?.let { if (it.toIntOrNull()?.takeIf { n -> n >= 0 } == null) errors += "SCREENER_ENRICHMENT_PER_HOUR must be a whole number ≥ 0" }
         value("EOD_PUBLICATION_DELAY_MINUTES")?.let { if (it.toIntOrNull()?.takeIf { m -> m in 0..720 } == null) errors += "EOD_PUBLICATION_DELAY_MINUTES must be a whole number from 0 to 720" }
