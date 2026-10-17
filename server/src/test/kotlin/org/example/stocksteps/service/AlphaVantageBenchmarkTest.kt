@@ -30,7 +30,8 @@ class AlphaVantageBenchmarkTest {
     private class World(premium: Boolean, val clock: MutableClock = MutableClock(Instant.parse("2026-10-16T22:00:00Z"))) {
         val av = AlphaVantageClientTest.Av { clock.millis() }
         val sessions = EodSessions(clock)
-        val config = AlphaVantageConfig("k", true, if (premium) 75 else null, AlphaVantageConfig.LicenseMode.PERSONAL, emptySet(), emptySet())
+        val config = AlphaVantageConfig("k", true, if (premium) 75 else null, AlphaVantageConfig.LicenseMode.PERSONAL, emptySet(), emptySet(),
+            if (premium) AlphaVantageConfig.Entitlement.PREMIUM else AlphaVantageConfig.Entitlement.FREE)
         val client = AlphaVantageClient(av.http, config, sessions, clock, CompanyFinancialCache(capacity = 4_096, now = { clock.millis() }))
         val fmpCalls = java.util.concurrent.atomic.AtomicInteger()
         val delegate = object : org.example.stocksteps.repository.StockProviderRepository {
@@ -84,7 +85,7 @@ class AlphaVantageBenchmarkTest {
         // 5. Discover enrichment (155 companies) on the free allowance (25/day → 20 on this instance) vs a 75/min plan.
         for (premium in listOf(false, true)) {
             val w = World(premium)
-            val guard = ProviderGuard(ProviderBudgetConfig.fromEnvironment { if (premium) mapOf("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE" to "75")[it] else null },
+            val guard = ProviderGuard(ProviderBudgetConfig.fromEnvironment { if (premium) mapOf("ALPHA_VANTAGE_ENTITLEMENT" to "premium", "ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE" to "75")[it] else null },
                 now = { w.clock.millis() }, meter = ProviderUsageMeter(), sleep = { w.clock.instant = w.clock.instant.plusMillis(it) })
             val priced = withContext(guard) {
                 coroutineScope {

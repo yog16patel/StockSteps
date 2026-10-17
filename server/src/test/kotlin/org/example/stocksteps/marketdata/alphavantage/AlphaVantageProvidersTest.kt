@@ -41,7 +41,8 @@ class AlphaVantageProvidersTest {
 
     private fun world(premium: Boolean = false): Triple<AlphaVantageClientTest.Av, AlphaVantageStockProvider, Delegate> {
         val av = AlphaVantageClientTest.Av { 0 }
-        val cfg = AlphaVantageConfig("k", true, if (premium) 75 else null, AlphaVantageConfig.LicenseMode.PERSONAL, emptySet(), emptySet())
+        val cfg = AlphaVantageConfig("k", true, if (premium) 75 else null, AlphaVantageConfig.LicenseMode.PERSONAL, emptySet(), emptySet(),
+            if (premium) AlphaVantageConfig.Entitlement.PREMIUM else AlphaVantageConfig.Entitlement.FREE)
         val client = AlphaVantageClient(av.http, cfg, sessions, clock, CompanyFinancialCache(capacity = 64, now = { 0 }))
         val d = Delegate()
         return Triple(av, AlphaVantageStockProvider(client, d, sessions, clock), d)

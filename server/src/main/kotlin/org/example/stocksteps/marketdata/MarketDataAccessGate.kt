@@ -26,7 +26,7 @@ import org.example.stocksteps.service.ProviderUsageMeter
  *   (`VERIFIED_ALLOWED`); today none is, so market data fails closed;
  * - **Alpha Vantage personal mode** (Alpha Vantage primary, the default licence mode): a personal licence covers the key holder only, so the
  *   data goes only to callers on explicit allowlists — a verified Firebase uid in `ALPHA_VANTAGE_PERSONAL_UIDS` or a client address in
- *   `ALPHA_VANTAGE_PERSONAL_CLIENTS` (the trusted address with `TRUSTED_PROXY_HOPS`, else the socket peer; `loopback` = 127.0.0.1/::1).
+ *   `ALPHA_VANTAGE_PERSONAL_CLIENTS` (only `loopback`, matched on the socket peer / trusted address; Phase 9B.9A).
  *   An environment label alone never opens it; empty lists serve nobody.
  * Refusals are 502 `PROVIDER_RESTRICTED` (the existing "trying again won't help" contract), `Cache-Control: no-store`, no provider call made.
  */
@@ -76,10 +76,13 @@ class MarketDataAccessGate(
         const val LICENSE_MESSAGE = "This market data isn't licensed for display to you on this server. Trying again won't help."
         fun servesMarketData(path: String): Boolean = MARKET_DATA_PREFIXES.any { path.startsWith(it) } && EXEMPT.none { path.startsWith(it) }
 
+        /**
+         * Phase 9B.9A: only `loopback` matches (the owner's own machine: adb reverse, the iOS simulator, local tools). Any other entry
+         * matches nothing — a LAN or public address can stand for many people behind NAT (startup rejects such entries).
+         */
         fun matches(allowed: String, address: String): Boolean {
             val a = address.removePrefix("/").substringBefore('%')
-            return if (allowed.equals("loopback", ignoreCase = true)) a == "127.0.0.1" || a == "::1" || a == "0:0:0:0:0:0:0:1" || a == "localhost"
-            else allowed == a
+            return allowed.equals("loopback", ignoreCase = true) && (a == "127.0.0.1" || a == "::1" || a == "0:0:0:0:0:0:0:1" || a == "localhost")
         }
     }
 }

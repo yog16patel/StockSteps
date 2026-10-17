@@ -6,6 +6,12 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 9B.9A Alpha Vantage free-tier validation (committed and pushed as "Validate the Alpha Vantage free tier for Phase 9B.9A …"; READY FOR REVIEW).**
+- Explicit free/premium entitlement, exact 20/day free budget, premium functions refused locally, no bulk Discover work on free,
+  loopback-only personal access, bounded opt-in smoke-test command.
+- 0 authenticated requests from this session. Owner decision: a free personal key for owner-only local testing (terms caveat recorded);
+  the owner runs the bounded smoke test locally. Draft sales questions for anything beyond that: `ALPHA_VANTAGE_SALES_QUESTIONS.md`.
+
 **2026-10-17 — Phase 9B.8 Alpha Vantage fundamentals and metrics (committed and pushed as "Compute the fundamentals bundle from Alpha Vantage for Phase 9B.8 …"; READY FOR REVIEW; off by default).**
 - `FUNDAMENTALS_PRIMARY_PROVIDER=alpha_vantage` computes the fundamentals bundle from Alpha Vantage statements and dividends through the
   metrics engine; EPS-based and share-based metrics stay unavailable until verified (SEC). FMP remains the default.

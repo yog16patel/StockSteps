@@ -31,7 +31,7 @@ class AlphaVantageConfigurationTest {
         assertTrue(report("ALPHA_VANTAGE_LICENSE_MODE" to "beta").errors.any { "ALPHA_VANTAGE_LICENSE_MODE" in it })
         val ok = report("MARKET_DATA_PRIMARY_PROVIDER" to "alpha_vantage", "ALPHA_VANTAGE_ENABLED" to "true", "ALPHA_VANTAGE_API_KEY" to "secret-value")
         assertTrue(ok.errors.none { "ALPHA_VANTAGE" in it || "MARKET_DATA" in it }, "${ok.errors}")
-        assertTrue(ok.warnings.any { "refuse every caller" in it } && ok.warnings.any { "free-tier limits" in it })
+        assertTrue(ok.warnings.any { "refuse every caller" in it } && ok.warnings.any { "free entitlement" in it })
         assertTrue((ok.errors + ok.warnings).none { "secret-value" in it })
         assertTrue(report("FUNDAMENTALS_PRIMARY_PROVIDER" to "sec").errors.any { "FUNDAMENTALS_PRIMARY_PROVIDER must be fmp or alpha_vantage" in it })
         assertTrue(report("FUNDAMENTALS_PRIMARY_PROVIDER" to "alpha_vantage").errors.any { "FUNDAMENTALS_PRIMARY_PROVIDER=alpha_vantage requires" in it })
@@ -43,8 +43,10 @@ class AlphaVantageConfigurationTest {
     @Test fun theAlphaVantageLaneCountsTowardVerificationOnlyWhenEnabled() {
         val env = mapOf("CLOUD_RUN_MAX_INSTANCES" to "1") + listOf("FMP", "FINNHUB", "GEMINI", "BOC").associate { "PROVIDER_${it}_PER_MINUTE" to "60" }
         assertTrue(ProviderBudgetConfig.fromEnvironment { env[it] }.verified)
-        assertTrue(!ProviderBudgetConfig.fromEnvironment { (env + ("ALPHA_VANTAGE_ENABLED" to "true"))[it] }.verified)
-        assertTrue(ProviderBudgetConfig.fromEnvironment { (env + ("ALPHA_VANTAGE_ENABLED" to "true") + ("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE" to "75"))[it] }.verified)
+        // Free: the published allowance is the configuration. Premium: the plan rate must be set.
+        assertTrue(ProviderBudgetConfig.fromEnvironment { (env + ("ALPHA_VANTAGE_ENABLED" to "true"))[it] }.verified)
+        assertTrue(!ProviderBudgetConfig.fromEnvironment { (env + ("ALPHA_VANTAGE_ENABLED" to "true") + ("ALPHA_VANTAGE_ENTITLEMENT" to "premium"))[it] }.verified)
+        assertTrue(ProviderBudgetConfig.fromEnvironment { (env + ("ALPHA_VANTAGE_ENABLED" to "true") + ("ALPHA_VANTAGE_ENTITLEMENT" to "premium") + ("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE" to "75"))[it] }.verified)
     }
 
     @Test fun mockNeverUsesAlphaVantageOrTheGate() {

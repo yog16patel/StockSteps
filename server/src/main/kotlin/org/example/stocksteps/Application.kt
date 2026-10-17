@@ -273,7 +273,8 @@ internal fun Application.stockStepsModule(dataMode: DataMode) {
                     kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default),
                     perHour = System.getenv("SCREENER_ENRICHMENT_PER_HOUR")?.toIntOrNull()?.takeIf { it >= 0 } ?: org.example.stocksteps.screener.CuratedScreenerUniverse.DEFAULT_PER_HOUR,
                     // Phase 9B: upstream requests per UTC day for background enrichment (0 = none).
-                    perDay = System.getenv("SCREENER_ENRICHMENT_PER_DAY")?.toIntOrNull()?.takeIf { it >= 0 } ?: org.example.stocksteps.screener.CuratedScreenerUniverse.DEFAULT_PER_DAY) }
+                    // Phase 9B.9A: no Discover bulk enrichment on Alpha Vantage's free allowance (it would spend the day's budget).
+                    perDay = if (sources.alphaVantageFree) 0 else System.getenv("SCREENER_ENRICHMENT_PER_DAY")?.toIntOrNull()?.takeIf { it >= 0 } ?: org.example.stocksteps.screener.CuratedScreenerUniverse.DEFAULT_PER_DAY) }
             val screener = org.example.stocksteps.screener.ScreenerService(
                 universe = sources.screenerUniverse ?: realUniverse,
                 pageQuotes = sources.screenerUniverse != null || fmpScreener,
@@ -288,7 +289,7 @@ internal fun Application.stockStepsModule(dataMode: DataMode) {
                 usdPerCadQuote = { latestUsdPerCad() },
                 clock = sources.marketClock,
                 sampleData = dataMode == DataMode.MOCK,
-                fundamentalsPerHour = System.getenv("SCREENER_FUNDAMENTALS_PER_HOUR")?.toIntOrNull() ?: 25,
+                fundamentalsPerHour = if (sources.alphaVantageFree) 0 else System.getenv("SCREENER_FUNDAMENTALS_PER_HOUR")?.toIntOrNull() ?: 25,
                 fullRecords = dataMode == DataMode.MOCK,
                 // Company Comparison: latest-quarter revenue growth reuses Earnings Results (no extra statement requests).
                 quarterlyRevenueGrowth = { symbol ->
@@ -570,7 +571,10 @@ internal class DataSources(
     val alphaVantage: org.example.stocksteps.marketdata.alphavantage.AlphaVantageConfig? = null,
     /** Phase 9B.8: whether market data from these sources may be sent to Gemini (false → the deterministic fallbacks). */
     val aiOnMarketData: Boolean = true
-)
+) {
+    /** Phase 9B.9A: Alpha Vantage serves a dataset on the free entitlement → no background bulk work (Discover enrichment, fundamentals warm-up). */
+    val alphaVantageFree: Boolean get() = alphaVantage?.premium == false && "alphavantage" in marketDataProviders
+}
 
 private fun Application.realDataSources(): DataSources {
     // Phase 3C: quote, TTM-ratio and intraday-bar cache lifetimes follow each listing's market session (US or TSX calendar).

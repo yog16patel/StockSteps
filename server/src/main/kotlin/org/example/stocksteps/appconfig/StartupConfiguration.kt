@@ -75,6 +75,22 @@ object StartupConfiguration {
         value("MARKET_DATA_PRIMARY_PROVIDER")?.let { if (it.lowercase() !in setOf("fmp", "alpha_vantage")) errors += "MARKET_DATA_PRIMARY_PROVIDER must be fmp or alpha_vantage" }
         for (name in listOf("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE", "ALPHA_VANTAGE_DAILY_BUDGET", "ALPHA_VANTAGE_MAX_CONCURRENT")) positiveInt(name)
         value("ALPHA_VANTAGE_LICENSE_MODE")?.let { if (it.lowercase() !in setOf("personal", "commercial")) errors += "ALPHA_VANTAGE_LICENSE_MODE must be personal or commercial" }
+        // Phase 9B.9A: entitlement is explicit and separate from the request rate; the free budget can't exceed the published 25 a day.
+        value("ALPHA_VANTAGE_ENTITLEMENT")?.let { if (it.lowercase() !in setOf("free", "premium")) errors += "ALPHA_VANTAGE_ENTITLEMENT must be free or premium" }
+        val avPremium = value("ALPHA_VANTAGE_ENTITLEMENT")?.lowercase() == "premium"
+        if (value("ALPHA_VANTAGE_ENABLED")?.lowercase() == "true") {
+            if (!avPremium && (value("ALPHA_VANTAGE_DAILY_BUDGET")?.toLongOrNull() ?: 0) > 25)
+                errors += "ALPHA_VANTAGE_DAILY_BUDGET can't exceed 25 (the published free allowance) without ALPHA_VANTAGE_ENTITLEMENT=premium"
+            if (!avPremium && value("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE") != null)
+                warnings += "ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE is ignored on the free entitlement (free rate and 25-a-day allowance apply; premium functions stay off)."
+            if (avPremium && value("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE") == null)
+                errors += "ALPHA_VANTAGE_ENTITLEMENT=premium requires ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE (the subscribed plan's rate)"
+        }
+        // Only loopback identifies the owner's own machine; a LAN address may be shared by many devices behind NAT.
+        value("ALPHA_VANTAGE_PERSONAL_CLIENTS")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.let { entries ->
+            if (entries.any { !it.equals("loopback", ignoreCase = true) })
+                errors += "ALPHA_VANTAGE_PERSONAL_CLIENTS accepts only loopback (a network address can stand for many people); use ALPHA_VANTAGE_PERSONAL_UIDS for signed-in access"
+        }
         value("FUNDAMENTALS_PRIMARY_PROVIDER")?.let { if (it.lowercase() !in setOf("fmp", "alpha_vantage")) errors += "FUNDAMENTALS_PRIMARY_PROVIDER must be fmp or alpha_vantage" }
         if (value("FUNDAMENTALS_PRIMARY_PROVIDER")?.lowercase() == "alpha_vantage" && value("MARKET_DATA_PRIMARY_PROVIDER")?.lowercase() != "alpha_vantage") {
             if (value("ALPHA_VANTAGE_ENABLED")?.lowercase() != "true" || value("ALPHA_VANTAGE_API_KEY") == null)
@@ -89,8 +105,8 @@ object StartupConfiguration {
             if (personal && cloudRun) errors += "ALPHA_VANTAGE_LICENSE_MODE=personal can't be served from Cloud Run: a personal licence covers the key holder only"
             if (personal && value("ALPHA_VANTAGE_PERSONAL_UIDS") == null && value("ALPHA_VANTAGE_PERSONAL_CLIENTS") == null)
                 warnings += "Alpha Vantage personal mode with no ALPHA_VANTAGE_PERSONAL_UIDS / ALPHA_VANTAGE_PERSONAL_CLIENTS: market-data routes refuse every caller."
-            if (value("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE") == null)
-                warnings += "ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE is not set: free-tier limits apply (25 requests a day, 100 daily closes, no profiles from Alpha Vantage)."
+            if (value("ALPHA_VANTAGE_ENTITLEMENT")?.lowercase() != "premium")
+                warnings += "Alpha Vantage free entitlement: 20 requests a day on this instance, 100 daily closes, no profiles or premium functions; Discover enrichment and the fundamentals warm-up are off."
         }
         value("SCREENER_ENRICHMENT_PER_DAY")?.let { if (it.toIntOrNull()?.takeIf { n -> n >= 0 } == null) errors += "SCREENER_ENRICHMENT_PER_DAY must be a whole number ≥ 0" }
         value("SEC_USER_AGENT")?.let { if (!org.example.stocksteps.marketdata.sec.SecEdgarClient.validUserAgent(it.trim())) errors += "SEC_USER_AGENT must name the app and a contact e-mail address" }

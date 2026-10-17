@@ -54,7 +54,8 @@ class AlphaVantageClientTest {
             respond(bodies["$f|$sym"] ?: bodies[f] ?: "{}", HttpStatusCode.OK)
         })
     }
-    private fun config(premium: Boolean = false) = AlphaVantageConfig(secret, true, if (premium) 75 else null, AlphaVantageConfig.LicenseMode.PERSONAL, emptySet(), emptySet())
+    private fun config(premium: Boolean = false) = AlphaVantageConfig(secret, true, if (premium) 75 else null, AlphaVantageConfig.LicenseMode.PERSONAL, emptySet(), emptySet(),
+        if (premium) AlphaVantageConfig.Entitlement.PREMIUM else AlphaVantageConfig.Entitlement.FREE)
     private fun client(av: Av, premium: Boolean = false, t: () -> Long = { 0L }) =
         AlphaVantageClient(av.http, config(premium), sessions, clock, CompanyFinancialCache(capacity = 64, now = t))
 
@@ -137,9 +138,9 @@ class AlphaVantageClientTest {
 
     @Test fun theDailyBudgetAndRateLimitProtectTheQuota() = runBlocking<Unit> {
         val av = Av { 0 }; av.bodies["GLOBAL_QUOTE"] = AvFixtures.quote("EXMP", "11", "2026-10-16", "10")
-        // Free tier without a plan: 25 a day × 0.8 safety margin = 20 on this instance.
+        // Free entitlement (default): StockSteps' own 20 a day on this instance, exact (not scaled by the safety margin).
         val budgets = ProviderBudgetConfig.fromEnvironment { null }
-        assertEquals(25L, budgets.limits.getValue("alphavantage").dailyLimit)
+        assertEquals(20L, budgets.limits.getValue("alphavantage").dailyLimit)
         var t = 0L
         val guard = ProviderGuard(budgets, now = { t }, meter = ProviderUsageMeter(), sleep = { t += it })
         val c = client(av)
@@ -151,14 +152,14 @@ class AlphaVantageClientTest {
         assertEquals(20, av.n("GLOBAL_QUOTE"), "the 21st request of the day is refused locally")
         assertTrue(results.drop(16).all { (it.exceptionOrNull() as? StockProviderException)?.dailyLimitReached == true })
         // A premium plan: per-minute rate, no daily cap unless configured.
-        val premium = ProviderBudgetConfig.fromEnvironment { mapOf("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE" to "75", "ALPHA_VANTAGE_MAX_CONCURRENT" to "3")[it] }.limits.getValue("alphavantage")
+        val premium = ProviderBudgetConfig.fromEnvironment { mapOf("ALPHA_VANTAGE_ENTITLEMENT" to "premium", "ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE" to "75", "ALPHA_VANTAGE_MAX_CONCURRENT" to "3")[it] }.limits.getValue("alphavantage")
         assertEquals(75, premium.perMinute); assertNull(premium.dailyLimit); assertEquals(3, premium.maxConcurrent)
-        assertEquals(500L, ProviderBudgetConfig.fromEnvironment { mapOf("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE" to "75", "ALPHA_VANTAGE_DAILY_BUDGET" to "500")[it] }.limits.getValue("alphavantage").dailyLimit)
+        assertEquals(500L, ProviderBudgetConfig.fromEnvironment { mapOf("ALPHA_VANTAGE_ENTITLEMENT" to "premium", "ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE" to "75", "ALPHA_VANTAGE_DAILY_BUDGET" to "500")[it] }.limits.getValue("alphavantage").dailyLimit)
     }
 
     @Test fun anInBodyRateLimitOpensTheProviderBreaker() = runBlocking<Unit> {
         val av = Av { 0 }; av.bodies["GLOBAL_QUOTE"] = AvFixtures.NOTE_FREQUENCY
-        val guard = ProviderGuard(ProviderBudgetConfig.fromEnvironment { mapOf("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE" to "75")[it] }, meter = ProviderUsageMeter())
+        val guard = ProviderGuard(ProviderBudgetConfig.fromEnvironment { mapOf("ALPHA_VANTAGE_ENTITLEMENT" to "premium", "ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE" to "75")[it] }, meter = ProviderUsageMeter())
         val c = client(av, premium = true)
         withContext(guard) { (1..5).forEach { i -> runCatching { c.quote("S$i") } } }
         assertEquals(1, av.n("GLOBAL_QUOTE"), "after the first in-body rate limit the breaker refuses locally")

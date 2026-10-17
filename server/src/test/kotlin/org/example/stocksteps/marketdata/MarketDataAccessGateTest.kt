@@ -33,10 +33,11 @@ class MarketDataAccessGateTest {
 
     @Test fun personalModeServesOnlyExplicitAllowlists() {
         val gate = MarketDataAccessGate(setOf("alphavantage", "fmp"), commercial = false, alphaVantage = av(uids = setOf("owner-uid"), clients = setOf("loopback", "192.168.1.20")))
+        // Phase 9B.9A: a LAN address never identifies one person (NAT): only loopback matches.
         val p = "/api/v1/stocks/AAPL/quote"
         assertEquals(MarketDataAccessGate.Decision.ALLOW, gate.decide(p, "owner-uid", "10.0.0.9"))
         assertEquals(MarketDataAccessGate.Decision.ALLOW, gate.decide(p, null, "127.0.0.1"))
-        assertEquals(MarketDataAccessGate.Decision.ALLOW, gate.decide(p, null, "192.168.1.20"))
+        assertEquals(MarketDataAccessGate.Decision.REFUSED_PERSONAL, gate.decide(p, null, "192.168.1.20"))
         assertEquals(MarketDataAccessGate.Decision.REFUSED_PERSONAL, gate.decide(p, "someone-else", "192.168.1.21"))
         assertEquals(MarketDataAccessGate.Decision.REFUSED_PERSONAL, gate.decide(p, null, null))
         assertEquals(MarketDataAccessGate.Decision.NOT_MARKET_DATA, gate.decide("/api/v1/me/learning", "someone-else", null))
@@ -66,7 +67,7 @@ class MarketDataAccessGateTest {
         var reached = 0
         application {
             install(ContentNegotiation) { json() }
-            val gate = MarketDataAccessGate(setOf("alphavantage"), commercial = false, alphaVantage = av(clients = setOf("192.0.2.1")))
+            val gate = MarketDataAccessGate(setOf("alphavantage"), commercial = false, alphaVantage = av(clients = emptySet()))
             installMarketDataAccessGate(gate, ClientIdentityResolver(null, null), null)
             routing {
                 get("/api/v1/stocks/{s}/quote") { reached++; call.respondText("price") }

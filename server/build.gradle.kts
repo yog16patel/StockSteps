@@ -91,3 +91,15 @@ tasks.register("stopMock") {
         println("Stopped mock server on port $portValue (pid ${pids.joinToString()}).")
     }
 }
+
+// Phase 9B.9A: bounded, opt-in Alpha Vantage free-tier smoke test (≤ 10 authenticated requests, no retries). Never run by `test`.
+// Requires ALPHA_VANTAGE_API_KEY, ALPHA_VANTAGE_SMOKE_CONFIRM and ALPHA_VANTAGE_TERMS_CONFIRMED (see the 9B.9A owner decisions).
+// Runs from the build classpath, never from build/install (the MOCK servers' copy).
+tasks.register<JavaExec>("alphaVantageSmokeTest") {
+    group = "verification"
+    description = "Bounded Alpha Vantage free-tier smoke test (opt-in; at most 10 requests)."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("org.example.stocksteps.marketdata.alphavantage.AlphaVantageSmokeTestKt")
+    workingDir = projectDir
+    isIgnoreExitValue = false
+}

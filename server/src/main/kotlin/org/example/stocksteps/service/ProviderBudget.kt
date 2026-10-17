@@ -27,7 +27,9 @@ class ProviderPriorityElement(val priority: ProviderPriority) : AbstractCoroutin
  * derived from the per-minute value or from a published plan the account hasn't confirmed.
  */
 data class ProviderLimits(val perMinute: Int, val burst: Int = perMinute, val maxConcurrent: Int, val dailySoftTarget: Long? = null,
-                          val dailyLimit: Long? = null)
+                          val dailyLimit: Long? = null,
+                          /** Phase 9B.9A: [dailyLimit] is this instance's exact allowance (not scaled by the safety margin or instance count). */
+                          val dailyLimitExact: Boolean = false)
 
 data class ProviderBudgetConfig(
     val limits: Map<String, ProviderLimits>,
@@ -49,7 +51,8 @@ data class ProviderBudgetConfig(
         burst = (l.burst * safetyMargin / maxInstances).toInt().coerceAtLeast(1),
         maxConcurrent = (l.maxConcurrent / maxInstances).coerceAtLeast(1),
         dailySoftTarget = l.dailySoftTarget?.let { (it / maxInstances).coerceAtLeast(1) },
-        dailyLimit = l.dailyLimit?.let { (it * safetyMargin / maxInstances).toLong().coerceAtLeast(1) }
+        dailyLimit = l.dailyLimit?.let { if (l.dailyLimitExact) it else (it * safetyMargin / maxInstances).toLong().coerceAtLeast(1) },
+        dailyLimitExact = l.dailyLimitExact
     )
 
     companion object {
@@ -67,25 +70,33 @@ data class ProviderBudgetConfig(
             // StockSteps stays far below it: 5/s sustained, small bursts, 2 at a time.
             "sec" to ProviderLimits(perMinute = 300, burst = 10, maxConcurrent = 2),
             // Phase 9B.7: Alpha Vantage's published free allowance (25 requests a day); premium plans set ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE.
-            "alphavantage" to ProviderLimits(perMinute = 5, burst = 5, maxConcurrent = 1, dailyLimit = 25)
+            "alphavantage" to ProviderLimits(perMinute = 5, burst = 5, maxConcurrent = 1, dailyLimit = 20, dailyLimitExact = true)
         )
 
         /** Providers whose limit is published by the source itself (no plan to confirm), so they don't block [verified]. */
         val PUBLISHED_LIMITS = setOf("sec", "alphavantage")
 
         /**
-         * Phase 9B.7: the Alpha Vantage lane from `ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE` (the subscribed plan's rate; premium plans have
-         * no daily cap), `ALPHA_VANTAGE_DAILY_BUDGET` (StockSteps' own daily allowance; default 25 = the free tier without a plan) and
-         * `ALPHA_VANTAGE_MAX_CONCURRENT`. Second value: whether a plan or budget was configured (counts toward [verified] when enabled).
+         * Phase 9B.7 / 9B.9A: the Alpha Vantage lane. FREE (default, `ALPHA_VANTAGE_ENTITLEMENT` unset or `free`): the free rate (5/min,
+         * burst 5) whatever `ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE` says, and a hard daily allowance of `ALPHA_VANTAGE_DAILY_BUDGET`
+         * (default [AV_FREE_DAILY_BUDGET] = 20, never above the published 25). PREMIUM: the plan rate (required) and an optional daily budget.
+         * The daily allowance is this instance's own number ([ProviderLimits.dailyLimitExact]: not scaled by the safety margin).
+         * Second value: whether the lane counts as configured for [verified] (FREE: the published allowance; PREMIUM: the plan rate).
          */
         internal fun alphaVantageLimits(env: (String) -> String?, d: ProviderLimits): Pair<ProviderLimits, Boolean> {
             fun value(name: String) = env(name)?.trim()?.toLongOrNull()?.takeIf { it > 0 }
+            val premium = env("ALPHA_VANTAGE_ENTITLEMENT")?.trim()?.lowercase() == "premium"
             val plan = value("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE")?.toInt()
             val daily = value("ALPHA_VANTAGE_DAILY_BUDGET")
-            val limits = ProviderLimits(plan ?: d.perMinute, plan ?: d.burst, value("ALPHA_VANTAGE_MAX_CONCURRENT")?.toInt() ?: d.maxConcurrent,
-                dailySoftTarget = null, dailyLimit = daily ?: if (plan != null) null else d.dailyLimit)
-            return limits to (plan != null || daily != null)
+            val concurrency = value("ALPHA_VANTAGE_MAX_CONCURRENT")?.toInt() ?: d.maxConcurrent
+            if (!premium) return ProviderLimits(d.perMinute, d.burst, concurrency, null, (daily ?: AV_FREE_DAILY_BUDGET).coerceAtMost(AV_FREE_PUBLISHED_DAILY),
+                dailyLimitExact = true) to true
+            return ProviderLimits(plan ?: d.perMinute, plan ?: d.burst, concurrency, null, daily, dailyLimitExact = true) to (plan != null)
         }
+
+        /** Phase 9B.9A: Alpha Vantage's published free allowance and StockSteps' conservative default budget on FREE. */
+        const val AV_FREE_PUBLISHED_DAILY = 25L
+        const val AV_FREE_DAILY_BUDGET = 20L
 
         fun fromEnvironment(env: (String) -> String? = System::getenv): ProviderBudgetConfig {
             var verified = true
