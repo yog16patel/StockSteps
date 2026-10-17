@@ -6,6 +6,7 @@ import org.example.stocksteps.brief.BriefStatus
 import org.example.stocksteps.brief.ConceptOfTheDay
 import org.example.stocksteps.brief.DailyBrief
 import org.example.stocksteps.companydetail.PriceDirection
+import org.example.stocksteps.markets.SectorRowModel
 import org.example.stocksteps.markets.SectorsModel
 import org.example.stocksteps.model.IndexQuote
 import org.example.stocksteps.model.MarketSession
@@ -110,5 +111,27 @@ class MarketsScreenPresentationTest {
             present.earningsDetail(EarningsSummaryState(loading = false, upcomingCount = 4, nextDateText = "Mon, Oct 12")))
         assertEquals("2 on your watchlists", present.earningsSecondary(EarningsSummaryState(loading = false, watchlistCount = 2)))
         assertNull(present.earningsSecondary(EarningsSummaryState(loading = false, watchlistCount = 0)))
+    }
+
+    /** Phase 8A: the status block's headline keeps the core / session status words and only joins them to the market name. */
+    @Test
+    fun statusHeadlineJoinsTheMarketAndItsStatus() {
+        assertEquals("US Market · After-hours", present.statusHeadline(header(), null))
+        assertEquals("US Market · Closed for the weekend", present.statusHeadline(header(), session(MarketSessionStatus.WEEKEND)))
+        assertEquals("US Market · Closed · Thanksgiving", present.statusHeadline(header(), session(MarketSessionStatus.HOLIDAY, holiday = "Thanksgiving")))
+    }
+
+    /** Phase 8A: diverging sector bars — gains right of the centre, losses left, flat a centre tick; length = core fraction on half the track. */
+    @Test
+    fun sectorBarsDivergeAroundTheCentre() {
+        fun row(direction: PriceDirection, fraction: Float) = SectorRowModel("Energy", "XLE", "x", direction, fraction, "")
+        assertEquals(MarketsScreenPresentation.SectorBar(0.5f, 1.0f), present.sectorBar(row(PriceDirection.UP, 1f)))
+        assertEquals(MarketsScreenPresentation.SectorBar(0.25f, 0.5f), present.sectorBar(row(PriceDirection.DOWN, 0.5f)))
+        assertEquals(MarketsScreenPresentation.SectorBar(0.5f, 0.51f), present.sectorBar(row(PriceDirection.UP, 0.02f)))
+        val flat = present.sectorBar(row(PriceDirection.UNCHANGED, 0.02f))
+        assertEquals(0.5f, (flat.start + flat.end) / 2, 1e-6f)
+        assertEquals(MarketsScreenPresentation.FLAT_TICK, flat.end - flat.start, 1e-6f)
+        // Out-of-range fractions never draw outside the track.
+        assertEquals(MarketsScreenPresentation.SectorBar(0.5f, 1.0f), present.sectorBar(row(PriceDirection.UP, 3f)))
     }
 }

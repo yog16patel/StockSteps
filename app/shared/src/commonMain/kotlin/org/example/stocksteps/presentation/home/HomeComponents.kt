@@ -14,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -23,7 +24,6 @@ import org.example.stocksteps.brief.DailyBriefUiState
 import org.example.stocksteps.designsystem.components.*
 import org.example.stocksteps.designsystem.icons.StockIcons
 import org.example.stocksteps.theme.StockBadgeKind
-import org.example.stocksteps.portfolio.PortfolioFormat
 import org.example.stocksteps.portfolio.PortfolioUiState
 import org.example.stocksteps.presentation.portfolio.PortfolioPresentation
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
@@ -199,18 +199,19 @@ internal fun HomePortfolioSummary(state: PortfolioUiState, onOpen: () -> Unit, m
             { Icon(StockIcons.ChevronRight, contentDescription = null, tint = colors.textTertiary, modifier = Modifier.size(StockStepsTheme.dimensions.icon)) }
         } else null)
         if (owned) {
-            Text(present.portfolioLabel(state), style = typography.label, color = colors.textSupporting)
-            Text("${state.currency} ${PortfolioFormat.amount(state.total)}", style = typography.largeNumber, color = colors.textValue)
-            val today = PortfolioPresentation.todayChange(state)
-            if (today != null) StockPriceChange("$today today", PortfolioPresentation.direction(state.dailyGain), style = typography.numberMedium, maxLines = 2)
-            else Text(PortfolioPresentation.TODAY_UNAVAILABLE, style = typography.small, color = colors.textSupporting)
+            // Phase 8A: the same total, today's change, metrics (with currency), notice and spoken summary as the Portfolio overview.
+            val overview = present.portfolioOverview(state)
+            Column(Modifier.clearAndSetSemantics { contentDescription = overview.spoken }, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+                Text(present.portfolioLabel(state), style = typography.label, color = colors.textSupporting)
+                Text(overview.total, style = typography.largeNumber, color = colors.textValue)
+                val today = overview.today
+                if (today != null) StockPriceChange("$today today", overview.todayDirection, style = typography.numberMedium, maxLines = 2)
+                else Text(PortfolioPresentation.TODAY_UNAVAILABLE, style = typography.small, color = colors.textSupporting)
+            }
             StockDivider(Modifier.padding(vertical = spacing.xs))
-            StockMetricGrid(listOf(
-                StockMetricItem("Invested cost", PortfolioFormat.amount(state.basis)),
-                StockMetricItem("Unrealized P/L", PortfolioPresentation.signedAmount(state.unrealized) ?: "—", direction = PortfolioPresentation.direction(state.unrealized)),
-                StockMetricItem("Realized P/L", PortfolioPresentation.signedAmount(state.realized) ?: "—", direction = PortfolioPresentation.direction(state.realized))
-            ), rowsWhenNarrow = true)
-            state.notice?.let { Text(it, style = typography.caption, color = colors.cautionText) }
+            StockMetricGrid(overview.metrics.map { StockMetricItem(PortfolioPresentation.keepTogether(it.label), it.value, direction = it.direction) },
+                rowsWhenNarrow = true)
+            overview.notice?.let { Text(it, style = typography.caption, color = colors.cautionText) }
             present.portfolioFreshness(state)?.let { Text(it, style = typography.caption, color = colors.textMeta) }
         } else if (state.loading) {
             HomeRowsSkeleton(2)

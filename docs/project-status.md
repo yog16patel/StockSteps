@@ -6,7 +6,13 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-17 — Phase 7E Discover with a curated universe (committed and pushed as "Make Discover work on REAL for Phase 7E with a versioned curated list of 155 US-listed companies enriched in the background from shared profile and closing-price caches, no FMP screener or per-row quote requests, dated close prices and a find-by-name-or-ticker search on Android and iOS"; not deployed; READY FOR REVIEW)**
+**2026-10-17 — Phase 8A Home and Markets UI/UX refinement (committed and pushed as "Refine Home and Markets for UI/UX Refinement Phase 8A with open borderless Markets sections, a one-line market status, the Daily Brief entry in the indices group, diverging sector bars, readable Top Movers at large iOS text and the Portfolio overview wording on Home on Android and iOS"; READY FOR REVIEW)**
+- Markets: open sections instead of 7 bordered cards, an open status block, the brief entry in the indices group, diverging sector bars,
+  readable Top Movers at iOS accessibility sizes. Home: no subtitle; portfolio summary in the Portfolio overview's wording.
+- New spacing role `pageSectionGap` (20). No new requests (12 → 12), no data or wording change for EOD / proxy / Sample / errors.
+- Report `docs/UI_UX_REFINEMENT_PHASE8.md`; package `docs/reviews/ui_ux_phase8a/`. 8B not started.
+
+**2026-10-17 — Phase 7E Discover with a curated universe (committed and pushed as "Make Discover work on REAL for Phase 7E with a versioned curated list of 155 US-listed companies enriched in the background from shared profile and closing-price caches, no FMP screener or per-row quote requests, dated close prices and a find-by-name-or-ticker search on Android and iOS"; deployed to LAN REAL 2026-10-17 — catalog 200 with 155 companies, prices pending while FMP answers 429; READY FOR REVIEW)**
 - REAL Discover works without FMP's restricted screener: a versioned list of 155 US-listed companies (11 sectors).
 - Enrichment runs in the background from the shared profile and close caches. There are no screener or per-row quote requests.
 - New Discover search field (shared search ranking). Missing data is never 0.

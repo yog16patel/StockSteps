@@ -188,6 +188,9 @@ class DesignTokensTest {
         assertEquals(16, s.cardPadding)
         assertEquals(12, s.cardPaddingCompact)
         assertEquals(s.contentGap, s.sectionGap)
+        // Phase 8A: open landing sections (Home, Markets) keep the KAN-14 20 between them, more than the bordered-card gap.
+        assertEquals(20, s.pageSectionGap)
+        assertTrue(s.pageSectionGap > s.sectionGap)
     }
 
     @Test

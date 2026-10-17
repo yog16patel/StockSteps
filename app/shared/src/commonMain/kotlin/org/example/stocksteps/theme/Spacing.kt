@@ -55,6 +55,11 @@ object ThemeSpacing {
     val listTitleSubtitle = xs
     /** Phase 5: extra space above a section that follows another in the same list or page group ("Other results" after "Best match"). */
     val sectionBreak = sm
+    /**
+     * Phase 8A: gap between open sections of a landing page (title on the page, borderless row group below), on Home (KAN-14 used the raw
+     * [xl]) and Markets. Borderless sections need more air than bordered cards ([sectionGap]) to stay apart.
+     */
+    val pageSectionGap = xl
 
     // Legacy names used by screens that have not migrated to the design system yet (tiny/small/medium/large/extraLarge are
     // still used; migrate them to the scale names when their screens are refined). The off-grid values have no users left.

@@ -36,17 +36,15 @@ struct HomeScreen: View {
 
     var body: some View {
         ScrollView {
-            // KAN-14: open sections need more air than bordered cards did — the Learn / Daily Brief section gap (xl).
-            LazyVStack(alignment: .leading, spacing: CGFloat(space.xl)) {
+            // KAN-14: open sections need more air than bordered cards did; Phase 8A names that gap (pageSectionGap, shared with Markets).
+            LazyVStack(alignment: .leading, spacing: CGFloat(space.pageSectionGap)) {
                 VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
                     header
                     Text(PersonalDashboardRules.shared.greeting(hour: Int32(localHour)))
                         .font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title2))
                         .foregroundStyle(StockStepsTheme.colors(scheme).textTitle)
                         .accessibilityAddTraits(.isHeader)
-                    Text("What matters to you today")
-                        .font(StockStepsTheme.font(type.small, relativeTo: .subheadline))
-                        .foregroundStyle(StockStepsTheme.colors(scheme).textSupporting)
+                    // Phase 8A: the greeting alone (the "What matters to you today" line repeated the page's purpose before any data).
                 }
                 // Market first (Phase 4A): the brief's index snapshot and its entry share one group.
                 if let briefModel { HomeMarketOverview(model: briefModel, onOpenBrief: onDailyBrief) }

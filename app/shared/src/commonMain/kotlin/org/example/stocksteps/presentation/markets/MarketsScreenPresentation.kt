@@ -2,11 +2,13 @@ package org.example.stocksteps.presentation.markets
 
 import org.example.stocksteps.brief.BriefFormat
 import org.example.stocksteps.brief.DailyBrief
+import org.example.stocksteps.companydetail.PriceDirection
 import org.example.stocksteps.earnings.EarningsSummaryState
 import org.example.stocksteps.markets.IndexCardModel
 import org.example.stocksteps.markets.MarketHeaderModel
 import org.example.stocksteps.markets.MarketLesson
 import org.example.stocksteps.markets.MarketsPresenter
+import org.example.stocksteps.markets.SectorRowModel
 import org.example.stocksteps.markets.SectorsModel
 import org.example.stocksteps.markets.SessionTone
 import org.example.stocksteps.model.IndexQuote
@@ -43,6 +45,13 @@ object MarketsScreenPresentation {
         MarketSessionStatus.HOLIDAY -> "Closed · ${session.holiday ?: "Market holiday"}"
         MarketSessionStatus.UNKNOWN -> "Status unavailable"
     }
+
+    /**
+     * Phase 8A: the status block's one line, "US Market · After-hours" (the page title already says Markets, so the market name and its
+     * status share a line instead of a card heading). The status words are [statusLabel] / the core header's, unchanged.
+     */
+    fun statusHeadline(header: MarketHeaderModel, session: MarketSession?): String =
+        "$STATUS_TITLE · ${session?.let(::statusLabel) ?: header.statusLabel}"
 
     /** "Next open · Fri, Oct 9 · 9:30 AM ET" / "Closes · 4:00 PM ET" from the backend calendar; null when it gave nothing. */
     fun sessionLine(session: MarketSession): String? = MarketsPresenter.sessionLine(session)
@@ -95,6 +104,25 @@ object MarketsScreenPresentation {
         MarketLesson("sector-methodology", "How sector performance is measured", sectors.methodology, listOf(sectors.period))
 
     const val SECTORS_INFO = "How sector performance is measured"
+
+    /**
+     * Phase 8A: where a sector's bar sits on its track (0..1), drawn around a centre line — a gain grows right of it, a loss left of it, so
+     * the side says the direction as well as the colour and the arrow. The length is the core [SectorRowModel.fraction] (relative to the
+     * largest move shown), halved because each side has half the track. An unchanged sector is a short tick on the centre line.
+     */
+    data class SectorBar(val start: Float, val end: Float)
+
+    fun sectorBar(row: SectorRowModel): SectorBar {
+        val half = row.fraction.coerceIn(0f, 1f) / 2f
+        return when (row.direction) {
+            PriceDirection.UP -> SectorBar(0.5f, 0.5f + half)
+            PriceDirection.DOWN -> SectorBar(0.5f - half, 0.5f)
+            else -> SectorBar(0.5f - FLAT_TICK / 2, 0.5f + FLAT_TICK / 2)
+        }
+    }
+
+    /** Width of the unchanged-sector tick (share of the track). */
+    const val FLAT_TICK = 0.02f
 
     data class ResearchTool(val id: String, val title: String, val detail: String)
 

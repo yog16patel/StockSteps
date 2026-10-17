@@ -88,4 +88,25 @@ class HomeDashboardPresentationTest {
         assertEquals("Prices as of Oct 7, 2026, 8:00 PM UTC · Offline · last saved portfolio", present.portfolioFreshness(owned.copy(offline = true)))
         assertNull(present.portfolioFreshness(PortfolioUiState()))
     }
+
+    /** Phase 8A: the Home summary reads the Portfolio overview — currency on every metric, engine codes in words, unavailable stays unavailable. */
+    @Test
+    fun portfolioSummaryUsesThePortfolioOverviewWording() {
+        val owned = PortfolioUiState(accounts = listOf(PortfolioAccount("a", "Test account")), accountName = "Test account", currency = "USD",
+            total = "1589.28", basis = "1500", unrealized = "89.28", realized = "-12.5", notice = "Unavailable: FX:USD/CAD, AAPL")
+        val overview = present.portfolioOverview(owned)
+        assertEquals("USD 1,589.28", overview.total)
+        assertTrue(overview.totalAvailable)
+        assertEquals(listOf("USD 1,500.00", "+USD 89.28", "-USD 12.50"), overview.metrics.map { it.value })
+        assertEquals("Unavailable: USD to CAD exchange rate, AAPL price", overview.notice)
+        assertNull(overview.today)
+        val missing = present.portfolioOverview(owned.copy(total = null, unrealized = null))
+        assertFalse(missing.totalAvailable)
+        assertEquals("USD —", missing.total)
+        assertEquals("USD —", missing.metrics[1].value)
+        assertTrue("Total value unavailable" in missing.spoken)
+        // An archived account isn't counted, so a single active account keeps the plain "Total value" label.
+        val withArchived = owned.copy(accounts = owned.accounts + PortfolioAccount("b", "Old", archived = true))
+        assertEquals("Total value", present.portfolioOverview(withArchived).totalLabel)
+    }
 }

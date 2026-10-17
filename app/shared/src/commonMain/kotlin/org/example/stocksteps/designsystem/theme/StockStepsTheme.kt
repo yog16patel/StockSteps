@@ -140,7 +140,8 @@ internal data class StockStepsSpacing(
     val iconText: Dp = ThemeSpacing.iconText.dp,
     val listRowVertical: Dp = ThemeSpacing.listRowVertical.dp,
     val listTitleSubtitle: Dp = ThemeSpacing.listTitleSubtitle.dp,
-    val sectionBreak: Dp = ThemeSpacing.sectionBreak.dp
+    val sectionBreak: Dp = ThemeSpacing.sectionBreak.dp,
+    val pageSectionGap: Dp = ThemeSpacing.pageSectionGap.dp
 )
 
 @Immutable

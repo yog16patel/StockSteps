@@ -168,12 +168,15 @@ struct StockRow<Trailing: View>: View {
     var sparkline: AnyView? = nil
     /// Lines for the company name; nil keeps the default (2 since Phase 5, so long names in movers aren't cut after a few letters).
     var nameLineLimit: Int? = nil
+    /// Phase 8A: the trailing values go under the name (leading-aligned) instead of beside it, for rows that would otherwise squeeze the
+    /// symbol and name at accessibility text sizes. Off by default, so existing rows are unchanged.
+    var stackTrailing = false
     let action: () -> Void
     @ViewBuilder var trailing: () -> Trailing
     var body: some View {
         let colors = StockStepsTheme.colors(scheme)
         Button(action: action) {
-            HStack(spacing: CGFloat(space.sm)) {
+            HStack(alignment: stackTrailing ? .top : .center, spacing: CGFloat(space.sm)) {
                 StockTickerAvatar(symbol: symbol, logoUrl: logoUrl, size: CGFloat(compact ? dims.logoCompact : dims.logo))
                 VStack(alignment: .leading, spacing: CGFloat(space.xxs)) {
                     Text(symbol).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary).lineLimit(1)
@@ -183,15 +186,20 @@ struct StockRow<Trailing: View>: View {
                             // Long company names get a second line (Phase 4A at large text, every size since Phase 5); prices never truncate.
                             .foregroundStyle(colors.textSupporting).lineLimit(nameLineLimit ?? 2)
                     }
+                    if stackTrailing {
+                        VStack(alignment: .leading, spacing: CGFloat(space.xxs)) { trailing() }.padding(.top, CGFloat(space.xxs))
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                if let sparkline {
+                if let sparkline, !stackTrailing {
                     sparkline.frame(width: CGFloat(dims.sparklineWidth), height: CGFloat(dims.sparklineHeight))
                 }
                 // Values keep their natural width (Phase 2): the company name truncates first, never the price or change.
-                VStack(alignment: .trailing, spacing: CGFloat(space.xxs)) { trailing() }
-                    .fixedSize(horizontal: true, vertical: false)
-                    .padding(.leading, CGFloat(space.xs))
+                if !stackTrailing {
+                    VStack(alignment: .trailing, spacing: CGFloat(space.xxs)) { trailing() }
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.leading, CGFloat(space.xs))
+                }
             }
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, CGFloat(compact ? space.xs : space.sm))

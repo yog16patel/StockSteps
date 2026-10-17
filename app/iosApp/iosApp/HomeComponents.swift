@@ -198,22 +198,26 @@ struct HomePortfolioSummary: View {
                 }
             }
             if owned {
-                Text(home.portfolioLabel(state: state)).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSupporting)
-                Text("\(state.currency) \(PortfolioFormat.shared.amount(value: state.total))")
-                    .font(StockStepsTheme.font(type.largeNumber)).foregroundStyle(colors.textValue)
-                    .minimumScaleFactor(0.7).lineLimit(2)
-                if let today = present.todayChange(state: state) {
-                    StockPriceChange(percentage: "\(today) today", direction: present.direction(amount: state.dailyGain), style: type.numberMedium, lineLimit: nil)
-                } else {
-                    Text(present.TODAY_UNAVAILABLE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                // Phase 8A: the same total, today's change, metrics (with currency), notice and spoken summary as the Portfolio overview.
+                let overview = home.portfolioOverview(state: state)
+                VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
+                    Text(home.portfolioLabel(state: state)).font(StockStepsTheme.font(type.label)).foregroundStyle(colors.textSupporting)
+                    Text(overview.total)
+                        .font(StockStepsTheme.font(type.largeNumber)).foregroundStyle(colors.textValue)
+                        .minimumScaleFactor(0.7).lineLimit(2)
+                    if let today = overview.today {
+                        StockPriceChange(percentage: "\(today) today", direction: overview.todayDirection, style: type.numberMedium, lineLimit: nil)
+                    } else {
+                        Text(present.TODAY_UNAVAILABLE).font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                    }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(overview.spoken)
                 StockDivider().padding(.vertical, CGFloat(space.xs))
-                StockMetricGrid(items: [
-                    StockMetricItem(label: "Invested cost", value: PortfolioFormat.shared.amount(value: state.basis)),
-                    StockMetricItem(label: "Unrealized P/L", value: present.signedAmount(amount: state.unrealized) ?? "—", direction: present.direction(amount: state.unrealized)),
-                    StockMetricItem(label: "Realized P/L", value: present.signedAmount(amount: state.realized) ?? "—", direction: present.direction(amount: state.realized))
-                ], rowsWhenNarrow: true)
-                if let notice = state.notice { Text(notice).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.cautionText) }
+                StockMetricGrid(items: overview.metrics.map {
+                    StockMetricItem(label: present.keepTogether(label: $0.label), value: $0.value, direction: $0.direction)
+                }, rowsWhenNarrow: true)
+                if let notice = overview.notice { Text(notice).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.cautionText) }
                 if let fresh = home.portfolioFreshness(state: state) {
                     Text(fresh).font(StockStepsTheme.font(type.caption)).foregroundStyle(colors.textMeta)
                 }

@@ -45,6 +45,13 @@ object HomeDashboardPresentation {
 
     fun hasPortfolio(state: PortfolioUiState): Boolean = state.accounts.any { !it.archived }
 
+    /**
+     * Phase 8A: the summary card's total, today's change, metrics (each with its currency), notice (engine codes in words) and spoken text
+     * come from the Portfolio overview itself, so Home never words the same figures differently. Display only.
+     */
+    fun portfolioOverview(state: PortfolioUiState): org.example.stocksteps.presentation.portfolio.PortfolioOverview =
+        org.example.stocksteps.presentation.portfolio.PortfolioOverviewDisplay.of(state, state.accounts.count { !it.archived })
+
     fun portfolioAction(state: PortfolioUiState): String = if (state.accounts.isEmpty()) "Create portfolio" else "View portfolio"
 
     /** "Total value · Test account" (the selected account, as on Portfolio). */

@@ -46,17 +46,17 @@ internal fun HomeScreen(
             LazyColumn(
                 modifier = region,
                 state = listState,
-                // KAN-14: open sections need more air than bordered cards did — the Learn / Daily Brief section gap (xl).
+                // KAN-14: open sections need more air than bordered cards did; Phase 8A names that gap (pageSectionGap, shared with Markets).
                 contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, top = spacing.md, bottom = spacing.xl),
-                verticalArrangement = Arrangement.spacedBy(spacing.xl),
+                verticalArrangement = Arrangement.spacedBy(spacing.pageSectionGap),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 item("header") {
                     Column(content, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                         PersonalHomeHeader(onAction, Modifier.fillMaxWidth())
+                        // Phase 8A: the greeting alone (the "What matters to you today" line repeated the page's purpose before any data).
                         Text(PersonalDashboardRules.greeting(localHour), Modifier.semantics { heading() }, style = StockStepsTheme.typography.sectionTitle,
                             color = StockStepsTheme.colors.textTitle)
-                        Text("What matters to you today", style = StockStepsTheme.typography.small, color = StockStepsTheme.colors.textSupporting)
                     }
                 }
                 // Market first (Phase 4A): the brief's index snapshot and its entry share one group.
