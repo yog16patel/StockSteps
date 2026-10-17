@@ -448,6 +448,13 @@ object PracticeFormat {
     fun signedMoney(value: String?, currency: String): String = value?.let { v -> runCatching { Decimal.parse(v) }.getOrNull()?.let {
         (if (it > Decimal.ZERO) "+" else "") + PracticeEngine.format(it, currency) } } ?: "—"
     fun price(value: String?, currency: String): String = value?.let { v -> runCatching { PracticeEngine.symbol(currency) + Decimal.parse(v).display(2) }.getOrNull() } ?: "—"
+    /**
+     * Phase 7A: an order preview's price. A blocked preview without a usable price (no quote, a plan-restricted quote, …) carries the
+     * server's "0" placeholder; it reads "Unavailable", never "$0.00". Trade prices are always positive.
+     */
+    fun previewPrice(preview: PracticeOrderPreview): String =
+        if (runCatching { Decimal.parse(preview.price) > Decimal.ZERO }.getOrDefault(false)) price(preview.price, preview.priceCurrency) else UNAVAILABLE_PRICE
+    const val UNAVAILABLE_PRICE = "Unavailable"
     fun percent(value: String?): String = value?.let { v -> runCatching { Decimal.parse(v) }.getOrNull()?.let { (if (it > Decimal.ZERO) "+" else if (it < Decimal.ZERO) "−" else "") + (if (it < Decimal.ZERO) -it else it).display(2) + "%" } } ?: "—"
     fun shares(value: String): String = runCatching { Decimal.parse(value).toString() }.getOrDefault(value)
     /** "1 share", "2 shares", "0.5 shares": the quantity with its noun, for every Practice label on both platforms. */

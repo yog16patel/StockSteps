@@ -76,7 +76,7 @@ private fun Entry(state: PracticeOrderState, onAction: (OrderAction) -> Unit) {
             if (state.previewing) LinearProgressIndicator(Modifier.fillMaxWidth().semantics { contentDescription = "Loading the latest price" })
             else Text(state.error ?: "Loading the latest price…", style = typography.small)
         } else {
-            Detail("Latest usable price", PracticeFormat.price(p.price, p.priceCurrency))
+            Detail("Latest usable price", PracticeFormat.previewPrice(p))
             Text(p.priceBasis + (p.quoteAsOf?.let { " · ${PracticeFormat.isoDate(it)}" } ?: ""), style = typography.caption, color = colors.textSecondary)
             if (p.priceCurrency != p.baseCurrency && p.fxRate != "0") Text("1 ${p.priceCurrency} = ${p.fxRate} ${p.baseCurrency}" + (p.fxAsOf?.let { " (Bank of Canada, $it)" } ?: ""),
                 style = typography.caption, color = colors.textSecondary)
@@ -115,13 +115,13 @@ private fun Review(state: PracticeOrderState, onAction: (OrderAction) -> Unit) {
     InstrumentHeader(state)
     Text("Review your ${verb(state.side).lowercase()}", Modifier.semantics { heading() }, style = StockStepsTheme.typography.sectionTitle)
     StockCard(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-        contentDescription = "${verb(state.side)} of ${PracticeFormat.shareCount(p.quantity)} of ${state.symbol} at about ${PracticeFormat.price(p.price, p.priceCurrency)}. " +
+        contentDescription = "${verb(state.side)} of ${PracticeFormat.shareCount(p.quantity)} of ${state.symbol} at about ${PracticeFormat.previewPrice(p)}. " +
             "Estimated total ${PracticeFormat.money(p.estimatedTotal, p.baseCurrency)}. Cash remaining ${PracticeFormat.money(p.cashAfter, p.baseCurrency)}. Simulated trade."
     }, verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Detail("Instrument", "${p.instrument.name ?: state.symbol} (${state.symbol})")
         Detail("Action", verb(state.side))
         Detail("Quantity", PracticeFormat.shareCount(p.quantity))
-        Detail("Indicative price", PracticeFormat.price(p.price, p.priceCurrency))
+        Detail("Indicative price", PracticeFormat.previewPrice(p))
         Detail("Estimated total", PracticeFormat.money(p.estimatedTotal, p.baseCurrency))
         Detail("Cash remaining", PracticeFormat.money(p.cashAfter, p.baseCurrency))
     }

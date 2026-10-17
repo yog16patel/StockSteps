@@ -717,7 +717,7 @@ struct PracticeOrderScreen: View {
         Text(verb(state)).font(StockStepsTheme.font(type.sectionTitle, relativeTo: .title2))
         VStack(alignment: .leading, spacing: CGFloat(space.xs)) {
             if let p = state.preview {
-                DetailRow(label: "Latest usable price", value: client.price(value: p.price, currency: p.priceCurrency))
+                DetailRow(label: "Latest usable price", value: client.previewPrice(preview: p))
                 Text(p.priceBasis + (client.isoDate(iso: p.quoteAsOf).map { " · \($0)" } ?? "")).font(.caption).foregroundStyle(colors.textSecondary)
                 if p.priceCurrency != p.baseCurrency && p.fxRate != "0" {
                     Text("1 \(p.priceCurrency) = \(p.fxRate) \(p.baseCurrency)" + (p.fxAsOf.map { " (Bank of Canada, \($0))" } ?? "")).font(.caption).foregroundStyle(colors.textSecondary)
@@ -774,7 +774,7 @@ struct PracticeOrderScreen: View {
                 DetailRow(label: "Instrument", value: "\(p.instrument.name ?? state.symbol) (\(state.symbol))")
                 DetailRow(label: "Action", value: verb(state))
                 DetailRow(label: "Quantity", value: client.shareCount(value: p.quantity))
-                DetailRow(label: "Indicative price", value: client.price(value: p.price, currency: p.priceCurrency))
+                DetailRow(label: "Indicative price", value: client.previewPrice(preview: p))
                 DetailRow(label: "Estimated total", value: client.money(value: p.estimatedTotal, currency: p.baseCurrency))
                 DetailRow(label: "Cash remaining", value: client.money(value: p.cashAfter, currency: p.baseCurrency))
             }

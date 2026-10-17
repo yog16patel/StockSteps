@@ -50,6 +50,7 @@ class IosPracticeClient(account: IosAccountClient) {
     fun money(value: String?, currency: String) = PracticeFormat.money(value, currency)
     fun signedMoney(value: String?, currency: String) = PracticeFormat.signedMoney(value, currency)
     fun price(value: String?, currency: String) = PracticeFormat.price(value, currency)
+    fun previewPrice(preview: PracticeOrderPreview) = PracticeFormat.previewPrice(preview)
     fun percent(value: String?) = PracticeFormat.percent(value)
     fun shares(value: String) = PracticeFormat.shares(value)
     fun shareCount(value: String) = PracticeFormat.shareCount(value)

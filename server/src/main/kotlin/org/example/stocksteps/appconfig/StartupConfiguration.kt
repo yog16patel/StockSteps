@@ -68,7 +68,19 @@ object StartupConfiguration {
 
         // Phase 4C budgets: malformed numbers fail; on Cloud Run the plan limits and instance count must be explicit.
         positiveInt("CLOUD_RUN_MAX_INSTANCES")
-        for (provider in PROVIDERS) for (suffix in listOf("PER_MINUTE", "BURST", "CONCURRENCY", "DAILY_TARGET")) positiveInt("PROVIDER_${provider}_$suffix")
+        for (provider in PROVIDERS) for (suffix in listOf("PER_MINUTE", "BURST", "CONCURRENCY", "DAILY_TARGET", "DAILY_LIMIT")) positiveInt("PROVIDER_${provider}_$suffix")
+        // Phase 7A: the daily allowance is separate from the per-minute rate and is never inferred from it.
+        for (provider in PROVIDERS) {
+            val target = value("PROVIDER_${provider}_DAILY_TARGET")?.toLongOrNull()
+            val limit = value("PROVIDER_${provider}_DAILY_LIMIT")?.toLongOrNull()
+            if (target != null && limit != null && target > limit)
+                warnings += "PROVIDER_${provider}_DAILY_TARGET is above PROVIDER_${provider}_DAILY_LIMIT: the target alert can never fire before the limit refuses calls."
+            val perMinute = value("PROVIDER_${provider}_PER_MINUTE")?.toLongOrNull()
+            if (limit != null && perMinute != null && limit < perMinute)
+                warnings += "PROVIDER_${provider}_DAILY_LIMIT is below PROVIDER_${provider}_PER_MINUTE: check that the per-minute value isn't the plan's daily figure."
+        }
+        if (value("PROVIDER_FMP_DAILY_LIMIT") == null)
+            warnings += "PROVIDER_FMP_DAILY_LIMIT is not set: no daily FMP allowance is enforced (set it only to the account's confirmed daily limit)."
         value("PROVIDER_SAFETY_MARGIN")?.let { if (it.toDoubleOrNull()?.takeIf { m -> m in 0.1..1.0 } == null) errors += "PROVIDER_SAFETY_MARGIN must be a number from 0.1 to 1.0" }
         if (cloudRun) {
             val missing = (listOf("CLOUD_RUN_MAX_INSTANCES") + PROVIDERS.map { "PROVIDER_${it}_PER_MINUTE" }).filter { value(it) == null }

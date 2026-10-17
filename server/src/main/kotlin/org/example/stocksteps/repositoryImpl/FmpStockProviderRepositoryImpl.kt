@@ -131,10 +131,24 @@ class FmpStockProviderRepositoryImpl(
         return profile.toCompanyProfile()
     }
 
-    override suspend fun getQuote(symbol: String): StockQuote? = financialCache.getOrLoad(
-        "quote:$symbol",
-        freshness.ttl(org.example.stocksteps.service.SessionData.QUOTE, symbol)
-    ) { loadQuote(symbol).let { listOfNotNull(it) } }.firstOrNull()
+    /** A quote request's result: the quote (null = the provider has none for the symbol) or the typed provider failure. */
+    private class QuoteOutcome(val quote: StockQuote?, val failure: StockProviderException?)
+
+    /**
+     * Phase 7A: the outcome is cached, not only a success. A refusal is remembered with the shared [providerCooldown] (402/403 1 h, 429
+     * 10 min, a local daily-allowance denial or other failures 30 s) and rethrown with its original classification, so a symbol the plan
+     * doesn't serve isn't re-requested on every read (Markets sectors, Watchlist, Practice). Successes keep the session-aware lifetime;
+     * concurrent callers still share one request (single flight). A failure is never turned into a quote or a price.
+     */
+    override suspend fun getQuote(symbol: String): StockQuote? {
+        val ttl = freshness.ttl(org.example.stocksteps.service.SessionData.QUOTE, symbol)
+        val outcome = financialCache.getOrLoad("quote:$symbol", ttl,
+            resultTtl = { it: QuoteOutcome -> org.example.stocksteps.service.providerCooldown(it.failure, ttl) }) {
+            try { QuoteOutcome(loadQuote(symbol), null) } catch (cause: StockProviderException) { QuoteOutcome(null, cause) }
+        }
+        outcome.failure?.let { throw it }
+        return outcome.quote
+    }
 
     private suspend fun loadQuote(symbol: String): StockQuote? {
         val quotes = client

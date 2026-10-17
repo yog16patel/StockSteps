@@ -27,4 +27,14 @@ class PracticeFormatTest {
         assertFalse(", ." in text)
         assertTrue(text.endsWith("Price from an earlier session."), text)
     }
+
+    /** Phase 7A: a blocked preview's "0" placeholder (no quote, plan-restricted quote) is never shown as "$0.00". */
+    @Test fun aPreviewWithoutAUsablePriceSaysUnavailable() {
+        fun preview(price: String, blocker: PracticeBlocker? = null) = PracticeOrderPreview(
+            PracticeInstrument("XLK", "XLK", null, "NYSEARCA", "USD", InstrumentKind.ETF), OrderSide.BUY, "1", price, "USD", "0", null, "CAD",
+            "0", "10000", "10000", null, "Unavailable", "0", true, 0, blocker = blocker)
+        assertEquals("Unavailable", PracticeFormat.previewPrice(preview("0", PracticeBlocker("QUOTE_RESTRICTED", "x"))))
+        assertEquals("Unavailable", PracticeFormat.previewPrice(preview("not a number")))
+        assertEquals("US\$123.45", PracticeFormat.previewPrice(preview("123.45")))
+    }
 }

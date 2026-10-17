@@ -22,8 +22,12 @@ class ProviderPriorityElement(val priority: ProviderPriority) : AbstractCoroutin
 /**
  * Plan-level limits for one provider. All values describe the **whole deployment**; each instance enforces
  * `value × safetyMargin ÷ maxInstances` ([ProviderBudgetConfig.local]). [dailySoftTarget] only raises an alert event.
+ * Phase 7A: [dailyLimit] is a hard daily allowance (env `PROVIDER_<NAME>_DAILY_LIMIT`), separate from the per-minute rate: once this
+ * instance's share is used, further attempts are refused locally until the next budget day (UTC). Null = not enforced; it is never
+ * derived from the per-minute value or from a published plan the account hasn't confirmed.
  */
-data class ProviderLimits(val perMinute: Int, val burst: Int = perMinute, val maxConcurrent: Int, val dailySoftTarget: Long? = null)
+data class ProviderLimits(val perMinute: Int, val burst: Int = perMinute, val maxConcurrent: Int, val dailySoftTarget: Long? = null,
+                          val dailyLimit: Long? = null)
 
 data class ProviderBudgetConfig(
     val limits: Map<String, ProviderLimits>,
@@ -44,7 +48,8 @@ data class ProviderBudgetConfig(
         perMinute = (l.perMinute * safetyMargin / maxInstances).toInt().coerceAtLeast(1),
         burst = (l.burst * safetyMargin / maxInstances).toInt().coerceAtLeast(1),
         maxConcurrent = (l.maxConcurrent / maxInstances).coerceAtLeast(1),
-        dailySoftTarget = l.dailySoftTarget?.let { (it / maxInstances).coerceAtLeast(1) }
+        dailySoftTarget = l.dailySoftTarget?.let { (it / maxInstances).coerceAtLeast(1) },
+        dailyLimit = l.dailyLimit?.let { (it * safetyMargin / maxInstances).toLong().coerceAtLeast(1) }
     )
 
     companion object {
@@ -67,7 +72,7 @@ data class ProviderBudgetConfig(
                 val perMinute = value("PER_MINUTE")
                 if (perMinute == null) verified = false
                 ProviderLimits(perMinute?.toInt() ?: d.perMinute, value("BURST")?.toInt() ?: perMinute?.toInt() ?: d.burst,
-                    value("CONCURRENCY")?.toInt() ?: d.maxConcurrent, value("DAILY_TARGET"))
+                    value("CONCURRENCY")?.toInt() ?: d.maxConcurrent, value("DAILY_TARGET"), value("DAILY_LIMIT"))
             }
             val instances = env("CLOUD_RUN_MAX_INSTANCES")?.toIntOrNull()?.takeIf { it >= 1 }
             if (instances == null) verified = false
@@ -84,6 +89,12 @@ data class ProviderBudgetConfig(
  * bucket and waits briefly; NORMAL and LOW (screener warm-up) can't dip into the interactive reserve and don't wait (LOW) — they're
  * deferred instead. A denial is a [StockProviderException] (`UNAVAILABLE`, no upstream status), so callers fall back exactly as for a
  * provider outage: cached/stale data, honest unavailability, AI fallbacks — never invented values.
+ *
+ * Daily allowance (Phase 7A): with [ProviderLimits.dailyLimit] set, the attempt that would exceed this instance's share for the budget day (UTC)
+ * is refused locally with [StockProviderException.dailyLimitReached] (`RATE_LIMITED`, no upstream status), for every priority, without waiting.
+ * The check and the count happen under the lane lock together with the token, so concurrent callers can't overshoot. The day is StockSteps'
+ * own counter day: the provider's reset time isn't known, so this protects a configured allowance, not the provider's exact window. A provider
+ * 429 never switches this state on (a 429 alone doesn't say which limit was hit); it opens the circuit breaker as before.
  *
  * Circuit breaker: a 429 opens the provider for `Retry-After` (else 30 s, doubling while it repeats, ≤ 5 min); five consecutive 5xx/timeouts
  * open that endpoint the same way. After the pause one trial call is allowed (half-open); success closes it. 402/403 don't trip it
@@ -108,7 +119,7 @@ class ProviderGuard(val config: ProviderBudgetConfig, private val now: () -> Lon
         var tokens = limits.burst.toDouble(); var refilledAt = now()
         val breaker = Breaker()
         val endpointBreakers = ConcurrentHashMap<String, Breaker>()
-        var day = ""; val today = AtomicLong(); var warned = false
+        var day = ""; val today = AtomicLong(); var warned = false; var dailyDenied = false
         fun refill(t: Long) {
             tokens = (tokens + (t - refilledAt) * limits.perMinute / 60_000.0).coerceAtMost(limits.burst.toDouble()); refilledAt = t
         }
@@ -141,18 +152,30 @@ class ProviderGuard(val config: ProviderBudgetConfig, private val now: () -> Lon
         while (true) {
             val waitMillis = synchronized(lane) {
                 val t = now()
-                lane.refill(t)
-                if (lane.tokens - 1 >= reserve) { lane.tokens -= 1; 0L } else (((reserve + 1 - lane.tokens) * 60_000.0 / lane.limits.perMinute).toLong() + 1)
+                rollDay(lane, t)
+                val daily = lane.limits.dailyLimit
+                if (daily != null && lane.today.get() >= daily) -1L
+                else {
+                    lane.refill(t)
+                    // The token and the day's count are taken together, so concurrent callers can't exceed the daily allowance.
+                    if (lane.tokens - 1 >= reserve) { lane.tokens -= 1; lane.today.incrementAndGet(); 0L }
+                    else (((reserve + 1 - lane.tokens) * 60_000.0 / lane.limits.perMinute).toLong() + 1)
+                }
             }
+            if (waitMillis == -1L) { trial?.let { synchronized(lane) { it.trialInFlight = false } }; return denyDaily(provider, endpoint, lane) }
             if (waitMillis == 0L) break
             if (now() + waitMillis > deadline) { trial?.let { synchronized(lane) { it.trialInFlight = false } }; return deny(provider, endpoint, if (priority == ProviderPriority.HIGH) "rate" else "deferred.${priority.name.lowercase()}") }
             sleep(waitMillis)
         }
         if (!lane.permits.tryAcquire()) {
             val waited = kotlinx.coroutines.withTimeoutOrNull(config.slotWaitMillis[priority] ?: 0) { lane.permits.acquire() }
-            if (waited == null) { trial?.let { synchronized(lane) { it.trialInFlight = false } }; return deny(provider, endpoint, "concurrency") }
+            if (waited == null) {
+                // Not sent: give the day's count back.
+                synchronized(lane) { trial?.trialInFlight = false; if (lane.today.get() > 0) lane.today.decrementAndGet() }
+                return deny(provider, endpoint, "concurrency")
+            }
         }
-        countDay(provider, lane)
+        dailyTarget(provider, lane)
         meter.event("provider.$provider.budget.admitted.${priority.name.lowercase()}")
         return Permit(provider, endpoint, trial, true)
     }
@@ -163,10 +186,21 @@ class ProviderGuard(val config: ProviderBudgetConfig, private val now: () -> Lon
         throw StockProviderException(StockProviderException.Failure.UNAVAILABLE)
     }
 
-    private fun countDay(provider: String, lane: Lane) {
-        val day = Instant.ofEpochMilli(now()).atZone(ZoneOffset.UTC).toLocalDate().toString()
-        synchronized(lane) { if (lane.day != day) { lane.day = day; lane.today.set(0); lane.warned = false } }
-        val n = lane.today.incrementAndGet()
+    /** Must hold the lane lock. Starts a new budget day (UTC) for the daily count, target warning and allowance. */
+    private fun rollDay(lane: Lane, t: Long) {
+        val day = Instant.ofEpochMilli(t).atZone(ZoneOffset.UTC).toLocalDate().toString()
+        if (lane.day != day) { lane.day = day; lane.today.set(0); lane.warned = false; lane.dailyDenied = false }
+    }
+
+    private fun denyDaily(provider: String, endpoint: String, lane: Lane): Nothing {
+        if (synchronized(lane) { !lane.dailyDenied.also { lane.dailyDenied = true } }) meter.event("provider.$provider.dailyLimitReached")
+        meter.event("provider.$provider.budget.denied.dailyLimit")
+        meter.record(provider, endpoint, "budget", "budgetDenied")
+        throw StockProviderException(StockProviderException.Failure.RATE_LIMITED, dailyLimitReached = true)
+    }
+
+    private fun dailyTarget(provider: String, lane: Lane) {
+        val n = lane.today.get()
         val target = lane.limits.dailySoftTarget ?: return
         if (n > target && synchronized(lane) { !lane.warned.also { lane.warned = true } }) meter.event("provider.$provider.dailyTargetExceeded")
     }
@@ -202,6 +236,12 @@ class ProviderGuard(val config: ProviderBudgetConfig, private val now: () -> Lon
         b.openUntil = t + b.pause
         b.failures = 0
         meter.event("provider.$provider.circuitOpened.$why")
+    }
+
+    /** Diagnostics: attempts admitted for [provider] on this instance in the current budget day (UTC), and its local daily allowance. */
+    fun dailyUsage(provider: String): Pair<Long, Long?>? {
+        val lane = lanes[provider] ?: return null
+        return synchronized(lane) { rollDay(lane, now()); lane.today.get() to lane.limits.dailyLimit }
     }
 
     /** Diagnostics: whether [provider] (or one of its endpoints) is currently refusing calls. */

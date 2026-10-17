@@ -24,25 +24,30 @@ class WatchMarketData(
     private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 2_048, name = "watch"),
     private val timeoutMillis: Long = 8_000
 ) : AlertMarketData {
-    private class Box<T>(val value: T?)
+    /** A cached read: the value, or null with the typed provider failure when the read failed (Phase 7A keeps the failure). */
+    private class Box<T>(val value: T?, val failure: org.example.stocksteps.repository.StockProviderException? = null)
     private val permits = Semaphore(6)
 
     override suspend fun quote(symbol: String): StockQuote? = cached("quote|$symbol", QUOTE_TTL) { stocks.getStock(symbol) }
+    /** Phase 7A: the symbol's quote is refused by the provider plan (402/403), as opposed to missing or temporarily failing. Same cached read. */
+    suspend fun quoteRestricted(symbol: String): Boolean = box("quote|$symbol", QUOTE_TTL) { stocks.getStock(symbol) }.failure?.restricted == true
     suspend fun profile(symbol: String): CompanyProfile? = cached("profile|$symbol", PROFILE_TTL) { stocks.getProfile(symbol) }
     override suspend fun currency(symbol: String): String? = profile(symbol)?.currency
     suspend fun upcomingEarnings(symbol: String): UpcomingEarnings? = earnings?.let { source -> cached("earnings|$symbol", EARNINGS_TTL) { source.upcoming(symbol) } }
     suspend fun recentEarningsResult(symbol: String): org.example.stocksteps.earnings.EarningsEvent? = earnings?.let { source -> cached("earnings-result|$symbol", RESULT_TTL) { source.recentResult(symbol) } }
     suspend fun companyNews(symbol: String): List<NewsArticle> = runCatching { news.companyFeed(symbol) }.getOrDefault(emptyList())
 
-    private suspend fun <T> cached(key: String, ttl: Long, load: suspend () -> T?): T? =
+    private suspend fun <T> cached(key: String, ttl: Long, load: suspend () -> T?): T? = box(key, ttl, load).value
+
+    private suspend fun <T> box(key: String, ttl: Long, load: suspend () -> T?): Box<T> =
         cache.getOrLoad(key, ttl, resultTtl = { if (it.value == null) FAILURE_TTL else ttl }) {
-            Box(permits.withPermit {
-                try { withTimeoutOrNull(timeoutMillis) { load() } } catch (cause: Exception) {
+            permits.withPermit {
+                try { Box(withTimeoutOrNull(timeoutMillis) { load() }) } catch (cause: Exception) {
                     if (cause is CancellationException) throw cause
-                    null
+                    Box<T>(null, cause as? org.example.stocksteps.repository.StockProviderException)
                 }
-            })
-        }.value
+            }
+        }
 
     companion object {
         private const val QUOTE_TTL = 60_000L

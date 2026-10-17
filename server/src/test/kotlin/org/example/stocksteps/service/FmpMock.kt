@@ -32,6 +32,8 @@ internal class FmpMock(private val universeSize: Int = 30, private val latency: 
     @Volatile var newQuarter: Pair<String, String>? = null
     /** Revenue added to the newest quarter (a provider correction). */
     @Volatile var correction = 0.0
+    /** Phase 7A: "endpoint|SYMBOL" (or "SYMBOL" for every endpoint) → HTTP status (e.g. a plan that refuses some symbols' quotes with 402). */
+    val symbolStatus = ConcurrentHashMap<String, Int>()
     /** Symbols whose requests fail with 503 (any endpoint). */
     val failSymbols: MutableSet<String> = ConcurrentHashMap.newKeySet()
     /** Requests answered with an error status. */
@@ -86,7 +88,7 @@ internal class FmpMock(private val universeSize: Int = 30, private val latency: 
         try { if (latency > 0) delay(latency) } finally { inFlight.decrementAndGet() }
         if (knownSymbols?.let { request.url.parameters["symbol"] != null && symbol !in it } == true && path != "company-screener" && !path.startsWith("calendar"))
             return@MockEngine respond("[]", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()))
-        (status[path] ?: 503.takeIf { request.url.parameters["symbol"]?.let { it in failSymbols } == true })?.let { failed.incrementAndGet(); return@MockEngine respond("""{"error":"x"}""", HttpStatusCode.fromValue(it), headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())) }
+        (status[path] ?: request.url.parameters["symbol"]?.let { symbolStatus["$path|$it"] ?: symbolStatus[it] } ?: 503.takeIf { request.url.parameters["symbol"]?.let { it in failSymbols } == true })?.let { failed.incrementAndGet(); return@MockEngine respond("""{"error":"x"}""", HttpStatusCode.fromValue(it), headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())) }
         val body = when (path) {
             "quote" -> """[{"symbol":"$symbol","price":100.0,"previousClose":99.0,"timestamp":1791396000}]"""
             "profile" -> """[{"symbol":"$symbol","companyName":"$symbol Corp","currency":"${if (symbol.endsWith(".TO")) "CAD" else "USD"}","exchange":"${if (symbol.endsWith(".TO")) "TSX" else "NASDAQ"}","sector":"Technology","industry":"Software"}]"""

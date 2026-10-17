@@ -38,7 +38,10 @@ class SparklineService(
  */
 internal fun providerCooldown(failure: StockProviderException?, success: Long): Long = when {
     failure == null -> success
-    failure.upstreamStatus == 402 || failure.upstreamStatus == 403 -> FinancialCachePolicy.ACCESS_COOLDOWN
+    // Phase 7A: a local daily-allowance denial made no upstream request; check the (cheap) guard again soon, so the first reads after the
+    // reset recover quickly.
+    failure.dailyLimitReached -> FinancialCachePolicy.FAILURE
+    failure.restricted -> FinancialCachePolicy.ACCESS_COOLDOWN
     failure.failure == StockProviderException.Failure.RATE_LIMITED -> RATE_LIMIT_COOLDOWN
     else -> FinancialCachePolicy.FAILURE
 }

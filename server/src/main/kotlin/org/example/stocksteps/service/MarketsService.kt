@@ -149,9 +149,14 @@ class MarketsService(
     }
 
     private suspend fun loadSectors(): List<SectorPerformance> = coroutineScope {
+        val refusals = java.util.concurrent.ConcurrentLinkedQueue<StockProviderException>()
         val rows = SECTORS.map { (sector, symbol, fund) ->
             async {
-                val quote = attempt { quote(symbol) }
+                val quote = try { quote(symbol) } catch (cause: Exception) {
+                    if (cause is CancellationException && cause !is kotlinx.coroutines.TimeoutCancellationException) throw cause
+                    (cause as? StockProviderException)?.takeIf { it.restricted }?.let(refusals::add)
+                    null
+                }
                 val price = quote?.price?.takeIf { it.valid() }
                 val previous = quote?.previousClose?.takeIf { it.valid() }
                 val percent = if (price != null && previous != null) (price / previous - 1) * 100 else quote?.changePercent?.takeIf { it.isFinite() }
@@ -162,7 +167,8 @@ class MarketsService(
         // Only funds quoted on the same (latest) session are compared; others are left out.
         val latest = rows.mapNotNull { it.second }.maxOrNull()
         val usable = rows.filter { it.third && (latest == null || it.second == null || it.second == latest) }.map { it.first }
-        if (usable.isEmpty()) throw StockProviderException(StockProviderException.Failure.UNAVAILABLE)
+        // Phase 7A: when the plan refused every fund, the section says so (PROVIDER_RESTRICTED, 1 h section cooldown) instead of "temporarily".
+        if (usable.isEmpty()) throw refusals.takeIf { it.size == SECTORS.size }?.peek() ?: StockProviderException(StockProviderException.Failure.UNAVAILABLE)
         usable.sortedByDescending { it.changePercent }
     }
 

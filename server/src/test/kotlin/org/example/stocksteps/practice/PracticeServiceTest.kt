@@ -39,8 +39,12 @@ class FakeMarket : PracticeMarket {
     val timestamps = mutableMapOf<String, Long>()
     val currencies = mapOf("RY.TO" to "CAD", "SHOP.TO" to "CAD", "XIU.TO" to "CAD", "EUR1" to "EUR")
     val quoteCalls = AtomicInteger()
+    /** Phase 7A: symbols whose quote the provider plan refuses (402/403): no quote, flagged as restricted. */
+    val restricted = mutableSetOf<String>()
+    override suspend fun quoteRestricted(symbol: String) = symbol in restricted
     override suspend fun quote(symbol: String): StockQuote? {
         quoteCalls.incrementAndGet()
+        if (symbol in restricted) return null
         val price = prices[symbol] ?: return null
         return StockQuote(symbol, "$symbol Inc.", price, 0.0, 0.0, null, null, timestamp = timestamps[symbol] ?: sessionClose)
     }
@@ -308,6 +312,25 @@ class PracticeServiceTest {
         assertEquals("50", perf.change)
         assertEquals("RANGE_LOCKED", code { svc.performance("alice", "1Y") })
         assertEquals(listOf(PracticeRange.THREE_MONTHS, PracticeRange.YEAR, PracticeRange.ALL), perf.locked)
+    }
+
+    @Test fun aPlanRestrictedQuoteBlocksTradingWithItsOwnReasonAndIsNeverValued(): Unit = runBlocking {
+        buy("AAPL")
+        market.restricted += "AAPL"
+        val preview = svc.preview("alice", PracticeOrderRequest("AAPL", OrderSide.BUY, quantity = "1"))
+        assertEquals("QUOTE_RESTRICTED", preview.blocker?.code)
+        assertTrue(preview.blocker!!.message.contains("market data plan") && preview.blocker!!.message.contains("Trying again won't help"))
+        // The contract's no-price placeholder ("0", unchanged) is never shown as a price.
+        assertEquals("0", preview.price)
+        assertEquals(org.example.stocksteps.practice.PracticeFormat.UNAVAILABLE_PRICE, org.example.stocksteps.practice.PracticeFormat.previewPrice(preview))
+        assertEquals("QUOTE_RESTRICTED", code { svc.execute("alice", PracticeOrderRequest("AAPL", OrderSide.BUY, quantity = "1", idempotencyKey = key(), reviewedPrice = "100")) })
+        val o = svc.overview("alice")
+        assertNull(o.totalValue); assertNull(o.holdings.single().marketValue)
+        assertEquals(ValuationStatus.UNAVAILABLE, o.valuationStatus)
+        assertEquals(1, o.holdings.size, "the holding stays; only its value is unavailable")
+        // A merely missing quote keeps the existing QUOTE_MISSING (retry offered in the apps).
+        market.restricted.clear(); market.prices.remove("GONE")
+        assertEquals("QUOTE_MISSING", svc.preview("alice", PracticeOrderRequest("GONE", OrderSide.BUY, quantity = "1")).blocker?.code)
     }
 
     @Test fun missingPricesAreNeverEstimated(): Unit = runBlocking {

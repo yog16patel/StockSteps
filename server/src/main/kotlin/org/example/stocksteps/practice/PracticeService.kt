@@ -25,12 +25,15 @@ interface PracticeMarket {
     suspend fun quote(symbol: String): StockQuote?
     suspend fun profile(symbol: String): org.example.stocksteps.model.CompanyProfile?
     suspend fun closes(symbol: String): List<PricePoint>
+    /** Phase 7A: whether the last quote attempt for [symbol] was refused by the provider plan (402/403), not merely missing. */
+    suspend fun quoteRestricted(symbol: String): Boolean = false
 }
 
 class WatchPracticeMarket(private val data: WatchMarketData, private val dailyCloses: suspend (String) -> List<PricePoint>) : PracticeMarket {
     override suspend fun quote(symbol: String) = data.quote(symbol)
     override suspend fun profile(symbol: String) = data.profile(symbol)
     override suspend fun closes(symbol: String) = dailyCloses(symbol)
+    override suspend fun quoteRestricted(symbol: String) = data.quoteRestricted(symbol)
 }
 
 /** A cash dividend or a split, in the instrument's currency. */
@@ -180,7 +183,10 @@ class PracticeService(
             ?: return null to PracticeBlocker("UNSUPPORTED_INSTRUMENT", "This investment can't be used in the Practice Portfolio because its trading currency isn't available.")
         if (instrument.currency !in setOf("USD", "CAD")) return null to PracticeBlocker("UNSUPPORTED_INSTRUMENT", "Only investments priced in Canadian or US dollars can be practised right now.")
         val price = quote?.price?.takeIf { it.isFinite() && it > 0 }
-            ?: return null to PracticeBlocker("QUOTE_MISSING", "There's no price for ${instrument.symbol} right now, so a practice trade can't be simulated.")
+            ?: return null to (if (quote == null && safe { market.quoteRestricted(symbol) } == true)
+                // Phase 7A: the plan doesn't serve this symbol's quote — say so instead of "no price right now" (no Retry in the apps).
+                PracticeBlocker("QUOTE_RESTRICTED", "This server's market data plan doesn't include a price for ${instrument.symbol}, so a practice trade can't be simulated. Trying again won't help.")
+            else PracticeBlocker("QUOTE_MISSING", "There's no price for ${instrument.symbol} right now, so a practice trade can't be simulated."))
         val marketNow = marketClock.instant()
         val fresh = rules.freshQuote(quote, marketNow)
             ?: return null to PracticeBlocker("QUOTE_STALE", "The latest price for ${instrument.symbol} is from an earlier trading session, so it isn't used for a practice trade. Try again when an up-to-date price is available.")
@@ -356,7 +362,7 @@ class PracticeService(
 
     private fun blockerStatus(code: String) = when (code) {
         "HOLDING_LIMIT" -> 403
-        "QUOTE_STALE", "QUOTE_MISSING", "FX_UNAVAILABLE" -> 409
+        "QUOTE_STALE", "QUOTE_MISSING", "QUOTE_RESTRICTED", "FX_UNAVAILABLE" -> 409
         else -> 400
     }
 
