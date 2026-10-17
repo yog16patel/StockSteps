@@ -155,17 +155,18 @@ object AlphaVantageStatements {
      */
     fun merge(loaded: Map<Statement, AlphaVantageParsers.Statement>, quarterly: Boolean, verifiedQuarters: Boolean = true): List<FinancialPeriodStatement> {
         val income = loaded[Statement.INCOME] ?: return emptyList()
-        val incomeTrusted = if (quarterly && verifiedQuarters) AlphaVantageFundamentalsMapper.quarterTrust(income, "totalRevenue").trusted else null
-        val cashTrusted = if (quarterly && verifiedQuarters) AlphaVantageFundamentalsMapper.quarterTrust(loaded[Statement.CASH_FLOW], "operatingCashflow").trusted else null
+        // Per-field trust (Phase 9B.9A finalization): each quarterly income or cash-flow field must verify on its own.
+        val incomeTrusted = if (quarterly && verifiedQuarters) AlphaVantageFundamentalsMapper.trustedByField(income, INCOME_FIELDS) else null
+        val cashTrusted = if (quarterly && verifiedQuarters) AlphaVantageFundamentalsMapper.trustedByField(loaded[Statement.CASH_FLOW], CASH_FIELDS) else null
         val fyEndMonth = income.annual.map { periodMonth(it.fiscalDateEnding) }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
         fun reports(s: Statement) = loaded[s]?.let { if (quarterly) it.quarterly else it.annual }.orEmpty().associateBy { it.fiscalDateEnding }
         val inc = reports(Statement.INCOME); val bal = reports(Statement.BALANCE); val cf = reports(Statement.CASH_FLOW)
         return inc.keys.sortedDescending().mapNotNull { end ->
             val label = if (!quarterly) "FY" else quarterLabel(end, fyEndMonth) ?: return@mapNotNull null
             val fiscalYear = if (!quarterly || fyEndMonth == null) (if (end.dayOfMonth <= 7 && end.monthValue == 1) end.year - 1 else end.year) else fiscalYearOf(end, fyEndMonth)
-            val i = inc.getValue(end).values.takeIf { incomeTrusted == null || end in incomeTrusted }.orEmpty()
+            val i = inc.getValue(end).values.filterKeys { f -> incomeTrusted == null || end in incomeTrusted[f].orEmpty() }
             val b = bal[end]?.values.orEmpty()
-            val c = cf[end]?.values?.takeIf { cashTrusted == null || end in cashTrusted }.orEmpty()
+            val c = cf[end]?.values.orEmpty().filterKeys { f -> cashTrusted == null || end in cashTrusted[f].orEmpty() }
             val ocf = v(c, "operatingCashflow")
             val capex = v(c, "capitalExpenditures")?.let { if (it < 0) -it else it }
             FinancialPeriodStatement(label, fiscalYear, end.toString(), inc.getValue(end).currency,
@@ -178,6 +179,10 @@ object AlphaVantageStatements {
                 currentLiabilities = v(b, "totalCurrentLiabilities"))
         }
     }
+
+    /** Quarterly fields checked one by one (fields not listed are never taken from quarterly reports). */
+    private val INCOME_FIELDS = listOf("totalRevenue", "grossProfit", "operatingIncome", "netIncome")
+    private val CASH_FIELDS = listOf("operatingCashflow", "capitalExpenditures", "dividendPayout")
 
     /** The month a period end belongs to: 52/53-week periods can end a few days into the next month (use the nearest month end). */
     fun periodMonth(end: LocalDate): Int = if (end.dayOfMonth <= 7) end.minusDays(end.dayOfMonth.toLong()).monthValue else end.monthValue

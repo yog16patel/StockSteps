@@ -107,6 +107,13 @@ object AlphaVantageFundamentalsMapper {
         return QuarterTrust(basis, trusted, years, recent.map { it.fiscalYearEnd })
     }
 
+    /**
+     * Phase 9B.9A finalization: trust **per field** — a quarterly value of [fields] is used only when that field itself verifies as standalone
+     * for the recent years (one field's verdict never vouches for another, e.g. revenue for net income or operating cash flow for capex).
+     */
+    fun trustedByField(s: AlphaVantageParsers.Statement?, fields: Collection<String>): Map<String, Set<LocalDate>> =
+        fields.associateWith { quarterTrust(s, it).trusted }
+
     /** The statement-level verdict (see [quarterTrust]). */
     fun quarterBasis(s: AlphaVantageParsers.Statement?, field: String): QuarterBasis = quarterTrust(s, field).basis
 
@@ -117,8 +124,8 @@ object AlphaVantageFundamentalsMapper {
     fun history(symbol: String, income: AlphaVantageParsers.Statement?, balance: AlphaVantageParsers.Statement?, cash: AlphaVantageParsers.Statement?,
                 retrievedAt: Instant): CompanyFinancialHistory {
         val fyMonth = income?.annual?.map { AlphaVantageStatements.periodMonth(it.fiscalDateEnding) }?.groupingBy { it }?.eachCount()?.maxByOrNull { it.value }?.key
-        val incomeTrusted = quarterTrust(income, "totalRevenue").trusted
-        val cashTrusted = quarterTrust(cash, "operatingCashflow").trusted
+        val incomeTrusted = trustedByField(income, INCOME.values)
+        val cashTrusted = trustedByField(cash, CASH.values)
         fun rv(v: BigDecimal, field: String, currency: String?) = ReportedValue(v, currency ?: "", "av:$field", "alphavantage")
         fun periods(quarterly: Boolean): List<FinancialPeriod> {
             val inc = (if (quarterly) income?.quarterly else income?.annual).orEmpty()
@@ -131,10 +138,11 @@ object AlphaVantageFundamentalsMapper {
                 val start = (previousEnd?.takeIf { ChronoUnit.DAYS.between(it, r.fiscalDateEnding) in (if (quarterly) 80L..100L else 350L..380L) }
                     ?: r.fiscalDateEnding.minusMonths(if (quarterly) 3 else 12)).plusDays(1)
                 val values = HashMap<FinancialConcept, ReportedValue>()
-                if (!quarterly || r.fiscalDateEnding in incomeTrusted) INCOME.forEach { (c, f) -> r.values[f]?.let { values[c] = rv(it, f, r.currency) } }
+                INCOME.forEach { (c, f) -> if (!quarterly || r.fiscalDateEnding in incomeTrusted.getValue(f)) r.values[f]?.let { values[c] = rv(it, f, r.currency) } }
                 bal[r.fiscalDateEnding]?.takeIf { it.currency == r.currency }?.let { b -> BALANCE.forEach { (c, f) -> b.values[f]?.let { values[c] = rv(it, f, b.currency) } } }
-                if (!quarterly || r.fiscalDateEnding in cashTrusted) cf[r.fiscalDateEnding]?.takeIf { it.currency == r.currency }?.let { c -> CASH.forEach { (k, f) ->
-                    c.values[f]?.let { v -> values[k] = rv(if (k == FinancialConcept.CAPITAL_EXPENDITURE) v.abs() else v, f, c.currency) } } }
+                cf[r.fiscalDateEnding]?.takeIf { it.currency == r.currency }?.let { c -> CASH.forEach { (k, f) ->
+                    if (!quarterly || r.fiscalDateEnding in cashTrusted.getValue(f))
+                        c.values[f]?.let { v -> values[k] = rv(if (k == FinancialConcept.CAPITAL_EXPENDITURE) v.abs() else v, f, c.currency) } } }
                 val fy = if (!quarterly || fyMonth == null) r.fiscalDateEnding.year.let { if (r.fiscalDateEnding.dayOfMonth <= 7 && r.fiscalDateEnding.monthValue == 1) it - 1 else it }
                     else AlphaVantageStatements.fiscalYearOf(r.fiscalDateEnding, fyMonth)
                 FinancialPeriod(fy, label, start, r.fiscalDateEnding, r.currency, values)
@@ -221,7 +229,10 @@ object AlphaVantageFundamentalsMapper {
         val sheet = list.firstOrNull { !it.end.isAfter(today) && (it[FinancialConcept.TOTAL_ASSETS] != null || it[FinancialConcept.EQUITY] != null) }
         val debt = sheet?.get(FinancialConcept.TOTAL_DEBT)?.value; val cashValue = sheet?.get(FinancialConcept.CASH)?.value
         val ebit = income?.let { s -> (if (quarterly) s.quarterly else s.annual).firstOrNull { it.fiscalDateEnding == latest?.end } }
-        val interest = FinancialCalculations.divide(ebit?.values?.get("ebit")?.toDouble(), ebit?.values?.get("interestExpense")?.toDouble())
+        // Quarterly EBIT and interest expense only when each verifies as standalone (finalization fix F3).
+        val coverageTrust = if (quarterly) trustedByField(income, listOf("ebit", "interestExpense")) else null
+        fun coverageInput(f: String) = ebit?.takeIf { e -> coverageTrust == null || e.fiscalDateEnding in coverageTrust.getValue(f) }?.values?.get(f)?.toDouble()
+        val interest = FinancialCalculations.divide(coverageInput("ebit"), coverageInput("interestExpense"))
         val health = linkedMapOf(
             "cash" to reported(sheet, FinancialConcept.CASH), "debt" to reported(sheet, FinancialConcept.TOTAL_DEBT),
             "assets" to reported(sheet, FinancialConcept.TOTAL_ASSETS), "liabilities" to reported(sheet, FinancialConcept.TOTAL_LIABILITIES),

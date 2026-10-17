@@ -6,6 +6,10 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 9B.9A finalized; Phase 9B.9B SEC plan written (committed and pushed as "Finalize Phase 9B.9A with per-field …").**
+- Alpha Vantage quarterly figures are trusted per field (fundamentals, Comparison, interest coverage); 6 scenario tests; server 713/0.
+- SEC EDGAR plan and owner decisions in `docs/reviews/market_data_phase9b9b/`; FMP stays the default.
+
 **2026-10-17 — Phase 9B.9A REAL free-tier validation (committed and pushed as "Trust Alpha Vantage quarterly figures only when …").**
 - The owner's runs (10 of 25 free requests): all 8 free functions work for AAPL; quarterly figures are trusted only when the 3 most
   recent fiscal years verify as standalone (AAPL: 75 of 81), the same rule in Comparison. FMP stays the default.
