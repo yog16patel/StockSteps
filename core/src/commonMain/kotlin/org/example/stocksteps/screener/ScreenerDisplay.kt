@@ -17,6 +17,26 @@ object ScreenerDisplay {
     const val ERROR_TITLE = "Couldn't load screener results"
     const val CATALOG_ERROR_TITLE = "Couldn't load the screener"
 
+    /** `ApiError.code` values of the screener routes when the screening universe can't be loaded (the server sends the messages below). */
+    const val CODE_UNAVAILABLE = "SCREENER_UNAVAILABLE"
+    const val CODE_PROVIDER_RESTRICTED = "SCREENER_PROVIDER_RESTRICTED"
+    const val CODE_RATE_LIMITED = "SCREENER_RATE_LIMITED"
+    const val UNAVAILABLE_MESSAGE = "The screening universe couldn't be loaded. Try again shortly."
+    /** The market data plan doesn't include the provider's company screener: trying again can't help, so no Retry is offered. */
+    const val PROVIDER_RESTRICTED_MESSAGE = "Discover Stocks isn't available right now because this server's market data plan doesn't include " +
+        "stock screening. Trying again won't help. You can still search for a company by name or ticker."
+    const val RATE_LIMITED_MESSAGE = "Market data requests are limited right now. Try again in a few minutes."
+    const val PROVIDER_RESTRICTED_TITLE = "Discover Stocks isn't available"
+    /** No answer from the StockSteps server (offline, unreachable or timed out). */
+    const val CONNECTION_MESSAGE = "Discover Stocks couldn't reach the StockSteps server. Check your connection and try again."
+    /** The server answered with something the app couldn't read. */
+    const val UNEXPECTED_RESPONSE_MESSAGE = "Discover Stocks received a response it couldn't read. Try again later."
+
+    fun catalogErrorTitle(code: String?): String = if (code == CODE_PROVIDER_RESTRICTED) PROVIDER_RESTRICTED_TITLE else CATALOG_ERROR_TITLE
+
+    /** Whether Retry can help: not when the provider's plan doesn't include screening. */
+    fun catalogRetryable(code: String?): Boolean = code != CODE_PROVIDER_RESTRICTED
+
     fun matchLine(total: Int): String = "$total ${if (total == 1) "company matches" else "companies match"}"
 
     fun filterCount(count: Int): String = when (count) { 0 -> "No filters"; 1 -> "1 filter"; else -> "$count filters" }

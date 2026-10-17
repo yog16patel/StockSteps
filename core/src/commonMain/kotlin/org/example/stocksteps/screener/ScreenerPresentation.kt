@@ -257,6 +257,8 @@ data class ScreenerRowView(
 data class ScreenerUiState(
     val catalogLoading: Boolean = true,
     val catalogError: String? = null,
+    /** The server's `ApiError.code` for [catalogError] (null without a server answer); see `ScreenerDisplay.catalogRetryable`. */
+    val catalogErrorCode: String? = null,
     val presets: List<ScreenerPreset> = emptyList(),
     val metrics: List<MetricDefinition> = emptyList(),
     val choices: Map<ChoiceField, List<String>> = emptyMap(),
@@ -346,13 +348,15 @@ class ScreenerPresenter(
     fun start() {
         if (mutable.value.presets.isNotEmpty()) return
         scope.launch {
-            mutable.update { it.copy(catalogLoading = true, catalogError = null) }
+            mutable.update { it.copy(catalogLoading = true, catalogError = null, catalogErrorCode = null) }
             try {
                 val catalog = data.catalog()
                 mutable.update { it.copy(catalogLoading = false, presets = catalog.presets, metrics = catalog.metrics, choices = catalog.choices, universe = catalog.universe) }
             } catch (cause: Exception) {
                 if (cause is CancellationException) throw cause
-                mutable.update { it.copy(catalogLoading = false, catalogError = message(cause, "Screening isn't available right now.")) }
+                val fallback = if (generateSequence<Throwable>(cause) { it.cause }.any { it is kotlinx.serialization.SerializationException })
+                    ScreenerDisplay.UNEXPECTED_RESPONSE_MESSAGE else ScreenerDisplay.CONNECTION_MESSAGE
+                mutable.update { it.copy(catalogLoading = false, catalogError = message(cause, fallback), catalogErrorCode = (cause as? StockStepsApiException)?.error?.code) }
             }
         }
     }

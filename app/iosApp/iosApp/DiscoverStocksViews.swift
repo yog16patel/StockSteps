@@ -84,8 +84,9 @@ struct DiscoverStocksScreen: View {
             VStack(spacing: CGFloat(space.sm)) { ForEach(0..<2, id: \.self) { _ in StockSkeleton(width: max(width, 1), height: CGFloat(space.xxxl) * 3) } }
                 .padding(.top, CGFloat(space.lg)).accessibilityElement(children: .ignore).accessibilityLabel("Loading screener")
         } else if let error = state.catalogError {
-            StockStateMessage(title: display.CATALOG_ERROR_TITLE, message: error, systemImage: "exclamationmark.triangle", isError: true,
-                              actionTitle: "Try again", action: { client.screener.start() })
+            let retryable = display.catalogRetryable(code: state.catalogErrorCode)
+            StockStateMessage(title: display.catalogErrorTitle(code: state.catalogErrorCode), message: error, systemImage: "exclamationmark.triangle",
+                              isError: true, actionTitle: retryable ? "Try again" : nil, action: retryable ? { client.screener.start() } : nil)
         } else if state.applied == nil {
             presetGrid(state.presets, colors).padding(.top, CGFloat(space.lg))
             Button(display.CUSTOM_SCREEN) { showFilters = true }.buttonStyle(.stockPrimary).frame(maxWidth: .infinity)

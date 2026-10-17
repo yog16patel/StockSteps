@@ -92,7 +92,8 @@ internal fun ScreenerScreen(state: ScreenerUiState, modifier: Modifier, actions:
                     StockLoadingState(Modifier.padding(top = spacing.lg)) { Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) { repeat(2) { StockSkeleton(Modifier.fillMaxWidth().height(spacing.xxxl * 3)) } } }
                 }
                 state.catalogError != null -> item(key = "catalog-error") {
-                    StockErrorState(state.catalogError.orEmpty(), actions.onRetryCatalog, Modifier.padding(top = spacing.lg), title = ScreenerDisplay.CATALOG_ERROR_TITLE, icon = StockIcons.Warning)
+                    StockErrorState(state.catalogError.orEmpty(), actions.onRetryCatalog.takeIf { ScreenerDisplay.catalogRetryable(state.catalogErrorCode) },
+                        Modifier.padding(top = spacing.lg), title = ScreenerDisplay.catalogErrorTitle(state.catalogErrorCode), icon = StockIcons.Warning)
                 }
                 applied == null -> item(key = "presets") {
                     Column(Modifier.padding(top = spacing.lg), verticalArrangement = Arrangement.spacedBy(spacing.md)) {

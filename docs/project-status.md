@@ -6,6 +6,23 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — Discover Stocks on the LAN REAL backend (diagnosed; fix committed and pushed as "Fix Discover Stocks on the LAN REAL backend with distinct plan-restricted, rate-limited and temporary screener errors, a provider cooldown on the universe request and no Retry when the FMP plan excludes the screener on Android and iOS"; not deployed; verdict BLOCKED by the FMP plan).**
+- **Root cause:** REAL builds the screener universe from FMP `/stable/company-screener`, and the current FMP subscription answers
+  **402 "Restricted Endpoint"**. Every Discover open became 503 `SCREENER_UNAVAILABLE` "Try again shortly" and another refused FMP
+  request. MOCK uses fixtures, so it works.
+- **Fix (server + core + both UIs):**
+  - distinct codes: `SCREENER_PROVIDER_RESTRICTED` (no Retry), `SCREENER_RATE_LIMITED`, `SCREENER_UNAVAILABLE`;
+  - the universe outcome is cached with `providerCooldown` (402/403 1 h, 429 10 min, else 30 s);
+  - connection and unreadable-response copy when the server didn't answer.
+- **Tests:** core 613/0 and 611/0, server 515/0 (3 skipped), shared 284/0 and 281/0; `assembleDebug` and `xcodebuild` PASS.
+- **Device:** the Pixel 7 REAL failure is reproduced. The after check is BLOCKED (the phone locked; a redeploy needs approval).
+- **Owner decisions:**
+  - FMP plan upgrade, a curated universe, or Finnhub;
+  - redeploy REAL `:8082`;
+  - the new copy.
+- Report: `docs/DISCOVER_REAL_BACKEND_INTEGRATION_FIX.md`; package `docs/reviews/discover_real_backend/`.
+- Follow-up: on this plan FMP `quote` returns 402 for most symbols, with no cooldown for those denials.
+
 **2026-10-16 — App-wide Typography & Spacing Refinement, Phase 5 (APPROVED by the owner; committed locally as "Refine app-wide typography and spacing for Phase 5 with section heading, list title and compact value roles, roomier Company Search rows without the Best match badge, readable navigation rows, two-line company names and clearer Key Ratios on Android and iOS"; not pushed or deployed).**
 - **Done (Android and iOS):** new shared roles (section heading 18, list title 16, compact value 14; list row 12/4 spacing, section break 8,
   40 list logos); Company Search rows refined (no Best match badge, Android margins 46 → 16 dp, iOS header alignment); section headers 18;

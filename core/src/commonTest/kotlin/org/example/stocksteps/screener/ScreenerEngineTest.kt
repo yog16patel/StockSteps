@@ -286,7 +286,14 @@ class ScreenerPresenterTest {
                 "revenueGrowth" to MetricValue(i * 3.0, FinancialAvailability.AVAILABLE), "epsGrowth" to MetricValue(i * 2.0, FinancialAvailability.AVAILABLE),
                 "netMargin" to MetricValue(i * 4.0, FinancialAvailability.AVAILABLE)), price = 10.0 * i, changePercent = 1.0)
         }
-        override suspend fun catalog() = ScreenerCatalog(ScreenerDefinitions.presets, ScreenerDefinitions.metrics, universe = UniverseInfo("test", 5, 5, true), updatedAt = "now")
+        var catalogFailures = ArrayDeque<Exception>()
+        var catalogCalls = 0
+        override suspend fun catalog(): ScreenerCatalog {
+            catalogCalls++
+            catalogFailures.removeFirstOrNull()?.let { throw it }
+            return catalogResult()
+        }
+        private fun catalogResult() = ScreenerCatalog(ScreenerDefinitions.presets, ScreenerDefinitions.metrics, universe = UniverseInfo("test", 5, 5, true), updatedAt = "now")
         override suspend fun search(query: ScreenerQuery): ScreenerPage {
             searches += query
             if (fail) throw IllegalStateException("down")
@@ -312,6 +319,53 @@ class ScreenerPresenterTest {
             presenter.start()
             withTimeout(5_000) { presenter.state.first { it.presets.isNotEmpty() } }
             block(data, presenter, selection)
+        } finally { scope.cancel() }
+    }
+
+    /** REAL Discover (2026-10-16): the catalog error keeps the server's code and copy, so a plan restriction offers no Retry. */
+    @Test fun catalogErrorsSayWhetherRetryingHelps() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val data = FakeData()
+        try {
+            data.catalogFailures.addAll(listOf(
+                org.example.stocksteps.network.StockStepsApiException(503, ApiError(ScreenerDisplay.CODE_PROVIDER_RESTRICTED, ScreenerDisplay.PROVIDER_RESTRICTED_MESSAGE)),
+                org.example.stocksteps.network.StockStepsApiException(503, ApiError(ScreenerDisplay.CODE_RATE_LIMITED, ScreenerDisplay.RATE_LIMITED_MESSAGE)),
+                IllegalStateException("connection refused"),
+                IllegalStateException("decode", kotlinx.serialization.SerializationException("bad"))))
+            val presenter = ScreenerPresenter(data, ComparisonSelection(), scope, pageSize = 2)
+            withTimeout(5_000) { presenter.state.first { it.catalogLoading } }
+            // start() first marks the catalog as loading, so any later state that isn't loading is that attempt's result.
+            suspend fun next(): ScreenerUiState {
+                val previous = presenter.state.value
+                presenter.start()
+                return withTimeout(5_000) { presenter.state.first { it !== previous && !it.catalogLoading } }
+            }
+
+            val restricted = next()
+            assertEquals(ScreenerDisplay.PROVIDER_RESTRICTED_MESSAGE, restricted.catalogError)
+            assertEquals(ScreenerDisplay.CODE_PROVIDER_RESTRICTED, restricted.catalogErrorCode)
+            assertFalse(ScreenerDisplay.catalogRetryable(restricted.catalogErrorCode))
+            assertEquals(ScreenerDisplay.PROVIDER_RESTRICTED_TITLE, ScreenerDisplay.catalogErrorTitle(restricted.catalogErrorCode))
+            assertTrue(restricted.presets.isEmpty(), "never sample presets or results in place of REAL data")
+
+            val limited = next()
+            assertEquals(ScreenerDisplay.RATE_LIMITED_MESSAGE, limited.catalogError)
+            assertTrue(ScreenerDisplay.catalogRetryable(limited.catalogErrorCode))
+            assertEquals(ScreenerDisplay.CATALOG_ERROR_TITLE, ScreenerDisplay.catalogErrorTitle(limited.catalogErrorCode))
+
+            val offline = next()
+            assertEquals(ScreenerDisplay.CONNECTION_MESSAGE, offline.catalogError)
+            assertNull(offline.catalogErrorCode)
+            assertTrue(ScreenerDisplay.catalogRetryable(offline.catalogErrorCode))
+
+            assertEquals(ScreenerDisplay.UNEXPECTED_RESPONSE_MESSAGE, next().catalogError)
+
+            val recovered = next()
+            assertNull(recovered.catalogError); assertNull(recovered.catalogErrorCode)
+            assertTrue(recovered.presets.isNotEmpty())
+            presenter.start()
+            delay(100)
+            assertEquals(5, data.catalogCalls, "a loaded catalog isn't requested again")
         } finally { scope.cancel() }
     }
 

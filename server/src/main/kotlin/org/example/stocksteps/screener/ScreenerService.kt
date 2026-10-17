@@ -11,11 +11,13 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.example.stocksteps.httpclient.apiCall
 import org.example.stocksteps.model.*
+import org.example.stocksteps.repository.StockProviderException
 import org.example.stocksteps.service.CompanyFinancialCache
 import org.example.stocksteps.service.PriceChartService
 import org.example.stocksteps.service.ProviderFeature
 import org.example.stocksteps.service.ProviderUsageMeter
 import org.example.stocksteps.service.StockService
+import org.example.stocksteps.service.providerCooldown
 import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.LocalDate
@@ -63,6 +65,8 @@ class FixtureScreenerUniverse(private val includeCatalog: Boolean = false) : Scr
  * NASDAQ + NYSE + TSX = 150, the Phase 3 owner decision).
  * It also supplies price, market cap, volume, sector and industry, so basic filters need no
  * per-company requests.
+ * A provider failure is remembered with [providerCooldown] (an hour for a plan restriction, 402/403; 10 minutes for a rate
+ * limit; 30 s otherwise), so opening Discover again doesn't repeat a request the provider has already refused.
  */
 class FmpScreenerUniverse(
     private val client: HttpClient,
@@ -70,14 +74,23 @@ class FmpScreenerUniverse(
     private val exchanges: List<String>,
     private val limit: Int,
     private val minMarketCap: Long,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 4)
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 4, name = "screener-universe")
 ) : ScreenerUniverseSource {
+    private class Outcome(val definition: UniverseDefinition?, val failure: StockProviderException?)
     @Serializable private data class Row(
         val symbol: String, val companyName: String? = null, val marketCap: Double? = null, val sector: String? = null,
         val industry: String? = null, val price: Double? = null, val volume: Double? = null, val exchangeShortName: String? = null,
         val exchange: String? = null, val country: String? = null, val isEtf: Boolean? = null, val isFund: Boolean? = null
     )
-    override suspend fun universe(): UniverseDefinition = cache.getOrLoad("universe", 86_400_000L) {
+    override suspend fun universe(): UniverseDefinition {
+        val outcome = cache.getOrLoad("universe", UNIVERSE_TTL, resultTtl = { providerCooldown(it.failure, UNIVERSE_TTL) }) {
+            try { Outcome(load(), null) } catch (cause: StockProviderException) { Outcome(null, cause) }
+        }
+        outcome.failure?.let { throw it }
+        return requireNotNull(outcome.definition)
+    }
+
+    private suspend fun load(): UniverseDefinition {
         // At most [limit] rows per exchange, in the provider's order (its ordering isn't documented as "largest first",
         // so it isn't described that way). Symbols stay exchange-qualified (TD.TO ≠ TD).
         val rows = exchanges.flatMap { exchange ->
@@ -88,13 +101,15 @@ class FmpScreenerUniverse(
                 parameter("limit", limit)
             }.filter { it.isEtf != true && it.isFund != true }.take(limit)
         }
-        UniverseDefinition(
+        return UniverseDefinition(
             "Up to $limit actively traded stocks per exchange (${exchanges.joinToString()}) with market cap over $${minMarketCap / 1_000_000_000}B, as selected by Financial Modeling Prep's company screener. Not every listed company is included.",
             rows.distinctBy { it.symbol }.map {
                 UniverseEntry(it.symbol, it.companyName, it.exchangeShortName ?: it.exchange, it.country, it.sector, it.industry, it.price, it.marketCap, it.volume, false)
             }
         )
     }
+
+    private companion object { const val UNIVERSE_TTL = 86_400_000L }
 }
 
 class ScreenerRequestException(val status: Int, val code: String, message: String) : Exception(message)
@@ -281,11 +296,29 @@ class ScreenerService(
     private suspend fun snapshot(): Pair<UniverseDefinition, List<CompanyRecord>> = coroutineScope {
         val definition = try { universe.universe() } catch (cause: Exception) {
             if (cause is CancellationException) throw cause
-            throw ScreenerRequestException(503, "SCREENER_UNAVAILABLE", "The screening universe couldn't be loaded. Try again shortly.")
+            throw universeUnavailable(cause)
         }
         val built = definition.entries.map { entry -> async { record(entry, loadFundamentals = fullRecords) } }.awaitAll()
         warm(definition.entries)
         definition to built
+    }
+
+    /**
+     * Why the universe couldn't be loaded, so the app can say whether trying again helps: the provider's plan doesn't include the
+     * screener (402/403, retrying won't help), the provider is rate limiting (429), or anything else (a timeout, an outage, or this
+     * server's own provider budget refusing the call), which is temporary.
+     */
+    private fun universeUnavailable(cause: Exception): ScreenerRequestException {
+        val provider = cause as? StockProviderException
+        return when {
+            provider?.upstreamStatus == 402 || provider?.upstreamStatus == 403 -> {
+                log.warn("Screener universe unavailable: provider access denied (status={})", provider.upstreamStatus)
+                ScreenerRequestException(503, ScreenerDisplay.CODE_PROVIDER_RESTRICTED, ScreenerDisplay.PROVIDER_RESTRICTED_MESSAGE)
+            }
+            provider?.failure == StockProviderException.Failure.RATE_LIMITED ->
+                ScreenerRequestException(503, ScreenerDisplay.CODE_RATE_LIMITED, ScreenerDisplay.RATE_LIMITED_MESSAGE)
+            else -> ScreenerRequestException(503, ScreenerDisplay.CODE_UNAVAILABLE, ScreenerDisplay.UNAVAILABLE_MESSAGE)
+        }
     }
 
     private fun universeInfo(definition: UniverseDefinition, records: List<CompanyRecord>, needsFundamentals: Boolean): UniverseInfo {
