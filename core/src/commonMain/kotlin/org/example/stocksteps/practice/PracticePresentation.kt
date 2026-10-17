@@ -431,7 +431,9 @@ class PracticeOrderPresenter(
                         refreshPreview()
                     }
                     "HOLDING_LIMIT" -> mutable.update { it.copy(executing = false, step = OrderStep.ENTRY, holdingLimit = true, error = message(cause)) }
-                    null -> mutable.update { it.copy(executing = false, error = "${message(cause)} Your order wasn't confirmed; trying again won't place it twice.") }
+                    // No answer, or the server couldn't reach its storage (a timed-out write may still have been saved): the outcome is
+                    // unknown, so the request id is kept — trying again replays a saved order instead of placing a second one (Phase 7D).
+                    null, "USER_DATA_UNAVAILABLE" -> mutable.update { it.copy(executing = false, error = "${message(cause)} Your order wasn't confirmed; trying again won't place it twice.") }
                     else -> { key = null; mutable.update { it.copy(executing = false, step = OrderStep.ENTRY, error = message(cause)) }; refreshPreview() }
                 }
             }

@@ -182,6 +182,8 @@ private class FakeRemote : PracticeRemote {
     val trials = mutableMapOf<String, PracticeEntitlement>()
     val executed = mutableListOf<PracticeOrderRequest>()
     var executeFailures = 0
+    /** Phase 7D: 503 USER_DATA_UNAVAILABLE answers (e.g. a Firestore write that timed out: the order may or may not be saved). */
+    var storageFailures = 0
     var priceChangedOnce = false
     var price = "100"
     fun entitlement(uid: String) = trials[uid] ?: PracticePolicy.entitlement(EntitlementStatus.NONE, false, null, 0)
@@ -199,6 +201,7 @@ private class FakeRemote : PracticeRemote {
     override suspend fun execute(uid: String, request: PracticeOrderRequest): PracticeOrderResult {
         executed += request
         if (executeFailures > 0) { executeFailures--; throw IllegalStateException("network") }
+        if (storageFailures > 0) { storageFailures--; throw StockStepsApiException(503, ApiError("USER_DATA_UNAVAILABLE", "Your data couldn't be reached. Try again.")) }
         if (priceChangedOnce) { priceChangedOnce = false; price = "110"; throw StockStepsApiException(409, ApiError("PRICE_CHANGED", "The price moved since your review.")) }
         return PracticeOrderResult(PracticeTransaction("tx", 1, PracticeTransactionType.BUY, AAPL, request.quantity!!, request.reviewedPrice!!, "USD", "1.35", "270", 1, request.idempotencyKey, "test"), "9730", "CAD")
     }
@@ -275,6 +278,14 @@ class PracticePresenterTest {
             order.confirm()
             order.state.await { it.step == OrderStep.DONE }
             assertEquals(listOf("key-1", "key-1"), remote.executed.map { it.idempotencyKey }, "a retry reuses the same request id")
+            // Phase 7D: a storage failure is an unknown outcome too — the retry keeps the request id (no second fill if the first was saved).
+            val stored = PracticeOrderPresenter("AAPL", OrderSide.BUY, remote, { "alice" }, scope, newKey = { "key-${++keys}" }, debounceMillis = 0)
+            stored.setInput("1"); stored.state.await { it.preview?.quantity == "1" }
+            stored.review(); remote.storageFailures = 1; stored.confirm()
+            val failed = stored.state.await { it.error != null && !it.executing }
+            assertEquals(OrderStep.REVIEW, failed.step); assertTrue(failed.error!!.contains("won't place it twice"))
+            stored.confirm(); stored.state.await { it.step == OrderStep.DONE }
+            assertEquals(remote.executed[remote.executed.size - 2].idempotencyKey, remote.executed.last().idempotencyKey, "same request id after a 503")
             assertEquals("100", remote.executed.last().reviewedPrice)
 
             val moved = PracticeOrderPresenter("AAPL", OrderSide.BUY, remote, { "alice" }, scope, newKey = { "key-${++keys}" }, debounceMillis = 0)

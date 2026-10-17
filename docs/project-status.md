@@ -6,7 +6,15 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-17 — Phase 7C My Portfolio & Practice EOD (committed and pushed as "Value My Portfolio and execute Practice trades at dated official closing prices for Phase 7C with one latest-close rule, no quotes on REAL, unavailable totals instead of partial sums, split-like move warnings and a closing-price freshness line on Android and iOS"; not deployed; READY FOR REVIEW)**
+**2026-10-17 — Phase 7D Portfolio & Practice integration verification (committed and pushed as "Verify Portfolio and Practice integration for Phase 7D on a local Firestore emulator through real routes, keep the Practice order request id after an unknown-outcome storage failure so a retry cannot fill twice, and add token-verifier and hand-calculated accounting tests"; READY FOR REVIEW)**
+- Firestore emulator: 565/0 server tests, 0 skipped. Persistence, isolation and atomicity hold on real Firestore semantics.
+- D2 fixed: an unknown-outcome 503 kept the order's request id, so a retry can't duplicate a fill.
+- D1 copy open (401 says "watchlists and alerts").
+- Accounting matches hand calculations. Devices BLOCKED.
+- Phase 7C is deployed to LAN REAL.
+- Report `docs/PORTFOLIO_PRACTICE_INTEGRATION_PHASE7D.md`.
+
+**2026-10-17 — Phase 7C My Portfolio & Practice EOD (committed and pushed as "Value My Portfolio and execute Practice trades at dated official closing prices for Phase 7C with one latest-close rule, no quotes on REAL, unavailable totals instead of partial sums, split-like move warnings and a closing-price freshness line on Android and iOS"; deployed to LAN REAL 2026-10-17; READY FOR REVIEW)**
 - Practice trades execute at the last available official close (dated) and positions are valued at closes.
 - My Portfolio values holdings at closes ("Closing prices as of …"; the total is unavailable when any holding lacks a close).
 - No quotes on REAL. Split-like moves are warned about, never adjusted.
