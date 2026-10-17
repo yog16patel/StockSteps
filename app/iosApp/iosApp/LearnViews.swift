@@ -86,7 +86,11 @@ struct LearnScreen: View {
                     StockLandingTopBar(tab: .learn, actionCount: 1, onNotifications: onNotifications, onSettings: onSettings) {
                         StockLandingIconButton(systemImage: "magnifyingglass", label: L.SEARCH_ACTION) { onLearnTarget(.topics(topic: nil, search: true)) }
                     }
-                    Text(L.INTRO).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                    // Phase 8D: at accessibility sizes the general intro sentence is left out so "Start here" and its action stay near the top
+                    // (it filled the first AX5 screen); it adds no lesson content.
+                    if !typeSize.isAccessibilitySize {
+                        Text(L.INTRO).font(StockStepsTheme.font(type.body)).foregroundStyle(colors.textBody).fixedSize(horizontal: false, vertical: true)
+                    }
                     if progress?.syncFailed == true {
                         Text(L.SYNC_NOTE).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
                     }

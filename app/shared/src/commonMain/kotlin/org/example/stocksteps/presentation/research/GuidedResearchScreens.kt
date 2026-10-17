@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.example.stocksteps.designsystem.components.*
 import org.example.stocksteps.designsystem.theme.StockStepsTheme
@@ -109,7 +108,8 @@ private fun Overview(state: GuidedResearchState, snapshot: ResearchSnapshot, onA
                     Column(Modifier.weight(1f)) {
                         Text(step.question, style = typography.bodySemiBold, color = colors.textPrimary)
                         Text(if (done) "Completed" else if (current) "In progress" else step.description, style = typography.caption,
-                            color = if (done) colors.positiveText else colors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            // Phase 8D: wraps in full (was cut at two lines at 2.0×, and the description isn't in the spoken label).
+                            color = if (done) colors.positiveText else colors.textSecondary)
                     }
                 }
             }

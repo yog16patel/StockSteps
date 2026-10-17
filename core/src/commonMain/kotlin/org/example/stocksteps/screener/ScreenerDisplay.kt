@@ -253,6 +253,16 @@ object ScreenerDisplay {
         listOf("${u.size} ${if (u.size == 1) "company" else "companies"}", u.description.trim()).filter { it.isNotEmpty() }.joinToString(" · ")
     }
 
+    /**
+     * Phase 8D: the always-visible part of the scope — how many companies and that it isn't the whole market (true of every screener
+     * universe). The server's full description moves into [ABOUT_LIST] (`scopeLine`), so the header stays short at large text.
+     */
+    fun scopeLabel(universe: UniverseInfo?): String? = universe?.let { u ->
+        "${u.size} ${if (u.size == 1) "company" else "companies"} · not the whole market"
+    }
+
+    const val ABOUT_LIST = "About this list"
+
     const val ALL_SECTORS = "All sectors"
     const val CLEAR_ALL = "Clear all"
     const val CLEAR_ALL_SPOKEN = "Clear all filters"

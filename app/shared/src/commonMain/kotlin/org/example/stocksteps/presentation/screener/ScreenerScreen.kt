@@ -90,7 +90,7 @@ internal fun ScreenerScreen(state: ScreenerUiState, modifier: Modifier, actions:
     Column(modifier.background(colors.appBackground)) {
         LazyColumn(state = listState, contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, top = spacing.md, bottom = spacing.xxl),
             modifier = Modifier.weight(1f).fillMaxWidth()) {
-            item(key = "header") { Header(ScreenerDisplay.scopeLine(state.universe), onHelp = { help = true }) }
+            item(key = "header") { Header(ScreenerDisplay.scopeLabel(state.universe), ScreenerDisplay.scopeLine(state.universe), onHelp = { help = true }) }
             // Phase 7E: search within the Discover list (ticker or name); the server ranks matches with the shared search rules.
             // Phase 8B: the design-system search field (icon, clear button), as on Company Search.
             if (!state.catalogLoading && state.catalogError == null) item(key = "text-search") {
@@ -177,15 +177,19 @@ internal fun ScreenerScreen(state: ScreenerUiState, modifier: Modifier, actions:
     }
 }
 
-/** Title, purpose and (Phase 8B) the scope: how many companies and the server's own description of the list ("isn't the whole market"). */
+/**
+ * Title, purpose and (Phase 8B) the scope. Phase 8D: a short label ("155 companies · not the whole market") stays visible; the server's own
+ * description of the list is one tap away under "About this list", so search and sectors stay near the top at large text.
+ */
 @Composable
-private fun Header(scope: String?, onHelp: () -> Unit) {
+private fun Header(scope: String?, about: String?, onHelp: () -> Unit) {
     val colors = StockStepsTheme.colors
     Row(verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f).padding(top = StockStepsTheme.spacing.xs), verticalArrangement = Arrangement.spacedBy(StockStepsTheme.spacing.xxs)) {
             Text(ScreenerDisplay.TITLE, Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textTitle)
             Text(ScreenerDisplay.SUBTITLE, style = StockStepsTheme.typography.small, color = colors.textSupporting)
             scope?.let { Text(it, style = StockStepsTheme.typography.caption, color = colors.textMeta) }
+            about?.let { StockDisclosure(ScreenerDisplay.ABOUT_LIST) { Text(it, style = StockStepsTheme.typography.caption, color = colors.textSupporting) } }
         }
         IconButton(onClick = onHelp) { Icon(StockIcons.Help, "How screening works", tint = colors.iconSecondary) }
     }

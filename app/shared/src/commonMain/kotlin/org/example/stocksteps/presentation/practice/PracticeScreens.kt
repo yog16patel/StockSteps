@@ -65,7 +65,7 @@ internal fun PracticeScreen(state: PracticeUiState, modifier: Modifier, header: 
         top = if (header != null) spacing.screen else spacing.md, bottom = spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.sectionGap)) {
         header?.invoke(this)
-        item("header") { Header(state, onAction) }
+        item("header") { Header(state, onAction, inLanding = header != null) }
         if (!state.signedIn) {
             item("signin") {
                 StockEmptyState("Sign in to use your Practice Portfolio. Your simulated investments are saved to your account, so they're there on every device.",
@@ -107,7 +107,7 @@ internal fun PracticeScreen(state: PracticeUiState, modifier: Modifier, header: 
 }
 
 @Composable
-private fun Header(state: PracticeUiState, onAction: (PracticeAction) -> Unit) {
+private fun Header(state: PracticeUiState, onAction: (PracticeAction) -> Unit, inLanding: Boolean = false) {
     val spacing = StockStepsTheme.spacing
     val colors = StockStepsTheme.colors
     var menu by remember { mutableStateOf(false) }
@@ -115,7 +115,11 @@ private fun Header(state: PracticeUiState, onAction: (PracticeAction) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
             StockTitleWithBadge(Modifier.weight(1f), title = {
-                Text("Practice Portfolio", Modifier.semantics { heading() }, style = StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
+                // Phase 8D (as iOS): inside the Portfolio landing, which already has the "Portfolio" screen title, large text uses the
+                // section-heading role so two screen titles don't fill the screen. It still scales with the font size.
+                val large = androidx.compose.ui.platform.LocalDensity.current.fontScale >= StockStepsTheme.dimensions.largeFontScale
+                Text("Practice Portfolio", Modifier.semantics { heading() },
+                    style = if (inLanding && large) StockStepsTheme.typography.sectionHeading else StockStepsTheme.typography.screenTitle, color = colors.textPrimary)
             }) { SimulatedBadge() }
             if (state.overview != null) Box {
                 TextButton(onClick = { menu = true }, modifier = Modifier.heightIn(min = StockStepsTheme.dimensions.touchTarget)) { Text("More") }

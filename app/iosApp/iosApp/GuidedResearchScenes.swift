@@ -185,7 +185,8 @@ struct GuidedResearchScreen: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(step.question).font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
                         Text(done ? "Completed" : current ? "In progress" : step.description_)
-                            .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(done ? colors.positiveText : colors.textSecondary).lineLimit(2)
+                            .font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(done ? colors.positiveText : colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true) // Phase 8D: wraps in full (was cut at two lines at AX sizes)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right").foregroundStyle(colors.iconSecondary).accessibilityHidden(true)

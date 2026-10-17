@@ -106,7 +106,9 @@ internal fun LearnScreen(
                         // 5D.5.6B: the shared landing bar ("Learn", term search, Notifications, Settings).
                         org.example.stocksteps.designsystem.components.StockLandingTopBar(org.example.stocksteps.navigation.AppTab.LEARN, onNotifications, onSettings,
                             actions = listOf { IconButton(onClick = { onTopics(null, true) }) { Icon(StockIcons.Search, L.SEARCH_ACTION, tint = colors.iconPrimary) } })
-                        Text(L.INTRO, style = typography.body, color = colors.textBody)
+                        // Phase 8D (as iOS at accessibility sizes): at very large text the general intro sentence is left out so "Start here"
+                        // stays near the top; it adds no lesson content.
+                        if (LocalDensity.current.fontScale < LEARN_SINGLE_COLUMN_SCALE) Text(L.INTRO, style = typography.body, color = colors.textBody)
                         if (progress.syncFailed) Text(L.SYNC_NOTE, style = typography.caption, color = colors.textMeta)
                     }
                 }

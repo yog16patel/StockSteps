@@ -184,8 +184,20 @@ struct PracticeScreen: View {
                 header(colors)
                 if let state {
                     if !state.signedIn {
-                        StockSectionMessage(message: "Sign in to use your Practice Portfolio. Your simulated investments are saved to your account, so they're there on every device.",
-                                            actionTitle: "Sign in", action: onSignIn)
+                        // Phase 8D: the action right after one short line, then the reason, so "Sign in" stays near the top at AX5 (it was below
+                        // the fold under the full explanation). Same words as before.
+                        VStack(alignment: .leading, spacing: CGFloat(space.sm)) {
+                            if typeSize.isAccessibilitySize {
+                                // At AX sizes the button says it on its own, one block higher.
+                                Button("Sign in to use Practice", action: onSignIn).buttonStyle(.stockPrimary)
+                            } else {
+                                Text("Sign in to use your Practice Portfolio.").font(StockStepsTheme.font(type.bodySemiBold)).foregroundStyle(colors.textPrimary)
+                                Button("Sign in", action: onSignIn).buttonStyle(.stockPrimary)
+                            }
+                            Text("Your simulated investments are saved to your account, so they're there on every device.")
+                                .font(StockStepsTheme.font(type.small)).foregroundStyle(colors.textSupporting)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     } else if let overview = state.overview {
                         if state.offline {
                             banner("You're offline. This is your last saved Practice Portfolio; trading and plan changes need a connection.", colors)
@@ -233,7 +245,10 @@ struct PracticeScreen: View {
             HStack {
                 StockTitleWithBadge {
                     // 5D.5.6D: the token's own Dynamic Type curve (as the landing title); `.largeTitle` metrics left it at its default size at AX sizes.
-                    Text("Practice Portfolio").font(StockStepsTheme.font(type.screenTitle)).accessibilityAddTraits(.isHeader)
+                    // Phase 8D: inside the Portfolio landing (which already has the "Portfolio" screen title) the section uses the section-heading
+                    // role at accessibility sizes, so two screen titles don't fill an AX5 screen. It still scales with Dynamic Type.
+                    Text("Practice Portfolio").font(StockStepsTheme.font(landingBar != nil && typeSize.isAccessibilitySize ? type.sectionHeading : type.screenTitle))
+                        .accessibilityAddTraits(.isHeader)
                 } badge: { SimulatedBadge() }
                 Spacer(minLength: 0)
                 if let state, state.overview != nil {

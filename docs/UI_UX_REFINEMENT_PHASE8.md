@@ -170,3 +170,64 @@ No accounting, valuation, execution, idempotency, persistence, auth or Firestore
 - **D8C-1:** overview order.
 - **D8C-2:** borderless Practice.
 - **D8C-3:** a bar instead of a full ring for a single holding at 100 %.
+
+---
+
+# Batch 8D — Learn, accessibility and final cross-platform polish
+
+**Status:** committed and pushed as "Finish UI/UX Refinement Phase 8D with a short Discover scope label and About this list, a compact Practice heading and sign-in at large text, Learn starting with Start here at very large text, wrapping guided-research steps and the consolidated launch-readiness backlog on Android and iOS"; READY FOR REVIEW for the UI/UX scope. Public launch is still BLOCKED by non-UI items.
+
+- **Base:** `823d247` (8C).
+- **Package:** `docs/reviews/ui_ux_phase8d/`, including `LAUNCH_READINESS_BACKLOG.md`.
+
+## 8D.1 Audit
+
+Consolidated across all screens (`CONSOLIDATED_UI_AUDIT.md`). No P0 issue found.
+
+**P1, all fixed:**
+
+| ID | Issue |
+|---|---|
+| X1 | iOS Discover AX5: search was below the fold |
+| X2 | iOS Practice AX5 (guest): Sign in was below the fold |
+| X3 | Learn AX5: the intro sentence filled the first screen |
+
+**P2, fixed:**
+
+| ID | Issue |
+|---|---|
+| X4 | research step descriptions were cut off |
+
+**Carried to the backlog:**
+
+| ID | Issue |
+|---|---|
+| X5 | REAL search error copy |
+| X6 | REAL Company Details empty header |
+
+**Android sweep at 1.5×:** no issues.
+
+## 8D.2 Changes
+
+| # | Change |
+|---|---|
+| 1 | Discover: short scope label "N companies · not the whole market" (core `ScreenerDisplay.scopeLabel`); the server description is under "About this list" |
+| 2 | Practice heading inside the Portfolio landing uses the section-heading role at large text; iOS guest sign-in order and the AX label "Sign in to use Practice" |
+| 3 | Learn intro left out at very large text |
+| 4 | Guided-research step descriptions wrap in full |
+
+## 8D.3 Learn
+
+Learn already answers what, where to start, what's completed and what's next (`LEARN_REVIEW.md`).
+
+- The content is unchanged; no inaccuracies were found.
+- There is no reading time or difficulty data, so none is shown.
+
+## 8D.4 Accessibility
+
+TalkBack and VoiceOver were NOT RUN. Accessibility is assessed by code inspection, screenshots and unit tests.
+
+## 8D.5 Owner decisions
+
+- **D8D-1:** the scope label wording.
+- **D8D-2:** the Practice heading and sign-in order at large text.

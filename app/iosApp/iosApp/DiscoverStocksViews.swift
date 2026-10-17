@@ -68,9 +68,15 @@ struct DiscoverStocksScreen: View {
                 Text(display.TITLE).font(StockStepsTheme.font(type.screenTitle, relativeTo: .largeTitle)).foregroundStyle(colors.textTitle)
                     .accessibilityAddTraits(.isHeader)
                 Text(display.SUBTITLE).font(StockStepsTheme.font(type.small, relativeTo: .subheadline)).foregroundStyle(colors.textSupporting)
-                // Phase 8B: the scope — how many companies and the server's own description of the list.
-                if let scope = display.scopeLine(universe: state?.universe) {
+                // Phase 8B scope; Phase 8D: the short label stays visible and the server's full description of the list is one tap away, so
+                // search and sectors stay near the top at AX sizes (was ~6 lines of caption at AX5).
+                if let scope = display.scopeLabel(universe: state?.universe) {
                     Text(scope).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textMeta)
+                }
+                if let about = display.scopeLine(universe: state?.universe) {
+                    StockDisclosure(title: display.ABOUT_LIST) {
+                        Text(about).font(StockStepsTheme.font(type.caption, relativeTo: .caption1)).foregroundStyle(colors.textSupporting)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

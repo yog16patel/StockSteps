@@ -6,6 +6,16 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 8D Learn, accessibility and final UI/UX polish (committed and pushed as "Finish UI/UX Refinement Phase 8D with a short Discover scope label and About this list, a compact Practice heading and sign-in at large text, Learn starting with Start here at very large text, wrapping guided-research steps and the consolidated launch-readiness backlog on Android and iOS"; READY FOR REVIEW)**
+- iOS AX5:
+  - Discover keeps search and sectors on the first screen ("N companies · not the whole market" + About this list);
+  - Practice guest shows Sign in on the first screen;
+  - Learn shows Start here.
+- Research steps wrap. The Android 1.5× sweep was clean.
+- TalkBack / VoiceOver NOT RUN.
+- The consolidated launch-readiness backlog is in `docs/reviews/ui_ux_phase8d/LAUNCH_READINESS_BACKLOG.md`. Public launch is BLOCKED by
+  licensing, quota, corporate actions, backend security, screen readers and REAL device checks.
+
 **2026-10-17 — Phase 8C My Portfolio, Practice and Watchlist UI/UX refinement (committed and pushed as "Refine My Portfolio, Practice and Watchlist for UI/UX Refinement Phase 8C with the summary figures before the account-value history, borderless Practice sections without the repeated cash amount, house iOS buttons and a dated Watchlist header on Android and iOS"; READY FOR REVIEW)**
 - The My Portfolio overview now reads total → gain/loss and cost → valuation date → history.
 - Practice is borderless, and the cash amount is no longer repeated.

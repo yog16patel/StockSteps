@@ -255,6 +255,14 @@ class ScreenerDisplayTest {
         assertNull(ScreenerDisplay.scopeLine(null))
     }
 
+    /** Phase 8D: the short scope label always says the list isn't the whole market; the full description sits behind "About this list". */
+    @Test fun scopeLabelIsShortAndHonest() {
+        assertEquals("155 companies · not the whole market", ScreenerDisplay.scopeLabel(UniverseInfo("long description", 155, 0, false)))
+        assertEquals("1 company · not the whole market", ScreenerDisplay.scopeLabel(UniverseInfo("d", 1, 1, true)))
+        assertNull(ScreenerDisplay.scopeLabel(null))
+        assertEquals("About this list", ScreenerDisplay.ABOUT_LIST)
+    }
+
     /** Phase 8B: the sector shortcut uses the catalogue's own sectors and builds the same filter as the sheet (one sector or none). */
     @Test fun sectorShortcutMirrorsTheSheetFilter() {
         val choices = mapOf(ChoiceField.SECTOR to listOf("Energy", "Technology"))
