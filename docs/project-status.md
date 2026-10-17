@@ -6,7 +6,7 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-16 — Phase 7A FMP quota protection (committed and pushed as "Protect the FMP quota for Phase 7A with cached restricted and rate-limited quote outcomes, an optional configured daily allowance, distinct restricted and daily-limit errors, a Practice QUOTE_RESTRICTED blocker and no $0.00 price on blocked Practice previews"; not deployed; READY FOR REVIEW)**
+**2026-10-16 — Phase 7A FMP quota protection (committed, pushed and deployed to LAN REAL :8082 on 2026-10-17 01:12Z as "Protect the FMP quota for Phase 7A with cached restricted and rate-limited quote outcomes, an optional configured daily allowance, distinct restricted and daily-limit errors, a Practice QUOTE_RESTRICTED blocker and no $0.00 price on blocked Practice previews"; READY FOR REVIEW)**
 - Changes:
   - restricted/rate-limited quote outcomes cached (1 h / 10 min);
   - optional configured daily allowance (`PROVIDER_<NAME>_DAILY_LIMIT`, unset by default);
@@ -14,7 +14,8 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
   - Practice `QUOTE_RESTRICTED`;
   - no $0.00 on blocked Practice previews.
 - Report: `docs/FMP_QUOTA_PROTECTION_PHASE7A.md`; package `docs/reviews/fmp_quota_phase7a/`. All suites and builds pass; devices NOT RUN.
-- Owner: FMP daily limit and tier (Q1), copy, LAN REAL redeploy.
+- Live check: a 429 is cooled down for 10 min (no repeat FMP request). The 402 path is unverified live while the key is at its limit.
+- Owner: FMP daily limit and tier (Q1), copy.
 
 **2026-10-16 — Phase 6 REAL market-data provider audit (audit only; committed and pushed as "Add the Phase 6 REAL market-data provider audit with the provider compatibility matrix, cost model, cache inventory and an EOD-first MVP architecture recommendation"; NEEDS MORE INFORMATION)**
 - Report `docs/REAL_MARKET_DATA_PROVIDER_AUDIT_PHASE6.md`; package `docs/reviews/market_data_audit_phase6/`.
