@@ -77,6 +77,24 @@ class MarketsPresenterTest {
         assertTrue(sectors.chartDescription.contains("Best: Technology +2.40%"))
     }
 
+    /** Phase 7B: end-of-day values say which session's close they are; unavailable sectors are named, only dates from the data. */
+    @Test fun endOfDayValuesAreLabelledWithTheirCloseDate() {
+        val close = IndexQuote("SP500", "S&P 500", "^GSPC", 6060.0, 60.0, 1.0, "points", "USD", "US", asOf = "2026-10-16T20:00:00Z",
+            closeDate = "2026-10-16", previousCloseDate = "2026-10-15")
+        val card = MarketsPresenter.index(close, -240)
+        assertEquals("Last close · Oct 16", card.updated)
+        assertFalse(card.updated!!.contains("ET"), "no time of day for a close")
+        val proxy = MarketsPresenter.index(close.copy(id = "TSX", symbol = "XIC.TO", unit = "CAD", currency = "CAD", isProxy = true, closeDate = "2026-10-09"), -240)
+        assertEquals("Last close · Oct 9", proxy.updated); assertEquals("Proxy: XIC.TO fund price", proxy.proxyLabel)
+        assertEquals("As of 4:00 PM ET · Oct 7", MarketsPresenter.index(overview().indices.first(), -240).updated, "quotes keep their time")
+        val section = SectorPerformanceSection(listOf(SectorPerformance("Technology", "XLK", "Tech fund", -1.5, closeDate = "2026-10-16")),
+            "m", "Change from the previous close", closeDate = "2026-10-16", unavailable = listOf("Real Estate", "Utilities"))
+        assertEquals("Change from the previous close · Last close Oct 16 · Not available: Real Estate, Utilities", MarketsPresenter.sectors(section, failed = false).period)
+        assertEquals("Change since the previous close", MarketsPresenter.sectors(section.copy(period = "Change since the previous close", closeDate = null,
+            unavailable = emptyList()), failed = false).period, "quote-based sections unchanged")
+        assertNull(MarketsPresenter.closeLabel("not a date"))
+    }
+
     @Test fun lessonsRotateDeterministicallyAndEducationExists() {
         assertEquals(MarketsPresenter.lessonFor("2026-10-07"), MarketsPresenter.lessonFor("2026-10-07"))
         assertNotEquals(MarketsPresenter.lessonFor("2026-10-07").id, MarketsPresenter.lessonFor("2026-10-08").id)

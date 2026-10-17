@@ -6,6 +6,14 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 7B EOD-first Markets (committed and pushed as "Make Markets EOD-first for Phase 7B with sector and index fall-back changes from consecutive trading-day closes, quotes only while an index market is active, no proxy or most-active enrichment quotes, closes cached until the next expected close and Last close date labels on Android and iOS"; not deployed; READY FOR REVIEW)**
+- Sectors and index fall-backs use the latest completed session's close vs the previous trading day's close (labelled "Last close · Oct 16").
+- Index quotes are used only while the market is active. There are no proxy or most-active enrichment quotes.
+- Closes are cached until the next expected close.
+- Mock benchmark: a saturated trading day 12,784 → 3,043 Markets FMP requests.
+- All suites and both builds pass. Devices BLOCKED (redeploy approval).
+- Report `docs/MARKETS_EOD_OPTIMIZATION_PHASE7B.md`; package `docs/reviews/markets_eod_phase7b/`.
+
 **2026-10-16 — Phase 7A FMP quota protection (committed, pushed and deployed to LAN REAL :8082 on 2026-10-17 01:12Z as "Protect the FMP quota for Phase 7A with cached restricted and rate-limited quote outcomes, an optional configured daily allowance, distinct restricted and daily-limit errors, a Practice QUOTE_RESTRICTED blocker and no $0.00 price on blocked Practice previews"; READY FOR REVIEW)**
 - Changes:
   - restricted/rate-limited quote outcomes cached (1 h / 10 min);

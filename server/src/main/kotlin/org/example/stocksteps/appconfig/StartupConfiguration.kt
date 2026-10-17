@@ -65,6 +65,7 @@ object StartupConfiguration {
         if (value("TRUSTED_PROXY_HOPS") == null)
             warnings += "TRUSTED_PROXY_HOPS is not set: guests without a verified sign-in share one admission pool per route group."
         positiveInt("WATCH_DATA_ANONYMOUS_MAX_SYMBOLS")
+        value("EOD_PUBLICATION_DELAY_MINUTES")?.let { if (it.toIntOrNull()?.takeIf { m -> m in 0..720 } == null) errors += "EOD_PUBLICATION_DELAY_MINUTES must be a whole number from 0 to 720" }
 
         // Phase 4C budgets: malformed numbers fail; on Cloud Run the plan limits and instance count must be explicit.
         positiveInt("CLOUD_RUN_MAX_INSTANCES")

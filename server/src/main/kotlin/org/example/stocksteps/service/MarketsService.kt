@@ -56,7 +56,14 @@ class MarketsService(
     /** Uses a monotonic clock: [clock] only decides the session (MOCK pins it to the fixture time). */
     private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 128, name = "markets"),
     private val callTimeoutMillis: Long = 8_000,
-    val usage: MarketsUsage = MarketsUsage()
+    val usage: MarketsUsage = MarketsUsage(),
+    /**
+     * Phase 7B (EOD-first): the shared daily-close series (`PriceChartService.getDailyCloses`, one cached request per symbol until the
+     * next expected close). When set, sectors and index fall-backs use the latest completed session's close and its change from the
+     * previous trading day's close instead of quotes, and most-active rows aren't enriched with quote volumes. Null keeps the quote path.
+     */
+    private val dailyCloses: (suspend (String) -> List<PricePoint>)? = null,
+    private val eod: EodSessions = EodSessions(clock)
 ) {
     private val permits = Semaphore(MAX_PARALLEL_QUOTES)
 
@@ -73,7 +80,10 @@ class MarketsService(
         val gainers = async { section("gainers") { cached("gainers", quoteTtl) { MoverRules.gainers(call { movers.getGainers() }) } } }
         val losers = async { section("losers") { cached("losers", quoteTtl) { MoverRules.losers(call { movers.getLosers() }) } } }
         val active = async { section("mostActive") { cached("mostActive", quoteTtl) { mostActive() } } }
-        val sectors = async { section("sectors") { cached("sectors", quoteTtl * 2) { loadSectors() } } }
+        val sectors = async { section("sectors") {
+            if (dailyCloses != null) cached("sectors-eod", quoteTtl * 2) { eodSectors() }   // the closes themselves live until the next close
+            else cached("sectors", quoteTtl * 2) { Sectors(loadSectors(), null, emptyList()) }
+        } }
         val articles = async { section("news") { cached("news", NEWS_TTL) { call { news.getNews(0, NEWS_COUNT) }.filter { NewsService.isHttps(it.url) } } } }
         val asOf = clock.instant().toString()
         val errors = listOf(indices, gainers, losers, active, sectors, articles).mapNotNull { it.await().second }
@@ -83,11 +93,14 @@ class MarketsService(
             gainers = MarketMoverList(gainers.await().first.orEmpty(), labels.movers, labels.quotes, "Largest % gain since the previous close", asOf),
             losers = MarketMoverList(losers.await().first.orEmpty(), labels.movers, labels.quotes, "Largest % decline since the previous close", asOf),
             mostActive = MarketMoverList(active.await().first.orEmpty(), labels.movers, labels.quotes, "Absolute share volume in the current or latest session", asOf),
-            sectors = SectorPerformanceSection(
-                items = sectors.await().first.orEmpty(),
-                methodology = "Measured with the Select Sector SPDR ETFs (one fund per sector). These are ETF proxies, not official sector index returns.",
-                period = "Change since the previous close"
-            ),
+            sectors = sectors.await().first.let { s -> SectorPerformanceSection(
+                items = s?.items.orEmpty(),
+                methodology = "Measured with the Select Sector SPDR ETFs (one fund per sector). These are ETF proxies, not official sector index returns." +
+                    if (dailyCloses != null) " Each fund's latest closing price is compared with its close on the previous trading day." else "",
+                period = if (dailyCloses != null) "Change from the previous close" else "Change since the previous close",
+                closeDate = s?.closeDate,
+                unavailable = s?.unavailable.orEmpty()
+            ) },
             news = articles.await().first.orEmpty(),
             dataNotice = labels.notice,
             sampleData = labels.sampleData,
@@ -102,16 +115,49 @@ class MarketsService(
 
     /** The index itself when available; otherwise its fund proxy, labelled; otherwise unavailable. */
     private suspend fun index(definition: IndexDefinition): IndexQuote {
+        // Phase 7B: outside the index's active hours its latest close is the value; no quote is requested.
+        if (dailyCloses != null && !eod.active(definition.symbol, clock.instant())) return eodIndex(definition)
         val direct = attempt { call { indexData.indexQuote(definition.symbol) } }?.takeIf { it.price.valid() }
         if (direct != null) {
             val trend = attempt { call { indexData.indexHistory(definition.symbol) } }.orEmpty()
             return indexQuote(definition, direct, isProxy = false, trend)
         }
+        if (dailyCloses != null) return eodIndex(definition)
         val proxy = attempt { quote(definition.proxySymbol) }?.takeIf { it.price.valid() }
             ?: return IndexQuote(definition.id, definition.name, definition.symbol, unit = "points", currency = definition.currency,
                 region = definition.region, error = ApiError("INDEX_UNAVAILABLE", "This index isn't available right now."))
         return indexQuote(definition, proxy, isProxy = true, emptyList())
     }
+
+    /**
+     * Phase 7B: no index quote — the index's own latest close (points), else its fund's latest close (labelled proxy, fund currency, no
+     * index level), else unavailable. Values are a completed session's close with the change from the preceding trading day's close.
+     */
+    private suspend fun eodIndex(definition: IndexDefinition): IndexQuote {
+        val own = attempt { closes(definition.symbol) }
+        own?.let { series -> EodChange.of(definition.symbol, series, eod, clock.instant())?.let { return eodQuote(definition, it, isProxy = false, series) } }
+        val fund = attempt { closes(definition.proxySymbol) }
+        fund?.let { series -> EodChange.of(definition.proxySymbol, series, eod, clock.instant())?.let { return eodQuote(definition, it, isProxy = true, series) } }
+        return IndexQuote(definition.id, definition.name, definition.symbol, unit = "points", currency = definition.currency, region = definition.region,
+            error = ApiError("INDEX_UNAVAILABLE", "This index isn't available right now."))
+    }
+
+    private fun eodQuote(definition: IndexDefinition, c: EodChange, isProxy: Boolean, series: List<PricePoint>): IndexQuote {
+        // The index's own closes only: a fund's trend isn't drawn as the index (as before for proxies).
+        val trend = if (isProxy) emptyList() else series.filter { p -> EodSessions.dateOf(p)?.let { it <= c.closeDate } == true && p.close.valid() }
+            .takeLast(TREND_POINTS).map { it.close }.takeIf { it.size >= 2 }.orEmpty()
+        return IndexQuote(
+        id = definition.id, name = definition.name, symbol = if (isProxy) definition.proxySymbol else definition.symbol,
+        value = c.close, change = c.change, changePercent = c.changePercent,
+        unit = if (isProxy) definition.currency else "points", currency = definition.currency, region = definition.region, isProxy = isProxy,
+        proxyDescription = if (isProxy) "${definition.proxyName} (${definition.proxySymbol}), a fund that tracks the ${definition.name}. Fund price, not the index level." else null,
+        asOf = c.closedAt.toString(),
+        trend = trend, trendLabel = trend.takeIf { it.isNotEmpty() }?.let { "Daily closes, last ${it.size} trading days" },
+        closeDate = c.closeDate.toString(), previousCloseDate = c.previousCloseDate.toString()
+        )
+    }
+
+    private suspend fun closes(symbol: String): List<PricePoint> = permits.withPermit { call { dailyCloses!!(symbol) } }
 
     private fun indexQuote(definition: IndexDefinition, quote: StockQuote, isProxy: Boolean, history: List<PricePoint>): IndexQuote {
         val price = quote.price!!
@@ -142,10 +188,49 @@ class MarketsService(
     /** The provider's most-active list, enriched with each stock's own quote volume, ranked by volume. */
     private suspend fun mostActive(): List<MarketMover> = coroutineScope {
         val ranked = MoverRules.clean(call { movers.getMostActive() }).take(MAX_MOVERS)
+        // Phase 7B: no quote per row for a missing volume (most were refused on the current plan); rows keep the list's own fields.
+        if (dailyCloses != null) return@coroutineScope MoverRules.mostActive(ranked)
         val enriched = ranked.map { mover ->
             async { if (mover.volume != null) mover else mover.copy(volume = attempt { quote(mover.symbol) }?.volume?.toDouble()) }
         }.awaitAll()
         MoverRules.mostActive(enriched)
+    }
+
+    private class Sectors(val items: List<SectorPerformance>, val closeDate: String?, val unavailable: List<String>)
+
+    /**
+     * Phase 7B: each fund's latest completed-session close vs the previous trading day's close. Only funds on the newest close date are
+     * compared (others are listed as unavailable); a fund without a usable pair is unavailable, never estimated. Every fund refused by
+     * the plan → PROVIDER_RESTRICTED for the section.
+     */
+    private suspend fun eodSectors(): Sectors = coroutineScope {
+        val failures = java.util.concurrent.ConcurrentLinkedQueue<StockProviderException>()
+        val rows = SECTORS.map { (sector, symbol, fund) ->
+            async {
+                val change = try { EodChange.of(symbol, closes(symbol), eod, clock.instant()) } catch (cause: Exception) {
+                    if (cause is CancellationException && cause !is kotlinx.coroutines.TimeoutCancellationException) throw cause
+                    (cause as? StockProviderException)?.let(failures::add)
+                    null
+                }
+                Triple(sector, SectorPerformance(sector, symbol, fund, change?.changePercent, change?.closedAt?.toString(),
+                    closeDate = change?.closeDate?.toString(), previousCloseDate = change?.previousCloseDate?.toString()), change?.closeDate)
+            }
+        }.awaitAll()
+        val latest = rows.mapNotNull { it.third }.maxOrNull()
+        val usable = rows.filter { it.third != null && it.third == latest }.map { it.second }
+        if (usable.isEmpty()) throw sectionFailure(failures.toList())
+        Sectors(usable.sortedByDescending { it.changePercent }, latest?.toString(), rows.filter { it.second !in usable }.map { it.first })
+    }
+
+    /**
+     * Why no fund could be shown: when every fund failed with a provider error, the section keeps that type (daily allowance, plan
+     * restriction when all were refused, else the first failure — e.g. a rate limit); otherwise it's a plain unavailability (no data).
+     */
+    private fun sectionFailure(failures: List<StockProviderException>): StockProviderException = when {
+        failures.size < SECTORS.size -> StockProviderException(StockProviderException.Failure.UNAVAILABLE)
+        failures.any { it.dailyLimitReached } -> failures.first { it.dailyLimitReached }
+        failures.all { it.restricted } -> failures.first()
+        else -> failures.firstOrNull { !it.restricted } ?: failures.first()
     }
 
     private suspend fun loadSectors(): List<SectorPerformance> = coroutineScope {

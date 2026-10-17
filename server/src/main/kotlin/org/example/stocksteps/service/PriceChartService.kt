@@ -13,15 +13,23 @@ import java.time.LocalDate
  */
 class PriceChartService(
     private val provider: PriceHistoryProvider,
-    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256, name = "price-chart")
+    private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256, name = "price-chart"),
+    /**
+     * Phase 7B: lifetime of a loaded daily series — [EodSessions.ttl] keeps a series until the next expected close (weekends and
+     * holidays included) and retries a late close every 30 min. Null: the fixed 6 h. Failures keep [providerCooldown].
+     */
+    private val eod: EodSessions? = null
 ) {
+    private fun dailyTtl(symbol: String, outcome: Outcome) =
+        if (outcome.failure == null && eod != null) eod.ttl(symbol, outcome.points, DAILY_TTL) else providerCooldown(outcome.failure, DAILY_TTL)
+
     private class Outcome(val points: List<PricePoint>, val failure: StockProviderException?)
 
     suspend fun getChart(symbol: String, range: ChartRange): PriceChart? {
         val intraday = range == ChartRange.ONE_DAY
         val key = if (intraday) "intraday:$symbol" else "daily:$symbol"
         val outcome = cache.getOrLoad(key, if (intraday) INTRADAY_TTL else DAILY_TTL,
-            resultTtl = { providerCooldown(it.failure, if (intraday) INTRADAY_TTL else DAILY_TTL) }) {
+            resultTtl = { if (intraday) providerCooldown(it.failure, INTRADAY_TTL) else dailyTtl(symbol, it) }) {
             try {
                 Outcome(if (intraday) provider.getIntradayPoints(symbol) else provider.getDailyCloses(symbol), null)
             } catch (cause: StockProviderException) {
@@ -37,8 +45,7 @@ class PriceChartService(
 
     /** Shared daily observations for dated portfolio valuation; uses the same provider cache. */
     suspend fun getDailyCloses(symbol: String): List<PricePoint> {
-        val outcome = cache.getOrLoad("daily:$symbol", DAILY_TTL,
-            resultTtl = { providerCooldown(it.failure, DAILY_TTL) }) {
+        val outcome = cache.getOrLoad("daily:$symbol", DAILY_TTL, resultTtl = { dailyTtl(symbol, it) }) {
             try { Outcome(provider.getDailyCloses(symbol), null) }
             catch (cause: StockProviderException) { Outcome(emptyList(), cause) }
         }

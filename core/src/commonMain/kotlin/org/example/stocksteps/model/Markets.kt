@@ -59,7 +59,13 @@ data class IndexQuote(
     /** Recent daily closes, oldest first; empty when no reliable history is available. */
     @EncodeDefault val trend: List<Double> = emptyList(),
     val trendLabel: String? = null,
-    val error: ApiError? = null
+    val error: ApiError? = null,
+    /**
+     * Phase 7B: set when [value] is an end-of-day close rather than a quote — the session date of that close (YYYY-MM-DD; [asOf] is
+     * the session's closing instant) and of the previous trading day's close that [change] is measured from.
+     */
+    val closeDate: String? = null,
+    val previousCloseDate: String? = null
 )
 
 /** A ranked mover list with its universe and source spelled out. */
@@ -82,7 +88,10 @@ data class SectorPerformance(
     val symbol: String,
     val fundName: String,
     val changePercent: Double? = null,
-    val asOf: String? = null
+    val asOf: String? = null,
+    /** Phase 7B: the fund's close date (YYYY-MM-DD) and the previous trading day it is compared with, for end-of-day values. */
+    val closeDate: String? = null,
+    val previousCloseDate: String? = null
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -91,7 +100,11 @@ data class SectorPerformanceSection(
     @EncodeDefault val items: List<SectorPerformance> = emptyList(),
     val methodology: String,
     val period: String,
-    @EncodeDefault val isProxy: Boolean = true
+    @EncodeDefault val isProxy: Boolean = true,
+    /** Phase 7B: the session date (YYYY-MM-DD) of the closes compared in [items], when they are end-of-day values. */
+    val closeDate: String? = null,
+    /** Phase 7B: sectors without a usable close on that session (names), so they're reported as unavailable rather than dropped silently. */
+    @EncodeDefault val unavailable: List<String> = emptyList()
 )
 
 /**

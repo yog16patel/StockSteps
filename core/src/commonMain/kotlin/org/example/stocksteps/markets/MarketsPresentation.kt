@@ -139,7 +139,9 @@ object MarketsPresenter {
         }
         val change = index.change?.let { (if (it > 0) "+" else if (it < 0) "-" else "") + number(abs(it)) }
         val percent = HomePresentation.percent(index.changePercent)
-        val updated = epochSeconds(index.asOf)?.let { "As of ${timeLabel(it, offsetMinutes)} ET · ${dateLabel(it, offsetMinutes)}" }
+        // Phase 7B: an end-of-day value says which session's close it is, never a time of day.
+        val updated = index.closeDate?.let(::closeLabel)
+            ?: epochSeconds(index.asOf)?.let { "As of ${timeLabel(it, offsetMinutes)} ET · ${dateLabel(it, offsetMinutes)}" }
         val proxy = if (index.isProxy) "Proxy: ${index.symbol} fund price" else null
         val spokenDirection = when (direction) { PriceDirection.UP -> "up"; PriceDirection.DOWN -> "down"; PriceDirection.UNCHANGED -> "unchanged"; else -> "change unavailable" }
         return IndexCardModel(
@@ -201,10 +203,13 @@ object MarketsPresenter {
             )
         }
         val best = rows.firstOrNull(); val worst = rows.lastOrNull()
+        // Phase 7B: "Change from the previous close · Last close Oct 15 · Not available: Real Estate" (only dates the data has).
+        val period = listOfNotNull(section.period, section.closeDate?.let(::closeLabel)?.replace("Last close · ", "Last close "),
+            section.unavailable.takeIf { it.isNotEmpty() && !failed }?.let { "Not available: ${it.joinToString(", ")}" }).joinToString(" · ")
         return SectorsModel(
             rows = rows,
             methodology = section.methodology,
-            period = section.period,
+            period = period,
             failed = failed,
             chartDescription = if (best == null || worst == null) "No sector data."
                 else "Sector performance, ${section.period.lowercase()}. Best: ${best.sector} ${best.change}. Weakest: ${worst.sector} ${worst.change}."
@@ -229,6 +234,9 @@ object MarketsPresenter {
     }
 
     private fun epochSeconds(iso: String?): Long? = iso?.let { runCatching { Instant.parse(it).epochSeconds }.getOrNull() }
+
+    /** Phase 7B: "Last close · Oct 15" for a session date "2026-10-15"; null when it isn't a date. */
+    fun closeLabel(date: String): String? = dayNumber(date)?.let { days -> civil(days.toLong()).let { (_, month, day) -> "Last close · ${MONTHS[month - 1]} $day" } }
 
     private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
     private val WEEKDAYS = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")

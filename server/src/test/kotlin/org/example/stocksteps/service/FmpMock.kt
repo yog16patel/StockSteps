@@ -34,6 +34,8 @@ internal class FmpMock(private val universeSize: Int = 30, private val latency: 
     @Volatile var correction = 0.0
     /** Phase 7A: "endpoint|SYMBOL" (or "SYMBOL" for every endpoint) → HTTP status (e.g. a plan that refuses some symbols' quotes with 402). */
     val symbolStatus = ConcurrentHashMap<String, Int>()
+    /** Phase 7B: response bodies by "endpoint|SYMBOL" or "endpoint", used instead of the generated ones (e.g. dated EOD series). */
+    val bodies = ConcurrentHashMap<String, String>()
     /** Symbols whose requests fail with 503 (any endpoint). */
     val failSymbols: MutableSet<String> = ConcurrentHashMap.newKeySet()
     /** Requests answered with an error status. */
@@ -89,7 +91,7 @@ internal class FmpMock(private val universeSize: Int = 30, private val latency: 
         if (knownSymbols?.let { request.url.parameters["symbol"] != null && symbol !in it } == true && path != "company-screener" && !path.startsWith("calendar"))
             return@MockEngine respond("[]", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()))
         (status[path] ?: request.url.parameters["symbol"]?.let { symbolStatus["$path|$it"] ?: symbolStatus[it] } ?: 503.takeIf { request.url.parameters["symbol"]?.let { it in failSymbols } == true })?.let { failed.incrementAndGet(); return@MockEngine respond("""{"error":"x"}""", HttpStatusCode.fromValue(it), headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())) }
-        val body = when (path) {
+        val body = bodies["$path|$symbol"] ?: bodies[path] ?: when (path) {
             "quote" -> """[{"symbol":"$symbol","price":100.0,"previousClose":99.0,"timestamp":1791396000}]"""
             "profile" -> """[{"symbol":"$symbol","companyName":"$symbol Corp","currency":"${if (symbol.endsWith(".TO")) "CAD" else "USD"}","exchange":"${if (symbol.endsWith(".TO")) "TSX" else "NASDAQ"}","sector":"Technology","industry":"Software"}]"""
             "company-screener" -> (0 until universeSize).joinToString(",", "[", "]") { i ->

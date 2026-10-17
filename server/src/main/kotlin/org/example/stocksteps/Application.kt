@@ -137,7 +137,10 @@ fun Application.module() {
     )
 
     // One chart service so the price chart and the valuation history share cached daily closes.
-    val charts = org.example.stocksteps.service.PriceChartService(sources.priceHistory)
+    // Phase 7B: daily closes live until the next expected close (exchange calendars, a configurable publication delay).
+    val eodSessions = org.example.stocksteps.service.EodSessions(sources.marketClock, java.time.Duration.ofMinutes(
+        System.getenv("EOD_PUBLICATION_DELAY_MINUTES")?.toLongOrNull()?.takeIf { it in 0..720 } ?: org.example.stocksteps.service.EodSessions.DEFAULT_DELAY_MINUTES))
+    val charts = org.example.stocksteps.service.PriceChartService(sources.priceHistory, eod = eodSessions)
     val valuation = org.example.stocksteps.service.ValuationService(sources.stockProvider, charts, sources.earnings)
     val movement = org.example.stocksteps.service.MovementService(
         stocks = stockService, charts = charts, news = sources.news,
@@ -324,7 +327,10 @@ fun Application.module() {
             },
             news = sources.news,
             labels = sources.marketsLabels,
-            clock = sources.marketClock
+            clock = sources.marketClock,
+            // Phase 7B: sectors and index fall-backs from the shared daily closes, not quotes.
+            dailyCloses = charts::getDailyCloses,
+            eod = eodSessions
         )
         marketsRoutes(marketsService)
         // Daily Market Brief: one global brief per edition (from the Markets cache) plus per-user overlays.
