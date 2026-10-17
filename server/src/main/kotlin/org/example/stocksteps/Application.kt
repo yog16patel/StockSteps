@@ -109,6 +109,10 @@ internal fun Application.stockStepsModule(dataMode: DataMode) {
         val budgets = org.example.stocksteps.service.ProviderBudgetConfig.fromEnvironment()
         org.example.stocksteps.service.ProviderGuard.installed = org.example.stocksteps.service.ProviderGuard(budgets)
         if (!budgets.verified) log.warn("Provider budgets use development defaults (PROVIDER_*_PER_MINUTE / CLOUD_RUN_MAX_INSTANCES not set): not production-ready.")
+        // Phase 9B: which datasets aren't cleared for public display (fail closed at a commercial launch). Report only; no route changes.
+        org.example.stocksteps.marketdata.LicenseGate(org.example.stocksteps.marketdata.LicenseMode.fromEnvironment()).let { gate ->
+            if (gate.registry.notCleared(org.example.stocksteps.marketdata.DisplayChannel.MOBILE_APP).isNotEmpty()) log.warn("Market-data licensing: {}", gate.summary())
+        }
         // Phase 4D: one structured usage summary per instance per interval (logs-based metrics aggregate them across instances).
         (System.getenv("USAGE_SUMMARY_SECONDS")?.toLongOrNull() ?: 60L).takeIf { it > 0 }?.let { seconds ->
             org.example.stocksteps.service.UsageSummaryReporter().start(this, seconds * 1_000)
@@ -258,7 +262,9 @@ internal fun Application.stockStepsModule(dataMode: DataMode) {
                     minMarketCap = System.getenv("SCREENER_MIN_MARKET_CAP")?.toLongOrNull() ?: 2_000_000_000L)
                 else org.example.stocksteps.screener.CuratedScreenerUniverse(stockService::getProfile, charts::getDailyCloses, eodSessions, sources.marketClock,
                     kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default),
-                    perHour = System.getenv("SCREENER_ENRICHMENT_PER_HOUR")?.toIntOrNull()?.takeIf { it >= 0 } ?: org.example.stocksteps.screener.CuratedScreenerUniverse.DEFAULT_PER_HOUR) }
+                    perHour = System.getenv("SCREENER_ENRICHMENT_PER_HOUR")?.toIntOrNull()?.takeIf { it >= 0 } ?: org.example.stocksteps.screener.CuratedScreenerUniverse.DEFAULT_PER_HOUR,
+                    // Phase 9B: upstream requests per UTC day for background enrichment (0 = none).
+                    perDay = System.getenv("SCREENER_ENRICHMENT_PER_DAY")?.toIntOrNull()?.takeIf { it >= 0 } ?: org.example.stocksteps.screener.CuratedScreenerUniverse.DEFAULT_PER_DAY) }
             val screener = org.example.stocksteps.screener.ScreenerService(
                 universe = sources.screenerUniverse ?: realUniverse,
                 pageQuotes = sources.screenerUniverse != null || fmpScreener,

@@ -35,7 +35,7 @@ class CuratedDiscoverBenchmarkTest {
         val fmp = FmpStockProviderRepositoryImpl(up.client, "k", cacheNow = { clock.millis() }) { LocalDate.parse("2026-10-16") }
         val stocks = StockService(fmp, fmp, CompanyFinancialCache(capacity = 512, now = { clock.millis() }))
         val charts = PriceChartService(FmpPriceHistoryProvider(up.client, "k"), CompanyFinancialCache(capacity = 512, now = { clock.millis() }), eod = EodSessions(clock))
-        val curated = if (mode == Mode.CURATED) CuratedScreenerUniverse(stocks::getProfile, charts::getDailyCloses, EodSessions(clock), clock, scope, perHour = 500, meter = ProviderUsageMeter()) else null
+        val curated = if (mode == Mode.CURATED) CuratedScreenerUniverse(stocks::getProfile, charts::getDailyCloses, EodSessions(clock), clock, scope, perHour = 500, perDay = null, meter = ProviderUsageMeter()) else null
         val universe: ScreenerUniverseSource = curated ?: FmpScreenerUniverse(up.client, "k", listOf("NASDAQ", "NYSE", "TSX"), 50, 2_000_000_000L,
             cache = CompanyFinancialCache(capacity = 4, now = { clock.millis() }))
         val financials = CompanyFinancialService(fmp)

@@ -70,11 +70,17 @@ object StartupConfiguration {
             positiveInt("RATE_LIMIT_${name.uppercase()}_$suffix")
         value("SCREENER_UNIVERSE")?.let { if (it.lowercase() !in setOf("curated", "fmp")) errors += "SCREENER_UNIVERSE must be curated or fmp" }
         value("SCREENER_ENRICHMENT_PER_HOUR")?.let { if (it.toIntOrNull()?.takeIf { n -> n >= 0 } == null) errors += "SCREENER_ENRICHMENT_PER_HOUR must be a whole number ≥ 0" }
+        value("SCREENER_ENRICHMENT_PER_DAY")?.let { if (it.toIntOrNull()?.takeIf { n -> n >= 0 } == null) errors += "SCREENER_ENRICHMENT_PER_DAY must be a whole number ≥ 0" }
+        value("SEC_USER_AGENT")?.let { if (!org.example.stocksteps.marketdata.sec.SecEdgarClient.validUserAgent(it.trim())) errors += "SEC_USER_AGENT must name the app and a contact e-mail address" }
+        value("STOCKSTEPS_LICENSE_MODE")?.let { if (it.trim().lowercase() !in setOf("development", "commercial")) errors += "STOCKSTEPS_LICENSE_MODE must be development or commercial" }
         value("EOD_PUBLICATION_DELAY_MINUTES")?.let { if (it.toIntOrNull()?.takeIf { m -> m in 0..720 } == null) errors += "EOD_PUBLICATION_DELAY_MINUTES must be a whole number from 0 to 720" }
 
         // Phase 4C budgets: malformed numbers fail; on Cloud Run the plan limits and instance count must be explicit.
         positiveInt("CLOUD_RUN_MAX_INSTANCES")
         for (provider in PROVIDERS) for (suffix in listOf("PER_MINUTE", "BURST", "CONCURRENCY", "DAILY_TARGET", "DAILY_LIMIT")) positiveInt("PROVIDER_${provider}_$suffix")
+        // Phase 9B: SEC EDGAR has a published ceiling (10 requests/second); overrides may lower the lane, never raise it past 600/min.
+        for (suffix in listOf("PER_MINUTE", "BURST", "CONCURRENCY", "DAILY_TARGET", "DAILY_LIMIT")) positiveInt("PROVIDER_SEC_$suffix")
+        value("PROVIDER_SEC_PER_MINUTE")?.toLongOrNull()?.let { if (it > 600) errors += "PROVIDER_SEC_PER_MINUTE must not exceed 600 (SEC fair access: 10 requests/second)" }
         // Phase 7A: the daily allowance is separate from the per-minute rate and is never inferred from it.
         for (provider in PROVIDERS) {
             val target = value("PROVIDER_${provider}_DAILY_TARGET")?.toLongOrNull()

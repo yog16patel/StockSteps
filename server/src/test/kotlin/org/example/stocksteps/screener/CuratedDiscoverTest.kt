@@ -60,7 +60,7 @@ class CuratedDiscoverTest {
         profile = { s -> profileCalls.incrementAndGet(); failing[s]?.let { throw it }; CompanyProfile(s, "$s Provider Name", sector = "Technology", industry = "Software", exchange = "NASDAQ",
             marketCap = (1_000 + (s.hashCode() and 0xff)) * 1e9) },
         closes = { s -> closeCalls.incrementAndGet(); failing[s]?.let { throw it }; closesFor(s) },
-        eod = EodSessions(clock), clock = clock, scope = scope, perHour = perHour, meter = ProviderUsageMeter())
+        eod = EodSessions(clock), clock = clock, scope = scope, perHour = perHour, perDay = null, meter = ProviderUsageMeter())  // Phase 7E behaviour: no daily cap (9B cap: MarketDataPhase9bBenchmarkTest)
 
     @Test fun firstOpenNeverWaitsAndEnrichmentIsBudgetedAndNotRepeated() = runBlocking<Unit> {
         val u = curated(this)
@@ -103,7 +103,7 @@ class CuratedDiscoverTest {
         val fmp = FmpStockProviderRepositoryImpl(up.client, "k", cacheNow = { clock.millis() }) { LocalDate.parse("2026-10-16") }
         val stocks = StockService(fmp, fmp, CompanyFinancialCache(capacity = 512, now = { clock.millis() }))
         val charts = PriceChartService(FmpPriceHistoryProvider(up.client, "k"), CompanyFinancialCache(capacity = 512, now = { clock.millis() }), eod = EodSessions(clock))
-        val universe = CuratedScreenerUniverse(stocks::getProfile, charts::getDailyCloses, EodSessions(clock), clock, scope, perHour = 500, meter = ProviderUsageMeter())
+        val universe = CuratedScreenerUniverse(stocks::getProfile, charts::getDailyCloses, EodSessions(clock), clock, scope, perHour = 500, perDay = null, meter = ProviderUsageMeter())
         val financials = CompanyFinancialService(fmp)
         val service = ScreenerService(universe, stocks, { financials.getFundamentals(it, "annual") }, charts, { 0.73 }, clock, sampleData = false,
             fundamentalsPerHour = 0, fullRecords = false, scope = scope, meter = ProviderUsageMeter(), pageQuotes = false,

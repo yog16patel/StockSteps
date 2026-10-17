@@ -42,7 +42,12 @@ data class CuratedUniverseFile(val version: String, val description: String, val
  * [universe] never waits for the provider: it returns the list with whatever is enriched now (missing values stay null) and starts a
  * background pass for companies that are due — never loaded, a newer close expected, or a profile older than [profileRefreshMillis] —
  * at most [perHour] companies an hour, [concurrency] at a time, LOW provider priority (never the interactive share of a budget).
- * A failed company isn't retried for [retryAfterMillis]. The engine keeps unenriched companies out of value filters (reported as
+ * A failed company isn't retried for [retryAfterMillis].
+ * Phase 9B daily cap: with [perDay] set (env `SCREENER_ENRICHMENT_PER_DAY`, default [DEFAULT_PER_DAY]; 0 = no background enrichment),
+ * enrichment makes at most that many **upstream provider requests** per UTC day on this instance. Each company reserves its worst case
+ * (one request per due part: profile, daily series) before it starts, and the unused part is returned afterwards from the exact count of
+ * upstream calls it caused (cache hits and joined loads cost nothing), so concurrent passes can't overshoot. Never-loaded companies go
+ * first, then missing closes, then profile refreshes. The engine keeps unenriched companies out of value filters (reported as
  * excluded for missing data) and sorts them last; coverage is reported with every response.
  */
 class CuratedScreenerUniverse(
@@ -55,6 +60,7 @@ class CuratedScreenerUniverse(
     private val concurrency: Int = 4,
     private val profileRefreshMillis: Long = 86_400_000L,
     private val retryAfterMillis: Long = 1_800_000L,
+    private val perDay: Int? = DEFAULT_PER_DAY,
     private val file: CuratedUniverseFile = CuratedUniverseFile.load(),
     private val meter: ProviderUsageMeter = ProviderUsageMeter.shared
 ) : ScreenerUniverseSource {
@@ -70,6 +76,10 @@ class CuratedScreenerUniverse(
     private val inFlight = HashSet<String>()
     private val attempts = ArrayDeque<Long>()
     private val permits = Semaphore(concurrency)
+    private var budgetDay = ""
+    private var usedToday = 0
+    /** Upstream requests charged to enrichment in the current UTC day (reserved + actual), for tests and diagnostics. */
+    val usedTodayForTests: Int get() = usedToday
     /** The latest background pass (tests join it). */
     @Volatile var pending: Job? = null; private set
 
@@ -85,34 +95,88 @@ class CuratedScreenerUniverse(
                     e?.price, e?.marketCap, null, false, priceDate = e?.priceDate?.toString(), changePercent = e?.changePercent)
             }
             while (attempts.isNotEmpty() && now - attempts.first() >= 3_600_000L) attempts.removeFirst()
-            val room = (perHour - attempts.size).coerceAtLeast(0)
-            val due = file.companies.map { it.symbol }.filter { it !in inFlight && isDue(it, enriched[it], now) }
-            if (due.size > room) meter.event("discover.enrich.budgetReached")
-            entries to due.sortedBy { enriched[it]?.attemptAt ?: Long.MIN_VALUE }.take(room).onEach { inFlight += it; attempts.addLast(now) }
+            val day = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneOffset.UTC).toLocalDate().toString()
+            if (day != budgetDay) { budgetDay = day; usedToday = 0 }
+            val hourRoom = (perHour - attempts.size).coerceAtLeast(0)
+            // Parts in priority order: never-loaded companies (both parts), then due closes, then due profile refreshes; oldest attempt
+            // first within each group. A company's parts chosen in one pass are merged (one attempt, one hourly slot).
+            val parts = file.companies.mapNotNull { c -> c.symbol.takeIf { it !in inFlight }?.let { due(it, enriched[it], now) } }.flatMap { d ->
+                if (enriched[d.symbol] == null) listOf(0 to d)
+                else listOfNotNull(if (d.close) 1 to d.copy(profile = false) else null, if (d.profile) 2 to d.copy(close = false) else null)
+            }.sortedWith(compareBy({ it.first }, { enriched[it.second.symbol]?.attemptAt ?: Long.MIN_VALUE }))
+            // Closes come first for the whole day: while a close is still to be published in this budget day, profile refreshes may use
+            // only what the companies still waiting for that close won't need.
+            val closeReserve = if (perDay == null) 0 else eod.nextPublication(EodSessions.Market.US, clock.instant()).let { next ->
+                if (next.atZone(java.time.ZoneOffset.UTC).toLocalDate().toString() != day) 0
+                else { val session = eod.expectedSession(EodSessions.Market.US, next); file.companies.count { c -> enriched[c.symbol]?.priceDate?.let { it < session } ?: true } }
+            }
+            val picked = LinkedHashMap<String, Due>()
+            var reserved = 0; var hourFull = false; var dayFull = false; var closesWaiting = false
+            for ((stage, d) in parts) {
+                // Profile refreshes wait while any new company or close couldn't be scheduled.
+                if (stage == 2 && closesWaiting && perDay != null) { dayFull = true; continue }
+                val existing = picked[d.symbol]
+                if (existing == null && picked.size >= hourRoom) { hourFull = true; if (stage < 2) closesWaiting = true; continue }
+                val keep = if (stage == 2) closeReserve else 0
+                if (perDay != null && usedToday + reserved + d.parts + keep > perDay) { dayFull = true; if (stage < 2) closesWaiting = true; continue }
+                picked[d.symbol] = existing?.let { Due(d.symbol, it.profile || d.profile, it.close || d.close) } ?: d
+                reserved += d.parts
+            }
+            val chosen = picked.values.toList()
+            if (hourFull) meter.event("discover.enrich.budgetReached")
+            if (dayFull) meter.event("discover.enrich.dailyBudgetReached")
+            chosen.forEach { inFlight += it.symbol; attempts.addLast(now) }
+            if (perDay != null) usedToday += reserved
+            entries to chosen
         }
+        val day = lock.withLock { budgetDay }
         if (due.isNotEmpty()) pending = scope.launch(ProviderFeature("discover-enrichment") + ProviderPriorityElement(ProviderPriority.LOW)) {
-            due.map { symbol -> launch { permits.withPermit { try { enrich(symbol) } finally { lock.withLock { inFlight -= symbol } } } } }.joinAll()
+            due.map { d -> launch {
+                val cost = org.example.stocksteps.security.RequestCost()
+                permits.withPermit { try { withContext(cost) { enrich(d) } } finally { lock.withLock {
+                    inFlight -= d.symbol
+                    // Return the unused part of the reservation (same budget day only); never below the real upstream count.
+                    if (perDay != null && budgetDay == day) usedToday += cost.data.get() - d.parts
+                } } }
+            } }.joinAll()
         }
         val loaded = entries.count { it.price != null }
         meter.gauge("discover.coverage.priced", loaded.toLong()); meter.gauge("discover.coverage.size", entries.size.toLong())
         return UniverseDefinition(file.description, entries)
     }
 
-    private fun isDue(symbol: String, e: Enriched?, now: Long): Boolean {
-        if (e == null) return true
-        if (now - e.attemptAt < if (e.failed) retryAfterMillis else 60_000L) return false
-        val market = eod.market(symbol) ?: return false
+    /** What one company needs now: its profile, its latest close, or both ([parts] = the most upstream requests it can cause). */
+    private data class Due(val symbol: String, val profile: Boolean, val close: Boolean) { val parts: Int get() = (if (profile) 1 else 0) + (if (close) 1 else 0) }
+
+    private fun due(symbol: String, e: Enriched?, now: Long): Due? {
+        if (e == null) return Due(symbol, profile = true, close = true)
+        if (now - e.attemptAt < if (e.failed) retryAfterMillis else 60_000L) return null
+        val market = eod.market(symbol) ?: return null
         val expected = eod.expectedSession(market, clock.instant())
         val priceBehind = e.priceDate == null || e.priceDate < expected
         val profileOld = e.profileAt == null || now - e.profileAt >= profileRefreshMillis
         // A missing expected close is re-checked at most every 30 minutes (the close cache's own late-retry interval).
-        return profileOld || (priceBehind && now - e.attemptAt >= 1_800_000L)
+        val close = priceBehind && (now - e.attemptAt >= 1_800_000L || profileOld)
+        return Due(symbol, profileOld, close).takeIf { it.parts > 0 }
     }
 
-    private suspend fun enrich(symbol: String) {
+    private suspend fun enrich(d: Due) {
+        val symbol = d.symbol
         val now = clock.millis()
         val previous = lock.withLock { enriched[symbol] }
-        val p = runCatching { profile(symbol) }.getOrNull()
+        // Phase 9B: only the parts that are due are requested (a close refresh doesn't re-read the profile, and vice versa).
+        if (previous != null && !d.close) {
+            val p = runCatching { profile(symbol) }.getOrNull()
+            val next = previous.copy(
+                name = p?.companyName?.takeIf { it.isNotBlank() } ?: previous.name, exchange = p?.exchange?.takeIf { it.isNotBlank() } ?: previous.exchange,
+                sector = p?.sector?.takeIf { it.isNotBlank() } ?: previous.sector, industry = p?.industry?.takeIf { it.isNotBlank() } ?: previous.industry,
+                country = p?.country?.takeIf { it.isNotBlank() } ?: previous.country, marketCap = if (p != null) p.marketCap else previous.marketCap,
+                profileAt = if (p != null) now else previous.profileAt, attemptAt = now, failed = p == null && previous.price == null)
+            lock.withLock { enriched[symbol] = next }
+            meter.event(if (p == null) "discover.enrich.failed" else "discover.enrich.ok")
+            return
+        }
+        val p = if (previous == null || d.profile) runCatching { profile(symbol) }.getOrNull() else null
         val series = runCatching { closes(symbol) }.getOrNull()
         val at = clock.instant()
         val close = series?.let { EodPrice.latest(symbol, it, eod, at) }?.takeIf { it.sessionsBehind <= EodPrice.VALUATION_MAX_SESSIONS }
@@ -126,11 +190,15 @@ class CuratedScreenerUniverse(
             marketCap = p?.marketCap ?: previous?.marketCap.takeIf { p == null },
             price = close?.close, priceDate = close?.date, changePercent = change?.changePercent,
             profileAt = if (p != null) now else previous?.profileAt, attemptAt = now,
-            failed = p == null && close == null
+            failed = close == null && (p == null || !d.profile)
         )
         lock.withLock { enriched[symbol] = next }
         meter.event(if (next.failed) "discover.enrich.failed" else "discover.enrich.ok")
     }
 
-    companion object { const val DEFAULT_PER_HOUR = 60 }
+    companion object {
+        const val DEFAULT_PER_HOUR = 60
+        /** Phase 9B (the Phase 7E.1 design): 100 upstream requests a day by default. A full refresh needs ≈ 310 (155 closes + 155 profiles). */
+        const val DEFAULT_PER_DAY = 100
+    }
 }

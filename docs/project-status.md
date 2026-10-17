@@ -6,6 +6,12 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 9B market-data cost, licensing and provider architecture (committed and pushed as "Add the Phase 9B market-data architecture …"; READY FOR REVIEW).**
+- Server-only: fail-closed licence registry, deterministic source selection, SEC EDGAR adapter and pure metrics engine (both not wired),
+  a replaceable daily-price boundary, and a Discover enrichment cap of 100 upstream requests a day (closes first).
+- Only SEC, Bank of Canada and StockSteps' own data are cleared for public display; prices, news and earnings need vendor agreements.
+- All suites green (server 652/0, +48). Review package: `docs/reviews/market_data_phase9b/`.
+
 **2026-10-17 — Phase 9A backend security and access control (committed and pushed as "Secure the backend for Phase 9A with a central sign-in check on every signed-in route, a classified route table, per-class rate limits with Retry-After and concurrency caps, safe security logging, 415 for non-JSON bodies and two-user isolation tests on the Firebase emulators"; ChatGPT review pending; not deployed).**
 - Central authentication for `/api/v1/me…`, every route classified (`security/RouteAccess.kt`), per-class rate limits with Retry-After and
   concurrency caps, safe security logging, 415 for non-JSON bodies. No client behaviour change beyond exposing `Retry-After`.

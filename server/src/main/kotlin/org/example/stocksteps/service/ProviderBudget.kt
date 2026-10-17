@@ -62,16 +62,24 @@ data class ProviderBudgetConfig(
             "fmp" to ProviderLimits(perMinute = 600, burst = 600, maxConcurrent = 24),
             "finnhub" to ProviderLimits(perMinute = 60, burst = 30, maxConcurrent = 8),
             "gemini" to ProviderLimits(perMinute = 60, burst = 20, maxConcurrent = 4),
-            "boc" to ProviderLimits(perMinute = 30, burst = 10, maxConcurrent = 2)
+            "boc" to ProviderLimits(perMinute = 30, burst = 10, maxConcurrent = 2),
+            // Phase 9B: SEC EDGAR publishes its fair-access ceiling (10 requests/second per user, sec.gov "Accessing EDGAR Data").
+            // StockSteps stays far below it: 5/s sustained, small bursts, 2 at a time.
+            "sec" to ProviderLimits(perMinute = 300, burst = 10, maxConcurrent = 2)
         )
+
+        /** Providers whose limit is published by the source itself (no plan to confirm), so they don't block [verified]. */
+        val PUBLISHED_LIMITS = setOf("sec")
 
         fun fromEnvironment(env: (String) -> String? = System::getenv): ProviderBudgetConfig {
             var verified = true
             val limits = DEVELOPMENT.mapValues { (name, d) ->
                 fun value(suffix: String) = env("PROVIDER_${name.uppercase()}_$suffix")?.toLongOrNull()?.takeIf { it > 0 }
                 val perMinute = value("PER_MINUTE")
-                if (perMinute == null) verified = false
-                ProviderLimits(perMinute?.toInt() ?: d.perMinute, value("BURST")?.toInt() ?: perMinute?.toInt() ?: d.burst,
+                if (perMinute == null && name !in PUBLISHED_LIMITS) verified = false
+                // SEC's published fair-access ceiling is never exceeded, whatever the override (10 requests/second).
+                val cap = if (name == "sec") 600 else Int.MAX_VALUE
+                ProviderLimits((perMinute?.toInt() ?: d.perMinute).coerceAtMost(cap), (value("BURST")?.toInt() ?: perMinute?.toInt() ?: d.burst).coerceAtMost(if (name == "sec") 10 else Int.MAX_VALUE),
                     value("CONCURRENCY")?.toInt() ?: d.maxConcurrent, value("DAILY_TARGET"), value("DAILY_LIMIT"))
             }
             val instances = env("CLOUD_RUN_MAX_INSTANCES")?.toIntOrNull()?.takeIf { it >= 1 }
