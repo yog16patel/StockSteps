@@ -87,12 +87,17 @@ internal class TabNavigator(
 ) {
     val portfolioSection: org.example.stocksteps.navigation.PortfolioSection get() = section.value
 
+    /** Phase 8E: the motion of the latest navigation step (core `NavigationMotion`), read by the NavHost transitions when they start. */
+    var motion: org.example.stocksteps.navigation.NavMotion = org.example.stocksteps.navigation.NavMotion.NONE
+        private set
+
     /** A tap on the My Portfolio | Practice nested tabs: the content switches in place; no navigation happens. */
     fun selectPortfolioSection(value: org.example.stocksteps.navigation.PortfolioSection) { section.value = value }
 
     /** "Open Practice" from anywhere: Practice is a section of the Portfolio landing page, so Portfolio shows its root with Practice selected
      *  (a tab switch, rule 6 — no duplicate Practice page, no hop). */
     private fun showPortfolioSection(value: org.example.stocksteps.navigation.PortfolioSection) {
+        motion = org.example.stocksteps.navigation.NavigationMotion.selectTab()
         dismissModals()
         if (currentTab() != AppTab.PORTFOLIO) selectTab(AppTab.PORTFOLIO)
         nav.popBackStack(AppTab.PORTFOLIO.rootRoute(), inclusive = false)
@@ -131,9 +136,10 @@ internal class TabNavigator(
         // A Portfolio child selects its section, so Back from it shows the matching nested tab (5D.5.6C4).
         org.example.stocksteps.navigation.PortfolioSections.sectionFor(screen)?.let { section.value = it }
         when (screen.kind) {
-            ScreenKind.MODAL, ScreenKind.GLOBAL -> nav.navigate(route) { launchSingleTop = true }
+            ScreenKind.MODAL, ScreenKind.GLOBAL -> { motion = org.example.stocksteps.navigation.NavigationMotion.open(screen.kind); nav.navigate(route) { launchSingleTop = true } }
             ScreenKind.TAB_ROOT -> selectTab(screen.tab!!)
             ScreenKind.TAB_SCREEN -> {
+                motion = org.example.stocksteps.navigation.NavigationMotion.open(screen.kind)
                 dismissModals()
                 if (currentTab() == null) { nav.navigate(route); return } // no tab shown yet (signed-out start)
                 sync()
@@ -161,8 +167,12 @@ internal class TabNavigator(
      *  root returns to Home (plan §5). Returns false when there is nothing to go back to. */
     fun back(): Boolean {
         val top = nav.currentBackStackEntry ?: return false
-        if (top.destination.tab() == null) return nav.previousBackStackEntry != null && nav.popBackStack()
+        if (top.destination.tab() == null) {
+            motion = org.example.stocksteps.navigation.NavigationMotion.back(ScreenKind.GLOBAL)
+            return nav.previousBackStackEntry != null && nav.popBackStack()
+        }
         sync()
+        motion = org.example.stocksteps.navigation.NavigationMotion.back(ScreenKind.TAB_SCREEN)
         val tab = state.selected
         val next = TabNavigation.back(state)
         when {
@@ -180,6 +190,7 @@ internal class TabNavigator(
 
     /** A tab tap or a programmatic jump: restores that tab's stack and clears the trail (D2); the visible tab is reselected (D3/D12). */
     fun selectTab(tab: AppTab) {
+        motion = org.example.stocksteps.navigation.NavigationMotion.selectTab()
         dismissModals()
         if (currentTab() == tab) { reselect(); return }
         sync()
@@ -192,13 +203,17 @@ internal class TabNavigator(
         sync()
         val tab = state.selected
         val (next, effect) = TabNavigation.reselect(state)
-        if (effect == ReselectEffect.POP_TO_ROOT) nav.popBackStack(tab.rootRoute(), inclusive = false) else reselectEvents.tryEmit(tab)
+        if (effect == ReselectEffect.POP_TO_ROOT) {
+            motion = org.example.stocksteps.navigation.NavigationMotion.reselectPopToRoot()
+            nav.popBackStack(tab.rootRoute(), inclusive = false)
+        } else reselectEvents.tryEmit(tab)
         update(next)
         sync()
     }
 
     /** Sign-out or an ended session: forget every saved tab stack and the trail (I11); the caller then shows sign-in. */
     fun reset() {
+        motion = org.example.stocksteps.navigation.NavigationMotion.reset()
         AppTab.entries.forEach { nav.clearBackStack(it.graph()) }
         update(TabNavigation.reset(), emptyMap())
         section.value = org.example.stocksteps.navigation.PortfolioSections.DEFAULT

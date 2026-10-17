@@ -9,7 +9,7 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
 
 - **Current commit:** "Secure the backend for Phase 9A with a central sign-in check on every signed-in route, a classified route table, per-class rate limits with Retry-After and concurrency caps, safe security logging, 415 for non-JSON bodies and two-user isolation tests on the Firebase emulators" (this commit), on top of "Make PortfolioSessionStateTest deterministic …" (`1a39ce3`). Committed and
   pushed at the owner's request; ChatGPT review of `docs/reviews/security_phase9a/` still pending. Not deployed; no Firebase console or
-  provider change. Phase 8E stays uncommitted in the main checkout (not part of this commit).
+  provider change. Phase 8E was committed after it, separately (§UI-UX-PHASE8E-2026-10-17).
 - **Done (server):**
   - central gate `security/Authentication.kt` for every `/api/v1/me…` request (typed principal, one verification per request);
   - REAL verifier hardening (RS256, `exp` required, `iat`/`auth_time`, uid shape); anonymous Firebase accounts → 403 `ACCOUNT_REQUIRED`;
@@ -26,6 +26,26 @@ Always start with `git status` and `git log -5 --oneline`; the repository is aut
 - **Owner decisions:** multi-instance limiter, revocation checks, App Check rollout, `TRUSTED_PROXY_HOPS` / provider limits / instance count,
   `/internal` ingress, iOS Firebase plist in Git, final limit numbers.
 - **Next:** ChatGPT review; then the owner decisions above. STOP after 9A.
+
+## UI-UX-PHASE8E-2026-10-17. Android navigation and motion polish with iOS parity (Phase 8E) — START HERE
+
+- **Current commit:** "Polish Android navigation motion for UI/UX Refinement Phase 8E with instant tab switches, a mirrored 220 ms push and Back, 150 ms modal fades and the system animation scale respected, keeping iOS native" (this commit), on top of the Phase 9A commit "Secure the backend for Phase 9A …" (`945601b`). Committed and
+  pushed at the owner's request; ChatGPT review of `docs/reviews/ui_ux_phase8e/` still pending. Android only; no iOS change.
+- **Not in this commit:** the Phase 9B market-data work in progress in this checkout (another session).
+- **Root cause:** the library-default 700 ms simultaneous cross-fade ran on every destination (tabs included), and the Scaffold top bar
+  switched before the page. Evidence: `docs/reviews/ui_ux_phase8e/captures/` (videos and frame strips).
+- **Done:**
+  - core `navigation/NavigationMotion.kt` (+ `NavigationMotionTest`);
+  - `TabNavigator.motion` recorded per step;
+  - `presentation/NavMotionTransitions.kt` wired into the NavHost (tabs instant, push and Back 220 ms mirrored, modals 150 ms fade);
+  - no iOS change.
+- **Validation:**
+  - core JVM 623/0; server 571/0 (8 skipped); shared Android 289/0; shared iOS 286/0; APK and `xcodebuild` PASS;
+  - core iOS: 1 failure, the flaky `ApiLoggingTest.concurrentRequests…` with a `ConcurrentModificationException`, unrelated to 8E; the
+    class rerun passed 13/0, but the race is open;
+  - device: Android tabs, push, Back, modals, rapid taps, animations Off and 0.5× PASS; requests unchanged; iOS native PASS.
+- **NOT RUN / BLOCKED:** process recreation in 8E; TalkBack and VoiceOver; signed-in iOS; physical device.
+- **Next:** ChatGPT review and the owner decisions D8E-1 to D8E-3 (`docs/UI_UX_REFINEMENT_PHASE8.md` §8E.4).
 
 ## PORTFOLIO-SESSION-TEST-FLAKE-2026-10-17. Deterministic `PortfolioSessionStateTest` (test only)
 

@@ -239,13 +239,20 @@ internal fun AppNavigation(
     ) { innerPadding ->
       androidx.compose.runtime.CompositionLocalProvider(org.example.stocksteps.presentation.earnings.LocalNotificationAccess provides notifications,
           LocalTabReselect provides nav.reselects) {
+        // Phase 8E: one motion policy for every destination (see NavMotionTransitions) instead of the library's 700 ms cross-fade.
+        val slidePx = with(androidx.compose.ui.platform.LocalDensity.current) { androidx.compose.ui.unit.Dp(org.example.stocksteps.navigation.NavigationMotion.SLIDE_DP.toFloat()).roundToPx() }
+        val motion = remember(nav, slidePx) { NavMotionTransitions(nav, slidePx) }
         NavHost(
             navController = navController,
             startDestination = initialRoute,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
+                .consumeWindowInsets(innerPadding),
+            enterTransition = motion.enter,
+            exitTransition = motion.exit,
+            popEnterTransition = motion.enter,
+            popExitTransition = motion.exit
         ) {
             // 5D.5.6C1: every route is registered once, in the graph of its canonical tab (core NavigationPolicy via AppRouteScreens), or at the
             // top level when it is modal or global — graph membership is the policy, never a second table.

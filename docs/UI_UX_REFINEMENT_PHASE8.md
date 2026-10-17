@@ -231,3 +231,36 @@ TalkBack and VoiceOver were NOT RUN. Accessibility is assessed by code inspectio
 
 - **D8D-1:** the scope label wording.
 - **D8D-2:** the Practice heading and sign-in order at large text.
+
+
+# Batch 8E — Android navigation and motion polish, iOS parity
+
+Review package: `docs/reviews/ui_ux_phase8e/`. Committed and pushed as "Polish Android navigation motion for UI/UX Refinement Phase 8E with instant tab switches, a mirrored 220 ms push and Back, 150 ms modal fades and the system animation scale respected, keeping iOS native"; ChatGPT review pending.
+
+## 8E.1 Root cause (measured)
+- **Library default:** the NavHost had no transitions, so navigation-compose's default ran: a 700 ms fade-in and fade-out together on
+  every destination, including tab switches. Two pages blended for about 0.5 s.
+- **Top bar:** the Scaffold top bar sits outside the NavHost and switched before the new page appeared.
+- **No direction:** forward and Back looked identical.
+
+## 8E.2 Changes (Android only)
+- Core `NavigationMotion` policy, recorded by `TabNavigator` and applied once in `NavMotionTransitions`:
+  - tabs and sections instant;
+  - push: 220 ms fade-through with a 24 dp slide; Back mirrored;
+  - modals: 150 ms fade.
+- The system animator scale is respected (Off = instant).
+- iOS is unchanged (native).
+
+## 8E.3 Verification
+- **Android:** tabs instant, push and Back clean, requests unchanged (11 = 11; tabs 0); animations Off instant.
+- **iOS:** native tabs, push, pop and swipe-back.
+- **Limitations:**
+  - the top bar still changes before the new page's first frame (composition latency; backlog: top bars inside routes);
+  - predictive Back isn't seekable;
+  - emulator timing was noisy;
+  - screen readers, signed-in iOS and a physical device: NOT RUN or BLOCKED.
+
+## 8E.4 Owner decisions
+- **D8E-1:** accept the motion policy.
+- **D8E-2:** backlog moving pushed-screen top bars into routes.
+- **D8E-3:** backlog opting into seekable predictive Back.

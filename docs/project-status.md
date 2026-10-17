@@ -12,6 +12,13 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 - Two-user isolation verified on the Firebase Auth + Firestore emulators. Limits are per instance (owner decision for production).
 - Review package: `docs/reviews/security_phase9a/`.
 
+**2026-10-17 — Phase 8E Android navigation and motion polish (committed and pushed as "Polish Android navigation motion for UI/UX Refinement Phase 8E with instant tab switches, a mirrored 220 ms push and Back, 150 ms modal fades and the system animation scale respected, keeping iOS native"; ChatGPT review pending).**
+- **Root cause:** the library-default 700 ms cross-fade on every destination, tabs included, plus a top bar outside the NavHost.
+- **Done:** core `NavigationMotion` policy; tabs instant; push and Back 220 ms mirrored; modals 150 ms fade; animator scale respected;
+  iOS native and unchanged.
+- **Validation:** suites green except a flaky, unrelated core-iOS `ApiLoggingTest` race (rerun passed).
+- **Review package:** `docs/reviews/ui_ux_phase8e/`.
+
 **2026-10-17 — Phase 8D Learn, accessibility and final UI/UX polish (committed and pushed as "Finish UI/UX Refinement Phase 8D with a short Discover scope label and About this list, a compact Practice heading and sign-in at large text, Learn starting with Start here at very large text, wrapping guided-research steps and the consolidated launch-readiness backlog on Android and iOS"; READY FOR REVIEW)**
 - iOS AX5:
   - Discover keeps search and sectors on the first screen ("N companies · not the whole market" + About this list);
