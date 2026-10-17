@@ -230,6 +230,8 @@ class MarketsService(
         failures.size < SECTORS.size -> StockProviderException(StockProviderException.Failure.UNAVAILABLE)
         failures.any { it.dailyLimitReached } -> failures.first { it.dailyLimitReached }
         failures.all { it.restricted } -> failures.first()
+        // A provider 429 followed by local circuit-breaker refusals reads as rate limited, not "temporarily unavailable".
+        failures.any { it.failure == StockProviderException.Failure.RATE_LIMITED } -> failures.first { it.failure == StockProviderException.Failure.RATE_LIMITED }
         else -> failures.firstOrNull { !it.restricted } ?: failures.first()
     }
 

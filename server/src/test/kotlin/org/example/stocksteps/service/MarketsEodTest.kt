@@ -195,6 +195,11 @@ class MarketsEodTest {
             assertEquals(code, o.errors.single { it.section == "sectors" }.error.code)
             assertEquals(4, o.indices.count { it.value != null }, "indices unaffected (three own closes, the TSX by its labelled proxy)")
         }
+        // LAN REAL 2026-10-17: one 429, then the open circuit refuses the rest locally (no status) → still "rate limited".
+        val mixed = MarketsEodTest().also { it.sectorsAndIndices() }
+        mixed.up.symbolStatus["historical-price-eod/light|XLK"] = 429
+        MarketsService.SECTORS.drop(1).forEach { (_, s, _) -> mixed.up.symbolStatus["historical-price-eod/light|$s"] = 503 }
+        assertEquals("PROVIDER_RATE_LIMITED", mixed.markets().overview().errors.single { it.section == "sectors" }.error.code)
         val w = MarketsEodTest().also { it.sectorsAndIndices() }
         MarketsService.SECTORS.forEach { (_, s, _) -> w.up.bodies["historical-price-eod/light|$s"] = "[]" }
         assertEquals("PROVIDER_UNAVAILABLE", w.markets().overview().errors.single { it.section == "sectors" }.error.code, "no data isn't a restriction")

@@ -197,7 +197,8 @@ object PortfolioPresentation {
 
     /** "Prices as of Oct 8, 2026, 3:00 PM UTC" and "Exchange rate as of Oct 8, 2026" as separate lines (market vs FX dates). */
     fun freshnessLines(state: PortfolioUiState): List<String> = listOfNotNull(
-        state.quoteAsOf?.let { "Prices as of ${PortfolioDates.dateTime(it)}" },
+        // Phase 7C: official closing prices are dated by their session, never given a time of day or called live.
+        state.pricesAsOf?.let { "Closing prices as of ${PortfolioDates.date(it)}" } ?: state.quoteAsOf?.let { "Prices as of ${PortfolioDates.dateTime(it)}" },
         state.fxAsOf?.let { "Exchange rate as of ${PortfolioDates.dateTime(it)}" }
     )
 

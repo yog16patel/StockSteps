@@ -16,6 +16,7 @@ import java.math.RoundingMode
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneOffset
+import org.example.stocksteps.service.isSplitLike
 
 interface PortfolioFxSource {
     /** USD -> CAD by actual publication date. Never a current-rate substitution. */
@@ -64,7 +65,13 @@ class PortfolioMarketService(
     private val fx: PortfolioFxSource,
     private val clock: Clock,
     private val cache: CompanyFinancialCache = CompanyFinancialCache(capacity = 256),
-    private val dailyCloses: suspend (String) -> List<org.example.stocksteps.model.PricePoint> = history::getDailyCloses
+    private val dailyCloses: suspend (String) -> List<org.example.stocksteps.model.PricePoint> = history::getDailyCloses,
+    /**
+     * Phase 7C (REAL): when set, current values use each holding's latest valid official close (up to a trading week old, dated; listing→trade
+     * currency at the close's date, reporting currency at the latest FX publication as before) from the shared session-aware close cache — no quote per holding. A holding without one stays missing, so the
+     * total stays unavailable (never a partial sum). Null keeps the quote path (MOCK fixtures).
+     */
+    private val eod: org.example.stocksteps.service.EodSessions? = null
 ) {
     private val historyPermits = Semaphore(4)
 
@@ -81,7 +88,9 @@ class PortfolioMarketService(
         val state: PortfolioPositionState,
         val rates: Map<String, String>,
         val marketQuotes: Map<String, org.example.stocksteps.model.StockQuote?>,
-        private val quoteCurrencies: Map<String, String?>
+        private val quoteCurrencies: Map<String, String?>,
+        /** Phase 7C: the latest valid close per symbol on the EOD path (null on the quote path). */
+        val closes: Map<String, org.example.stocksteps.service.EodPrice?>? = null
     ) {
         val accountId get() = account.id
         fun ratesAt(date: String): Map<PortfolioCurrency, String> {
@@ -103,7 +112,8 @@ class PortfolioMarketService(
             val tradeRate = toReporting(holding.currency) ?: return null
             return (Decimal.parse(decimal(price)) * sourceRate / tradeRate).toString()
         }
-        val currentPrices = marketQuotes.mapNotNull { (symbol, quote) -> quote?.price?.takeIf { it.isFinite() && it > 0 }?.let { value -> priceInTradeCurrency(symbol, value, today.toString())?.let { symbol to it } } }.toMap()
+        val currentPrices = closes?.mapNotNull { (symbol, close) -> close?.let { c -> priceInTradeCurrency(symbol, c.close, c.date.toString())?.let { symbol to it } } }?.toMap()
+            ?: marketQuotes.mapNotNull { (symbol, quote) -> quote?.price?.takeIf { it.isFinite() && it > 0 }?.let { value -> priceInTradeCurrency(symbol, value, today.toString())?.let { symbol to it } } }.toMap()
         val currentObservation = PortfolioPrices(today.toString(), currentPrices, ratesAt(today.toString()), basisFx)
 
         /** Dated daily closes in each holding's trade currency (shared 6-hour cache with charts). */
@@ -123,9 +133,12 @@ class PortfolioMarketService(
         val symbols = data.transactions.filter { it.accountId == accountId }.mapNotNull { it.instrument?.symbol }.distinct()
         val needsFx = alwaysFx || data.accounts.filterNot { it.archived }.map { it.reportingCurrency }.distinct().size > 1 || data.transactions.any { it.accountId == accountId && (it.currency != account.reportingCurrency || it.cashCurrency != account.reportingCurrency || it.instrument?.currency?.let { currency -> currency != it.currency.name } == true) }
         val rates = if (needsFx) safe { fx.rates(first.minusDays(7).toString(), today.toString()) }.orEmpty() else emptyMap()
-        val marketQuotes = symbols.map { symbol -> async { symbol to safe { quotes.quote(symbol) } } }.awaitAll().toMap()
+        val closes = eod?.let { sessions -> symbols.map { symbol -> async { symbol to safe { dailyCloses(symbol) }?.let { series ->
+            org.example.stocksteps.service.EodPrice.latest(symbol, series, sessions, clock.instant())?.takeIf { it.sessionsBehind <= org.example.stocksteps.service.EodPrice.VALUATION_MAX_SESSIONS }
+        } } }.awaitAll().toMap() }
+        val marketQuotes = if (closes != null) emptyMap() else symbols.map { symbol -> async { symbol to safe { quotes.quote(symbol) } } }.awaitAll().toMap()
         val quoteCurrencies = symbols.map { symbol -> async { symbol to safe { quotes.currency(symbol) } } }.awaitAll().toMap()
-        Context(data, account, today, first, symbols, PortfolioEngine.replay(data, accountId), rates, marketQuotes, quoteCurrencies)
+        Context(data, account, today, first, symbols, PortfolioEngine.replay(data, accountId), rates, marketQuotes, quoteCurrencies, closes)
     }
 
     suspend fun report(uid: String, accountId: String, range: String, includeHistory: Boolean): PortfolioReport = coroutineScope {
@@ -153,7 +166,8 @@ class PortfolioMarketService(
         val currentObservation = ctx.currentObservation
         val summary = PortfolioEngine.value(data, accountId, currentObservation)
         val fresh = marketQuotes.values.filterNotNull().all { quote -> quote.timestamp?.let { java.time.Instant.ofEpochSecond(it).atZone(calendar.zone).toLocalDate() == sessionDate } == true }
-        val daily = if (fresh && today == sessionDate) PortfolioEngine.daily(data, accountId,
+        val daily = if (ctx.closes != null) PortfolioDailyPerformance(null, null, EOD_DAILY_NOTICE)
+            else if (fresh && today == sessionDate) PortfolioEngine.daily(data, accountId,
             PortfolioPrices(previousDate.toString(), previousPrices, ctx.ratesAt(previousDate.toString()), ctx.basisFx), currentObservation)
             else PortfolioDailyPerformance(null, null, "Daily change is unavailable until we have prices for the current trading session.")
         val points = if (!includeHistory || from > today) emptyList() else {
@@ -168,10 +182,21 @@ class PortfolioMarketService(
             })
         }
         val allocations = PortfolioEngine.allocations(state, currentObservation, account.reportingCurrency)
+        // Phase 7C guard: a split-like jump between a holding's last two closes is called out; nothing is adjusted automatically.
+        val splitLike = mutableListOf<String>()
+        val sessions = eod
+        if (ctx.closes != null && sessions != null) for (symbol in ctx.closes.keys) {
+            val series = safe { dailyCloses(symbol) } ?: continue
+            val change = org.example.stocksteps.service.EodChange.of(symbol, series, sessions, clock.instant()) ?: continue
+            if (isSplitLike(change)) splitLike += symbol
+        }
         PortfolioReport(accountId, data.revision, summary, points, range,
-            notice = "This chart shows account value, including cash. Missing prices or exchange rates appear as gaps. Record stock splits in your transactions.",
+            notice = "This chart shows account value, including cash. Missing prices or exchange rates appear as gaps. Record stock splits in your transactions." +
+                (splitLike.takeIf { it.isNotEmpty() }?.let { " ${it.joinToString(", ")}: the closing price changed by more than 45% in one session; if it was a stock split, record it." } ?: ""),
             fxAsOf = ctx.rates.keys.maxOrNull(), daily = daily, allocations = allocations.holdings, currentFx = ctx.ratesAt(today.toString()), currencyAllocations = allocations.currencies,
-            quoteAsOf = marketQuotes.values.mapNotNull { it?.timestamp }.minOrNull()?.let { java.time.Instant.ofEpochSecond(it).toString() })
+            quoteAsOf = if (ctx.closes != null) null else marketQuotes.values.mapNotNull { it?.timestamp }.minOrNull()?.let { java.time.Instant.ofEpochSecond(it).toString() },
+            // Phase 7C: the oldest close used (YYYY-MM-DD) when values are closing prices.
+            pricesAsOf = ctx.closes?.values?.filterNotNull()?.minOfOrNull { it.date }?.toString())
     }
 
     /** Market inputs for [org.example.stocksteps.portfolio.analytics.PortfolioAnalyticsEngine], from the same pipeline as [report]. */
@@ -198,6 +223,11 @@ class PortfolioMarketService(
 
     /** Revision only (no market calls): the analytics cache key. */
     internal suspend fun revision(uid: String) = ledger.get(uid).revision
+
+    companion object {
+        /** Phase 7C: the hero "Today" line needs live prices; with closing prices it says so instead of showing a past session's move as today's. */
+        const val EOD_DAILY_NOTICE = "Today's change needs live prices, which this server's market data plan doesn't include. Values use the latest closing prices."
+    }
 
     private suspend fun <T> safe(action: suspend () -> T): T? = try { action() } catch (cause: Exception) {
         if (cause is CancellationException) throw cause

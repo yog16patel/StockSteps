@@ -52,7 +52,10 @@ class FakeMarket : PracticeMarket {
         CompanyProfile(symbol, "$symbol Inc.", currency = currencies[symbol] ?: "USD", exchange = if (symbol.endsWith(".TO")) "TSX" else "NASDAQ",
             sector = if (symbol in setOf("SPY", "XIU.TO")) null else "Technology", isEtf = symbol in setOf("SPY", "XIU.TO"))
     var history: Map<String, List<PricePoint>> = emptyMap()
-    override suspend fun closes(symbol: String) = history[symbol].orEmpty()
+    /** Phase 7C: symbols whose daily closes fail with this exception (e.g. a 402 plan restriction). */
+    val closesFail = mutableMapOf<String, Exception>()
+    val closeCalls = AtomicInteger()
+    override suspend fun closes(symbol: String): List<PricePoint> { closeCalls.incrementAndGet(); closesFail[symbol]?.let { throw it }; return history[symbol].orEmpty() }
 }
 
 class FakeFx(var rate: String? = "1.35") : PortfolioFxSource {

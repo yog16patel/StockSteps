@@ -6,7 +6,15 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
-**2026-10-17 — Phase 7B EOD-first Markets (committed and pushed as "Make Markets EOD-first for Phase 7B with sector and index fall-back changes from consecutive trading-day closes, quotes only while an index market is active, no proxy or most-active enrichment quotes, closes cached until the next expected close and Last close date labels on Android and iOS"; not deployed; READY FOR REVIEW)**
+**2026-10-17 — Phase 7C My Portfolio & Practice EOD (committed and pushed as "Value My Portfolio and execute Practice trades at dated official closing prices for Phase 7C with one latest-close rule, no quotes on REAL, unavailable totals instead of partial sums, split-like move warnings and a closing-price freshness line on Android and iOS"; not deployed; READY FOR REVIEW)**
+- Practice trades execute at the last available official close (dated) and positions are valued at closes.
+- My Portfolio values holdings at closes ("Closing prices as of …"; the total is unavailable when any holding lacks a close).
+- No quotes on REAL. Split-like moves are warned about, never adjusted.
+- All suites and builds pass. Firestore emulator and devices BLOCKED.
+- Phase 7B is now deployed to LAN REAL (live EOD values unverified: the FMP key answers 429).
+- Report `docs/PORTFOLIO_PRACTICE_EOD_PHASE7C.md`.
+
+**2026-10-17 — Phase 7B EOD-first Markets (committed and pushed as "Make Markets EOD-first for Phase 7B with sector and index fall-back changes from consecutive trading-day closes, quotes only while an index market is active, no proxy or most-active enrichment quotes, closes cached until the next expected close and Last close date labels on Android and iOS"; deployed to LAN REAL 2026-10-17; READY FOR REVIEW)**
 - Sectors and index fall-backs use the latest completed session's close vs the previous trading day's close (labelled "Last close · Oct 16").
 - Index quotes are used only while the market is active. There are no proxy or most-active enrichment quotes.
 - Closes are cached until the next expected close.

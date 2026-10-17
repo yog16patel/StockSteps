@@ -216,7 +216,9 @@ fun Application.module() {
             val portfolioMarket = org.example.stocksteps.userdata.PortfolioMarketService(
                 portfolios, sources.priceHistory, watchMarket,
                 fx,
-                portfolioClock, dailyCloses = charts::getDailyCloses)
+                portfolioClock, dailyCloses = charts::getDailyCloses,
+                // Phase 7C: REAL values holdings at dated official closes (MOCK keeps its fixture quotes).
+                eod = eodSessions.takeIf { dataMode == DataMode.REAL })
             portfolioRoutes(sources.userAuth, portfolios, portfolioMarket)
             portfolioAnalyticsRoutes(sources.userAuth, PortfolioAnalyticsService(
                 portfolioMarket, watchMarket,
@@ -310,7 +312,9 @@ fun Application.module() {
                 fx = fx,
                 clock = java.time.Clock.systemUTC(), marketClock = sources.marketClock,
                 corporateActions = if (dataMode == DataMode.MOCK) org.example.stocksteps.practice.MockCorporateActions else null,
-                sampleData = dataMode == DataMode.MOCK
+                sampleData = dataMode == DataMode.MOCK,
+                // Phase 7C: REAL simulated trades execute and value at the last available official close.
+                eod = eodSessions.takeIf { dataMode == DataMode.REAL }
             ), mock = dataMode == DataMode.MOCK)
             alertEvaluationRoutes(evaluator, internalSecrets[org.example.stocksteps.security.InternalJob.ALERTS], mock = dataMode == DataMode.MOCK)
             earningsReminderRoutes(earningsReminders, sources.userAuth,

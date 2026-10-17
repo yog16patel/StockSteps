@@ -10,6 +10,7 @@ import org.example.stocksteps.model.StockQuote
 import org.example.stocksteps.portfolio.Decimal
 import org.example.stocksteps.service.CompanyFinancialCache
 import org.example.stocksteps.service.UsMarketCalendar
+import org.example.stocksteps.service.isSplitLike
 import org.example.stocksteps.userdata.*
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -84,13 +85,20 @@ class PracticeService(
     private val sampleData: Boolean,
     private val baseCurrency: String = "CAD",
     private val rules: AlertRules = AlertRules(),
-    private val calendar: UsMarketCalendar = UsMarketCalendar()
+    private val calendar: UsMarketCalendar = UsMarketCalendar(),
+    /**
+     * Phase 7C (REAL): when set, simulated trades execute immediately at the last available official close and positions are valued
+     * at it (the shared, session-aware daily-close cache), never at a live quote. Null keeps the quote path (MOCK fixtures).
+     */
+    private val eod: org.example.stocksteps.service.EodSessions? = null
 ) {
     private val cache = CompanyFinancialCache(capacity = 512)
     /** MOCK-only overrides set by scenarios ("missing-fx", "stale-quote"). */
     private val mockFlags = ConcurrentHashMap<String, Set<String>>()
 
     companion object {
+        /** Phase 7C: how an EOD-priced simulated trade is described (shown with the close's date). */
+        const val EOD_BASIS = "Simulated trade using the last available closing price"
         const val MAX_TRANSACTIONS = 5_000
         const val MAX_ARCHIVES = 5
         const val MAX_CARRY_DAYS = 4L
@@ -175,8 +183,40 @@ class PracticeService(
         return shifted.copy(price = shifted.price?.let { adjust(symbol, it, date) })
     }
 
+    /** Phase 7C: the symbol's daily closes, or the provider failure (kept so a plan restriction isn't reported as "no price"). */
+    private suspend fun closesOrFailure(symbol: String): Pair<List<PricePoint>, org.example.stocksteps.repository.StockProviderException?> = try {
+        market.closes(symbol) to null
+    } catch (cause: org.example.stocksteps.repository.StockProviderException) { emptyList<PricePoint>() to cause
+    } catch (cause: Exception) { if (cause is CancellationException) throw cause; emptyList<PricePoint>() to null }
+
+    private fun shortDate(date: LocalDate) = "${date.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.US)} ${date.dayOfMonth}, ${date.year}"
+
+    /**
+     * Phase 7C execution policy: the last available official close of the expected session, or of the one before while the provider
+     * publishes late ([org.example.stocksteps.service.EodPrice.EXECUTION_MAX_SESSIONS]); older → QUOTE_STALE, none → QUOTE_MISSING,
+     * refused by the plan → QUOTE_RESTRICTED. FX at the close's date. The client never sets the price.
+     */
+    private suspend fun eodPriceForTrade(symbol: String, eod: org.example.stocksteps.service.EodSessions): Pair<Priced?, PracticeBlocker?> {
+        val profile = safe { market.profile(symbol) }
+        val instrument = instrument(symbol, profile, null)
+            ?: return null to PracticeBlocker("UNSUPPORTED_INSTRUMENT", "This investment can't be used in the Practice Portfolio because its trading currency isn't available.")
+        if (instrument.currency !in setOf("USD", "CAD")) return null to PracticeBlocker("UNSUPPORTED_INSTRUMENT", "Only investments priced in Canadian or US dollars can be practised right now.")
+        val (closes, failure) = closesOrFailure(symbol)
+        val close = org.example.stocksteps.service.EodPrice.latest(symbol, closes, eod, marketClock.instant())
+            ?: return null to (if (failure?.restricted == true)
+                PracticeBlocker("QUOTE_RESTRICTED", "This server's market data plan doesn't include closing prices for ${instrument.symbol}, so a practice trade can't be simulated. Trying again won't help.")
+            else PracticeBlocker("QUOTE_MISSING", "There's no closing price for ${instrument.symbol} right now, so a practice trade can't be simulated."))
+        if (close.sessionsBehind > org.example.stocksteps.service.EodPrice.EXECUTION_MAX_SESSIONS)
+            return null to PracticeBlocker("QUOTE_STALE", "The latest closing price for ${instrument.symbol} is from ${shortDate(close.date)}, which is too old for a practice trade. Try again when a newer close is available.")
+        val (rate, fxAsOf) = fxRate(instrument.currency, close.date, null)
+            ?: return null to PracticeBlocker("FX_UNAVAILABLE", "A current ${instrument.currency}→$baseCurrency exchange rate isn't available, so this trade can't be converted. Nothing was assumed.")
+        return Priced(instrument, PracticePrice(decimal(close.close), instrument.currency, rate, close.closedAt.toString()),
+            EOD_BASIS, fxAsOf) to null
+    }
+
     /** The execution price under the documented policy, or a blocker explaining why trading is unavailable. */
     private suspend fun priceForTrade(uid: String, symbol: String): Pair<Priced?, PracticeBlocker?> {
+        eod?.let { return eodPriceForTrade(symbol, it) }
         val profile = safe { market.profile(symbol) }
         val quote = rawQuote(uid, symbol)
         val instrument = instrument(symbol, profile, quote)
@@ -395,6 +435,13 @@ class PracticeService(
 
     private suspend fun valuationPrices(uid: String, positions: Collection<PracticePosition>): Map<String, PracticePrice> = coroutineScope {
         val today = marketClock.instant().atZone(calendar.zone).toLocalDate()
+        eod?.let { sessions -> return@coroutineScope positions.map { p -> async {
+            // Phase 7C: valued at the latest valid close (up to a trading week old, then unavailable); stale = not the latest session's.
+            val close = org.example.stocksteps.service.EodPrice.latest(p.instrument.id, closesOrFailure(p.instrument.id).first, sessions, marketClock.instant())
+                ?.takeIf { it.sessionsBehind <= org.example.stocksteps.service.EodPrice.VALUATION_MAX_SESSIONS } ?: return@async null
+            val (rate, _) = fxRate(p.instrument.currency, close.date, uid) ?: return@async null
+            p.instrument.id to PracticePrice(decimal(close.close), p.instrument.currency, rate, close.closedAt.toString(), stale = close.sessionsBehind > 0)
+        } }.awaitAll().filterNotNull().toMap() }
         positions.map { p -> async {
             val quote = rawQuote(uid, p.instrument.id)
             val price = quote?.price?.takeIf { it.isFinite() && it > 0 } ?: return@async null
@@ -413,6 +460,10 @@ class PracticeService(
         val state = PracticeEngine.replay(portfolio.startingCash, txs)
         val prices = valuationPrices(uid, state.positions.values)
         val valuation = PracticeEngine.value(state, prices)
+        // Phase 7C guard: a split-like jump between the last two closes of a held symbol is called out (nothing is adjusted).
+        val splitLike = eod?.let { sessions -> state.positions.values.filter { p ->
+            org.example.stocksteps.service.EodChange.of(p.instrument.id, closesOrFailure(p.instrument.id).first, sessions, marketClock.instant())?.let(::isSplitLike) == true
+        }.map { it.instrument.symbol } }.orEmpty()
         val allocationAllowed = entitlement.has(PracticeCapability.ALLOCATION)
         val holdings = state.positions.values.map { p ->
             val price = prices[p.instrument.id]
@@ -449,6 +500,7 @@ class PracticeService(
                 if (valuation.status != ValuationStatus.COMPLETE && holdings.isNotEmpty()) "Some prices or exchange rates aren't available, so totals that depend on them aren't shown." else null,
                 if (holdings.any { it.stale }) "Some prices are from an earlier trading session." else null,
                 if (corporateActions == null) "Dividends and stock splits aren't applied yet, so returns may differ from a real account." else null,
+                splitLike.takeIf { it.isNotEmpty() }?.let { "${it.joinToString(", ")}: the closing price changed by more than 45% in one session. If the company split its shares, this holding hasn't been adjusted." },
                 if (sampleData) "Sample market data for development, not live prices." else null
             ),
             createdAt = portfolio.createdAt,

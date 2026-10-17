@@ -94,7 +94,9 @@ data class PortfolioPrices(
     val allocations: List<PortfolioAllocation> = emptyList(),
     val currentFx: Map<PortfolioCurrency, String> = emptyMap(),
     val currencyAllocations: List<PortfolioCurrencyAllocation> = emptyList(),
-    val quoteAsOf: String? = null
+    val quoteAsOf: String? = null,
+    /** Phase 7C: set when values use official closing prices — the oldest close date used (YYYY-MM-DD); [quoteAsOf] is then null. */
+    val pricesAsOf: String? = null
 )
 
 @Serializable data class PortfolioDailyPerformance(val gain: String?, val percent: String?, val notice: String)

@@ -75,6 +75,9 @@ class PortfolioPresentationTest {
         assertNull(PortfolioPresentation.transactionDetail(buy.copy(instrument = null)))
         assertEquals("MSFT", PortfolioPresentation.transactionDetail(buy.copy(quantity = "0")))
         assertNull(PortfolioPresentation.freshness(PortfolioUiState()))
+        // Phase 7C: closing prices are dated by their session, never a time of day.
+        assertEquals("Closing prices as of Oct 16, 2026 · Exchange rate as of Oct 16, 2026",
+            PortfolioPresentation.freshness(PortfolioUiState(pricesAsOf = "2026-10-16", fxAsOf = "2026-10-16")))
         assertEquals("Prices as of Oct 7, 2026 · Exchange rate as of Oct 9, 2026",
             PortfolioPresentation.freshness(PortfolioUiState(quoteAsOf = "2026-10-07", fxAsOf = "2026-10-09")))
         assertEquals(listOf("Prices as of Oct 7, 2026, 8:00 PM UTC", "Exchange rate as of Oct 9, 2026"),

@@ -35,6 +35,8 @@ data class PortfolioUiState(
     val dividends: List<String> = emptyList(),
     val currencyAllocations: List<PortfolioCurrencyAllocation> = emptyList(),
     val quoteAsOf: String? = null, val fxAsOf: String? = null,
+    /** Phase 7C: the oldest official close date used when values are closing prices (then [quoteAsOf] is null). */
+    val pricesAsOf: String? = null,
     val today: String = "", val historyNotice: String = "Historical values require dated prices and FX; no estimated history is shown.",
     /** Portfolio Phase D3: the last transaction change the server confirmed (null until one succeeds); screens show feedback once per [PortfolioActionResult.id]. */
     val actionResult: PortfolioActionResult? = null,
@@ -142,7 +144,7 @@ class PortfolioPresenter(
                     historyNotice = valid?.notice ?: base.historyNotice,
                     dailyGain = valid?.daily?.gain, dailyPercent = valid?.daily?.percent, dailyNotice = valid?.daily?.notice ?: base.dailyNotice,
                     allocations = valid?.allocations.orEmpty(), combinedTotal = combined(base, valid, reports),
-                    currencyAllocations = valid?.currencyAllocations.orEmpty(), quoteAsOf = valid?.quoteAsOf, fxAsOf = valid?.fxAsOf)
+                    currencyAllocations = valid?.currencyAllocations.orEmpty(), quoteAsOf = valid?.quoteAsOf, pricesAsOf = valid?.pricesAsOf, fxAsOf = valid?.fxAsOf)
             }
             combine(marketState, scenario, scenarioAccount, range) { base, sample, selected, period ->
                 if (sample == null || repository.state.value.environment != "mock") base.copy(mockAvailable = repository.state.value.environment == "mock")

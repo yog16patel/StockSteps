@@ -127,3 +127,35 @@ data class EodChange(
         }
     }
 }
+
+/**
+ * Phase 7C: the latest valid official close for valuation and simulated execution — one rule for My Portfolio and Practice. A close is
+ * a valid observation (finite, > 0) on a trading day of the listing's calendar, not after the session whose close is expected by now.
+ * [sessionsBehind] counts trading sessions between it and the expected session (0 = the latest completed session's close).
+ * Callers decide how far behind they accept ([VALUATION_MAX_SESSIONS], [EXECUTION_MAX_SESSIONS]); nothing is estimated.
+ */
+data class EodPrice(val close: Double, val date: LocalDate, val closedAt: Instant, val expected: LocalDate, val sessionsBehind: Int) {
+    companion object {
+        /** Valuation: a close up to one trading week old is shown with its date; older is unavailable. */
+        const val VALUATION_MAX_SESSIONS = 5
+        /** Simulated execution: the expected session's close, or the one before while the provider publishes late. */
+        const val EXECUTION_MAX_SESSIONS = 1
+
+        fun latest(symbol: String, points: List<PricePoint>, sessions: EodSessions, now: Instant): EodPrice? {
+            val m = sessions.market(symbol) ?: return null
+            val expected = sessions.expectedSession(m, now)
+            val latest = points.mapNotNull { p -> EodSessions.dateOf(p)?.takeIf { it <= expected && sessions.isTradingDay(m, it) && p.close.isFinite() && p.close > 0 }?.let { it to p.close } }
+                .maxByOrNull { it.first } ?: return null
+            var behind = 0; var d = expected
+            while (d > latest.first && behind <= 30) { d = sessions.previousTradingDay(m, d); behind++ }
+            return EodPrice(latest.second, latest.first, sessions.closeInstant(m, latest.first), expected, behind)
+        }
+    }
+}
+
+/**
+ * Phase 7C corporate-action guard: the latest two consecutive closes differ by a split-like factor (≥ 1.8× or ≤ 0.55×). It does not
+ * prove a split (the adjustment basis of the provider's series is unverified) and nothing is adjusted; callers only warn.
+ */
+fun isSplitLike(change: EodChange): Boolean = (change.close / change.previousClose).let { it >= 1.8 || it <= 0.55 }
+
