@@ -6,6 +6,21 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-16 — Phase 6 REAL market-data provider audit (audit only; committed locally, not pushed, as "Add the Phase 6 REAL market-data provider audit with the provider compatibility matrix, cost model, cache inventory and an EOD-first MVP architecture recommendation"; NEEDS MORE INFORMATION)**
+- Report `docs/REAL_MARKET_DATA_PROVIDER_AUDIT_PHASE6.md`; package `docs/reviews/market_data_audit_phase6/`.
+- FMP quotes are refused by symbol (111 of 139 × 402; the sector ETFs on every Markets refresh, EOD for them works). The key is at a
+  daily cap: every probe got 429 "Limit Reach". The LAN `PROVIDER_FMP_PER_MINUTE=250` looks like the published daily Basic limit.
+- Quote 402s have no cooldown and read "temporarily unavailable". Practice trades are blocked for refused symbols.
+- Launch blocker: FMP's published terms require a Data Display and Licensing Agreement for showing data to app users (price
+  UNVERIFIED).
+- Recommended MVP:
+  - EOD-first prices;
+  - curated, labelled Discover list;
+  - Practice at the last close;
+  - quote cooldowns and a daily-cap state;
+  - no new infrastructure.
+- Owner questions Q1–Q8 (report §11).
+
 **2026-10-16 — Discover Stocks on the LAN REAL backend (diagnosed; fix committed and pushed as "Fix Discover Stocks on the LAN REAL backend with distinct plan-restricted, rate-limited and temporary screener errors, a provider cooldown on the universe request and no Retry when the FMP plan excludes the screener on Android and iOS"; not deployed; verdict BLOCKED by the FMP plan).**
 - **Root cause:** REAL builds the screener universe from FMP `/stable/company-screener`, and the current FMP subscription answers
   **402 "Restricted Endpoint"**. Every Discover open became 503 `SCREENER_UNAVAILABLE` "Try again shortly" and another refused FMP
