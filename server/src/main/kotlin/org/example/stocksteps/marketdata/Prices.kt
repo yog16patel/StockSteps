@@ -113,6 +113,9 @@ object PriceSeriesRules {
     fun quoteDelay(symbol: String, quoteAt: Instant?, sessions: EodSessions, now: Instant, maxDelayedSeconds: Long = 20 * 60): PriceDelay {
         if (quoteAt == null || quoteAt > now.plusSeconds(60)) return PriceDelay.UNKNOWN
         val m = sessions.market(symbol) ?: return PriceDelay.UNKNOWN
+        // Phase 9B.8: a quote stamped at the expected session's close is that session's official close (end-of-day feeds), at any hour.
+        val expectedClose = sessions.closeInstant(m, sessions.expectedSession(m, now))
+        if (!quoteAt.isBefore(expectedClose) && !quoteAt.isAfter(expectedClose.plusSeconds(60))) return PriceDelay.END_OF_DAY
         return if (sessions.active(symbol, now)) {
             if (now.epochSecond - quoteAt.epochSecond <= maxDelayedSeconds) PriceDelay.DELAYED else PriceDelay.STALE
         } else {

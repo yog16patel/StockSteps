@@ -59,6 +59,9 @@ class PriceBoundaryTest {
         assertEquals(PriceDelay.END_OF_DAY, PriceSeriesRules.quoteDelay("AAPL", Instant.parse("2026-10-16T20:00:00Z"), sessions, Instant.parse("2026-10-17T02:00:00Z")))
         assertEquals(PriceDelay.STALE, PriceSeriesRules.quoteDelay("AAPL", Instant.parse("2026-10-15T20:00:00Z"), sessions, Instant.parse("2026-10-17T02:00:00Z")))
         assertEquals(PriceDelay.UNKNOWN, PriceSeriesRules.quoteDelay("AAPL", null, sessions, open))
+        // Phase 9B.8: an end-of-day quote stamped at the close is END_OF_DAY during after-hours and the next session too.
+        assertEquals(PriceDelay.END_OF_DAY, PriceSeriesRules.quoteDelay("AAPL", Instant.parse("2026-10-16T20:00:00Z"), sessions, Instant.parse("2026-10-16T22:00:00Z")))
+        assertEquals(PriceDelay.END_OF_DAY, PriceSeriesRules.quoteDelay("AAPL", Instant.parse("2026-10-15T20:00:00Z"), sessions, open), "Thursday's close during Friday's session")
         assertEquals(PriceDelay.UNKNOWN, PriceSeriesRules.quoteDelay("AAPL", open.plusSeconds(3600), sessions, open), "a future timestamp isn't trusted")
     }
 

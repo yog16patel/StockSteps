@@ -15,6 +15,8 @@ enum class FinancialConcept(val kind: Kind, val unit: String) {
     DIVIDENDS_PER_SHARE(Kind.PER_SHARE, "USD/shares"),
     TOTAL_ASSETS(Kind.INSTANT, "USD"), TOTAL_LIABILITIES(Kind.INSTANT, "USD"), EQUITY(Kind.INSTANT, "USD"), CURRENT_ASSETS(Kind.INSTANT, "USD"),
     CURRENT_LIABILITIES(Kind.INSTANT, "USD"), CASH(Kind.INSTANT, "USD"), LONG_TERM_DEBT(Kind.INSTANT, "USD"),
+    /** Phase 9B.8: a provider's own reported total of short- and long-term debt (e.g. Alpha Vantage `shortLongTermDebtTotal`). */
+    TOTAL_DEBT(Kind.INSTANT, "USD"),
     LONG_TERM_DEBT_CURRENT(Kind.INSTANT, "USD"), LONG_TERM_DEBT_NONCURRENT(Kind.INSTANT, "USD"), SHORT_TERM_BORROWINGS(Kind.INSTANT, "USD"),
     SHARES_OUTSTANDING(Kind.INSTANT_SHARES, "shares");
 

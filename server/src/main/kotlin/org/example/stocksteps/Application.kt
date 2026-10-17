@@ -146,7 +146,7 @@ internal fun Application.stockStepsModule(dataMode: DataMode) {
     if (dataMode == DataMode.REAL) installMarketDataAccessGate(
         org.example.stocksteps.marketdata.MarketDataAccessGate(sources.marketDataProviders,
             commercial = org.example.stocksteps.marketdata.LicenseMode.fromEnvironment() == org.example.stocksteps.marketdata.LicenseMode.COMMERCIAL ||
-                sources.alphaVantage?.let { it.primary && it.licenseMode == org.example.stocksteps.marketdata.alphavantage.AlphaVantageConfig.LicenseMode.COMMERCIAL } == true,
+                sources.alphaVantage?.let { "alphavantage" in sources.marketDataProviders && it.licenseMode == org.example.stocksteps.marketdata.alphavantage.AlphaVantageConfig.LicenseMode.COMMERCIAL } == true,
             alphaVantage = sources.alphaVantage, trustedProxyHops = System.getenv("TRUSTED_PROXY_HOPS")?.toIntOrNull()),
         identities, System.getenv("TRUSTED_PROXY_HOPS")?.toIntOrNull())
 
@@ -221,7 +221,7 @@ internal fun Application.stockStepsModule(dataMode: DataMode) {
         earnings.aiQuota = earningsAiQuota
         val earningsPremium = org.example.stocksteps.earnings.EarningsPremiumService(earnings, entitlements,
             provider = if (dataMode == DataMode.MOCK) org.example.stocksteps.earnings.TemplateEarningsAi()
-                else AppConfig.geminiApiKey?.let { org.example.stocksteps.earnings.GeminiEarningsAi(HttpClientProvider.client, it, System.getenv("GEMINI_EARNINGS_MODEL") ?: AppConfig.geminiNewsModel) },
+                else AppConfig.geminiApiKey?.takeIf { sources.aiOnMarketData }?.let { org.example.stocksteps.earnings.GeminiEarningsAi(HttpClientProvider.client, it, System.getenv("GEMINI_EARNINGS_MODEL") ?: AppConfig.geminiNewsModel) },
             quota = earningsAiQuota, clock = sources.marketClock, sampleData = dataMode == DataMode.MOCK,
             timeoutMillis = if (dataMode == DataMode.MOCK) 3_000 else 15_000)
         val earningsDigests = org.example.stocksteps.earnings.EarningsDigestService(userData, earnings, earningsPremium, sources.marketClock, sampleData = dataMode == DataMode.MOCK)
@@ -330,7 +330,7 @@ internal fun Application.stockStepsModule(dataMode: DataMode) {
                 comparison = { symbols -> screener.compare(symbols.joinToString(",")) },
                 history = comparisonHistory, store = userData, entitlements = entitlements,
                 provider = if (dataMode == DataMode.MOCK) org.example.stocksteps.screener.TemplateComparisonAi()
-                    else AppConfig.geminiApiKey?.let { org.example.stocksteps.screener.GeminiComparisonAi(HttpClientProvider.client, it, System.getenv("GEMINI_COMPARISON_MODEL") ?: AppConfig.geminiNewsModel) },
+                    else AppConfig.geminiApiKey?.takeIf { sources.aiOnMarketData }?.let { org.example.stocksteps.screener.GeminiComparisonAi(HttpClientProvider.client, it, System.getenv("GEMINI_COMPARISON_MODEL") ?: AppConfig.geminiNewsModel) },
                 quota = org.example.stocksteps.screener.ComparisonAiQuota(userData, sources.marketClock,
                     dailyLimit = System.getenv("COMPARISON_AI_DAILY_LIMIT")?.toIntOrNull()?.takeIf { it > 0 } ?: 10,
                     windowLimit = System.getenv("COMPARISON_AI_30_DAY_LIMIT")?.toIntOrNull()?.takeIf { it > 0 } ?: 50,
@@ -380,7 +380,7 @@ internal fun Application.stockStepsModule(dataMode: DataMode) {
             source = org.example.stocksteps.brief.MarketsBriefSource(marketsService),
             store = userData, entitlements = entitlements, watch = watchMarket, earnings = earnings,
             ai = if (dataMode == DataMode.MOCK) org.example.stocksteps.brief.TemplateBriefAi
-                else AppConfig.geminiApiKey?.let { org.example.stocksteps.brief.GeminiBriefAi(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
+                else AppConfig.geminiApiKey?.takeIf { sources.aiOnMarketData }?.let { org.example.stocksteps.brief.GeminiBriefAi(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
             marketClock = sources.marketClock, clock = java.time.Clock.systemUTC(), sampleData = dataMode == DataMode.MOCK,
             aiDailyLimit = System.getenv("BRIEF_AI_DAILY_LIMIT")?.toIntOrNull() ?: 15,
             combinedAiCap = combinedAiCap
@@ -567,7 +567,9 @@ internal class DataSources(
     /** Phase 9B.7: providers whose market data these sources serve (licence gate); empty in MOCK (sample data). */
     val marketDataProviders: Set<String> = emptySet(),
     /** Phase 9B.7: the Alpha Vantage settings when it's enabled (never the key in logs: `toString` omits it). */
-    val alphaVantage: org.example.stocksteps.marketdata.alphavantage.AlphaVantageConfig? = null
+    val alphaVantage: org.example.stocksteps.marketdata.alphavantage.AlphaVantageConfig? = null,
+    /** Phase 9B.8: whether market data from these sources may be sent to Gemini (false → the deterministic fallbacks). */
+    val aiOnMarketData: Boolean = true
 )
 
 private fun Application.realDataSources(): DataSources {
@@ -600,22 +602,36 @@ private fun Application.realDataSources(): DataSources {
     // ALPHA_VANTAGE_ENABLED=true, a key is set and MARKET_DATA_PRIMARY_PROVIDER=alpha_vantage. FMP keeps the fundamentals bundle (and
     // profiles without a premium plan) by configuration, never as a runtime fallback for an Alpha Vantage refusal.
     val alphaVantage = org.example.stocksteps.marketdata.alphavantage.AlphaVantageConfig.fromEnvironment()
-    val av = alphaVantage?.takeIf { it.primary }?.let { cfg ->
-        val sessions = org.example.stocksteps.service.EodSessions(java.time.Clock.systemUTC(), java.time.Duration.ofMinutes(
-            System.getenv("EOD_PUBLICATION_DELAY_MINUTES")?.toLongOrNull()?.takeIf { it in 0..720 } ?: org.example.stocksteps.service.EodSessions.DEFAULT_DELAY_MINUTES))
-        val client = org.example.stocksteps.marketdata.alphavantage.AlphaVantageClient(HttpClientProvider.client, cfg, sessions, requestTimeoutMillis = 20_000)
-        val stocks = org.example.stocksteps.marketdata.alphavantage.AlphaVantageStockProvider(client, fmpRepository, sessions)
-        Triple(stocks, org.example.stocksteps.marketdata.alphavantage.AlphaVantageMarketDataProvider(stocks, client, fmpMarketData),
-            org.example.stocksteps.marketdata.alphavantage.AlphaVantagePriceHistoryProvider(client))
+    // Phase 9B.8: FUNDAMENTALS_PRIMARY_PROVIDER=alpha_vantage computes the fundamentals bundle from Alpha Vantage statements and dividends
+    // (with either price provider); fmp (default) keeps the FMP bundle as the explicitly configured development source.
+    val fundamentalsAv = alphaVantage != null && System.getenv("FUNDAMENTALS_PRIMARY_PROVIDER")?.trim()?.lowercase(Locale.ROOT) == "alpha_vantage"
+    val avSessions = org.example.stocksteps.service.EodSessions(java.time.Clock.systemUTC(), java.time.Duration.ofMinutes(
+        System.getenv("EOD_PUBLICATION_DELAY_MINUTES")?.toLongOrNull()?.takeIf { it in 0..720 } ?: org.example.stocksteps.service.EodSessions.DEFAULT_DELAY_MINUTES))
+    // One client (one cache, one quota lane) for every Alpha Vantage dataset.
+    val avClient = alphaVantage?.takeIf { it.primary || fundamentalsAv }?.let { cfg ->
+        org.example.stocksteps.marketdata.alphavantage.AlphaVantageClient(HttpClientProvider.client, cfg, avSessions, requestTimeoutMillis = 20_000)
     }
-    if (alphaVantage != null) log.info("Alpha Vantage: {}", alphaVantage)
+    val av = alphaVantage?.takeIf { it.primary }?.let { _ ->
+        val stocks = org.example.stocksteps.marketdata.alphavantage.AlphaVantageStockProvider(avClient!!, fmpRepository, avSessions)
+        Triple(stocks, org.example.stocksteps.marketdata.alphavantage.AlphaVantageMarketDataProvider(stocks, avClient, fmpMarketData),
+            org.example.stocksteps.marketdata.alphavantage.AlphaVantagePriceHistoryProvider(avClient))
+    }
+    val baseStocks: org.example.stocksteps.repository.StockProviderRepository = av?.first ?: fmpRepository
+    val stocks = if (fundamentalsAv) org.example.stocksteps.marketdata.alphavantage.AlphaVantageFundamentalsProvider(avClient!!, baseStocks, avSessions) else baseStocks
+    val avInUse = av != null || fundamentalsAv
+    if (alphaVantage != null) log.info("Alpha Vantage: {} (prices and quotes: {}, fundamentals: {})", alphaVantage, av != null, fundamentalsAv)
+    // Phase 9B.8: Alpha Vantage data never goes to Gemini until its AI-processing right is verified (registry: PENDING_CONFIRMATION).
+    val aiOnMarketData = !avInUse || org.example.stocksteps.marketdata.LicenseRegistry.DEFAULT.rights("alphavantage", org.example.stocksteps.marketdata.Dataset.REPORTED_FUNDAMENTALS)
+        ?.aiProcessing == org.example.stocksteps.marketdata.LicenseStatus.VERIFIED_ALLOWED
     return DataSources(
-        stockProvider = av?.first ?: fmpRepository,
+        stockProvider = stocks,
         quoteProvider = av?.first ?: quoteProvider,
         marketData = av?.second ?: fmpMarketData,
         priceHistory = av?.third ?: org.example.stocksteps.repositoryImpl.FmpPriceHistoryProvider(HttpClientProvider.client, AppConfig.fmpApiKey, freshness = marketFreshness),
         closesSplitAdjusted = av == null,
-        marketDataProviders = if (av != null) setOf("alphavantage", "fmp", "finnhub") else setOf("fmp", "finnhub"),
+        marketDataProviders = if (avInUse) setOf("alphavantage", "fmp", "finnhub") else setOf("fmp", "finnhub"),
+        // Phase 9B.8: Alpha Vantage data never goes to Gemini until its AI-processing right is verified (registry: PENDING_CONFIRMATION).
+        aiOnMarketData = aiOnMarketData,
         alphaVantage = alphaVantage,
         marketsLabels = if (av == null) MarketsSourceLabelsDefault else org.example.stocksteps.service.MarketsSourceLabels(
             movers = "US-listed stocks in Alpha Vantage's end-of-day top gainers and losers",
@@ -628,7 +644,7 @@ private fun Application.realDataSources(): DataSources {
         statementSignals = statementSignals,
         insights = AppConfig.geminiApiKey?.let { org.example.stocksteps.news.GeminiArticleInsightGenerator(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
         insightVersion = "${AppConfig.geminiNewsModel}:${org.example.stocksteps.news.GeminiArticleInsightGenerator.PROMPT_VERSION}",
-        narrator = AppConfig.geminiApiKey?.let { org.example.stocksteps.news.GeminiMovementNarrator(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
+        narrator = AppConfig.geminiApiKey?.takeIf { aiOnMarketData }?.let { org.example.stocksteps.news.GeminiMovementNarrator(HttpClientProvider.client, it, AppConfig.geminiNewsModel) },
         userData = {
             // Without Google credentials (e.g. a local REAL run without ADC) market data still works;
             // watchlist/alert requests answer 503 instead of the server failing to start.
@@ -651,7 +667,7 @@ private fun Application.realDataSources(): DataSources {
             runCatching { org.example.stocksteps.userdata.FcmPushSender(HttpClientProvider.client, AppConfig.firebaseProjectId) }
                 .getOrElse { org.example.stocksteps.userdata.PushSender { org.example.stocksteps.userdata.PushResult.Failed("Push credentials not configured") } }
         },
-        movementVersion = AppConfig.geminiApiKey?.let { "${AppConfig.geminiNewsModel}:${org.example.stocksteps.news.GeminiMovementNarrator.PROMPT_VERSION}" } ?: "movement-template-v1"
+        movementVersion = AppConfig.geminiApiKey?.takeIf { aiOnMarketData }?.let { "${AppConfig.geminiNewsModel}:${org.example.stocksteps.news.GeminiMovementNarrator.PROMPT_VERSION}" } ?: "movement-template-v1"
     )
 }
 

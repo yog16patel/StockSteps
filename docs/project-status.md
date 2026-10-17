@@ -6,6 +6,11 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 9B.8 Alpha Vantage fundamentals and metrics (committed and pushed as "Compute the fundamentals bundle from Alpha Vantage for Phase 9B.8 …"; READY FOR REVIEW; off by default).**
+- `FUNDAMENTALS_PRIMARY_PROVIDER=alpha_vantage` computes the fundamentals bundle from Alpha Vantage statements and dividends through the
+  metrics engine; EPS-based and share-based metrics stay unavailable until verified (SEC). FMP remains the default.
+- All suites green (server 697/0, +11). REAL checks blocked by credentials. Package `docs/reviews/market_data_phase9b8/`.
+
 **2026-10-17 — Phase 9B.7 Alpha Vantage-first market data (committed and pushed as "Add Alpha Vantage-first market data for Phase 9B.7 …"; READY FOR REVIEW; off by default).**
 - Alpha Vantage client and adapters for prices (as traded), quotes (end of day), search, movers, statements and premium profiles, wired
   behind `MARKET_DATA_PRIMARY_PROVIDER=alpha_vantage`; FMP keeps the fundamentals bundle.

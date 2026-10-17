@@ -56,6 +56,10 @@ class MarketDataAccessGateTest {
         assertEquals(MarketDataAccessGate.Decision.ALLOW, licensed.decide("/api/v1/stocks/AAPL/quote", null, null))
         assertFalse(MarketDataAccessGate(setOf("fmp"), commercial = false, alphaVantage = null).active, "default FMP development: nothing to enforce")
         assertFalse(MarketDataAccessGate(setOf("fmp"), commercial = false, alphaVantage = av(primary = false)).active)
+        // Phase 9B.8: Alpha Vantage serving fundamentals only (prices from FMP) is still personal-licence data.
+        val fundamentalsOnly = MarketDataAccessGate(setOf("alphavantage", "fmp"), commercial = false, alphaVantage = av(primary = false))
+        assertTrue(fundamentalsOnly.active)
+        assertEquals(MarketDataAccessGate.Decision.REFUSED_PERSONAL, fundamentalsOnly.decide("/api/v1/stocks/AAPL/fundamentals", null, "10.0.0.2"))
     }
 
     @Test fun theGateRefusesAtTheBoundaryBeforeAnyRouteRuns() = testApplication {

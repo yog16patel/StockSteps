@@ -147,6 +147,7 @@ class FinancialMetricsEngineTest {
     @Test fun resultsAreDeterministic() {
         val a = FinancialMetricsEngine.all(growth, price("65.00")); val b = FinancialMetricsEngine.all(growth, price("65.00"))
         assertEquals(a, b)
-        assertTrue(Metric.entries.all { it in a.keys })
+        // The Phase 9B.8 trailing-dividend metrics have their own entry points (dividend records, not periods).
+        assertTrue(Metric.entries.filter { it != Metric.DIVIDEND_PER_SHARE_TTM && it != Metric.DIVIDEND_YIELD_TRAILING }.all { it in a.keys })
     }
 }

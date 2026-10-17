@@ -33,6 +33,9 @@ class AlphaVantageConfigurationTest {
         assertTrue(ok.errors.none { "ALPHA_VANTAGE" in it || "MARKET_DATA" in it }, "${ok.errors}")
         assertTrue(ok.warnings.any { "refuse every caller" in it } && ok.warnings.any { "free-tier limits" in it })
         assertTrue((ok.errors + ok.warnings).none { "secret-value" in it })
+        assertTrue(report("FUNDAMENTALS_PRIMARY_PROVIDER" to "sec").errors.any { "FUNDAMENTALS_PRIMARY_PROVIDER must be fmp or alpha_vantage" in it })
+        assertTrue(report("FUNDAMENTALS_PRIMARY_PROVIDER" to "alpha_vantage").errors.any { "FUNDAMENTALS_PRIMARY_PROVIDER=alpha_vantage requires" in it })
+        assertTrue(report("FUNDAMENTALS_PRIMARY_PROVIDER" to "alpha_vantage", "ALPHA_VANTAGE_ENABLED" to "true", "ALPHA_VANTAGE_API_KEY" to "x").errors.isEmpty())
         val cloud = report("K_SERVICE" to "api", "MARKET_DATA_PRIMARY_PROVIDER" to "alpha_vantage", "ALPHA_VANTAGE_ENABLED" to "true", "ALPHA_VANTAGE_API_KEY" to "x")
         assertTrue(cloud.errors.any { "can't be served from Cloud Run" in it })
     }

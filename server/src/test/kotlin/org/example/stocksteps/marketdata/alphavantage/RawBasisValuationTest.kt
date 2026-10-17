@@ -51,4 +51,16 @@ class RawBasisValuationTest {
         assertEquals(ValuationCalculations.monthlyPe(closes, noSplit, LocalDate.parse("2026-01-31")).observations,
             ValuationCalculations.monthlyPe(closes, noSplit, LocalDate.parse("2026-01-31"), closesSplitAdjusted = false).observations)
     }
+
+    @Test fun aSeptemberFiscalYearCrossesTheCalendarYearWithoutGaps() {
+        // Quarters end Dec, Mar, Jun, Sep (fiscal year ends in September); filings ~30 days later; no split.
+        val q = listOf("2024-12-28", "2025-03-29", "2025-06-28", "2025-09-27", "2025-12-27").map { QuarterlyEarnings(it, LocalDate.parse(it).plusDays(30).toString(), 1.5, 100.0, "USD") }
+        val closes = generateSequence(LocalDate.parse("2025-01-02")) { it.plusDays(1) }.takeWhile { it <= LocalDate.parse("2026-02-27") }
+            .filter { it.dayOfWeek.value <= 5 }.map { PricePoint(it.toString(), 60.0) }.toList()
+        val s = ValuationCalculations.monthlyPe(closes, q, LocalDate.parse("2026-02-27"), closesSplitAdjusted = false)
+        val byMonth = s.observations.associate { it.date.take(7) to it.pe }
+        assertEquals(10.0, byMonth["2025-11"], "four quarters known after the September 10-K: 60 / 6")
+        assertEquals(10.0, byMonth["2026-02"], "the window rolls across the fiscal and calendar year ends")
+        assertNull(byMonth["2025-08"], "only three quarters were public in August")
+    }
 }

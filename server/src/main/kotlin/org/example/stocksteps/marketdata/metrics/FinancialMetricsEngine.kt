@@ -38,7 +38,9 @@ enum class Metric(val formula: String, val percent: Boolean) {
     RETURN_ON_EQUITY("fiscal-year net income ÷ average of opening and closing stockholders' equity × 100", true),
     RETURN_ON_ASSETS("fiscal-year net income ÷ average of opening and closing total assets × 100", true),
     FREE_CASH_FLOW("operating cash flow − purchases of property, plant and equipment (both reported for the period)", false),
-    DIVIDEND_YIELD("trailing-twelve-month dividends declared per share ÷ price × 100", true)
+    DIVIDEND_YIELD("trailing-twelve-month dividends declared per share ÷ price × 100", true),
+    DIVIDEND_PER_SHARE_TTM("sum of dividends per share with an ex-date in the 365 days to the as-of date", false),
+    DIVIDEND_YIELD_TRAILING("dividends per share with an ex-date in the trailing 365 days ÷ price × 100", true)
 }
 
 enum class MetricStatus {
@@ -270,6 +272,12 @@ object FinancialMetricsEngine {
     fun debtToEquity(p: FinancialPeriod): MetricResult {
         val m = Metric.DEBT_TO_EQUITY
         val equity = p[EQUITY] ?: return issueOrMissing(m, p, EQUITY)
+        // Phase 9B.8: a provider-reported debt total is used as reported (no components added to it).
+        p[TOTAL_DEBT]?.let { total ->
+            val inputs = listOf(input("total_debt", p, total), input("equity", p, equity))
+            if (equity.value.signum() <= 0) return none(m, MetricStatus.NON_POSITIVE_DENOMINATOR, "Stockholders' equity is zero or negative.", p, inputs)
+            return ok(m, div(total.value, equity.value), p, inputs, note = "Reported total debt (short- and long-term).")
+        }
         val longTerm: List<Pair<String, ReportedValue>> = p[LONG_TERM_DEBT]?.let { listOf("long_term_debt" to it) }
             ?: if (p[LONG_TERM_DEBT_CURRENT] != null && p[LONG_TERM_DEBT_NONCURRENT] != null)
                 listOf("long_term_debt_current" to p[LONG_TERM_DEBT_CURRENT]!!, "long_term_debt_noncurrent" to p[LONG_TERM_DEBT_NONCURRENT]!!)
@@ -313,6 +321,41 @@ object FinancialMetricsEngine {
         if (ocf == null || capex == null) return issueOrMissing(m, p, OPERATING_CASH_FLOW, CAPITAL_EXPENDITURE)
         if (capex.value.signum() < 0) return none(m, MetricStatus.NOT_MEANINGFUL, "Capital expenditure is reported as a negative payment.", p)
         return ok(m, ocf.value - capex.value, p, listOf(input("operating_cash_flow", p, ocf), input("capital_expenditure", p, capex)))
+    }
+
+    // ---- Trailing dividends (Phase 9B.8) ---------------------------------------------------------------------------------------
+
+    /** One dividend per share as paid on its ex-date. [historyStarts] = the oldest record the source holds (coverage), if known. */
+    data class DividendRecord(val exDate: LocalDate, val amount: BigDecimal)
+
+    /**
+     * Dividends per share with an ex-date in (asOf − 365 days, asOf]. Coverage must be proven by at least one record before the window
+     * (otherwise the source's history may simply start inside it → INSUFFICIENT_HISTORY); no records at all → MISSING_INPUT (absence is
+     * not "no dividend"). A split inside the window means the amounts may be on two share bases → SPLIT_UNVERIFIED, unless the split
+     * history is verified and empty for the window. A covered window with no dividends is 0 — a reported "no dividend in the trailing year".
+     */
+    fun trailingDividendPerShare(records: List<DividendRecord>, asOf: LocalDate, splits: SplitHistory): MetricResult {
+        val m = Metric.DIVIDEND_PER_SHARE_TTM
+        if (records.isEmpty()) return MetricResult(m, null, MetricStatus.MISSING_INPUT, note = "No dividend records from the source.")
+        val start = asOf.minusDays(365)
+        if (records.none { !it.exDate.isAfter(start) }) return MetricResult(m, null, MetricStatus.INSUFFICIENT_HISTORY, note = "The dividend history doesn't cover the whole trailing year.")
+        if (!splits.verified) return MetricResult(m, null, MetricStatus.SPLIT_UNVERIFIED, note = "Split history unavailable, so per-share amounts can't be checked for a common basis.")
+        if (splits.splits.any { it.date.isAfter(start) && !it.date.isAfter(asOf) }) return MetricResult(m, null, MetricStatus.SPLIT_UNVERIFIED, note = "A split in the trailing year puts dividends on two share bases.")
+        val window = records.filter { it.exDate.isAfter(start) && !it.exDate.isAfter(asOf) }
+        val inputs = window.map { MetricInput("dividend", it.amount, it.exDate.toString(), null, null) }
+        return MetricResult(m, out(window.fold(BigDecimal.ZERO) { a, r -> a + r.amount }), MetricStatus.AVAILABLE, "TTM to $asOf", asOf, inputs,
+            note = if (window.isEmpty()) "No dividends with an ex-date in the trailing year." else null)
+    }
+
+    /** Trailing dividend yield from [trailingDividendPerShare] and a usable price in the same currency as the dividends. */
+    fun trailingDividendYield(dps: MetricResult, dividendCurrency: String?, price: PriceObservation): MetricResult {
+        val m = Metric.DIVIDEND_YIELD_TRAILING
+        val v = dps.value ?: return MetricResult(m, null, dps.status, dps.period, dps.asOf, dps.inputs, note = dps.note)
+        if (!price.usableForRatios) return MetricResult(m, null, MetricStatus.PRICE_UNUSABLE, note = "The price is stale, unknown or not positive (${price.delay.name.lowercase()}).")
+        if (dividendCurrency == null || price.currency != dividendCurrency) return MetricResult(m, null, MetricStatus.CURRENCY_MISMATCH, note = "The price and the dividends are in different currencies.")
+        if (dps.asOf != null && ChronoUnit.DAYS.between(dps.asOf, price.date).let { it < 0 || it > 7 }) return MetricResult(m, null, MetricStatus.PERIOD_MISMATCH, note = "The dividend window and the price date differ.")
+        return ok(m, div(v, price.value) * HUNDRED, null, dps.inputs + MetricInput("price", price.value, price.date.toString(), null, price.provenance.provider),
+            note = dps.note, periodLabel = dps.period, asOf = price.date)
     }
 
     /** Every metric for the latest fiscal year (and TTM price ratios when [price] is given). */

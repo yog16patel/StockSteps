@@ -41,7 +41,8 @@ class MarketDataAccessGate(
 ) {
     /** Whether the gate has anything to enforce (else it isn't installed). */
     val active: Boolean get() = commercial || personalAlphaVantage
-    private val personalAlphaVantage get() = alphaVantage?.primary == true && alphaVantage.licenseMode == AlphaVantageConfig.LicenseMode.PERSONAL
+    /** Phase 9B.8: personal mode applies whenever Alpha Vantage serves any dataset (prices or fundamentals). */
+    private val personalAlphaVantage get() = alphaVantage != null && "alphavantage" in activeProviders && alphaVantage.licenseMode == AlphaVantageConfig.LicenseMode.PERSONAL
 
     fun recordRefusal(d: Decision) = meter.event("license.gate.${d.name.lowercase()}")
 

@@ -75,6 +75,13 @@ object StartupConfiguration {
         value("MARKET_DATA_PRIMARY_PROVIDER")?.let { if (it.lowercase() !in setOf("fmp", "alpha_vantage")) errors += "MARKET_DATA_PRIMARY_PROVIDER must be fmp or alpha_vantage" }
         for (name in listOf("ALPHA_VANTAGE_PLAN_REQUESTS_PER_MINUTE", "ALPHA_VANTAGE_DAILY_BUDGET", "ALPHA_VANTAGE_MAX_CONCURRENT")) positiveInt(name)
         value("ALPHA_VANTAGE_LICENSE_MODE")?.let { if (it.lowercase() !in setOf("personal", "commercial")) errors += "ALPHA_VANTAGE_LICENSE_MODE must be personal or commercial" }
+        value("FUNDAMENTALS_PRIMARY_PROVIDER")?.let { if (it.lowercase() !in setOf("fmp", "alpha_vantage")) errors += "FUNDAMENTALS_PRIMARY_PROVIDER must be fmp or alpha_vantage" }
+        if (value("FUNDAMENTALS_PRIMARY_PROVIDER")?.lowercase() == "alpha_vantage" && value("MARKET_DATA_PRIMARY_PROVIDER")?.lowercase() != "alpha_vantage") {
+            if (value("ALPHA_VANTAGE_ENABLED")?.lowercase() != "true" || value("ALPHA_VANTAGE_API_KEY") == null)
+                errors += "FUNDAMENTALS_PRIMARY_PROVIDER=alpha_vantage requires ALPHA_VANTAGE_ENABLED=true and ALPHA_VANTAGE_API_KEY"
+            if (value("ALPHA_VANTAGE_LICENSE_MODE")?.lowercase() != "commercial" && cloudRun)
+                errors += "ALPHA_VANTAGE_LICENSE_MODE=personal can't be served from Cloud Run: a personal licence covers the key holder only"
+        }
         if (value("MARKET_DATA_PRIMARY_PROVIDER")?.lowercase() == "alpha_vantage") {
             if (value("ALPHA_VANTAGE_ENABLED")?.lowercase() != "true" || value("ALPHA_VANTAGE_API_KEY") == null)
                 errors += "MARKET_DATA_PRIMARY_PROVIDER=alpha_vantage requires ALPHA_VANTAGE_ENABLED=true and ALPHA_VANTAGE_API_KEY"
