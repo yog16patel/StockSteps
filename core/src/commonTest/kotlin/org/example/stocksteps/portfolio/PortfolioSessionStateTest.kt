@@ -22,7 +22,7 @@ import kotlin.test.*
 class PortfolioSessionStateTest {
     private class Auth : AuthRepository {
         val mutable = MutableStateFlow(AuthSession(User("alice", "alice@example.test"), initializing = false))
-        var tokenFails = false
+        @kotlin.concurrent.Volatile var tokenFails = false // read by the presenter's coroutines on Dispatchers.Default
         override val session: StateFlow<AuthSession> = mutable
         override val currentUser = mutable.map { it.user }
         override suspend fun signIn(email: String, password: String) = Unit
@@ -63,6 +63,11 @@ class PortfolioSessionStateTest {
         try {
             repository.start()
             withTimeout(5_000) { presenter.state.first { it.selectedAccountId == "acc-1" && !it.loading } }
+            // The presenter's market report for the selected account is fetched on its own coroutine (this mock answers it with a ledger, so it
+            // fails). Wait for that attempt first: if it only reached the token after `tokenFails` below, it would correctly report SESSION and keep
+            // `sessionExpired` until the next command — the full suite under load hit this race.
+            val report = withTimeout(5_000) { presenter.state.first { it.error != null } }
+            assertNotEquals(UserDataErrorKind.SESSION, report.errorKind)
             assertFalse(presenter.state.value.sessionExpired)
 
             auth.tokenFails = true
