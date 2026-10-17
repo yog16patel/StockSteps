@@ -1,0 +1,937 @@
+{
+ "version": "2026-10-17.1",
+ "description": "A fixed list of about 155 well-known US-listed companies chosen by StockSteps for learning. It isn't the whole market or an index membership list.",
+ "provenance": "Curated by StockSteps from public company names and tickers (no market-data feed, no scraping). Sectors use the provider's sector names; the exchange is given only where StockSteps is confident (otherwise null). Company profile data from the market-data provider (sector, industry, exchange) is shown instead when it has loaded. Not independently verified against a licensed reference; review quarterly.",
+ "companies": [
+  {
+   "symbol": "AAPL",
+   "name": "Apple Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "MSFT",
+   "name": "Microsoft Corporation",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "NVDA",
+   "name": "NVIDIA Corporation",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "AVGO",
+   "name": "Broadcom Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "ORCL",
+   "name": "Oracle Corporation",
+   "exchange": "NYSE",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "CRM",
+   "name": "Salesforce, Inc.",
+   "exchange": "NYSE",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "ADBE",
+   "name": "Adobe Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "AMD",
+   "name": "Advanced Micro Devices, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "CSCO",
+   "name": "Cisco Systems, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "INTC",
+   "name": "Intel Corporation",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "QCOM",
+   "name": "QUALCOMM Incorporated",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "TXN",
+   "name": "Texas Instruments Incorporated",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "IBM",
+   "name": "International Business Machines Corporation",
+   "exchange": "NYSE",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "INTU",
+   "name": "Intuit Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "NOW",
+   "name": "ServiceNow, Inc.",
+   "exchange": "NYSE",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "AMAT",
+   "name": "Applied Materials, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "MU",
+   "name": "Micron Technology, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "ADI",
+   "name": "Analog Devices, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "PANW",
+   "name": "Palo Alto Networks, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "ACN",
+   "name": "Accenture plc",
+   "exchange": "NYSE",
+   "sector": "Technology"
+  },
+  {
+   "symbol": "GOOGL",
+   "name": "Alphabet Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "META",
+   "name": "Meta Platforms, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "NFLX",
+   "name": "Netflix, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "DIS",
+   "name": "The Walt Disney Company",
+   "exchange": "NYSE",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "CMCSA",
+   "name": "Comcast Corporation",
+   "exchange": "NASDAQ",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "T",
+   "name": "AT&T Inc.",
+   "exchange": "NYSE",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "VZ",
+   "name": "Verizon Communications Inc.",
+   "exchange": "NYSE",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "TMUS",
+   "name": "T-Mobile US, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "CHTR",
+   "name": "Charter Communications, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "EA",
+   "name": "Electronic Arts Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "TTWO",
+   "name": "Take-Two Interactive Software, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "OMC",
+   "name": "Omnicom Group Inc.",
+   "exchange": "NYSE",
+   "sector": "Communication Services"
+  },
+  {
+   "symbol": "AMZN",
+   "name": "Amazon.com, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "TSLA",
+   "name": "Tesla, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "HD",
+   "name": "The Home Depot, Inc.",
+   "exchange": "NYSE",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "MCD",
+   "name": "McDonald's Corporation",
+   "exchange": "NYSE",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "NKE",
+   "name": "NIKE, Inc.",
+   "exchange": "NYSE",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "LOW",
+   "name": "Lowe's Companies, Inc.",
+   "exchange": "NYSE",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "SBUX",
+   "name": "Starbucks Corporation",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "TJX",
+   "name": "The TJX Companies, Inc.",
+   "exchange": "NYSE",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "BKNG",
+   "name": "Booking Holdings Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "GM",
+   "name": "General Motors Company",
+   "exchange": "NYSE",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "F",
+   "name": "Ford Motor Company",
+   "exchange": "NYSE",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "MAR",
+   "name": "Marriott International, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "CMG",
+   "name": "Chipotle Mexican Grill, Inc.",
+   "exchange": "NYSE",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "ROST",
+   "name": "Ross Stores, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "ORLY",
+   "name": "O'Reilly Automotive, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "EBAY",
+   "name": "eBay Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Cyclical"
+  },
+  {
+   "symbol": "WMT",
+   "name": "Walmart Inc.",
+   "exchange": null,
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "PG",
+   "name": "The Procter & Gamble Company",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "KO",
+   "name": "The Coca-Cola Company",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "PEP",
+   "name": "PepsiCo, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "COST",
+   "name": "Costco Wholesale Corporation",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "PM",
+   "name": "Philip Morris International Inc.",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "MO",
+   "name": "Altria Group, Inc.",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "MDLZ",
+   "name": "Mondelez International, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "CL",
+   "name": "Colgate-Palmolive Company",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "KMB",
+   "name": "Kimberly-Clark Corporation",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "GIS",
+   "name": "General Mills, Inc.",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "KR",
+   "name": "The Kroger Co.",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "TGT",
+   "name": "Target Corporation",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "HSY",
+   "name": "The Hershey Company",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "STZ",
+   "name": "Constellation Brands, Inc.",
+   "exchange": "NYSE",
+   "sector": "Consumer Defensive"
+  },
+  {
+   "symbol": "LLY",
+   "name": "Eli Lilly and Company",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "JNJ",
+   "name": "Johnson & Johnson",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "UNH",
+   "name": "UnitedHealth Group Incorporated",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "ABBV",
+   "name": "AbbVie Inc.",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "MRK",
+   "name": "Merck & Co., Inc.",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "PFE",
+   "name": "Pfizer Inc.",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "TMO",
+   "name": "Thermo Fisher Scientific Inc.",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "ABT",
+   "name": "Abbott Laboratories",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "DHR",
+   "name": "Danaher Corporation",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "AMGN",
+   "name": "Amgen Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "ISRG",
+   "name": "Intuitive Surgical, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "BMY",
+   "name": "Bristol-Myers Squibb Company",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "GILD",
+   "name": "Gilead Sciences, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "CVS",
+   "name": "CVS Health Corporation",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "MDT",
+   "name": "Medtronic plc",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "SYK",
+   "name": "Stryker Corporation",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "VRTX",
+   "name": "Vertex Pharmaceuticals Incorporated",
+   "exchange": "NASDAQ",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "REGN",
+   "name": "Regeneron Pharmaceuticals, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "CI",
+   "name": "The Cigna Group",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "ELV",
+   "name": "Elevance Health, Inc.",
+   "exchange": "NYSE",
+   "sector": "Healthcare"
+  },
+  {
+   "symbol": "JPM",
+   "name": "JPMorgan Chase & Co.",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "BAC",
+   "name": "Bank of America Corporation",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "WFC",
+   "name": "Wells Fargo & Company",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "C",
+   "name": "Citigroup Inc.",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "GS",
+   "name": "The Goldman Sachs Group, Inc.",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "MS",
+   "name": "Morgan Stanley",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "BRK-B",
+   "name": "Berkshire Hathaway Inc. (Class B)",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "V",
+   "name": "Visa Inc.",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "MA",
+   "name": "Mastercard Incorporated",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "AXP",
+   "name": "American Express Company",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "SCHW",
+   "name": "The Charles Schwab Corporation",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "BLK",
+   "name": "BlackRock, Inc.",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "SPGI",
+   "name": "S&P Global Inc.",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "CB",
+   "name": "Chubb Limited",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "PGR",
+   "name": "The Progressive Corporation",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "USB",
+   "name": "U.S. Bancorp",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "PNC",
+   "name": "The PNC Financial Services Group, Inc.",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "COF",
+   "name": "Capital One Financial Corporation",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "ICE",
+   "name": "Intercontinental Exchange, Inc.",
+   "exchange": "NYSE",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "CME",
+   "name": "CME Group Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Financial Services"
+  },
+  {
+   "symbol": "CAT",
+   "name": "Caterpillar Inc.",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "GE",
+   "name": "GE Aerospace",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "HON",
+   "name": "Honeywell International Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "UNP",
+   "name": "Union Pacific Corporation",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "UPS",
+   "name": "United Parcel Service, Inc.",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "RTX",
+   "name": "RTX Corporation",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "LMT",
+   "name": "Lockheed Martin Corporation",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "DE",
+   "name": "Deere & Company",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "BA",
+   "name": "The Boeing Company",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "MMM",
+   "name": "3M Company",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "ADP",
+   "name": "Automatic Data Processing, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "ETN",
+   "name": "Eaton Corporation plc",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "WM",
+   "name": "Waste Management, Inc.",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "CSX",
+   "name": "CSX Corporation",
+   "exchange": "NASDAQ",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "FDX",
+   "name": "FedEx Corporation",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "NOC",
+   "name": "Northrop Grumman Corporation",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "GD",
+   "name": "General Dynamics Corporation",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "EMR",
+   "name": "Emerson Electric Co.",
+   "exchange": "NYSE",
+   "sector": "Industrials"
+  },
+  {
+   "symbol": "XOM",
+   "name": "Exxon Mobil Corporation",
+   "exchange": "NYSE",
+   "sector": "Energy"
+  },
+  {
+   "symbol": "CVX",
+   "name": "Chevron Corporation",
+   "exchange": "NYSE",
+   "sector": "Energy"
+  },
+  {
+   "symbol": "COP",
+   "name": "ConocoPhillips",
+   "exchange": "NYSE",
+   "sector": "Energy"
+  },
+  {
+   "symbol": "EOG",
+   "name": "EOG Resources, Inc.",
+   "exchange": "NYSE",
+   "sector": "Energy"
+  },
+  {
+   "symbol": "SLB",
+   "name": "SLB Limited",
+   "exchange": "NYSE",
+   "sector": "Energy"
+  },
+  {
+   "symbol": "PSX",
+   "name": "Phillips 66",
+   "exchange": "NYSE",
+   "sector": "Energy"
+  },
+  {
+   "symbol": "MPC",
+   "name": "Marathon Petroleum Corporation",
+   "exchange": "NYSE",
+   "sector": "Energy"
+  },
+  {
+   "symbol": "OXY",
+   "name": "Occidental Petroleum Corporation",
+   "exchange": "NYSE",
+   "sector": "Energy"
+  },
+  {
+   "symbol": "KMI",
+   "name": "Kinder Morgan, Inc.",
+   "exchange": "NYSE",
+   "sector": "Energy"
+  },
+  {
+   "symbol": "WMB",
+   "name": "The Williams Companies, Inc.",
+   "exchange": "NYSE",
+   "sector": "Energy"
+  },
+  {
+   "symbol": "NEE",
+   "name": "NextEra Energy, Inc.",
+   "exchange": "NYSE",
+   "sector": "Utilities"
+  },
+  {
+   "symbol": "DUK",
+   "name": "Duke Energy Corporation",
+   "exchange": "NYSE",
+   "sector": "Utilities"
+  },
+  {
+   "symbol": "SO",
+   "name": "The Southern Company",
+   "exchange": "NYSE",
+   "sector": "Utilities"
+  },
+  {
+   "symbol": "D",
+   "name": "Dominion Energy, Inc.",
+   "exchange": "NYSE",
+   "sector": "Utilities"
+  },
+  {
+   "symbol": "AEP",
+   "name": "American Electric Power Company, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Utilities"
+  },
+  {
+   "symbol": "EXC",
+   "name": "Exelon Corporation",
+   "exchange": "NASDAQ",
+   "sector": "Utilities"
+  },
+  {
+   "symbol": "SRE",
+   "name": "Sempra",
+   "exchange": "NYSE",
+   "sector": "Utilities"
+  },
+  {
+   "symbol": "XEL",
+   "name": "Xcel Energy Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Utilities"
+  },
+  {
+   "symbol": "LIN",
+   "name": "Linde plc",
+   "exchange": "NASDAQ",
+   "sector": "Basic Materials"
+  },
+  {
+   "symbol": "SHW",
+   "name": "The Sherwin-Williams Company",
+   "exchange": "NYSE",
+   "sector": "Basic Materials"
+  },
+  {
+   "symbol": "APD",
+   "name": "Air Products and Chemicals, Inc.",
+   "exchange": "NYSE",
+   "sector": "Basic Materials"
+  },
+  {
+   "symbol": "ECL",
+   "name": "Ecolab Inc.",
+   "exchange": "NYSE",
+   "sector": "Basic Materials"
+  },
+  {
+   "symbol": "FCX",
+   "name": "Freeport-McMoRan Inc.",
+   "exchange": "NYSE",
+   "sector": "Basic Materials"
+  },
+  {
+   "symbol": "NEM",
+   "name": "Newmont Corporation",
+   "exchange": "NYSE",
+   "sector": "Basic Materials"
+  },
+  {
+   "symbol": "NUE",
+   "name": "Nucor Corporation",
+   "exchange": "NYSE",
+   "sector": "Basic Materials"
+  },
+  {
+   "symbol": "DOW",
+   "name": "Dow Inc.",
+   "exchange": "NYSE",
+   "sector": "Basic Materials"
+  },
+  {
+   "symbol": "PLD",
+   "name": "Prologis, Inc.",
+   "exchange": "NYSE",
+   "sector": "Real Estate"
+  },
+  {
+   "symbol": "AMT",
+   "name": "American Tower Corporation",
+   "exchange": "NYSE",
+   "sector": "Real Estate"
+  },
+  {
+   "symbol": "EQIX",
+   "name": "Equinix, Inc.",
+   "exchange": "NASDAQ",
+   "sector": "Real Estate"
+  },
+  {
+   "symbol": "CCI",
+   "name": "Crown Castle Inc.",
+   "exchange": "NYSE",
+   "sector": "Real Estate"
+  },
+  {
+   "symbol": "SPG",
+   "name": "Simon Property Group, Inc.",
+   "exchange": "NYSE",
+   "sector": "Real Estate"
+  },
+  {
+   "symbol": "O",
+   "name": "Realty Income Corporation",
+   "exchange": "NYSE",
+   "sector": "Real Estate"
+  },
+  {
+   "symbol": "PSA",
+   "name": "Public Storage",
+   "exchange": "NYSE",
+   "sector": "Real Estate"
+  },
+  {
+   "symbol": "WELL",
+   "name": "Welltower Inc.",
+   "exchange": "NYSE",
+   "sector": "Real Estate"
+  }
+ ]
+}

@@ -133,6 +133,7 @@ object ScreenerEngine {
         if (query.ranges.groupBy { it.metric }.any { it.value.size > 1 }) throw ScreenerValidationException("Each metric can be filtered once.")
         for (choice in query.choices) if (choice.values.size > 25 || choice.values.any { it.length > 80 }) throw ScreenerValidationException("Too many ${choice.field.label} values.")
         if (query.sort.field == SortField.METRIC && ScreenerDefinitions.metric(query.sort.metric ?: "") == null) throw ScreenerValidationException("Unsupported sort metric.")
+        if ((query.text?.length ?: 0) > 100 || query.text?.any { it.isISOControl() } == true) throw ScreenerValidationException("Search with up to 100 characters.")
     }
 
     data class Evaluation(val matches: List<ScreenerResultRow>, val excludedForMissingData: Int)
@@ -164,6 +165,15 @@ object ScreenerEngine {
             }
             if (missing) { excluded++; continue }
             matches += ScreenerResultRow(record, notApplied)
+        }
+        // Phase 7E: a text query keeps matching companies only, ordered by the shared search tiers (exact ticker, exact name, ticker
+        // prefix, name word/prefix, later word, substring); within a tier the chosen sort order stays (stable sort).
+        val text = query.text?.trim().orEmpty()
+        if (text.isNotEmpty()) {
+            fun tier(row: ScreenerResultRow) = org.example.stocksteps.search.SearchRanking.tier(text,
+                org.example.stocksteps.model.StockSearchResult(symbol = row.company.symbol, name = row.company.name, currency = row.company.currency, exchange = row.company.exchange))
+            val found = matches.filter { tier(it) != org.example.stocksteps.search.SearchRanking.Tier.PROVIDER }
+            return Evaluation(sort(found, query.sort).sortedBy { tier(it).ordinal }, excluded)
         }
         return Evaluation(sort(matches, query.sort), excluded)
     }

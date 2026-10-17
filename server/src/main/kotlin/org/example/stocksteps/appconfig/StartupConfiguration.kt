@@ -65,6 +65,8 @@ object StartupConfiguration {
         if (value("TRUSTED_PROXY_HOPS") == null)
             warnings += "TRUSTED_PROXY_HOPS is not set: guests without a verified sign-in share one admission pool per route group."
         positiveInt("WATCH_DATA_ANONYMOUS_MAX_SYMBOLS")
+        value("SCREENER_UNIVERSE")?.let { if (it.lowercase() !in setOf("curated", "fmp")) errors += "SCREENER_UNIVERSE must be curated or fmp" }
+        value("SCREENER_ENRICHMENT_PER_HOUR")?.let { if (it.toIntOrNull()?.takeIf { n -> n >= 0 } == null) errors += "SCREENER_ENRICHMENT_PER_HOUR must be a whole number ≥ 0" }
         value("EOD_PUBLICATION_DELAY_MINUTES")?.let { if (it.toIntOrNull()?.takeIf { m -> m in 0..720 } == null) errors += "EOD_PUBLICATION_DELAY_MINUTES must be a whole number from 0 to 720" }
 
         // Phase 4C budgets: malformed numbers fail; on Cloud Run the plan limits and instance count must be explicit.

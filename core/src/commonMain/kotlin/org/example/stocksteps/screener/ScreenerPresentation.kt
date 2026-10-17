@@ -300,13 +300,16 @@ class ScreenerPresenter(
     private val selection: ComparisonSelection,
     private val scope: CoroutineScope,
     private val savedScreens: SavedScreensRepository? = null,
-    private val pageSize: Int = 20
+    private val pageSize: Int = 20,
+    /** Phase 7E: wait this long after typing before searching the list. */
+    private val textDebounceMillis: Long = 300
 ) {
     private val mutable = MutableStateFlow(ScreenerUiState())
     val state: StateFlow<ScreenerUiState> = mutable.asStateFlow()
     private val requests = MutableStateFlow<Pair<ScreenerQuery, Int>?>(null)
     private var page: ScreenerPage? = null
     private var moreJob: Job? = null
+    private var textJob: Job? = null
 
     init {
         scope.launch { selection.selected.collect { selected -> mutable.update { it.copy(selected = selected, rows = it.rows.map { row -> row.copy(selected = selected.any { s -> s.symbol == row.symbol }) }) } } }
@@ -389,6 +392,23 @@ class ScreenerPresenter(
         val query = mutable.value.draft.copy(pageSize = pageSize, cursor = null)
         mutable.update { it.copy(applied = query, draft = query) }
         requests.value = query to (requests.value?.second ?: 0)
+    }
+
+    /**
+     * Phase 7E: finds companies in the current results by ticker or name (the server ranks them with the shared search tiers). It
+     * applies on top of the filters already applied — pending edits in the filter sheet aren't applied by typing.
+     */
+    fun setText(text: String) {
+        val value = text.take(100)
+        mutable.update { it.copy(draft = it.draft.copy(text = value)) }
+        textJob?.cancel()
+        textJob = scope.launch {
+            delay(textDebounceMillis)
+            val base = mutable.value.applied ?: ScreenerQuery(pageSize = pageSize)
+            val query = base.copy(text = value.trim().ifEmpty { null }, pageSize = pageSize, cursor = null)
+            mutable.update { it.copy(applied = query) }
+            requests.value = query to (requests.value?.second ?: 0)
+        }
     }
 
     fun retry() { requests.value = (mutable.value.applied ?: return) to ((requests.value?.second ?: 0) + 1) }

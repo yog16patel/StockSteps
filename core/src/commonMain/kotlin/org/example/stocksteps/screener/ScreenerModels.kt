@@ -58,7 +58,9 @@ data class ScreenerQuery(
     @EncodeDefault val sort: ScreenerSort = ScreenerSort(),
     val pageSize: Int = 20,
     /** Opaque, from the previous page's `nextCursor`. */
-    val cursor: String? = null
+    val cursor: String? = null,
+    /** Phase 7E: a ticker or company name to find within the results (shared `SearchRanking` order); null or blank = no text filter. */
+    val text: String? = null
 ) {
     /** Number of filters the user sees as active (each range and each attribute choice). */
     val activeFilterCount: Int get() = ranges.count { it.min != null || it.max != null } + choices.count { it.values.isNotEmpty() }
@@ -136,7 +138,9 @@ data class UniverseInfo(
     val size: Int,
     /** Companies whose fundamentals were available to evaluate. */
     val evaluated: Int,
-    val complete: Boolean
+    val complete: Boolean,
+    /** Phase 7E: companies whose price and market data have loaded (curated universe only; null otherwise). */
+    val priced: Int? = null
 )
 
 @OptIn(ExperimentalSerializationApi::class)

@@ -19,6 +19,8 @@ object ScreenerDisplay {
 
     /** `ApiError.code` values of the screener routes when the screening universe can't be loaded (the server sends the messages below). */
     const val CODE_UNAVAILABLE = "SCREENER_UNAVAILABLE"
+    /** Phase 7E: the Discover search field (both apps). */
+    const val TEXT_SEARCH_LABEL = "Find a company by name or ticker"
     const val CODE_PROVIDER_RESTRICTED = "SCREENER_PROVIDER_RESTRICTED"
     const val CODE_RATE_LIMITED = "SCREENER_RATE_LIMITED"
     const val UNAVAILABLE_MESSAGE = "The screening universe couldn't be loaded. Try again shortly."

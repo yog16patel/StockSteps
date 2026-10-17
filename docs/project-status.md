@@ -6,6 +6,13 @@ milestone log and validation history are in `PROJECT_HANDOFF.md`.
 
 ## 0. Current task and next steps (read first)
 
+**2026-10-17 — Phase 7E Discover with a curated universe (committed and pushed as "Make Discover work on REAL for Phase 7E with a versioned curated list of 155 US-listed companies enriched in the background from shared profile and closing-price caches, no FMP screener or per-row quote requests, dated close prices and a find-by-name-or-ticker search on Android and iOS"; not deployed; READY FOR REVIEW)**
+- REAL Discover works without FMP's restricted screener: a versioned list of 155 US-listed companies (11 sectors).
+- Enrichment runs in the background from the shared profile and close caches. There are no screener or per-row quote requests.
+- New Discover search field (shared search ranking). Missing data is never 0.
+- All suites and builds pass. Devices NOT RUN.
+- Report `docs/DISCOVER_CURATED_UNIVERSE_PHASE7E.md`.
+
 **2026-10-17 — Phase 7D Portfolio & Practice integration verification (committed and pushed as "Verify Portfolio and Practice integration for Phase 7D on a local Firestore emulator through real routes, keep the Practice order request id after an unknown-outcome storage failure so a retry cannot fill twice, and add token-verifier and hand-calculated accounting tests"; READY FOR REVIEW)**
 - Firestore emulator: 565/0 server tests, 0 skipped. Persistence, isolation and atomicity hold on real Firestore semantics.
 - D2 fixed: an unknown-outcome 503 kept the order's request id, so a retry can't duplicate a fill.

@@ -15,5 +15,7 @@ data class CompanyProfile(
     val exchange: String? = null,
     val logoUrl: String? = null,
     /** True for ETFs and funds; null when the provider didn't say (never inferred from the name). */
-    val isEtf: Boolean? = null
+    val isEtf: Boolean? = null,
+    /** Phase 7E: the provider profile's market capitalization in the listing currency, when it reports one (approximate, as of the profile). */
+    val marketCap: Double? = null
 )

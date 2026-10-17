@@ -233,12 +233,20 @@ fun Application.module() {
                 return usdCad?.takeIf { it > 0 }?.let { org.example.stocksteps.screener.FxConversion("CAD", "USD", 1 / it, date,
                     if (dataMode == DataMode.MOCK) "fixed sample rate" else "Bank of Canada") }
             }
-            val screener = org.example.stocksteps.screener.ScreenerService(
-                universe = sources.screenerUniverse ?: org.example.stocksteps.screener.FmpScreenerUniverse(HttpClientProvider.client, AppConfig.fmpApiKey,
+            // Phase 7E: REAL Discover uses the curated list (no FMP company-screener, restricted on the current plan). The FMP screener stays
+            // available only for a plan that includes it: SCREENER_UNIVERSE=fmp.
+            val fmpScreener = System.getenv("SCREENER_UNIVERSE")?.lowercase(Locale.ROOT) == "fmp"
+            val realUniverse: org.example.stocksteps.screener.ScreenerUniverseSource by lazy { if (fmpScreener) org.example.stocksteps.screener.FmpScreenerUniverse(HttpClientProvider.client, AppConfig.fmpApiKey,
                     exchanges = (System.getenv("SCREENER_EXCHANGES") ?: "NASDAQ,NYSE,TSX").split(',').map { it.trim() }.filter { it.isNotEmpty() },
                     // Owner decision (Phase 3): 50 per exchange → 150 companies by default.
                     limit = System.getenv("SCREENER_UNIVERSE_LIMIT")?.toIntOrNull() ?: 50,
-                    minMarketCap = System.getenv("SCREENER_MIN_MARKET_CAP")?.toLongOrNull() ?: 2_000_000_000L),
+                    minMarketCap = System.getenv("SCREENER_MIN_MARKET_CAP")?.toLongOrNull() ?: 2_000_000_000L)
+                else org.example.stocksteps.screener.CuratedScreenerUniverse(stockService::getProfile, charts::getDailyCloses, eodSessions, sources.marketClock,
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default),
+                    perHour = System.getenv("SCREENER_ENRICHMENT_PER_HOUR")?.toIntOrNull()?.takeIf { it >= 0 } ?: org.example.stocksteps.screener.CuratedScreenerUniverse.DEFAULT_PER_HOUR) }
+            val screener = org.example.stocksteps.screener.ScreenerService(
+                universe = sources.screenerUniverse ?: realUniverse,
+                pageQuotes = sources.screenerUniverse != null || fmpScreener,
                 stocks = stockService,
                 fundamentalsOf = org.example.stocksteps.service.CompanyFinancialService(sources.stockProvider).let { service -> { symbol: String -> service.getFundamentals(symbol, "annual") } },
                 // Phase 3B-1: background warm-up uses the screener's dataset set (no historical ratios or profile request).

@@ -34,7 +34,10 @@ data class UniverseEntry(
     val price: Double? = null,
     val marketCap: Double? = null,
     val volume: Double? = null,
-    val isEtf: Boolean? = null
+    val isEtf: Boolean? = null,
+    /** Phase 7E: [price] is the official close of this session (YYYY-MM-DD), not a quote; [changePercent] is from the previous trading day's close. */
+    val priceDate: String? = null,
+    val changePercent: Double? = null
 )
 
 data class UniverseDefinition(val description: String, val entries: List<UniverseEntry>)
@@ -166,7 +169,12 @@ class ScreenerService(
     private val retryAfterFailure: Long = 1_800_000L,
     /** Fundamentals with a temporarily unavailable dataset may be reloaded after this long instead of [recordTtl]. */
     private val partialRefreshAfter: Long = 3_600_000L,
-    private val meter: ProviderUsageMeter = ProviderUsageMeter.shared
+    private val meter: ProviderUsageMeter = ProviderUsageMeter.shared,
+    /**
+     * Phase 7E: whether result pages fetch a quote per row (the FMP screener universe). The curated universe already carries each
+     * company's dated close, so REAL Discover sends no quote requests (most were refused on the current plan).
+     */
+    private val pageQuotes: Boolean = true
 ) {
     private val log = LoggerFactory.getLogger("StockSteps.Screener")
     private val lock = Mutex()
@@ -211,8 +219,12 @@ class ScreenerService(
             val profile = CompanyProfile(entry.symbol, entry.name, sector = entry.sector, industry = entry.industry, country = entry.country,
                 exchange = entry.exchange, currency = listingCurrency(entry),
                 logoUrl = "https://images.financialmodelingprep.com/symbol/${entry.symbol}.png", isEtf = entry.isEtf)
-            val quote = StockQuote(entry.symbol, entry.name, entry.price, null, null, null, null, volume = entry.volume?.toLong(), marketCap = entry.marketCap?.toLong())
-            CompanyRecordBuilder.build(entry.symbol, quote, profile, fundamentals, rate(profile.currency), today())
+            val quote = StockQuote(entry.symbol, entry.name, entry.price, null, entry.changePercent, null, null, volume = entry.volume?.toLong(), marketCap = entry.marketCap?.toLong())
+            CompanyRecordBuilder.build(entry.symbol, quote, profile, fundamentals, rate(profile.currency), today()).let { r ->
+                // Phase 7E: an end-of-day price says so, with its session date.
+                if (entry.priceDate == null) r else r.copy(changePercent = entry.changePercent, metrics = r.metrics + listOfNotNull(r.metrics["price"]?.let { m ->
+                    "price" to m.copy(basis = FinancialBasis("Latest close", date = entry.priceDate, currency = m.basis?.currency)) }))
+            }
         }.copy(hasFundamentals = fundamentals != null)
         // A record with fundamentals expires when they do; without them it isn't kept (REAL), so it's rebuilt once they load.
         if (held != null || fullRecords) lock.withLock { records[entry.symbol] = Cached(record, held?.at ?: now()) }
@@ -326,7 +338,8 @@ class ScreenerService(
         if (needsFundamentals) {   // Phase 4D: coverage gauges for the usage summaries
             meter.gauge("screener.coverage.evaluated", evaluated.toLong()); meter.gauge("screener.coverage.size", records.size.toLong())
         }
-        return UniverseInfo(definition.description, records.size, evaluated, evaluated == records.size)
+        return UniverseInfo(definition.description, records.size, evaluated, evaluated == records.size,
+            priced = records.count { it.price != null }.takeIf { !pageQuotes })
     }
 
     suspend fun catalog(): ScreenerCatalog {
@@ -358,8 +371,8 @@ class ScreenerService(
         val (rows, next) = try { ScreenerEngine.page(evaluation.matches, query) } catch (cause: ScreenerValidationException) {
             throw ScreenerRequestException(400, "INVALID_CURSOR", cause.message ?: "Invalid cursor.")
         }
-        // Fresh quotes only for the rows on this page (bounded), so daily change is current.
-        val enriched = coroutineScope {
+        // Fresh quotes only for the rows on this page (bounded), so daily change is current. Phase 7E: not for the curated universe.
+        val enriched = if (!pageQuotes) rows else coroutineScope {
             rows.map { row -> async {
                 val quote = runCatching { stocks.getStock(row.company.symbol) }.getOrNull()
                 if (quote?.price == null) row else row.copy(company = row.company.copy(price = quote.price, changePercent = quote.changePercent))
@@ -370,6 +383,12 @@ class ScreenerService(
             if (!info.complete) add("Financial filters were applied to ${info.evaluated} of ${info.size} companies whose fundamentals are loaded; the rest aren't included yet.")
             if (enriched.any { it.company.stale }) add("Some companies' latest financial statements are more than 18 months old; they're labelled.")
             if (built.map { it.currency }.distinct().size > 1) add("Prices are in each listing's currency. Market cap is converted to USD so companies are comparable.")
+            // Phase 7E: market data for the curated list loads in the background; say how much is loaded and which close it is.
+            if (!pageQuotes) {
+                val priced = built.count { it.price != null }
+                if (priced < built.size) add("Prices and market caps are loaded for $priced of ${built.size} companies so far; the others are listed last and left out of value filters until they load.")
+                definition.entries.mapNotNull { it.priceDate }.maxOrNull()?.let { add("Prices are official closing prices (latest close ${org.example.stocksteps.format.ReadableDates.date(it)}), not live quotes.") }
+            }
         }
         return ScreenerPage(enriched, evaluation.matches.size, next, info, query, evaluation.excludedForMissingData,
             ScreenerDefinitions.displayMetricsFor(query), warnings, clock.instant().toString(), sampleData)

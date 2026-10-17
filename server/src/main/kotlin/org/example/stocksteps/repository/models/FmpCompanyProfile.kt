@@ -16,7 +16,9 @@ data class FmpCompanyProfile(
     val exchange: String? = null,
     val image: String? = null,
     val isEtf: Boolean? = null,
-    val isFund: Boolean? = null
+    val isFund: Boolean? = null,
+    /** Phase 7E: FMP `/stable/profile` market capitalization (field name per the stable profile schema; absent → null). */
+    val marketCap: Double? = null
 )
 
 fun FmpCompanyProfile.toCompanyProfile() = CompanyProfile(
@@ -30,5 +32,6 @@ fun FmpCompanyProfile.toCompanyProfile() = CompanyProfile(
     currency = currency,
     exchange = exchange,
     logoUrl = image,
+    marketCap = marketCap?.takeIf { it.isFinite() && it > 0 },
     isEtf = if (isEtf == null && isFund == null) null else isEtf == true || isFund == true
 )

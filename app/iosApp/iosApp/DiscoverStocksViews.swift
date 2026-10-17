@@ -78,6 +78,12 @@ struct DiscoverStocksScreen: View {
         }
     }
 
+    /// Phase 7E: search within the Discover list (ticker or name); the server ranks matches with the shared search rules.
+    private func searchField(_ state: ScreenerUiState) -> some View {
+        StockTextField(label: display.TEXT_SEARCH_LABEL,
+                       text: Binding(get: { state.draft.text ?? "" }, set: { client.screener.setText(text: $0) }))
+    }
+
     @ViewBuilder private func content(_ state: ScreenerUiState, _ colors: StockColors) -> some View {
         let active = display.activeFilters(query: state.applied)
         if state.catalogLoading {
@@ -88,10 +94,12 @@ struct DiscoverStocksScreen: View {
             StockStateMessage(title: display.catalogErrorTitle(code: state.catalogErrorCode), message: error, systemImage: "exclamationmark.triangle",
                               isError: true, actionTitle: retryable ? "Try again" : nil, action: retryable ? { client.screener.start() } : nil)
         } else if state.applied == nil {
+            searchField(state).padding(.top, CGFloat(space.md))
             presetGrid(state.presets, colors).padding(.top, CGFloat(space.lg))
             Button(display.CUSTOM_SCREEN) { showFilters = true }.buttonStyle(.stockPrimary).frame(maxWidth: .infinity)
                 .disabled(state.metrics.isEmpty).padding(.top, CGFloat(space.md))
         } else {
+            searchField(state).padding(.top, CGFloat(space.md))
             filterBar(active.count, colors).padding(.top, CGFloat(space.lg))
             if !active.isEmpty { activeFilters(active, colors).padding(.top, CGFloat(space.sm)) }
             resultsHeader(state, colors).padding(.top, CGFloat(space.lg))

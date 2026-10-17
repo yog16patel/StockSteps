@@ -67,6 +67,7 @@ internal fun ScreenerScene(
                 modifier = Modifier.widthIn(max = StockStepsTheme.dimensions.contentMaxWidth).fillMaxSize(),
                 actions = ScreenerActions(
                     onPreset = model.presenter::selectPreset,
+                    onText = model.presenter::setText,
                     onRange = model.presenter::setRange,
                     onChoice = model.presenter::setChoice,
                     onClearFilter = { model.presenter.clearFilter(it); model.presenter.apply() },

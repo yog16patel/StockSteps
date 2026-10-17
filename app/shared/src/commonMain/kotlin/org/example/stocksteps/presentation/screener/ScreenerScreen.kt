@@ -56,7 +56,9 @@ internal class ScreenerActions(
     val onRenameSaved: (String, String) -> Unit,
     val onDeleteSaved: (String) -> Unit,
     val onSignIn: () -> Unit,
-    val onDismissMessage: () -> Unit
+    val onDismissMessage: () -> Unit,
+    /** Phase 7E: find a company in the list by ticker or name. */
+    val onText: (String) -> Unit = {}
 )
 
 /**
@@ -87,6 +89,11 @@ internal fun ScreenerScreen(state: ScreenerUiState, modifier: Modifier, actions:
         LazyColumn(state = listState, contentPadding = PaddingValues(start = spacing.screen, end = spacing.screen, top = spacing.md, bottom = spacing.xxl),
             modifier = Modifier.weight(1f).fillMaxWidth()) {
             item(key = "header") { Header(onHelp = { help = true }) }
+            // Phase 7E: search within the Discover list (ticker or name); the server ranks matches with the shared search rules.
+            if (!state.catalogLoading && state.catalogError == null) item(key = "text-search") {
+                OutlinedTextField(state.draft.text.orEmpty(), actions.onText, Modifier.fillMaxWidth().padding(top = spacing.md),
+                    label = { Text(ScreenerDisplay.TEXT_SEARCH_LABEL) }, singleLine = true)
+            }
             when {
                 state.catalogLoading -> item(key = "catalog-loading") {
                     StockLoadingState(Modifier.padding(top = spacing.lg)) { Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) { repeat(2) { StockSkeleton(Modifier.fillMaxWidth().height(spacing.xxxl * 3)) } } }
